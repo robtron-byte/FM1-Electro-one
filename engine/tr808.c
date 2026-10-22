@@ -256,37 +256,52 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
  *  - the noise covers 1.2 .. 9 kHz with a fast 30 ms decay plus a quieter
  *    90 ms tail (the measured envelope is longer than one RC alone),
  *  - the trigger edge leaks through as a short click. */
+/* Snare calibration, fitted with host/snare_check.c against recordings of a
+ * real TR-808 at 16 TONE / SNAPPY settings (Fischer sample set). */
+float tr808_sd_cal[SD_CAL] = {
+    /* low  high  q_low  q_high  noise  n_tau1 n_tau2 n_mix  n_hp    n_lp     snap */
+    1.0f, 0.35f, 13.0f, 7.9f,   1.0f,  22.0f, 60.0f, 0.15f, 1200.0f, 9000.0f, 0.3f};
+
+/* Snare (Service Notes, Werner): two bridged-T resonators struck by the
+ * trigger pulse, 172 and 339 Hz (as measured on the recordings; the 1981
+ * board had 238 / 476), the lower one ringing ~3x longer; TONE crossfades
+ * them (the low one falls with the pot, the high one rises ~11 dB over
+ * its travel). White noise through a high-pass and a low-pass, its own
+ * two-slope envelope, mixed in by SNAPPY, which acts from ~1/4 of its
+ * travel (nothing below, -9 dB at the middle, full at the end). */
 static float snare(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_SD;
+    const float *k = tr808_sd_cal;
     float pulse = trigger_pulse(v);
-    float tune = tolerance[part] * spread(t, part, P_TUNE);
+    float tune = tolerance[part] * spread(t, part, P_TUNE), decay = spread(t, part, P_DECAY);
     if (v->age == 0) {
-        svf_set(&v->r3, 1200.0f, 0.7f);   /* noise high-pass */
+        svf_set(&v->r3, k[8], 0.7f);   /* noise high-pass */
         v->aux = 0;
     }
     /* Knock: up to +8 % at full accent, settling with tau 6 ms. */
     v->pitch *= 0.99623f;
     if ((v->age & 7u) == 0) {
         float knock = 1.0f + (0.04f + 0.04f * v->accent) * v->pitch;
-        svf_set(&v->r1, 173.0f * tune * knock, 20.0f);
-        svf_set(&v->r2, 336.0f * tune * knock, 12.0f);
+        svf_set(&v->r1, 172.0f * tune * knock, k[2] * decay);
+        svf_set(&v->r2, 339.0f * tune * knock, k[3] * decay);
     }
     float tone = knob(t, part, P_TONE);
     /* Raw resonator voltages, as the circuit sums them. */
-    float body = (1.0f - tone) * svf_bp(&v->r1, pulse * 3.0f, 0) / v->r1.k +
-                 tone * 1.3f * svf_bp(&v->r2, pulse * 3.0f, 0) / v->r2.k;
+    float body = (1.0f - tone) * k[0] * svf_bp(&v->r1, pulse * 3.0f, 0) / v->r1.k +
+                 k[1] * dsp_exp2(1.79f * tone) * svf_bp(&v->r2, pulse * 3.0f, 0) / v->r2.k;
     body = dsp_tanh(body * 0.9f) / 0.9f;
-    float decay = spread(t, part, P_DECAY);
-    v->env *= decay_coef(MS(30.0f) * decay);
-    v->env2 *= decay_coef(MS(90.0f) * decay);
+    v->env *= decay_coef(MS(k[5]) * decay);
+    v->env2 *= decay_coef(MS(k[6]) * decay);
     float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
     float n = svf_hp(&v->r3, noise(&v->rng));
-    v->aux += (n - v->aux) * 0.7277f;    /* 2-pole-ish low-pass at ~9 kHz */
-    v->out_lp += (v->aux - v->out_lp) * 0.7277f;
-    float noise_env = (v->env + 0.22f * v->env2) * attack * v->volts;
-    float snap = (pulse > 0 ? pulse : 0) * 0.6f;
-    float out = body * 0.55f + (v->out_lp * noise_env * 1.15f + snap) * knob(t, part, P_SNAPPY);
+    float lp = 1.0f - dsp_exp(-2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE);
+    v->aux += (n - v->aux) * lp;
+    v->out_lp += (v->aux - v->out_lp) * lp;
+    float noise_env = ((1.0f - k[7]) * v->env + k[7] * v->env2) * attack * v->volts;
+    float snappy = dsp_clamp((knob(t, part, P_SNAPPY) - 0.26f) * (1.0f / 0.74f), 0.0f, 1.0f);
+    float snap = (pulse > 0 ? pulse : 0) * k[10];
+    float out = body * 0.55f + (v->out_lp * noise_env * k[4] + snap) * snappy;
     if (v->age > (uint32_t)MS(500.0f) && v->env2 < 1e-4f) v->active = 0;
     return out;
 }
@@ -545,17 +560,21 @@ static float zap(tr808_t *t, tr_voice_t *v)
  * input coupling (1-pole HP, 0.22 ms) and three 2-pole high-passes,
  * 341 Hz Q 0.65, 97 Hz Q 2.7, 92 Hz Q 4. Result: a soft positive spike,
  * then one pulse later a sharp negative crack about twice as loud, each
- * followed by a low, ringing "plop". All knobs at 64 = the recording.
- *   Width 3.8..60 ms, Tune: the corners /4..x4, Ring: Q of the low
- *   resonances /2..x2, Decay: coupling 0.05..0.9 ms. */
+ * followed by a low, ringing "plop". Knobs at 64 = the recording, except
+ * that the plop is taken out (see below): it clashed with the bass.
+ *   Width 3.8..60 ms, Tune: the corners /4..x4, Ring: resonance of the
+ *   250 Hz high-pass /2..x2, Decay: coupling 0.05..0.9 ms. */
 static float pulse(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_PU;
     if (v->age == 0) {
         float tune = spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
         svf_set(&v->r1, 341.0f * tune, 0.65f);
-        svf_set(&v->r2, 97.0f * tune, 2.74f * ring);
-        svf_set(&v->r3, 92.0f * tune, 4.0f * ring);
+        /* The recording rings at ~100 Hz through two resonant high-passes
+         * (97 Hz Q 2.7, 92 Hz Q 4); that low "plop" fights the bass, so
+         * here they sit at 250 Hz, flat (Ring adds resonance back). */
+        svf_set(&v->r2, 250.0f * tune, 0.7f * ring);
+        svf_set(&v->r3, 250.0f * tune, 0.55f * ring);
     }
     float width = MS(15.15f) * dsp_exp2(4.0f * (knob(t, part, P_SNAPPY) - 0.5f));
     float age = (float)v->age;
