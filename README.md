@@ -42,7 +42,7 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
-| **BEAT** | FX | 808-Drum-Machine (11 Instrumente + ZAP + PULSE, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
+| **BEAT** | FX | 808-Drum-Machine (10 Instrumente + ZAP + PULSE, 4 Kits; Toms/Congas tief und hoch) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
 | **RHYTHM** | SCL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
 | **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
 | **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
@@ -76,7 +76,7 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 | SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
 | E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
-**BEAT:** schwarze Taste wählt und spielt ein Instrument (SEQ schaltet auf die zweite Ebene: schwarze Taste 1 ZAP, 2 PULSE), weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
+**BEAT:** schwarze Taste wählt und spielt ein Instrument (BD SD LT HT RS CP CB CY OH CH ZAP; SEQ schaltet auf die zweite Ebene mit PULSE auf schwarzer Taste 1), weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
 
 **RHYTHM, STRINGS, BASS** haben zwei Modi, SEQ schaltet um:
 

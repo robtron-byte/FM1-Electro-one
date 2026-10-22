@@ -8,7 +8,7 @@
 #include "drums.h"
 #include <string.h>
 
-const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "MT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
+const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
 const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT"};
 
 enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
@@ -35,7 +35,7 @@ static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
 };
 
 /* ZP on 67 (high agogo), PU on 75 (claves) */
-static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 45, 48, 37, 39, 56, 49, 46, 42, 67, 75};
+static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 48, 37, 39, 56, 49, 46, 42, 67, 75};
 
 unsigned dr_part_note(unsigned part) { return part < DR_PARTS ? part_notes[part] : 0; }
 
@@ -43,12 +43,13 @@ int dr_note_part(unsigned note)
 {
     for (unsigned p = 0; p < DR_PARTS; ++p)
         if (part_notes[p] == note) return (int)p;
-    /* Common alternates: 35 kick, 40 snare, 43/47/50 toms, 44 pedal hat, 51 ride. */
+    /* Common alternates: 35 kick, 40 snare, 43/45/47/50 toms, 44 pedal hat, 51 ride. */
     switch (note) {
     case 35: return D8_BD;
     case 40: return D8_SD;
     case 43: return D8_LT;
-    case 47: return D8_MT;
+    case 45: return D8_LT;    /* mid tom notes go to the nearest kept one */
+    case 47: return D8_HT;
     case 50: return D8_HT;
     case 44: return D8_CH;
     case 51: case 57: return D8_CY;

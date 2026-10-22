@@ -65,7 +65,7 @@ static void hits(const char *dir, const char *name, unsigned part, const float *
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
-    static const char *const names[DR_PARTS] = {"bd", "sd", "lt", "mt", "ht", "rs", "cp", "cb", "cy", "oh", "ch", "zp", "pu"};
+    static const char *const names[DR_PARTS] = {"bd", "sd", "lt", "ht", "rs", "cp", "cb", "cy", "oh", "ch", "zp", "pu"};
     const float normal_accent[4] = {0.66f, 1.0f, 0.66f, 1.0f};
     char name[64];
     for (unsigned part = 0; part < DR_PARTS; ++part) {

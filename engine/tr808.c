@@ -26,8 +26,6 @@ static const part_params_t params[D8_NUM + 1] = {
               {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0)}},
     /* LT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 45), P("Rev", 0), P("Dly", 0)}},
-    /* MT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 64), P("Rev", 0), P("Dly", 0)}},
     /* HT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 83), P("Rev", 0), P("Dly", 0)}},
     /* RS */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
@@ -89,7 +87,7 @@ EL_DSP_CODE int tr808_get(const tr808_t *t, int part, int p)
 
 /* Fixed per-unit component tolerance: the frequencies of a real 808 sit a
  * little off the nominal values, differently on every machine. */
-static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 0.995f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 static const float metal_hz[6] EL_DSP_DATA = {205.3f, 304.4f, 369.6f, 522.7f, 540.0f, 800.0f};
 static const float metal_tol[6] EL_DSP_DATA = {1.012f, 0.991f, 1.006f, 0.988f, 1.0f, 1.0f};
 
@@ -310,11 +308,13 @@ static float snare(tr808_t *t, tr_voice_t *v)
 
 /* Toms / congas: one resonator; diodes make the pitch start sharp and drop
  * (x1.06 normal, x1.14 accent). Toms add a little low-passed pink noise. */
-static const float tom_hz[6][3] EL_DSP_DATA = {{80, 90, 100}, {120, 135, 160}, {165, 185, 220},
-                                               {165, 185, 220}, {250, 280, 310}, {370, 400, 455}};
+/* Tuning range (low, stock, high) of LT, HT, LC, HC; the middle circuit
+ * (MT 135 Hz / MC 280 Hz) is left out. */
+static const float tom_hz[4][3] EL_DSP_DATA = {{80, 90, 100}, {165, 185, 220},
+                                               {165, 185, 220}, {370, 400, 455}};
 static float tom(tr808_t *t, tr_voice_t *v, int part)
 {
-    int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 3 : 0);
+    int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
     float k = knob(t, part, P_TUNE), lo = tom_hz[idx][0], mid = tom_hz[idx][1], hi = tom_hz[idx][2];
     float f0 = (k < 0.5f ? lo * dsp_exp2(2.0f * k * dsp_log2(mid / lo)) : mid * dsp_exp2((2.0f * k - 1.0f) * dsp_log2(hi / mid))) * tolerance[part];
     float q = (conga ? 45.0f : 25.0f) * spread(t, part, P_DECAY);
@@ -598,7 +598,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 5.87f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 5.87f, 20.603f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
@@ -619,7 +619,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             switch (part) {
             case D8_BD: y = bass_drum(t, v); break;
             case D8_SD: y = snare(t, v); break;
-            case D8_LT: case D8_MT: case D8_HT: y = tom(t, v, part); break;
+            case D8_LT: case D8_HT: y = tom(t, v, part); break;
             case D8_RS: y = rim(t, v); break;
             case D8_CP: y = clap(t, v); break;
             case D8_CB: y = cowbell(t, v, cb_src); break;
