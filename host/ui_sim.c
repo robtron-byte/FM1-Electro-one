@@ -148,6 +148,16 @@ int main(int argc, char **argv)
     turn(5, -6);                      /* bass level down */
     run(400);
     shot(dir, "08_home");
+    hold(BTN_EDIT, 1);                /* HOME + EDIT: distortion sends */
+    turn(2, 20);                      /* BEAT send */
+    turn(5, 30);                      /* BASS send */
+    turn(0, 1);                       /* type: TUBE */
+    run(300);
+    shot(dir, "08b_home_distortion");
+    hold(BTN_EDIT, 0);
+    printf("dist: send beat %u bass %u type %s %s\n", engine.fx.v[FX_DIST_SEND_BEAT], engine.fx.v[FX_DIST_SEND_BASS],
+           fx_dist_mode_name(engine.fx.v[FX_DIST_MODE]),
+           engine.fx.v[FX_DIST_SEND_BEAT] > 0 && engine.fx.v[FX_DIST_SEND_BASS] > 0 && engine.fx.v[FX_DIST_MODE] == DIST_TUBE ? "ok" : "FAIL");
 
     hold(BTN_ARP, 1);                 /* HOME + ARP + white key 3: new groove in slot 3 */
     tap_key(4);

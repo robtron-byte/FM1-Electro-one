@@ -286,15 +286,17 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 static float kick[EL_BLOCK], drum_l[EL_BLOCK], drum_r[EL_BLOCK], bass_l[EL_BLOCK], bass_r[EL_BLOCK];
 static float synth_l[EL_BLOCK], synth_r[EL_BLOCK], rev[EL_BLOCK], gate[EL_BLOCK], dly[EL_BLOCK];
 static float left[EL_BLOCK], right[EL_BLOCK];
+static float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK], dist_send[EL_BLOCK];
 
 static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
 {
     el_transport_t *t = &e->transport;
     dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
+    /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
-        int bass = i == EL_AREA_BASS - 1u;
-        st_render(&e->track[i], (bass ? bass_l : synth_l) + pos, (bass ? bass_r : synth_r) + pos,
-                  dly + pos, rev + pos, n, t->bpm);
+        float *l = i == EL_AREA_BASS - 1u ? bass_l : i == EL_AREA_RHYTHM - 1u ? rhythm_l : synth_l;
+        float *r = i == EL_AREA_BASS - 1u ? bass_r : i == EL_AREA_RHYTHM - 1u ? rhythm_r : synth_r;
+        st_render(&e->track[i], l + pos, r + pos, dly + pos, rev + pos, n, t->bpm);
     }
 }
 
@@ -307,7 +309,8 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     el_transport_t *t = &e->transport;
     t->swing = e->drums.pattern[e->drums.current].swing;
     for (unsigned i = 0; i < frames; ++i)
-        kick[i] = drum_l[i] = drum_r[i] = bass_l[i] = bass_r[i] = synth_l[i] = synth_r[i] = rev[i] = gate[i] = dly[i] = 0.0f;
+        kick[i] = drum_l[i] = drum_r[i] = bass_l[i] = bass_r[i] = synth_l[i] = synth_r[i] = rev[i] = gate[i] = dly[i] =
+            rhythm_l[i] = rhythm_r[i] = 0.0f;
     unsigned pos = 0, guard = 0;
     while (pos < frames && guard++ < 64) {
         int n = (int)(frames - pos);
@@ -323,6 +326,18 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         pos += (unsigned)n;
     }
     if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
+    /* Distortion send per area (mono), its return on the drum bus. */
+    const uint8_t *fv = e->fx.v;
+    float sb = fv[FX_DIST_SEND_BEAT] / 127.0f, sr = fv[FX_DIST_SEND_RHYTHM] / 127.0f;
+    float ss = fv[FX_DIST_SEND_STRINGS] / 127.0f, sa = fv[FX_DIST_SEND_BASS] / 127.0f;
+    sb *= sb; sr *= sr; ss *= ss; sa *= sa;
+    for (unsigned i = 0; i < frames; ++i) {
+        dist_send[i] = sb * (kick[i] + 0.5f * (drum_l[i] + drum_r[i])) + sr * 0.5f * (rhythm_l[i] + rhythm_r[i]) +
+                       ss * 0.5f * (synth_l[i] + synth_r[i]) + sa * 0.5f * (bass_l[i] + bass_r[i]);
+        synth_l[i] += rhythm_l[i];
+        synth_r[i] += rhythm_r[i];
+    }
+    fx_distortion(&e->fx, dist_send, drum_l, drum_r, (int)frames);
     /* Effect returns sit with the synths (high-passed, gently ducked). */
     fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
     mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, left, right, (int)frames);

@@ -10,6 +10,8 @@
  *                         groove in their style; ARP + white key = new groove for
  *                         that slot (drums, rhythm, strings, bass). New grooves are
  *                         kept in Flash by themselves and survive a restart.
+ *   HOME + EDIT           distortion send: E3-E6 send of BEAT / RHYTHM / STRINGS /
+ *                         BASS, E1 type (OFF OD DIST RAT TUBE), E2 tone, E7 drive
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
  *   ARP held              generator: E3 style, E4 density, white key = new part
  *   SAVE                  then white key 1-8: copy the playing groove to user slot
@@ -114,7 +116,10 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
     el_engine_t *e = ui->engine;
     unsigned param;
     int value;
-    if (ui->overview) {
+    if (ui->overview && (ui->hold & HOLD_EDIT)) {
+        param = 300u + slot;                     /* distortion sends per area */
+        value = e->fx.v[FX_DIST_SEND_BEAT + slot];
+    } else if (ui->overview) {
         param = (ui->hold & HOLD_GLO) ? 100u + slot : 200u + slot;
         if (param >= 200u) value = slot == 0 ? e->drums.level_value : e->track[slot - 1u].level_value;
         else value = e->fx.v[slot == 0 ? FX_DELAY_DIV : slot == 1 ? FX_DELAY_FB : slot == 2 ? FX_REVERB_SIZE : FX_REVERB_DECAY];
@@ -138,7 +143,12 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
     knob_t k = {0, 0, 0, 0, TEXT};
     unsigned param;
     k.value = raw_value(ui, slot, &param);
-    if (ui->overview) {
+    if (ui->overview && (ui->hold & HOLD_EDIT)) {
+        static const char *const send_names[4] = {"DST BEAT", "DST RHYT", "DST STRG", "DST BASS"};
+        k.name = send_names[slot];
+        k.max = 127;
+        k.color = area_color[slot];
+    } else if (ui->overview) {
         static const char *const fx_names[4] = {"DLY TIME", "FEEDBACK", "REV SIZE", "DECAY"};
         k.name = (ui->hold & HOLD_GLO) ? fx_names[slot] : area_tabs[slot];
         k.max = (ui->hold & HOLD_GLO) && slot == 0 ? 11 : 127;
@@ -170,7 +180,9 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
     if (!k.name) return;
     int step = k.max > 16 ? delta * (delta > 1 || delta < -1 ? 2 : 1) : delta;
     int value = el_clampi(raw_value(ui, slot, &param) + step, 0, k.max), r;
-    if (ui->overview) {
+    if (ui->overview && param >= 300u) {
+        r = el_post(e, EL_CMD_FX, (uint8_t)(FX_DIST_SEND_BEAT + slot), (int16_t)value);
+    } else if (ui->overview) {
         if (param >= 200u)
             r = slot == 0 ? dr_post(&e->drums, DR_CMD_LEVEL, 0, 0, 0, (int16_t)value)
                           : el_post3(e, EL_CMD_TRACK_LEVEL, (uint8_t)(slot - 1u), 0, 0, (int16_t)value);
@@ -494,7 +506,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
 
     const int16_t *enc = c->encoders;
-    if (enc[0]) {
+    int dist_page = ui->overview && (hold & HOLD_EDIT);
+    if (dist_page) {
+        /* HOME + EDIT: the distortion send. E1 type, E2 tone, E7 drive. */
+        const uint8_t *fv = e->fx.v;
+        if (enc[0]) el_post(e, EL_CMD_FX, FX_DIST_MODE, (int16_t)el_clampi(fv[FX_DIST_MODE] + (enc[0] > 0 ? 1 : -1), 0, DIST_MODES - 1));
+        if (enc[1]) el_post(e, EL_CMD_FX, FX_DIST_TONE, (int16_t)el_clampi(fv[FX_DIST_TONE] + enc[1] * 2, 0, 127));
+        if (enc[6]) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + enc[6] * 2, 0, 127));
+    }
+    if (enc[0] && !dist_page) {
         if ((hold & HOLD_GLO) && ui->area == EL_AREA_BEAT && !ui->overview)
             dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + enc[0], 0, DR_KITS - 1), 0, 0, 0);
         else if ((hold & HOLD_GLO) && synth_area(ui) && ui->area == EL_AREA_STRINGS) {
@@ -508,7 +528,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             dr_post(m, DR_CMD_SELECT, (uint8_t)el_clampi((int)m->next + enc[0], 0, DR_PATTERNS - 1), 0, 0, 0);
         }
     }
-    if (enc[1]) {
+    if (enc[1] && !dist_page) {
         int bpm = (int)(e->transport.bpm * 10.0f + 0.5f);
         el_post(e, EL_CMD_BPM, 0, (int16_t)el_clampi(bpm + enc[1] * ((hold & HOLD_GLO) ? 1 : 10), 300, 3000));
     }
@@ -536,7 +556,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     } else {
         for (unsigned i = 0; i < 4; ++i) edit_knob(ui, i, enc[2 + i]);
     }
-    if (enc[6]) {
+    if (enc[6] && !dist_page) {
         if (ui->overview) {
             el_post(e, EL_CMD_FX, (hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN,
                     (int16_t)el_clampi(e->fx.v[(hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN] + enc[6] * 2, 0, 127));
@@ -603,6 +623,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
             mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
     }
     mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16);
+    mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->save_pick << 31);
     for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
     unsigned a = ui->overview ? 0 : ui->area;
@@ -927,7 +948,12 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8 OR SAVE AGAIN";
     char line[48];
     if (!hint) {
-        if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX";
+        if (ui->overview && (ui->hold & HOLD_EDIT)) {
+            const uint8_t *fv = ui->engine->fx.v;
+            snprintf(line, sizeof line, "E1 %s  E2 TONE %u  E7 DRIVE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
+                     fv[FX_DIST_TONE], fv[FX_DIST_DRIVE]);
+            hint = line;
+        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX  EDIT: DIST";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
             unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;

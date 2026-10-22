@@ -14,19 +14,27 @@ static const float quarters[12] EL_DSP_DATA = {0.125f, 1.0f / 6, 0.25f, 0.375f, 
                                                1, 1.5f, 2, 4};
 static const char *const division_names[12] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.",
                                                "1/4T", "1/4", "1/4.", "1/2", "1/1"};
-static const char *const names[FX_PARAMS] = {"TIME", "FEEDBACK", "TONE", "DLY RET", "SIZE", "DECAY", "DAMP", "REV RET"};
+static const char *const names[FX_PARAMS] = {"TIME", "FEEDBACK", "TONE", "DLY RET", "SIZE", "DECAY", "DAMP", "REV RET",
+                                             "DIST", "DRIVE", "D TONE", "DST BEAT", "DST RHYT", "DST STRG", "DST BASS"};
+static const char *const dist_names[DIST_MODES] = {"OFF", "OD", "DIST", "RAT", "TUBE"};
 static const float base_lengths[4] EL_DSP_DATA = {1116, 1277, 1422, 1557};
 static const unsigned diff_lengths[2] EL_DSP_DATA = {379, 277};
 
 void fx_init(el_fx_t *fx)
 {
-    static const uint8_t defaults[FX_PARAMS] = {6, 52, 70, 100, 70, 72, 50, 100};
+    static const uint8_t defaults[FX_PARAMS] = {6, 52, 70, 100, 70, 72, 50, 100, DIST_RAT, 60, 70, 0, 0, 0, 0};
     memset(fx, 0, sizeof *fx);
     memcpy(fx->v, defaults, sizeof defaults);
     fx->lfo[1] = 0.25f; fx->lfo[2] = 0.5f; fx->lfo[3] = 0.75f;
+    fx->dist.gain = 1;
+    fx->dist.mono = 1;
 }
 
-int fx_param_max(unsigned param) { return param == FX_DELAY_DIV ? 11 : param < FX_PARAMS ? 127 : 0; }
+int fx_param_max(unsigned param)
+{
+    return param == FX_DELAY_DIV ? 11 : param == FX_DIST_MODE ? DIST_MODES - 1 : param < FX_PARAMS ? 127 : 0;
+}
+const char *fx_dist_mode_name(int value) { return dist_names[el_clampi(value, 0, DIST_MODES - 1)]; }
 const char *fx_param_name(unsigned param) { return param < FX_PARAMS ? names[param] : ""; }
 const char *fx_delay_division_name(int value) { return division_names[el_clampi(value, 0, 11)]; }
 
@@ -173,4 +181,14 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         left[n] += fx->gate_lp[0] * 0.5f;
         right[n] += fx->gate_lp[1] * 0.5f;
     }
+}
+
+EL_DSP_CODE void fx_distortion(el_fx_t *fx, float *send, float *left, float *right, int frames)
+{
+    if (!fx->v[FX_DIST_SEND_BEAT] && !fx->v[FX_DIST_SEND_RHYTHM] && !fx->v[FX_DIST_SEND_STRINGS] && !fx->v[FX_DIST_SEND_BASS])
+        return;
+    /* Wet only (the dry signal stays in the mix): parallel distortion. */
+    dist_process(&fx->dist, send, fx->dist_r, frames, fx->v[FX_DIST_MODE], fx->v[FX_DIST_DRIVE], fx->v[FX_DIST_TONE], 64,
+                 fx->v[FX_DIST_MODE] ? 127 : 0, 0);
+    for (int i = 0; i < frames; ++i) { left[i] += send[i]; right[i] += send[i]; }
 }

@@ -210,6 +210,23 @@ int main(int argc, char **argv)
         failed |= render_slot(&e, mixed[k].slot, dir, "jp6mix_", 0, 0);
     }
 
+    /* Distortion send: the same groove dry and with sends (RAT on beat and
+     * bass, OD on rhythm). */
+    static const struct { uint8_t mode, drive, beat, rhythm, strings, bass; const char *name; } dist[] = {
+        {DIST_RAT, 60, 55, 0, 0, 80, "rat"}, {DIST_TUBE, 90, 70, 60, 40, 60, "tube"}, {DIST_OD, 40, 0, 80, 0, 0, "od_rhythm"}};
+    for (unsigned k = 0; k < sizeof dist / sizeof dist[0]; ++k) {
+        char prefix[32];
+        el_init(&e);
+        el_post(&e, EL_CMD_FX, FX_DIST_MODE, dist[k].mode);
+        el_post(&e, EL_CMD_FX, FX_DIST_DRIVE, dist[k].drive);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_BEAT, dist[k].beat);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_RHYTHM, dist[k].rhythm);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_STRINGS, dist[k].strings);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_BASS, dist[k].bass);
+        snprintf(prefix, sizeof prefix, "dist_%s_", dist[k].name);
+        failed |= render_slot(&e, 6, dir, prefix, 0, 0);
+    }
+
     /* Cost: a busy groove with all four areas for 60 seconds. */
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);
@@ -221,5 +238,15 @@ int main(int argc, char **argv)
     for (unsigned b = 0; b < blocks; ++b) el_render_float(&e, buf, EL_BLOCK);
     double seconds = (double)(clock() - start) / CLOCKS_PER_SEC;
     printf("cost: 60 s of audio in %.3f s on this host (%.2f%% of real time)\n", seconds, seconds / 60.0 * 100.0);
+    /* The same with all four distortion sends open. */
+    el_init(&e);
+    el_post(&e, EL_CMD_BPM, 0, 1400);
+    for (unsigned p = FX_DIST_SEND_BEAT; p <= FX_DIST_SEND_BASS; ++p) el_post(&e, EL_CMD_FX, (uint8_t)p, 80);
+    dr_post(&e.drums, DR_CMD_SELECT, 7, 1, 0, 0);
+    el_post(&e, EL_CMD_START, 0, 0);
+    start = clock();
+    for (unsigned b = 0; b < blocks; ++b) el_render_float(&e, buf, EL_BLOCK);
+    seconds = (double)(clock() - start) / CLOCKS_PER_SEC;
+    printf("cost with distortion send: %.2f%% of real time\n", seconds / 60.0 * 100.0);
     return failed;
 }

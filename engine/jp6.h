@@ -11,6 +11,7 @@
 #ifndef EL_JP6_H
 #define EL_JP6_H
 #include "el_config.h"
+#include "dist.h"
 
 enum jp6_param {
     /* Tone parameters (JP-6 panel order of the app, without the
@@ -93,18 +94,7 @@ typedef struct {
     uint32_t hiss;
 } jp6_chorus_t;
 
-/* The app's acid distortion: 2x oversampled clipper (half-band filters).
- * One channel's rings and filters; mono sounds run only the left one. */
-typedef struct {
-    float in[32], os[64], dry[32];
-    float pre, tight, dcx, dcy, lp1, lp2;
-} jp6_dist_ch_t;
 
-typedef struct {
-    jp6_dist_ch_t ch[2];
-    float gain, mix;
-    uint8_t in_pos, os_pos, mono;
-} jp6_dist_t;
 
 typedef struct {
     uint8_t v[JP_COUNT];
@@ -113,7 +103,7 @@ typedef struct {
     int16_t held[8];          /* mono: held notes, newest last */
     jp6_voice_t voice[JP6_MAX_VOICES];
     jp6_chorus_t chorus;
-    jp6_dist_t dist;
+    el_dist_t dist;
     float lfo_phase, lfo_value, lfo_held, lfo_from, lfo_to;
     uint32_t lfo_rng, age;
     float last_pitch, cutoff_smoothed, volume_smoothed, hpf_smoothed, hpf_coef_at, level;
