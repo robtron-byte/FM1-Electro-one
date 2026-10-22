@@ -47,7 +47,7 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 | **STRINGS** | ENV | MKS-50-Engine, 4 Stimmen: JX-Strings, Pads, Brass (16 Sounds) | Akkord-Steps (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5), Ties für Flächen |
 | **BASS** | LFO | MKS-50-Engine, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
 
-Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`). Jedes der 14 Electro-Patterns hat ab Werk passende RHYTHM-, STRINGS- und BASS-Spuren aus dem Generator. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
+Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`). Die 14 Werk-Patterns sind bewusst minimal gehalten, im Stil von klassischem Electro und Kraftwerk: ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, DROWNED, EBM, HALFTIME, ROBOT, BUILD UP und SPACE. Kick, Snare oder Clap und Hi-Hats tragen den Groove, Percussion kommt nur als einzelner Farbtupfer vor. Jedes Pattern hat ab Werk passende RHYTHM-, STRINGS- und BASS-Spuren aus dem Generator, die rhythmischen Sounds sparsam. Auch der Groove-Generator baut nur noch Kick, Snare/Clap und Hats, Rolls nur bei hoher Dichte. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
 
 ### Bedienung
 

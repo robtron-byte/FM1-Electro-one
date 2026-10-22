@@ -28,8 +28,10 @@ void el_init(el_engine_t *e)
  * (rhythm, strings, bass), key and default sounds. */
 static const char *const default_sounds[EL_TRACKS] = {"S&H BLEEP", "JX STRINGS", "ROBO BASS"};
 static const uint8_t factory_styles[DR_PATTERNS][EL_TRACKS] = {
-    {2, 1, 1}, {2, 1, 0}, {0, 0, 0}, {3, 2, 1}, {2, 0, 1}, {2, 1, 3}, {2, 2, 0}, {2, 3, 3},
-    {0, 0, 1}, {0, 0, 0}, {2, 3, 1}, {2, 1, 0}, {3, 3, 3}, {2, 3, 0}, {0, 0, 0}, {0, 0, 0}};
+    {2, 1, 1}, {2, 1, 0}, {0, 0, 0}, {0, 0, 0}, {0, 2, 0}, {2, 1, 0}, {2, 2, 1}, {2, 0, 1},
+    {3, 3, 3}, {0, 0, 1}, {2, 3, 1}, {2, 1, 0}, {3, 3, 3}, {2, 3, 0}, {0, 0, 0}, {0, 0, 0}};
+/* Generator density per area: the rhythmic sounds stay sparse. */
+static const uint8_t factory_density[EL_TRACKS] = {28, 64, 56};
 static const int8_t factory_keys[DR_PATTERNS] = {0, 2, -3, 1, -5, 3, 0, -2, 5, -3, 0, 2, -5, 1, 0, 0};
 
 void el_factory_tracks(el_engine_t *e)
@@ -45,7 +47,7 @@ void el_factory_tracks(el_engine_t *e)
             const dr_pattern_t *d = &e->drums.pattern[slot];
             st_pattern_t *p = &t->pattern[slot];
             if (!d->hit[D8_BD] && !d->hit[D8_CH]) continue; /* empty slots stay empty */
-            st_generate(p, i + 1u, factory_styles[slot][i], 64, 0x9e3779b9u * (slot + 1u) + i * 7919u, d->length);
+            st_generate(p, i + 1u, factory_styles[slot][i], factory_density[i], 0x9e3779b9u * (slot + 1u) + i * 7919u, d->length);
             for (unsigned s = 0; s < ST_STEPS; ++s)
                 p->step[s].note = (uint8_t)el_clampi(p->step[s].note + factory_keys[slot], 0, 127);
         }

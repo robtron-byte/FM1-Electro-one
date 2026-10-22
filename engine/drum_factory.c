@@ -16,62 +16,68 @@ typedef struct {
     const char *row[DR_PARTS + 1];
 } dr_recipe_t;
 
+/* Minimal, classic electro and Kraftwerk-style grooves: kick, snare or
+ * clap and hats carry everything; accents are sparse and percussion
+ * (rim, cowbell, toms, cymbal) only appears as a single colour note. */
 static const dr_recipe_t factory[DR_PATTERNS] = {
+    /* BD                  SD                  LT MT HT RS
+       CP                  CB                  CY                  OH
+       CH                  accent */
     {"ELECTRO", 54, KELECTRO, {
         "x.....x...x.....", "....x.......x...", 0, 0, 0, 0,
-        "....x.......x...", "..x.....x.x.....", 0, "..............x.",
-        "x.x.x.x.x.x.xr..", "x...x.......x..."}},
+        0, 0, 0, 0,
+        "x.x.x.x.x.x.x.x.", "x...........x..."}},
     {"BRONX 82", 52, KELECTRO, {
-        "x.....x...x..x..", "....x.......x...", 0, 0, 0, 0,
-        "....x.......x...", "x..x..x...x..x..", 0, 0,
-        "x.xxx.xxx.xxx.xx", "x.....x.....x..."}},
+        "x.....x...x..x..", 0, 0, 0, 0, 0,
+        "....x.......x...", 0, 0, 0,
+        "x.x.x.x.x.x.x.x.", "x.....x........."}},
     {"NUMBERS", 50, KKRAFT, {
-        "x..x..x...x.....", "....x.......x..x", 0, 0, 0, "..x...x.x.....x.",
-        0, "..........x.....", 0, 0,
+        "x..x..x...x.....", "....x.......x...", 0, 0, 0, 0,
+        0, 0, 0, 0,
         "xxxxxxxxxxxxxxxx", "x...x...x...x..."}},
+    {"TRANS EUR", 50, KKRAFT, {
+        "x.......x.......", "....x.......x...", 0, 0, 0, 0,
+        0, 0, 0, 0,
+        "..x...x...x...x.", "x.......x......."}},
+    {"TOUR", 50, KKRAFT, {
+        "x.....x.x.......", "....x.......x..x", 0, 0, 0, 0,
+        0, 0, 0, 0,
+        "x.x.x.x.x.x.x.x.", "x...x.......x..."}},
+    {"COMPUTER", 50, KKRAFT, {
+        "x..x..x.x.......", "....x.......x...", 0, 0, 0, 0,
+        0, 0, 0, 0,
+        "x.xxx.xxx.xxx.xx", "x.......x......."}},
     {"ROTHER", 50, KELECTRO, {
-        "x...x...x..x.x..", 0, 0, 0, 0, "......x.......x.",
+        "x...x...x...x...", 0, 0, 0, 0, 0,
         "....x.......x...", 0, 0, "..x...x...x...x.",
-        "xx.xxx.xxx.xxx.x", "x...x...x...x..."}},
+        "x...x...x...x...", "x...x...x...x..."}},
     {"MIAMI", 56, KMIAMI, {
         "x......x..x.....", "....x.......x...", 0, 0, 0, 0,
-        "....x.......x...", 0, 0, 0,
-        "x.x.x.x.x.x.x.xr", "....x.......x..."}},
-    {"BREAKER", 55, K808, {
-        "x.x.......x..x..", "....x..x.x..x...", 0, 0, 0, 0,
-        0, 0, 0, "......x.........",
-        "x.x.x...x.x.x.x.", "....x.......x..."}},
-    {"FREESTYL", 54, KELECTRO, {
-        "x..x..x.x..x....", "....x.......x...", 0, 0, 0, 0,
-        "....x.......x...", "...x.......x....", 0, 0,
-        "x.xrx.x.x.xrx.x.", "x...x..x....x..."}},
+        0, 0, 0, 0,
+        "x.x.x.x.x.x.x.x.", "....x.......x..."}},
     {"DROWNED", 50, K808, {
-        "x.....x.x.....x.", "....x.......x...", "..........x.....", ".......x.....x..", "...x............", 0,
+        "x.....x.x.....x.", "....x.......x...", 0, 0, 0, 0,
         0, 0, 0, 0,
         "xxxxxxxxxxxxxxxx", "x.x.x.x.x.x.x.x."}},
     {"EBM", 50, KKRAFT, {
         "x...x...x...x...", "....x.......x...", 0, 0, 0, 0,
-        "....x.......x...", 0, 0, "..x...x...x...x.",
-        0, "x...x...x...x..."}},
-    {"TRANS EUR", 50, KKRAFT, {
-        "x...x.x...x.x...", "....x.......x...", 0, 0, 0, 0,
-        0, "........x.......", 0, 0,
-        "x.x.x.x.x.x.x.x.", "x...x...x...x..."}},
+        0, 0, 0, 0,
+        "..x...x...x...x.", "x...x...x...x..."}},
     {"HALFTIME", 52, KMIAMI, {
-        "x.........x.....", "........x.......", 0, 0, 0, 0,
-        "........x.......", 0, 0, "..............x.",
-        "x.x.x.xrx.x.xr..", "x.......x......."}},
-    {"CLAVES", 54, KKRAFT, {
-        "x.....x...x.....", 0, 0, "..x.....x.......", ".....x.....x..x.", "x..x..x...x.x...",
-        "....x.......x...", 0, 0, 0,
-        "x.x.x.x.x.x.x.x.", "x..x..x...x.x..."}},
+        "x.........x.....", 0, 0, 0, 0, 0,
+        "........x.......", 0, 0, 0,
+        "x.x.x.x.x.x.x.x.", "x.......x......."}},
+    {"ROBOT", 50, KKRAFT, {
+        "x...x.....x.....", "....x.......x...", 0, 0, 0, "...........x....",
+        0, 0, 0, 0,
+        "..x...x...x...x.", "x...x...x...x..."}},
     {"BUILD UP", 50, KELECTRO, {
-        "x.....x...x.....x.....x...x.....", "....x.......x.......x..x.xrxrrrr", 0, 0, 0, 0,
-        "....x.......x.......x...........", 0, "x...............................", 0,
-        "x.x.x.x.x.x.x.x.x.x.x.x.x.x.....", "....x.......x.......x.......x.xx"}},
+        "x.....x...x.....x.....x...x.....", "....x.......x.......x.......x.xx", 0, 0, 0, 0,
+        0, 0, "x...............................", 0,
+        "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x...", "x...........x...............x.xx"}},
     {"SPACE", 52, K808, {
         "x.......x.x.....", 0, 0, 0, 0, 0,
-        "....x.......x...", "x.....x.....x...", "x...............", 0,
+        "....x.......x...", 0, "x...............", 0,
         "..x...x...x...x.", "x...x...x...x..."}},
     {"INIT A", 50, K808, {0}},
     {"INIT B", 50, KELECTRO, {0}},
@@ -108,26 +114,28 @@ void dr_factory_pattern(unsigned slot, dr_pattern_t *out)
 /* Generator weights per style: one digit per 16th, 0 = never, 9 = always.
  * Same row order as the factory recipes; the last row is the accent. */
 static const char *const weights[DR_STYLES][DR_PARTS + 1] = {
-    /* ELECTRO: syncopated kick, backbeat, busy hats, cowbell answers. */
-    {"9002003050600200", "0000900000009001", 0, 0, 0, "0010000100100010",
-     "0000800000008000", "0030002030200300", 0, "0000000200000030",
-     "8060806080608060", "9000800030009000"},
-    /* KRAFT: rigid and mechanical, claves and tight 16th hats. */
-    {"9006006000600000", "0000900000009002", 0, 0, 0, "0040040300400040",
-     0, "0000000000300000", 0, 0,
-     "8686868686868686", "9000900090009000"},
-    /* ROTHER: driving four-to-the-floor electro techno, offbeat open hat. */
-    {"9000900090030300", 0, 0, 0, 0, "0000003000000030",
-     "0000900000009000", 0, 0, "0090009000900090",
-     "6606660666066606", "9000900090009000"},
-    /* ROBOT: sparse and broken, toms and rimshots. */
-    {"9000003000300000", "0000800000008000", "0000000000300000", "0000000300000300", "0003000000000000", "0020000200020000",
-     0, "0000002000000020", 0, 0,
-     "7050705070507050", "9000700070009000"},
-    /* MIAMI: booming kick on the one and late syncopation, 16th rolls. */
-    {"9000000400500300", "0000900000009000", 0, 0, 0, 0,
-     "0000900000009000", 0, 0, 0,
-     "8080808080808084", "0000900000009000"},
+    /* Minimal on purpose: kick, snare or clap and hats; percussion is a rare
+     * single colour note. Rows: BD SD LT MT HT RS CP CB CY OH CH accent. */
+    /* ELECTRO: syncopated kick, backbeat, straight 8th hats. */
+    {"9000003000500000", "0000900000009000", 0, 0, 0, 0,
+     0, 0, 0, "0000000000000020",
+     "8080808080808080", "9000000000009000"},
+    /* KRAFT: rigid and mechanical, tight 16th hats, the odd syncopation. */
+    {"9002006000600000", "0000900000009001", 0, 0, 0, 0,
+     0, 0, 0, 0,
+     "8484848484848484", "9000900090009000"},
+    /* ROTHER: four to the floor, clap backbeat, offbeat open hat. */
+    {"9000900090009020", 0, 0, 0, 0, 0,
+     "0000900000009000", 0, 0, "0080008000800080",
+     "6000600060006000", "9000900090009000"},
+    /* ROBOT: sparse and broken, one rim colour at most. */
+    {"9000003000300000", "0000800000008000", 0, 0, 0, "0000000001000000",
+     0, 0, 0, 0,
+     "0060006000600060", "9000700070009000"},
+    /* MIAMI: booming kick on the one and late syncopation. */
+    {"9000000400500000", "0000900000009000", 0, 0, 0, 0,
+     0, 0, 0, 0,
+     "8080808080808080", "0000900000009000"},
 };
 
 static uint32_t next_random(uint32_t *s)
@@ -180,9 +188,9 @@ void dr_generate(dr_pattern_t *out, unsigned style, unsigned density, uint32_t s
     }
     /* Closed and open hat on the same step: the open hat wins. */
     p.hit[D8_CH] &= ~p.hit[D8_OH];
-    /* Hat rolls on some off-16ths, more with higher density. */
+    /* A hat roll now and then, only with high density. */
     for (unsigned i = 0; i < p.length; ++i)
-        if ((p.hit[D8_CH] & (1u << i)) && (i & 1u) && next_random(&rng) % 1000u < 40u + density * 2u)
+        if ((p.hit[D8_CH] & (1u << i)) && (i & 1u) && density > 96 && next_random(&rng) % 1000u < 30u)
             p.roll[D8_CH] |= 1u << i;
     if (keep) {
         p.hit[D8_BD] = keep->hit[D8_BD];

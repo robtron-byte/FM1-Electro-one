@@ -111,8 +111,8 @@ static int midi_clock_test(void)
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
-    static const uint16_t tempo[DR_PATTERNS] = {1120, 1180, 1300, 1280, 1300, 1100, 1180, 1400,
-                                                1240, 1140, 1000, 1150, 1240, 1060, 1200, 1200};
+    static const uint16_t tempo[DR_PATTERNS] = {1120, 1180, 1250, 1160, 1240, 1280, 1280, 1300,
+                                                1380, 1240, 1000, 1200, 1240, 1060, 1200, 1200};
     static el_engine_t e;
     char path[512], name[32];
     int failed = timing_test() | midi_clock_test();
@@ -122,8 +122,8 @@ int main(int argc, char **argv)
         el_init(&e);
         el_post(&e, EL_CMD_MIX, (uint8_t)processed, 0);
         el_post(&e, EL_CMD_BPM, 0, 1280);
-        dr_post(&e.drums, DR_CMD_SELECT, 3, 1, 0, 0);
-        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[3].kit, 0, 0, 0);
+        dr_post(&e.drums, DR_CMD_SELECT, 6, 1, 0, 0);
+        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[6].kit, 0, 0, 0);
         size_t frames; float peak;
         float *audio = render(&e, 128.0f, 64, &frames, &peak);
         snprintf(path, sizeof path, "%s/ab_rother_%s.wav", dir, processed ? "mixed" : "raw");
