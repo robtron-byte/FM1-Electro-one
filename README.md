@@ -10,8 +10,8 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 |---|---|
 | Gemeinsame Clock (16tel, Swing, MIDI-Clock-Eingang) | fertig, getestet (Timing auf ±1 Sample) |
 | 808-Drum-Machine: Klang, Sequencer, Patterns, Generator | fertig, getestet auf dem PC |
-| Bedienung am FM-1 (Display, Tasten, Encoder) | als Nächstes |
-| Einbindung ins FM1-Open-Build (Audio, MIDI, Speichern) | geplant |
+| Bedienung am FM-1 (Display, Tasten, LEDs, Encoder) | fertig, im Panel-Simulator getestet |
+| Einbindung ins FM1-Open-Build (Audio, MIDI, Speichern im Flash) | fertig, **noch nicht auf dem Gerät gebaut** |
 | MKS-50-Engine, Arpeggiator, Step-Sequencer | geplant |
 | JP-6-Engine | geplant |
 | Noten-Looper, Delay und Reverb | geplant |
@@ -26,28 +26,58 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 - **Groove-Generator** in den Stilen ELECTRO, KRAFT, ROTHER, ROBOT und MIAMI, mit Dichte-Regler und Option „Kick behalten“. Bei 32 Steps variiert der zweite Takt den ersten.
 - **MIDI:** General-MIDI-Drum-Noten (36 BD, 38 SD, 41/45/48 Toms, 37 RS, 39 CP, 56 CB, 49 CY, 46 OH, 42 CH).
 
-## Geplante Bedienung am FM-1
+## Bedienung am FM-1
 
-Das FM-1 hat 27 Notentasten und 14 Funktionstasten (alle mit LED), 7 Encoder, einen Lautstärke-Regler und ein 240×240-Farbdisplay.
+Das FM-1 hat 27 Notentasten und 14 Funktionstasten (alle mit LED), 7 Encoder, den MASTER-Regler und ein 240×240-Farbdisplay. Das Display zeigt das Pattern als Raster (11 Instrumente × 16 Steps) mit Lauflicht, Akzent-Reihe und Rolls, darunter die Klangwerte des gewählten Instruments.
 
-- **SEQ** wechselt zur Drum-Ansicht. Die 16 weißen Tasten sind die Steps, ihre LEDs zeigen gesetzte Schritte und das Lauflicht.
-- Die 11 schwarzen Tasten wählen das Instrument (BD … CH). Ist ein Instrument gewählt, setzen die weißen Tasten seine Steps.
-- **PLAY** startet und stoppt, **REC** schaltet die Live-Aufnahme. Dann spielen die schwarzen Tasten die Drums.
-- Encoder: Pattern, Tempo, Swing und Länge sowie die Klangparameter des gewählten Instruments.
-- Das Display zeigt das ganze Pattern als Raster (11 Reihen × Steps) mit Lauflicht, Akzenten und Rolls.
+| Bedienung | Funktion |
+|---|---|
+| Schwarze Taste | Instrument wählen und anhören (BD, SD, LT, MT, HT, RS, CP, CB, CY, OH, CH) |
+| Weiße Taste | Step des gewählten Instruments setzen/löschen. LEDs zeigen die Steps und das Lauflicht |
+| EDIT + weiße Taste | Akzent auf diesem Step |
+| SCL + weiße Taste | 32tel-Roll auf diesem Step |
+| EDIT + schwarze Taste | Instrument im Pattern löschen. EDIT + REC löscht das ganze Pattern |
+| GLO + schwarze Taste | Mute. HOME + schwarze Taste: Solo |
+| PLAY | Start/Stop (übernimmt die interne Clock) |
+| REC | Live-Aufnahme an/aus: schwarze Tasten und MIDI-Drums werden quantisiert aufgenommen |
+| OCT − / OCT + | Steps 1–16 / 17–32 bei langen Patterns |
+| ENV | nächste Seite der Klangparameter |
+| LFO halten | Groove-Generator: E3 Stil, E4 Dichte, E5 Kick behalten, weiße Taste erzeugt einen neuen Groove |
+| SAVE | Patterns, Kit-Klang und Tempo im Flash speichern |
+| E1 | Pattern wählen (wechselt am Taktende). GLO + E1: Kit |
+| E2 | Tempo (GLO + E2: in 0,1-BPM-Schritten) |
+| E3–E6 | Klangparameter des gewählten Instruments |
+| E7 | Pattern-Länge. GLO + E7: Swing |
+| MASTER | Gesamtlautstärke |
+
+MIDI: Start/Stop/Continue und MIDI-Clock von außen (nach MIDI-Start folgt das Tempo der Clock), Drum-Noten auf Kanal 10.
+
+Die Belegung der Encoder E1–E7 folgt der Nummerierung im FM1-Open-Code. Wo sie physisch sitzen, prüfe ich am ersten Geräte-Build.
 
 ## Bauen und testen (PC)
 
 ```sh
-make demo   # rendert alle Grooves und Generator-Stile nach build/wav/
-make test   # Timing- und Pegeltests
+make demo      # rendert alle Grooves und Generator-Stile nach build/wav/
+make screens   # Panel-Simulator: Screenshots mit LED-Zustand nach build/screens/
+make test      # Timing-, MIDI-Clock- und Speichertests
 ```
 
-Der Firmware-Build für das Gerät läuft unter Windows mit der JieLi-Toolchain 2.5.3 über das FM1-Open-SDK (siehe dort). Die Anleitung folgt, sobald die Geräteanbindung steht.
+## Firmware bauen (Windows)
+
+FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhängepunkte dazu: Audio, Panel und MIDI. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display) bleibt unverändert.
+
+1. [FM1 Open](https://github.com/m-vave/fm1_open) klonen. Getestet ist Commit `4c7496d` (V14).
+2. `python tools\prepare_fm1.py C:\pfad\zu\fm1_open` ausführen. Das Skript kopiert den Code nach `app\electro` und setzt die Einhängepunkte. Es bricht ab, wenn die FM1-Open-Version nicht passt.
+3. Die JieLi-Toolchain 2.5.3 installieren (siehe README von FM1 Open) und im FM1-Open-Ordner `.\sdk\Build.ps1 -FirmwareOnly -Toolchain 'C:\JL\pi32'` ausführen.
+4. Die erzeugte `.fwsc`-Datei mit der FM1-Workbench oder dem offiziellen Updater flashen. Zurück zur Original-Firmware V15 geht jederzeit über die Workbench.
+
+Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
+
+**Speicherplatz im Flash:** FM1-Electro speichert in zwei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 14 und 15 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 
-Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Die Drum-Machine braucht rund 6,5 KB Daten. Auf dem PC kostet ein dichter 808-Groove 2,6 % Echtzeit. Gemessen auf dem Gerät wird, sobald die Firmware gebaut ist.
+Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). FM1-Electro braucht derzeit rund 40 KB RAM (Code im RAM, Daten, Display-Puffer). Auf dem PC kostet ein dichter 808-Groove 2,6 % Echtzeit. Gemessen auf dem Gerät wird, sobald die Firmware gebaut ist.
 
 ## Lizenz
 

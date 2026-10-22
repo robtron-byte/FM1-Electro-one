@@ -2,7 +2,7 @@
 
 | Component | Files | Source / license |
 | --- | --- | --- |
-| 808 drum model | `third_party/daisy808/drum808.c`, `drum808.h`, `drum808_state.h`, `dsp_math.h`, `engine.h` | Taken unchanged from [m-vave/fm1_open](https://github.com/m-vave/fm1_open) `third_party/synth`. MIT. Copyright (c) 2020 Electrosmith, Corp, Emilie Gillet; 2026 M-VAVE. Based on [DaisySP](https://github.com/daisyaudio/DaisySP) and Mutable Instruments Plaits drum models, with the SVF from stmlib (MIT, Emilie Gillet). |
+| 808 drum model | `third_party/daisy808/drum808.inc` (upstream `drum808.c`, renamed only so the SDK build does not compile it twice), `drum808.h`, `drum808_state.h`, `dsp_math.h`, `engine.h` | Taken unchanged from [m-vave/fm1_open](https://github.com/m-vave/fm1_open) `third_party/synth`. MIT. Copyright (c) 2020 Electrosmith, Corp, Emilie Gillet; 2026 M-VAVE. Based on [DaisySP](https://github.com/daisyaudio/DaisySP) and Mutable Instruments Plaits drum models, with the SVF from stmlib (MIT, Emilie Gillet). |
 | Parameter descriptor | `third_party/daisy808/fm1_param.h` | From m-vave/fm1_open `app/synth`, GPL-3.0-only with the FM1 SDK linking exception. |
 | Audio block format | `sdk_include/fm1_block.h` | From m-vave/fm1_open `sdk/include`, GPL-3.0-only with the FM1 SDK linking exception. |
 | FM1 binary SDK | not included in this repository | The device build links `libfm1_engine.a` from m-vave/fm1_open under M-VAVE's separate binary SDK terms (see its `THIRD_PARTY.md`). |

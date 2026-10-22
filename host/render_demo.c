@@ -86,6 +86,28 @@ static int timing_test(void)
     return errors ? 1 : 0;
 }
 
+/* MIDI clock: Start plus F8 at 120 BPM must give 8 steps per second and
+ * a measured tempo of 120. */
+static int midi_clock_test(void)
+{
+    static el_engine_t e;
+    const uint8_t start = 0xfa, tick = 0xf8;
+    el_init(&e);
+    el_midi_input(&e, &start, 1);
+    double next_tick = 0, tick_frames = FM1_SAMPLE_RATE * 60.0 / (120.0 * 24.0);
+    float buf[EL_BLOCK * 2];
+    long frame = 0;
+    for (int block = 0; block < (int)(2 * FM1_SAMPLE_RATE / EL_BLOCK); ++block) {
+        while (next_tick < frame + EL_BLOCK) { el_midi_input(&e, &tick, 1); next_tick += tick_frames; }
+        el_render_float(&e, buf, EL_BLOCK);
+        frame += EL_BLOCK;
+    }
+    int ok = e.transport.source == EL_CLOCK_MIDI && e.transport.step >= 15 && e.transport.step <= 17 &&
+             e.transport.bpm > 118.0f && e.transport.bpm < 122.0f;
+    printf("midi clock: %u steps in 2 s, %.1f BPM measured: %s\n", e.transport.step, e.transport.bpm, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
@@ -93,7 +115,7 @@ int main(int argc, char **argv)
                                                 1240, 1140, 1000, 1150, 1240, 1060, 1200, 1200};
     static el_engine_t e;
     char path[512], name[32];
-    int failed = timing_test();
+    int failed = timing_test() | midi_clock_test();
 
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         el_init(&e);

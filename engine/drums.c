@@ -180,8 +180,9 @@ EL_DSP_CODE void dr_render(dr_machine_t *m, float *left, float *right, float *re
 {
     if (frames > 0) {
         /* The kit adds into the buses; scale by level through a local sum. */
-        /* Plain loops: no libc (Flash-resident) calls on the audio path. */
-        float l[EL_BLOCK], r[EL_BLOCK], v[EL_BLOCK], d[EL_BLOCK];
+        /* Static scratch keeps the audio interrupt's stack small. Plain
+         * loops: no libc (Flash-resident) calls on the audio path. */
+        static float l[EL_BLOCK], r[EL_BLOCK], v[EL_BLOCK], d[EL_BLOCK];
         for (int i = 0; i < frames; ++i) l[i] = r[i] = v[i] = d[i] = 0.0f;
         if (drum808_active(&m->kit)) drum808_render_st(&m->kit, l, r, v, d, frames);
         else drum808_advance_idle(&m->kit, frames);

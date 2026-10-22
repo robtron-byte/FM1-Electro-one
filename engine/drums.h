@@ -10,6 +10,7 @@
 #define EL_DRUMS_H
 #include "el_config.h"
 #include "el_queue.h"
+#include "el_d808_names.h"
 #include "drum808_state.h"
 
 enum {
