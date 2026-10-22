@@ -65,5 +65,7 @@ extern const char *const st_rate_names[ST_RATES];
  * changes every bar), 3 STABS (16th stabs). length is ignored for strings. */
 enum { ST_STYLES = 4 };
 const char *st_style_name(unsigned area, unsigned style);
-void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length);
+/* harmony: DR_HARMONY_ROTHER / _KRAFT / _ELECTRO (strings chord family). */
+void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
+                 unsigned harmony);
 #endif

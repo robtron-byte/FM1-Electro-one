@@ -141,15 +141,29 @@ int main(int argc, char **argv)
     run(400);
     shot(dir, "08_home");
 
+    hold(BTN_ARP, 1);                 /* HOME + ARP + white key 3: new groove in slot 3 */
+    tap_key(4);
+    hold(BTN_ARP, 0);
+    run(300);
+    shot(dir, "09_new_groove");
+    int fresh = engine.drums.current == 2 && engine.drums.pattern[2].style == 2;
+
     tap_button(BTN_PLAY);
-    tap_button(BTN_SAVE);
-    shot(dir, "09_saved");
+    tap_button(BTN_SAVE);             /* SAVE, then white key 1: user slot 17 */
+    shot(dir, "10_save_pick");
+    tap_key(0);
+    run(100);
+    shot(dir, "11_saved");
+    const unsigned user = DR_STYLE_SLOTS;
+    fresh = fresh && !memcmp(engine.drums.pattern[user].hit, engine.drums.pattern[2].hit, sizeof engine.drums.pattern[2].hit);
     static el_engine_t loaded;
     el_init(&loaded);
+    el_generate_all(&loaded, 12345u);      /* another power-up: other style grooves */
     int r = el_store_load(&loaded);
-    int same = r == 0 && !memcmp(loaded.drums.pattern, engine.drums.pattern, sizeof loaded.drums.pattern);
+    int same = fresh && r == 0 && !memcmp(&loaded.drums.pattern[user], &engine.drums.pattern[user],
+                                          DR_USER_SLOTS * sizeof(dr_pattern_t));
     for (unsigned t = 0; t < EL_TRACKS; ++t)
-        same = same && !memcmp(loaded.track[t].pattern, engine.track[t].pattern, sizeof loaded.track[t].pattern) &&
+        same = same && !memcmp(&loaded.track[t].pattern[user], &engine.track[t].pattern[user], DR_USER_SLOTS * sizeof(st_pattern_t)) &&
                !memcmp(loaded.track[t].part.v, engine.track[t].part.v, MP_COUNT) &&
                loaded.track[t].muted == engine.track[t].muted && loaded.track[t].level_value == engine.track[t].level_value;
     same = same && !memcmp(loaded.fx.v, engine.fx.v, FX_PARAMS);

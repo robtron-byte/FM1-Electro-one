@@ -25,6 +25,10 @@ int el_fm1_control(void)
     if (!ready) {
         /* FM1 Open's groove_screen_init() has started the panel and LCD. */
         el_init(&engine);
+        /* New grooves in the style slots at every power-up: seed from the
+         * boot time and the MASTER knob position. User slots come from Flash. */
+        fm1_controls_read(&controls);
+        el_generate_all(&engine, fm1_millis() * 2654435761u ^ (uint32_t)controls.knob * 40503u ^ 0x6a09e667u);
         el_store_load(&engine);
         el_ui_init(&ui, &engine);
         ui.save = el_store_save;

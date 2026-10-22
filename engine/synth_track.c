@@ -6,6 +6,7 @@
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "synth_track.h"
+#include "drums.h"
 #include <string.h>
 
 void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
@@ -233,18 +234,46 @@ static void melodic(st_step_t *s, unsigned style, unsigned density, uint32_t *r,
     }
 }
 
-/* Strings: four-chord electro / Detroit progressions in minor, written as
- * (root offset, chord slot + 1). m7 = 1, m9 = 2, MIN = 3, 5+8 = 4, 4THS = 5,
- * 7SUS4 = 6, MAJ7 = 7, m7b5 = 8. */
-static const int8_t progressions[8][4][2] = {
-    {{0, 2}, {-4, 7}, {-2, 6}, {5, 1}},     /* i9 - VImaj7 - VIIsus - iv7 */
-    {{0, 1}, {5, 1}, {-4, 7}, {-5, 1}},     /* i7 - iv7 - VImaj7 - v7 */
-    {{0, 2}, {-2, 4}, {-4, 7}, {-2, 6}},    /* i9 - VII5 - VImaj7 - VIIsus */
-    {{0, 1}, {3, 7}, {-2, 6}, {-4, 7}},     /* i7 - IIImaj7 - VIIsus - VImaj7 */
-    {{0, 2}, {0, 6}, {-4, 7}, {-5, 2}},     /* i9 - isus - VImaj7 - v9 */
-    {{0, 1}, {-2, 5}, {-4, 5}, {-2, 5}},    /* stacked 4ths, Kraftwerk-cool */
-    {{0, 2}, {-4, 2}, {3, 7}, {-2, 6}},     /* i9 - vi9 - IIImaj7 - VIIsus */
-    {{0, 1}, {0, 2}, {5, 2}, {-2, 6}},      /* i7 - i9 - iv9 - VIIsus */
+/* Strings harmony: four-chord loops per family, as (semitones above the
+ * tonic, chord slot + 1, bars). Chord slots: 1 m7, 2 m9, 3 MIN, 4 5+8,
+ * 5 4THS, 6 7SUS4, 7 MAJ7, 8 m7b5, 9 MAJ, 10 SUS2, 11 ADD9, 12 MAJ9, 13 7.
+ * ROTHER: dark minor, long chords over the tonic, phrygian bII, sus and
+ *   quartal colours. KRAFT: plain triads, two-chord swings (The Model:
+ *   i - v), sus2 over the tonic and a maj7 interlude (Computer Love), minor
+ *   bVI (The Robots), mediant shifts (Europe Endless). Loops marked with a
+ *   song are approximations from community chord sheets; the rest follow
+ *   the described harmonic language. ELECTRO: Detroit / Miami minor loops. */
+static const int8_t progressions[DR_HARMONIES][8][4][3] = {
+    { /* ROTHER */
+        {{0, 2, 2}, {0, 2, 2}, {1, 7, 2}, {0, 1, 2}},     /* phrygian drone */
+        {{0, 1, 2}, {8, 7, 2}, {3, 12, 2}, {10, 6, 2}},
+        {{0, 4, 1}, {0, 4, 1}, {1, 4, 1}, {10, 4, 1}},    /* power-fifth stab drone */
+        {{0, 2, 2}, {5, 2, 2}, {0, 2, 2}, {7, 1, 2}},     /* i - iv - i - v */
+        {{0, 5, 1}, {10, 5, 1}, {8, 5, 1}, {7, 5, 1}},    /* parallel 4ths falling */
+        {{0, 1, 2}, {3, 7, 2}, {8, 7, 2}, {1, 9, 2}},
+        {{0, 10, 2}, {0, 1, 2}, {8, 11, 2}, {10, 10, 2}},
+        {{0, 2, 2}, {9, 8, 2}, {8, 7, 2}, {7, 6, 2}},
+    },
+    { /* KRAFT */
+        {{0, 3, 1}, {7, 3, 1}, {0, 3, 1}, {7, 3, 1}},     /* The Model: i - v */
+        {{0, 3, 2}, {5, 10, 2}, {0, 3, 2}, {5, 10, 2}},   /* Computer Love verse */
+        {{8, 7, 1}, {8, 9, 1}, {3, 9, 1}, {10, 9, 1}},    /* Computer Love interlude */
+        {{0, 3, 2}, {8, 3, 2}, {5, 3, 2}, {7, 9, 2}},     /* The Robots colours */
+        {{0, 3, 2}, {8, 9, 2}, {5, 3, 2}, {3, 9, 2}},     /* Radioactivity colours */
+        {{0, 3, 1}, {3, 9, 1}, {5, 9, 1}, {10, 9, 1}},    /* Tour de France colours */
+        {{0, 3, 2}, {4, 9, 2}, {8, 9, 2}, {4, 9, 2}},     /* Europe Endless mediants */
+        {{0, 3, 2}, {10, 9, 2}, {8, 9, 2}, {10, 9, 2}},   /* parallel triads */
+    },
+    { /* ELECTRO */
+        {{0, 2, 1}, {-4, 7, 1}, {-2, 6, 1}, {5, 1, 1}},
+        {{0, 1, 1}, {5, 1, 1}, {-4, 7, 1}, {-5, 1, 1}},
+        {{0, 2, 1}, {-2, 4, 1}, {-4, 7, 1}, {-2, 6, 1}},
+        {{0, 1, 1}, {3, 7, 1}, {-2, 6, 1}, {-4, 7, 1}},
+        {{0, 2, 1}, {0, 6, 1}, {-4, 7, 1}, {-5, 2, 1}},
+        {{0, 1, 1}, {-2, 5, 1}, {-4, 5, 1}, {-2, 5, 1}},
+        {{0, 2, 1}, {-4, 2, 1}, {3, 7, 1}, {-2, 6, 1}},
+        {{0, 1, 1}, {0, 2, 1}, {5, 2, 1}, {-2, 6, 1}},
+    },
 };
 
 /* Pick the inversion that keeps the chord closest to the previous one
@@ -272,51 +301,56 @@ static uint8_t voice_lead(int root, unsigned type, const int16_t *prev, unsigned
     return best;
 }
 
-static void strings(st_pattern_t *out, unsigned style, unsigned density, uint32_t *r, int root)
+static void strings(st_pattern_t *out, unsigned style, unsigned density, uint32_t *r, int root, unsigned harmony)
 {
-    const int8_t (*prog)[2] = progressions[rnd(r) % 8u];
+    const int8_t (*prog)[3] = progressions[harmony < DR_HARMONIES ? harmony : 0][rnd(r) % 8u];
     int16_t prev[MKS_CHORD_NOTES];
-    unsigned prev_count = 0;
+    unsigned prev_count = 0, bars[4], total = 0;
     uint8_t chords[4];
     int roots[4];
     for (unsigned k = 0; k < 4; ++k) {
-        roots[k] = root + prog[k][0];
+        int offset = prog[k][0];
+        if (offset > 6) offset -= 12;              /* stay near the tonic */
+        roots[k] = root + offset;
         chords[k] = voice_lead(roots[k], (unsigned)prog[k][1], prev, prev_count);
         prev_count = st_chord_notes(roots[k], chords[k], prev);
+        bars[k] = (unsigned)prog[k][2];
+        total += bars[k];
     }
+    unsigned step = 0;
     switch (style) {
-    case 0:   /* PADS: one held chord per bar, four bars */
-    case 1:   /* SLOW: one held chord per two bars, eight bars */
+    case 0:   /* PADS: held chords, one step per bar */
+    case 1:   /* SLOW: the same at two bars per step */
         out->rate = style ? ST_RATE_2BARS : ST_RATE_BAR;
-        out->length = 4;
         out->gate = 100;
-        for (unsigned k = 0; k < 4; ++k) set(&out->step[k], roots[k], 0, k == 0, k != 3, chords[k]);
-        /* Denser settings change chords twice as often (8 steps of half). */
-        if (style == 0 && density > 100) {
-            out->rate = ST_RATE_HALF;
-            out->length = 8;
-            for (unsigned k = 0; k < 8; ++k) set(&out->step[k], roots[k / 2], 0, k == 0, k != 7, chords[k / 2]);
-        }
+        for (unsigned k = 0; k < 4; ++k)
+            for (unsigned b = 0; b < bars[k]; ++b, ++step) set(&out->step[step], roots[k], 0, k == 0 && b == 0, step + 1u < total, chords[k]);
+        out->length = (uint8_t)total;
+        (void)density;
         break;
-    case 2:   /* PULSE: repeated 8th chords, a new chord each bar (4 bars) */
-        out->rate = ST_RATE_8TH;
-        out->length = 32;
+    case 2: { /* PULSE: repeated chords, a new chord per bar of the progression */
+        unsigned per_bar = total * 8u <= ST_STEPS ? 8u : 4u;
+        out->rate = per_bar == 8u ? ST_RATE_8TH : ST_RATE_QUARTER;
         out->gate = 60;
-        for (unsigned i = 0; i < 32; ++i) set(&out->step[i], roots[i / 8], 0, i % 8 == 0, 0, chords[i / 8]);
+        for (unsigned k = 0; k < 4; ++k)
+            for (unsigned i = 0; i < bars[k] * per_bar; ++i, ++step) set(&out->step[step], roots[k], 0, i % per_bar == 0, 0, chords[k]);
+        out->length = (uint8_t)step;
         break;
-    default: {/* STABS: euclidean 16th stabs, chord per half bar */
+    }
+    default: {/* STABS: euclidean 16th stabs over the first two chords */
         unsigned hits = 3u + rnd(r) % 3u + density / 64u, rotate = rnd(r) % 3u;
         out->rate = ST_RATE_16TH;
         out->length = 16;
         out->gate = 35;
         for (unsigned i = 0; i < 16; ++i)
-            if (!i || euclid(hits, 16, rotate, i)) set(&out->step[i], roots[(i / 8) * 2], 0, !i || chance(r, 300), 0, chords[(i / 8) * 2]);
+            if (!i || euclid(hits, 16, rotate, i)) set(&out->step[i], roots[i / 8], 0, !i || chance(r, 300), 0, chords[i / 8]);
         break;
     }
     }
 }
 
-void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length)
+void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
+                 unsigned harmony)
 {
     uint32_t r = seed ? seed : 0x2545f491u;
     int root = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : (style == 2 ? 72 : 60);
@@ -325,7 +359,7 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
     out->gate = area == MKS_AREA_STRINGS ? 90 : area == MKS_AREA_BASS ? 55 : 40;
     for (unsigned s = 0; s < ST_STEPS; ++s) out->step[s].note = (uint8_t)root;
     out->rate = ST_RATE_16TH;
-    if (area == MKS_AREA_STRINGS) { strings(out, style % ST_STYLES, density, &r, root); return; }
+    if (area == MKS_AREA_STRINGS) { strings(out, style % ST_STYLES, density, &r, root, harmony); return; }
     melodic(out->step, style % ST_STYLES, density, &r, root);
     /* Longer patterns: repeat with a small variation per bar. */
     for (unsigned bar = 16; bar < out->length; bar += 16) {

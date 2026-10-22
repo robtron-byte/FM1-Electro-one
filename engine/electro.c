@@ -19,26 +19,44 @@ void el_init(el_engine_t *e)
     mb_init(&e->mix);
     static const uint8_t voices[EL_TRACKS] = {3, 4, 2};
     for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
-    el_factory_tracks(e);
-    e->transport.swing = e->drums.pattern[0].swing;
+    el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
 }
 
-/* Factory synth parts for the drum grooves: generator style per area
- * (rhythm, strings, bass), key and default sounds. */
+/* Default sounds per area. */
 static const char *const default_sounds[EL_TRACKS] = {"S&H BLEEP", "JX STRINGS", "ROBO BASS"};
-static const uint8_t factory_styles[DR_PATTERNS][EL_TRACKS] = {
-    /* rhythm style, strings style (0 PADS, 1 SLOW, 2 PULSE, 3 STABS), bass style */
-    {2, 0, 1}, {2, 0, 0}, {0, 1, 0}, {0, 1, 0}, {0, 0, 0}, {2, 2, 0}, {2, 0, 1}, {2, 0, 1},
-    {3, 1, 3}, {0, 1, 1}, {2, 1, 1}, {2, 0, 0}, {3, 2, 3}, {2, 0, 1}, {2, 0, 1}, {2, 0, 1},
-    {2, 1, 1}, {2, 0, 1}, {2, 1, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 /* Generator density per area: the rhythmic sounds stay sparse. */
-static const uint8_t factory_density[EL_TRACKS] = {28, 64, 56};
-static const int8_t factory_keys[DR_PATTERNS] = {0, 2, -3, 1, -5, 3, 0, -2, 5, -3, -4, 2, -5, -2, 0, 0,
-                                                 -3, 2, -5, 0, 0, 0, 0, 0};
+static const uint8_t gen_density[EL_TRACKS] = {28, 64, 56};
+/* Keys a generated groove may land in: C D A E G F Bb Eb (minor). */
+static const int8_t gen_keys[8] = {0, 2, -3, 4, -5, 5, -2, 3};
 
-void el_factory_tracks(el_engine_t *e)
+static uint32_t mix_seed(uint32_t s)
 {
+    s ^= s >> 16; s *= 0x7feb352du; s ^= s >> 15; s *= 0x846ca68bu; s ^= s >> 16;
+    return s ? s : 0x9e3779b9u;
+}
+
+void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL_TRACKS])
+{
+    const dr_style_t *s = &dr_styles[d->style < DR_STYLES ? d->style : 0];
+    const uint8_t styles[EL_TRACKS] = {s->rhythm_style, s->strings_style, s->bass_style};
+    int key = gen_keys[mix_seed(seed) % 8u];
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        st_pattern_t *p = &out[i];
+        st_generate(p, i + 1u, styles[i], gen_density[i], mix_seed(seed + 7919u * (i + 1u)), d->length, s->harmony);
+        for (unsigned k = 0; k < ST_STEPS; ++k) p->step[k].note = (uint8_t)el_clampi(p->step[k].note + key, 0, 127);
+    }
+}
+
+void el_generate_all(el_engine_t *e, uint32_t seed)
+{
+    for (unsigned slot = 0; slot < DR_STYLE_SLOTS; ++slot) {
+        uint32_t s = mix_seed(seed + 0x632be5abu * (slot + 1u));
+        dr_generate(&e->drums.pattern[slot], slot, 24, s, NULL);
+        st_pattern_t parts[EL_TRACKS];
+        el_generate_parts(&e->drums.pattern[slot], s ^ 0x5bd1e995u, parts);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].pattern[slot] = parts[i];
+    }
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
         for (unsigned p = 0; p < mks_preset_count; ++p)
@@ -46,15 +64,8 @@ void el_factory_tracks(el_engine_t *e)
                 mks_part_load(&t->part, mks_presets[p].v);
                 t->preset = (uint8_t)p;
             }
-        for (unsigned slot = 0; slot < DR_PATTERNS; ++slot) {
-            const dr_pattern_t *d = &e->drums.pattern[slot];
-            st_pattern_t *p = &t->pattern[slot];
-            if (!d->hit[D8_BD] && !d->hit[D8_CH]) continue; /* empty slots stay empty */
-            st_generate(p, i + 1u, factory_styles[slot][i], factory_density[i], 0x9e3779b9u * (slot + 1u) + i * 7919u, d->length);
-            for (unsigned s = 0; s < ST_STEPS; ++s)
-                p->step[s].note = (uint8_t)el_clampi(p->step[s].note + factory_keys[slot], 0, 127);
-        }
     }
+    e->transport.swing = e->drums.pattern[e->drums.current].swing;
 }
 
 static void stage_patch(el_engine_t *e, unsigned preset)
@@ -245,6 +256,18 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_MIX:
         e->mix.enabled = c->a ? 1 : 0;
+        break;
+    case EL_CMD_SLOT_COPY:
+        if (c->a < DR_PATTERNS && c->b < DR_PATTERNS && c->a != c->b) {
+            char name[DR_NAME + 1];
+            memcpy(name, e->drums.pattern[c->b].name, sizeof name);
+            e->drums.pattern[c->b] = e->drums.pattern[c->a];
+            if (c->c) memcpy(e->drums.pattern[c->b].name, name, sizeof name); /* user slot keeps its name */
+            for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].pattern[c->b] = e->track[i].pattern[c->a];
+            ++e->drums.revision;
+        }
+        EL_FENCE();
+        ++e->slot_copies;
         break;
     default:
         break;

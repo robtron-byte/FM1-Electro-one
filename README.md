@@ -44,10 +44,20 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 |---|---|---|---|
 | **BEAT** | FX | 808-Drum-Machine (11 Instrumente, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
 | **RHYTHM** | SCL | MKS-50-Engine, 3 Stimmen: Zaps, Stabs, Bleeps, S&H-Sequenzen, Perc (30 Sounds) | Noten-Steps mit Akzent und Tie |
-| **STRINGS** | ENV | MKS-50-Engine, 4 Stimmen: JX-Strings, Pads, Brass (16 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5) und Umkehrung |
+| **STRINGS** | ENV | MKS-50-Engine, 4 Stimmen: JX-Strings, Pads, Brass (16 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
 | **BASS** | LFO | MKS-50-Engine, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
 
-Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`). 24 Pattern-Plätze in zwei Bänken (1–16 und 17–24). Die Werk-Patterns sind bewusst minimal gehalten, im Stil von klassischem Electro, Kraftwerk und Miami Bass: ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, DROWNED, EBM, BOOM BASS, ROBOT, BUILD UP, MIAMI 2, PERFECT und PERFECT 2. PERFECT und PERFECT 2 sind im Stil von Afrika Bambaataas „Looking for the Perfect Beat“ (120 BPM, Clap über Snare, Cowbell-Figur, Tom-Lauf). MIAMI, MIAMI 2 und BOOM BASS stehen für die Miami-Bass-Klassiker (125–136 BPM, lange Boom-Kick als Bass, Clap mit Rimshot, löchrige 16tel-Hats). In Bank 2 stehen EGYPT (127 BPM, im Stil von „Egypt, Egypt“), FREAKY (128 BPM, „Freak-A-Holic“/„Girls“) und LOVE (125 BPM, „Computer Love“/„Planet E“) im Stil von Egyptian Lover, dazu fünf leere Plätze. Das sind Rekonstruktionen aus den typischen Merkmalen, keine Transkriptionen der Platten. Kick, Snare oder Clap und Hi-Hats tragen den Groove, Percussion kommt nur dort vor, wo der Stil sie braucht. Jedes Pattern hat ab Werk passende RHYTHM-, STRINGS- und BASS-Spuren aus dem Generator, die rhythmischen Sounds sparsam. Die Streicher spielen ab Werk lange Akkordfolgen (meist ein Akkord pro Takt oder pro zwei Takte, über 4 bzw. 8 Takte) aus typischen Electro-/Detroit-Progressionen in Moll, mit Umkehrungen für eine ruhige Stimmführung. Generator-Stile für STRINGS: PADS, SLOW, PULSE, STABS. Auch der Groove-Generator baut nur noch Kick, Snare/Clap und Hats, Rolls nur bei hoher Dichte. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
+Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`).
+
+**Generierte Grooves statt fester Patterns.** 24 Pattern-Plätze in zwei Bänken. Die Plätze 1–16 sind Stil-Plätze: Bei jedem Einschalten erzeugt der Generator dort neue Grooves, jeder Platz in seinem Stil (`engine/drum_factory.c`): ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, MIAMI 2, BOOM BASS, DROWNED, ROBOT, PERFECT, EGYPT, FREAKY, LOVE. Jeder Stil bringt Tempo, Swing, Kit, Länge, typische Varianten pro Instrument und eine Akkordfamilie mit. Der Generator wählt daraus und variiert leicht (Geister-Kick, versetzte Hat, Open-Hat-Auftakt); Downbeats, Backbeat und die Figur des Stils bleiben. Zu jedem Beat entstehen passende RHYTHM-, STRINGS- und BASS-Spuren, alles in einer gemeinsamen Moll-Tonart (C, D, A, E, G, F, B♭ oder E♭). **HOME + ARP + weiße Taste** erzeugt für diesen Platz sofort einen neuen Groove. Die Plätze 17–24 sind User-Plätze: **SAVE und danach weiße Taste 1–8** legt den laufenden Groove (Beat und alle drei Synth-Spuren) dort ab und speichert ihn mit allen Einstellungen im Flash. SAVE zweimal speichert nur die Einstellungen. Gespeichert werden nur die User-Plätze, Klänge, Pegel, Effekte, Tempo und Kit, nicht die Stil-Plätze.
+
+**Akkordfolgen im Stil von Anthony Rother und Kraftwerk.** Die Streicher spielen Vier-Akkord-Schleifen mit einem oder zwei Takten pro Akkord (PADS: ein Step pro Takt, SLOW: ein Step pro zwei Takte, PULSE: Achtel bzw. Viertel, STABS: 16tel), mit automatischer Stimmführung über die Umkehrungen. Jeder Stil wählt eine von drei Familien mit je acht Schleifen (`engine/synth_track.c`):
+
+- **ROTHER** (ELECTRO, ROTHER, DROWNED): dunkles Moll, lange Akkorde über dem Grundton, phrygische ♭II, Sus- und Quarten-Klänge, fallende parallele Quarten, Quint-Oktav-Drones.
+- **KRAFT** (NUMBERS, TRANS EUR, TOUR, COMPUTER, ROBOT, LOVE): schlichte Dreiklänge, Zwei-Akkord-Pendel (i–v wie „The Model“), Moll mit Sus2 und ein Maj7-Zwischenspiel wie in „Computer Love“, Moll-♭VI wie bei „The Robots“, Mediant-Rückungen wie „Europe Endless“.
+- **ELECTRO** (BRONX 82, MIAMI, MIAMI 2, BOOM BASS, PERFECT, EGYPT, FREAKY): Detroit- und Miami-Moll-Schleifen mit m7, m9, Maj7 und 7sus4.
+
+Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und aus Akkord-Sheets der Community, keine Transkriptionen der Platten. Der Bass bleibt als Ostinato auf dem Grundton, die Akkorde bewegen sich darüber. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
 
 ### Bedienung
 
@@ -57,11 +67,11 @@ Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`too
 |---|---|
 | FX / SCL / ENV / LFO | Bereich BEAT / RHYTHM / STRINGS / BASS. Nochmal drücken: nächste Klangseite |
 | GLO + Bereichstaste | Bereich stumm / wieder an |
-| HOME | Übersicht: alle vier Spuren, Pegel, Mute. Weiße Tasten wählen das Pattern, OCT − / + schaltet die Bank (1–16 / 17–24), schwarze Tasten 1–4 schalten die Bereiche stumm. E3–E6 Pegel, GLO + E3–E6 Delay-Zeit, Feedback, Hallgröße, Hallzeit; E7 Hall-Anteil (GLO: Delay-Anteil) |
+| HOME | Übersicht: alle vier Spuren, Pegel, Mute. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove, OCT − / + schaltet die Bank (Stile 1–16 / User 17–24), schwarze Tasten 1–4 schalten die Bereiche stumm. E3–E6 Pegel, GLO + E3–E6 Delay-Zeit, Feedback, Hallgröße, Hallzeit; E7 Hall-Anteil (GLO: Delay-Anteil) |
 | PLAY | Start/Stop |
 | REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
 | ARP halten | Generator für den aktuellen Bereich: E3 Stil, E4 Dichte, weiße Taste erzeugt eine neue Spur |
-| SAVE | alles im Flash speichern |
+| SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: nur Einstellungen |
 | E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
 **BEAT:** schwarze Taste wählt und spielt ein Instrument, weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
@@ -76,7 +86,7 @@ Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`too
 | REC | läuft: live einspielen (quantisiert). Steht: Noten Schritt für Schritt eingeben, EDIT + Taste = Pause | – |
 | E7 | Sound wählen (GLO: Pattern-Länge) | Sound wählen |
 | GLO + E1 | Notenlänge (Gate) | Notenlänge |
-| STRINGS | GLO + weiße Taste 1–9 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten). GLO + E1: Schrittlänge 1/16 … 2 Takte | E5 Akkordtyp, E6 Umkehrung, GLO + weiß: halten/neu anschlagen |
+| STRINGS | GLO + weiße Taste 1–14 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten). GLO + E1: Schrittlänge 1/16 … 2 Takte | E5 Akkordtyp, E6 Umkehrung, GLO + weiß: halten/neu anschlagen |
 
 Die Encoder-Nummern E1–E7 folgen der Nummerierung im FM1-Open-Code. Wo sie physisch sitzen, prüfe ich am ersten Geräte-Build. Die Bereichstasten FX/SCL/ENV/LFO tragen am Gerät ihre alten Namen. Das Display zeigt die Bereiche als Reiter.
 
@@ -110,7 +120,7 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhä
 
 Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
 
-**Speicherplatz im Flash:** FM1-Electro speichert zwei Kopien zu je zwei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 12–15 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+**Speicherplatz im Flash:** FM1-Electro speichert die User-Plätze und Einstellungen (3,5 KB) in zwei Kopien zu je einem 4-KB-Sektor hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 13–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 

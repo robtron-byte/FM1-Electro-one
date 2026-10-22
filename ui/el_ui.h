@@ -24,6 +24,14 @@ typedef struct {
     uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];
     int8_t octave[EL_AREAS];
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
+    /* New groove for a whole slot: posted piece by piece (drums, then the
+     * three synth parts), one staging buffer at a time. */
+    uint8_t job_slot, job_stage;        /* stage 0 = idle */
+    dr_pattern_t job_drums;
+    st_pattern_t job_parts[EL_TRACKS];
+    /* SAVE: pick a user slot with a white key, wait for the copy, store. */
+    uint8_t save_pick, save_pending;
+    uint32_t save_copies;
     uint8_t key_note[UI_KEYS];          /* note sent for each held key, 0xff = none */
     uint8_t key_track[UI_KEYS];
     uint32_t prev_buttons, prev_keys;

@@ -41,7 +41,9 @@ enum el_command {
     EL_CMD_TRACK_CLEAR,  /* clear the current pattern */
     EL_CMD_RECORD_AREA,  /* a = area 0 beat .. 3 bass, b = on; other areas disarm */
     EL_CMD_FX,           /* a = fx parameter, value */
-    EL_CMD_MIX           /* a = 1: mix and master processing on, 0: off (A/B) */
+    EL_CMD_MIX,          /* a = 1: mix and master processing on, 0: off (A/B) */
+    EL_CMD_SLOT_COPY     /* a = source slot, b = destination: drums and all synth
+                          * parts; c = 1 keeps the destination's name */
 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
@@ -60,12 +62,18 @@ typedef struct {
     el_queue_t midi_queue;  /* from the MIDI routing task */
     float master;
     volatile uint32_t blocks;
+    volatile uint32_t slot_copies;       /* bumps after every EL_CMD_SLOT_COPY */
 } el_engine_t;
 
 /* Control task, before audio starts. */
 void el_init(el_engine_t *e);
-/* Control task, before audio starts: factory synth parts for all patterns. */
-void el_factory_tracks(el_engine_t *e);
+/* Control task, before audio starts: generate every style slot (drums and
+ * the three synth parts, in the style's harmony) and load the default
+ * sounds. User slots are left alone. */
+void el_generate_all(el_engine_t *e, uint32_t seed);
+/* Control task: the three synth parts (rhythm, strings, bass) that go with
+ * a drum groove, from its style. */
+void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL_TRACKS]);
 /* Control task. Returns 0, or -1 when the queue is full. */
 int el_post(el_engine_t *e, uint8_t type, uint8_t a, int16_t value);
 int el_post3(el_engine_t *e, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value);

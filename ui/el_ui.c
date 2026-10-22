@@ -6,10 +6,13 @@
  *                         active one again for the next sound page
  *   GLO + area button     mute / unmute that area
  *   HOME                  overview (white keys pick patterns, OCT -/+ bank 1-16 / 17-24,
- *                         black keys 1-4 mute areas)
+ *                         black keys 1-4 mute areas). Slots 1-16 are generated in
+ *                         their style at power-up; ARP + white key = new groove
+ *                         for that slot (drums, rhythm, strings, bass).
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
  *   ARP held              generator: E3 style, E4 density, white key = new part
- *   SAVE                  store everything in Flash
+ *   SAVE                  then white key 1-8: store the playing groove in user slot
+ *                         17-24 plus all settings in Flash (SAVE again: settings only)
  *   E1 pattern (all areas)   E2 tempo (GLO: fine)
  *
  * BEAT    black keys pick + play a drum, white keys set steps.
@@ -18,7 +21,7 @@
  * RHYTHM / STRINGS / BASS
  *   KEYS  (SEQ off) all keys play the sound, OCT -/+ octave. REC while running
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
- *         STRINGS: GLO + white key 1-9 picks the chord (1 = single notes).
+ *         STRINGS: GLO + white key 1-14 picks the chord (1 = single notes).
  *   STEP  (SEQ on) white keys switch steps on/off and select them, EDIT + white
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32.
  *         E3 note, E4 octave, E5 chord (STRINGS) or accent, E6 inversion
@@ -84,7 +87,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     ui->octave[EL_AREA_STRINGS] = -1;
     ui->octave[EL_AREA_BASS] = -2;
     for (unsigned a = 0; a < EL_AREAS; ++a) ui->gen_density[a] = 64;
-    ui->gen_style[EL_AREA_BEAT] = DR_STYLE_ROTHER;
+    ui->gen_style[EL_AREA_BEAT] = 6;   /* ROTHER */
     ui->gen_style[EL_AREA_RHYTHM] = 2;
     ui->gen_style[EL_AREA_STRINGS] = 1;
     ui->gen_style[EL_AREA_BASS] = 1;
@@ -212,7 +215,9 @@ static void generate(el_ui_t *ui, unsigned key)
     }
     st_track_t *t = track_of(ui);
     st_pattern_t g;
-    st_generate(&g, ui->area, ui->gen_style[ui->area], ui->gen_density[ui->area], seed, t->pattern[t->current].length);
+    /* Strings follow the chord family of the groove's style. */
+    unsigned harmony = dr_styles[m->pattern[m->current].style % DR_STYLES].harmony;
+    st_generate(&g, ui->area, ui->gen_style[ui->area], ui->gen_density[ui->area], seed, t->pattern[t->current].length, harmony);
     /* Keep the key of the pattern: move the new part to the old root. */
     const st_pattern_t *old = &t->pattern[t->current];
     for (unsigned i = 0; i < old->length; ++i)
@@ -224,6 +229,54 @@ static void generate(el_ui_t *ui, unsigned key)
             break;
         }
     if (el_load_pattern(e, ui->area - 1u, t->current, &g) == 0) notice(ui, "NEW PART");
+}
+
+/* Whole-slot groove: style slots keep their style, user slots take the
+ * generator style. Posted by run_jobs over the next passes. */
+static void generate_slot(el_ui_t *ui, unsigned slot)
+{
+    if (ui->job_stage) return;
+    uint32_t seed = ui->now * 2654435761u + slot * 40503u + 1u;
+    unsigned style = slot < DR_STYLE_SLOTS ? ui->engine->drums.pattern[slot].style : ui->gen_style[EL_AREA_BEAT];
+    dr_generate(&ui->job_drums, style, 24u + ui->gen_density[EL_AREA_BEAT] / 4u, seed, NULL);
+    el_generate_parts(&ui->job_drums, seed ^ 0x5bd1e995u, ui->job_parts);
+    ui->job_slot = (uint8_t)slot;
+    ui->job_stage = 1;
+    dr_post(&ui->engine->drums, DR_CMD_SELECT, (uint8_t)slot, 0, 0, 0);
+}
+
+static void run_jobs(el_ui_t *ui)
+{
+    el_engine_t *e = ui->engine;
+    while (ui->job_stage) {
+        int r = ui->job_stage == 1 ? dr_post_pattern(&e->drums, ui->job_slot, &ui->job_drums)
+                                   : el_load_pattern(e, ui->job_stage - 2u, ui->job_slot, &ui->job_parts[ui->job_stage - 2u]);
+        if (r) break;   /* staging busy: next pass */
+        if (++ui->job_stage > 1u + EL_TRACKS) {
+            ui->job_stage = 0;
+            notice(ui, "NEW GROOVE");
+        }
+    }
+    if (ui->save_pending && (int32_t)(e->slot_copies - ui->save_copies) >= 0) {
+        ui->save_pending = 0;
+        notice(ui, ui->save && ui->save(e) == 0 ? "SAVED TO USER SLOT" : "SAVE FAILED");
+    }
+}
+
+static void save_to_user(el_ui_t *ui, unsigned user)
+{
+    el_engine_t *e = ui->engine;
+    unsigned src = e->drums.current, dst = DR_STYLE_SLOTS + user;
+    ui->save_pick = 0;
+    if (user >= DR_USER_SLOTS || !ui->save) return;
+    if (src == dst) {
+        notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");
+        return;
+    }
+    uint32_t expect = e->slot_copies + 1u;
+    if (el_post3(e, EL_CMD_SLOT_COPY, (uint8_t)src, (uint8_t)dst, 0, 0)) { notice(ui, "BUSY, TRY AGAIN"); return; }
+    ui->save_copies = expect;
+    ui->save_pending = 1;
 }
 
 static void browse_preset(el_ui_t *ui, int delta)
@@ -347,7 +400,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->cursor[ui->area] = 0;
         }
     }
-    if ((pressed & BIT(BTN_SAVE)) && ui->save) notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");
+    if ((pressed & BIT(BTN_SAVE)) && ui->save) {
+        if (!ui->save_pick) {
+            ui->save_pick = 1;
+            notice(ui, "SAVE: WHITE KEY 1-8");
+        } else {
+            ui->save_pick = 0;
+            notice(ui, ui->save(e) == 0 ? "SETTINGS SAVED" : "SAVE FAILED");
+        }
+    }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
         release_keys(ui, ~0u);
         ui->step_mode[ui->area] = !ui->step_mode[ui->area];
@@ -370,7 +431,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
-        if (ui->overview) {
+        if (ui->save_pick) {
+            int w = key_white(key);
+            if (w >= 0) save_to_user(ui, (unsigned)w);
+            else { ui->save_pick = 0; notice(ui, "SAVE CANCELLED"); }
+        } else if (ui->overview && (hold & HOLD_GEN)) {
+            int w = key_white(key);
+            if (w >= 0 && ui->bank * 16u + (unsigned)w < DR_PATTERNS) generate_slot(ui, ui->bank * 16u + (unsigned)w);
+        } else if (ui->overview) {
             int w = key_white(key), b = key_black(key);
             if (w >= 0 && ui->bank * 16u + (unsigned)w < DR_PATTERNS)
                 dr_post(m, DR_CMD_SELECT, (uint8_t)(ui->bank * 16u + (unsigned)w), 0, 0, 0);
@@ -494,7 +562,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
             mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
     }
     mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16);
-    mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0));
+    mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->save_pick << 31);
     for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
     unsigned a = ui->overview ? 0 : ui->area;
     mix(&sig[2], ui->gen_style[a] | (uint32_t)ui->gen_density[a] << 8 | (uint32_t)ui->gen_keep << 16);
@@ -772,7 +840,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
             if (on) gfx_fill(b, x + 2, accent ? cy + 2 : cy + 6, 8, accent ? 13 : 9, color);
         }
     }
-    gfx_text(b, 4, 180, ui->bank ? "KEYS: PATTERN 17-24  OCT: BANK" : "KEYS: PATTERN 1-16  OCT: BANK", DIM, 1);
+    gfx_text(b, 4, 180, ui->bank ? "KEYS: USER 17-24  ARP+KEY: NEW" : "KEYS: STYLE 1-16  ARP+KEY: NEW", DIM, 1);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)
@@ -783,7 +851,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (ui->hold & HOLD_GEN) {
         int beat = a == EL_AREA_BEAT;
         gfx_text(b, 4, FOOT_Y, "STYLE", DIM, 1);
-        gfx_text(b, 4, FOOT_Y + 12, beat ? dr_style_names[ui->gen_style[a]] : st_style_name(a, ui->gen_style[a]), ACCENT, 1);
+        gfx_text(b, 4, FOOT_Y + 12, beat ? dr_styles[ui->gen_style[a]].name : st_style_name(a, ui->gen_style[a]), ACCENT, 1);
         gfx_text(b, 64, FOOT_Y, "DENS", DIM, 1);
         snprintf(value, sizeof value, "%u", ui->gen_density[a]);
         gfx_text(b, 64, FOOT_Y + 12, value, ACCENT, 2);
@@ -811,6 +879,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         }
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
+    if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8, SAVE: SETTINGS";
     char line[48];
     if (!hint) {
         if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX";
@@ -826,7 +895,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             snprintf(line, sizeof line, "%s %u/%u  E7 SOUND  SEQ=STEP", synth_page_names[ui->page[ui->area]],
                      ui->page[ui->area] + 1u, UI_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE  E7=LENGTH" :
-                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9 CHORD E1=STEP LEN" : "GLO: E1=GATE  E7=LENGTH") :
+                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-14 CHORD E1=STEP LEN" : "GLO: E1=GATE  E7=LENGTH") :
                    (ui->hold & HOLD_EDIT) ? "EDIT: KEY=ACCENT/REST" : line;
         }
     }
@@ -867,6 +936,7 @@ void el_ui_control(el_ui_t *ui, const struct fm1_controls *controls, uint32_t no
 {
     ui->now = now;
     handle_input(ui, controls);
+    run_jobs(ui);
     mark_dirty(ui);
     update_leds(ui);
     paint(ui);

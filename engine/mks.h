@@ -27,7 +27,7 @@ enum mks_param {
     MP_COUNT
 };
 
-enum { MKS_MAX_VOICES = 6, MKS_CHORDS = 8, MKS_CHORD_NOTES = 5, MKS_CHORUS_SIZE = 1024 };
+enum { MKS_MAX_VOICES = 6, MKS_CHORDS = 13, MKS_CHORD_NOTES = 5, MKS_CHORUS_SIZE = 1024 };
 enum { MKS_AREA_RHYTHM = 1, MKS_AREA_STRINGS = 2, MKS_AREA_BASS = 3 };
 
 typedef struct {

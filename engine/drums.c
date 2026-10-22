@@ -70,7 +70,13 @@ void dr_init(dr_machine_t *m)
 {
     memset(m, 0, sizeof *m);
     el_queue_init(&m->queue);
-    for (unsigned i = 0; i < DR_PATTERNS; ++i) dr_factory_pattern(i, &m->pattern[i]);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        if (i < DR_STYLE_SLOTS) dr_generate(&m->pattern[i], i, 0, 0x2545f491u + i, NULL);
+        else {
+            static const char *const names[DR_USER_SLOTS] = {"USER 1", "USER 2", "USER 3", "USER 4", "USER 5", "USER 6", "USER 7", "USER 8"};
+            dr_empty_pattern(&m->pattern[i], names[i - DR_STYLE_SLOTS]);
+        }
+    }
     m->level_value = 100;
     m->level = 100 / 127.0f;
     m->random = 0x2545f491u;
@@ -92,6 +98,13 @@ int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p)
     if (dr_post(m, DR_CMD_LOAD, (uint8_t)slot, 0, 0, 0)) return -1;
     ++m->staging_posted;
     return 0;
+}
+
+/* A pattern brings its kit along (a Miami groove gets the boom kick). */
+static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
+{
+    m->current = (uint8_t)index;
+    if (m->pattern[index].kit != m->kit_index && m->pattern[index].kit < DR_KITS) apply_kit(m, m->pattern[index].kit);
 }
 
 static EL_DSP_CODE void silence(dr_machine_t *m)
@@ -131,7 +144,7 @@ EL_DSP_CODE void dr_rewind(dr_machine_t *m)
     m->pos = 0;
     m->roll_pending = 0;
     m->suppress = 0;
-    if (m->next != m->current) m->current = m->next;
+    if (m->next != m->current) enter(m, m->next);
 }
 
 EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
@@ -147,7 +160,7 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
         if (pos >= p->length) {
             pos = 0;
             if (m->next != m->current) {
-                m->current = m->next;
+                enter(m, m->next);
                 p = &m->pattern[m->current];
             }
         }
@@ -246,7 +259,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_SELECT:
         if (part < DR_PATTERNS) {
             m->next = (uint8_t)part;
-            if (step || !m->playing) m->current = (uint8_t)part;
+            if (step || !m->playing) enter(m, part);
             if (m->pos >= m->pattern[m->current].length) m->pos = 0;
         }
         break;
@@ -269,6 +282,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_KIT:
         apply_kit(m, part);
+        p->kit = (uint8_t)m->kit_index;   /* the pattern keeps the chosen kit */
         break;
     case DR_CMD_LEVEL:
         m->level_value = (uint8_t)el_clampi(c->value, 0, 127);

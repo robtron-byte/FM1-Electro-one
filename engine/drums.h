@@ -17,7 +17,9 @@ enum {
     DR_STEPS = 32,
     DR_PATTERNS = 24,       /* two banks: 1-16 and 17-24 */
     DR_KITS = 4,
-    DR_STYLES = 5,
+    DR_STYLES = 16,
+    DR_STYLE_SLOTS = 16,    /* slots 1-16: generated in their style */
+    DR_USER_SLOTS = 8,      /* slots 17-24: the user's saved grooves */
     DR_NAME = 10
 };
 
@@ -25,7 +27,8 @@ typedef struct {
     char name[DR_NAME + 1];
     uint8_t length;            /* 1..32 steps */
     uint8_t swing;             /* 50..75, loaded into the transport on change */
-    uint8_t kit;               /* suggested kit, applied when loaded from the factory */
+    uint8_t kit;               /* kit, switched to when the pattern starts */
+    uint8_t style;             /* style it was generated in */
     uint32_t hit[DR_PARTS];    /* bit n = step n */
     uint32_t roll[DR_PARTS];   /* extra 32nd hit halfway through the step */
     uint32_t accent;           /* 808-style global accent row */
@@ -52,7 +55,17 @@ enum dr_command {
     DR_CMD_AREA_MUTE    /* b = on: silence the whole beat area */
 };
 
-enum { DR_STYLE_ELECTRO, DR_STYLE_KRAFT, DR_STYLE_ROTHER, DR_STYLE_ROBOT, DR_STYLE_MIAMI };
+/* Harmony family of a style: chord progressions for the strings. */
+enum { DR_HARMONY_ROTHER, DR_HARMONY_KRAFT, DR_HARMONY_ELECTRO, DR_HARMONIES };
+
+typedef struct {
+    const char *name;
+    uint16_t bpm_x10;
+    uint8_t swing, kit, length;
+    uint8_t rhythm_style, strings_style, bass_style, harmony;
+    const char *row[DR_PARTS + 1];   /* '|'-separated alternatives */
+} dr_style_t;
+extern const dr_style_t dr_styles[DR_STYLES];
 
 typedef struct {
     tr808_t kit;
@@ -81,7 +94,6 @@ typedef struct {
 
 extern const char *const dr_part_names[DR_PARTS];
 extern const char *const dr_kit_names[DR_KITS];
-extern const char *const dr_style_names[DR_STYLES];
 
 /* Control task, before audio starts. Loads the factory patterns and kit 0. */
 void dr_init(dr_machine_t *m);
@@ -92,9 +104,10 @@ int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int1
 int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p);
 
 /* Control task helpers (read Flash tables; never call from audio). */
-void dr_factory_pattern(unsigned slot, dr_pattern_t *out);
-/* Build a groove in the given style. density 0..127; seed any value.
- * When keep is non-NULL its bass drum and length are kept. */
+void dr_empty_pattern(dr_pattern_t *out, const char *name);
+/* Generate a groove in a style (dr_styles). variation 0..127 adds ghost
+ * kicks, moved hats and pickups; seed any value. When keep is non-NULL its
+ * bass drum and length are kept. */
 void dr_generate(dr_pattern_t *out, unsigned style, unsigned density, uint32_t seed,
                  const dr_pattern_t *keep);
 

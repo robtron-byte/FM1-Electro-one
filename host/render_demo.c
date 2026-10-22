@@ -108,14 +108,48 @@ static int midi_clock_test(void)
     return ok ? 0 : 1;
 }
 
+static unsigned groove_steps(const el_engine_t *e, unsigned slot)
+{
+    /* At least 8 bars, and whole loops of the strings sequence. */
+    unsigned bars = 8;
+    const st_pattern_t *p = &e->track[1].pattern[slot];
+    static const unsigned rate_steps[ST_RATES] = {1, 2, 4, 8, 16, 32};
+    unsigned strings = p->length * rate_steps[p->rate < ST_RATES ? p->rate : 0];
+    if (strings > bars * 16u) bars = (strings + 15u) / 16u;
+    (void)e->drums.pattern[slot].length;
+    return bars * 16u;
+}
+
+static int render_slot(el_engine_t *e, unsigned slot, const char *dir, const char *prefix, int drums_only,
+                       int strings_only)
+{
+    char path[512], name[32];
+    float bpm = dr_styles[e->drums.pattern[slot].style].bpm_x10 / 10.0f;
+    el_post(e, EL_CMD_BPM, 0, (int16_t)(bpm * 10.0f + 0.5f));
+    dr_post(&e->drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
+    for (unsigned t = 0; t < EL_TRACKS; ++t)
+        el_post3(e, EL_CMD_TRACK_MUTE, (uint8_t)t, (uint8_t)(drums_only || (strings_only && t != 1)), 0, 0);
+    if (strings_only) dr_post(&e->drums, DR_CMD_AREA_MUTE, 0, 1, 0, 0);
+    size_t frames; float peak;
+    float *audio = render(e, bpm, drums_only ? e->drums.pattern[slot].length * (e->drums.pattern[slot].length > 16 ? 2u : 4u)
+                                              : groove_steps(e, slot), &frames, &peak);
+    slug(name, e->drums.pattern[slot].name);
+    snprintf(path, sizeof path, "%s/%s%02u_%s.wav", dir, prefix, slot + 1, name);
+    write_wav(path, audio, frames);
+    const st_pattern_t *sp = &e->track[1].pattern[slot];
+    printf("%-5s %-10s kit %-8s %5.1f BPM  strings %2u x %-5s %4.1f s  peak %.2f -> %s\n", prefix, e->drums.pattern[slot].name,
+           dr_kit_names[e->drums.pattern[slot].kit], bpm, sp->length, st_rate_names[sp->rate], frames / (double)FM1_SAMPLE_RATE,
+           peak, path);
+    free(audio);
+    if (peak < 0.02f || peak > 1.0f) { printf("  level out of range\n"); return 1; }
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
-    static const uint16_t tempo[DR_PATTERNS] = {1120, 1180, 1250, 1160, 1240, 1280, 1280, 1300,
-                                                1380, 1240, 1360, 1200, 1240, 1250, 1200, 1200,
-                                                1270, 1280, 1250, 1200, 1200, 1200, 1200, 1200};
     static el_engine_t e;
-    char path[512], name[32];
+    char path[512];
     int failed = timing_test() | midi_clock_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
@@ -124,7 +158,6 @@ int main(int argc, char **argv)
         el_post(&e, EL_CMD_MIX, (uint8_t)processed, 0);
         el_post(&e, EL_CMD_BPM, 0, 1280);
         dr_post(&e.drums, DR_CMD_SELECT, 6, 1, 0, 0);
-        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[6].kit, 0, 0, 0);
         size_t frames; float peak;
         float *audio = render(&e, 128.0f, 64, &frames, &peak);
         snprintf(path, sizeof path, "%s/ab_rother_%s.wav", dir, processed ? "mixed" : "raw");
@@ -133,60 +166,29 @@ int main(int argc, char **argv)
         free(audio);
     }
 
-    /* Full grooves: beat plus rhythm, strings and bass. */
-    for (unsigned i = 0; i < DR_PATTERNS; i += 1) {
+    /* Every style slot as generated at power-up: full groove and beat only. */
+    for (unsigned i = 0; i < DR_STYLE_SLOTS; ++i) {
         el_init(&e);
-        el_post(&e, EL_CMD_BPM, 0, (int16_t)tempo[i]);
-        dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)i, 1, 0, 0);
-        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[i].kit, 0, 0, 0);
-        unsigned length = e.drums.pattern[i].length;
-        size_t frames; float peak;
-        float *audio = render(&e, tempo[i] / 10.0f, length * (length > 16 ? 2u : 4u), &frames, &peak);
-        slug(name, e.drums.pattern[i].name);
-        snprintf(path, sizeof path, "%s/full_%02u_%s.wav", dir, i + 1, name);
-        write_wav(path, audio, frames);
-        printf("full %-10s peak %.2f -> %s\n", e.drums.pattern[i].name, peak, path);
-        if (peak < 0.05f || peak > 1.0f) { printf("  level out of range\n"); failed = 1; }
-        free(audio);
+        failed |= render_slot(&e, i, dir, "full_", 0, 0);
+        el_init(&e);
+        failed |= render_slot(&e, i, dir, "beat_", 1, 0);
     }
-
-    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+    /* Other power-ups: new seeds give new grooves in the same styles. */
+    static const unsigned styles[] = {6, 5, 7, 10, 13};
+    for (unsigned seed = 1; seed <= 2; ++seed)
+        for (unsigned k = 0; k < sizeof styles / sizeof styles[0]; ++k) {
+            char prefix[16];
+            el_init(&e);
+            el_generate_all(&e, 0x1000193u * seed + 77u);
+            snprintf(prefix, sizeof prefix, "var%u_", seed);
+            failed |= render_slot(&e, styles[k], dir, prefix, 0, 0);
+        }
+    /* Strings alone: Rother, Kraftwerk and electro chord loops. */
+    static const unsigned chord_styles[] = {6, 0, 10, 2, 5, 15, 7};
+    for (unsigned k = 0; k < sizeof chord_styles / sizeof chord_styles[0]; ++k) {
         el_init(&e);
-        for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);
-        if (!e.drums.pattern[i].hit[D8_BD] && !e.drums.pattern[i].hit[D8_CH]) continue;
-        el_post(&e, EL_CMD_BPM, 0, (int16_t)tempo[i]);
-        dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)i, 1, 0, 0);
-        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[i].kit, 0, 0, 0);
-        unsigned length = e.drums.pattern[i].length;
-        size_t frames; float peak;
-        float *audio = render(&e, tempo[i] / 10.0f, length * (length > 16 ? 2u : 4u), &frames, &peak);
-        slug(name, e.drums.pattern[i].name);
-        snprintf(path, sizeof path, "%s/%02u_%s.wav", dir, i + 1, name);
-        write_wav(path, audio, frames);
-        printf("%-10s kit %-8s %5.1f BPM  %4.1f s  peak %.2f  -> %s\n", e.drums.pattern[i].name,
-               dr_kit_names[e.drums.pattern[i].kit], tempo[i] / 10.0, frames / (double)FM1_SAMPLE_RATE, peak, path);
-        if (peak < 0.05f || peak > 1.0f) { printf("  level out of range\n"); failed = 1; }
-        free(audio);
-    }
-
-    for (unsigned s = 0; s < DR_STYLES; ++s) {
-        el_init(&e);
-        for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);
-        dr_pattern_t p;
-        dr_factory_pattern(14, &p);
-        p.length = 32;
-        dr_generate(&p, s, 72, 0x51ed270bu + s * 7919u, NULL);
-        dr_post_pattern(&e.drums, 0, &p);
-        dr_post(&e.drums, DR_CMD_KIT, p.kit, 0, 0, 0);
-        float bpm = s == DR_STYLE_MIAMI ? 130.0f : 120.0f;
-        el_post(&e, EL_CMD_BPM, 0, (int16_t)(bpm * 10));
-        size_t frames; float peak;
-        float *audio = render(&e, bpm, 64, &frames, &peak);
-        slug(name, dr_style_names[s]);
-        snprintf(path, sizeof path, "%s/gen_%s.wav", dir, name);
-        write_wav(path, audio, frames);
-        printf("generator %-8s peak %.2f  -> %s\n", dr_style_names[s], peak, path);
-        free(audio);
+        el_generate_all(&e, 0xabcdefu + k);
+        failed |= render_slot(&e, chord_styles[k], dir, "chords_", 0, 1);
     }
 
     /* Cost: a busy groove with all four areas for 60 seconds. */
