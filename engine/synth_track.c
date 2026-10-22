@@ -16,22 +16,35 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
     t->level_value = 100;
     t->last_note = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : 60;
     for (unsigned i = 0; i < ST_PATTERNS; ++i) {
-        t->pattern[i].length = 16;
-        t->pattern[i].gate = 50;
+        t->pattern[i].length = area == MKS_AREA_STRINGS ? 4 : 16;
+        t->pattern[i].gate = area == MKS_AREA_STRINGS ? 100 : 50;
+        t->pattern[i].rate = area == MKS_AREA_STRINGS ? ST_RATE_BAR : ST_RATE_16TH;
         for (unsigned s = 0; s < ST_STEPS; ++s) t->pattern[i].step[s].note = t->last_note;
     }
 }
 
-static unsigned chord_notes(int root, unsigned chord, int16_t *out)
+const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS"};
+static const uint8_t rate_ticks[ST_RATES] EL_DSP_DATA = {1, 2, 4, 8, 16, 32};
+
+unsigned st_chord_notes(int root, unsigned chord, int16_t *out)
 {
-    if (!chord || chord > MKS_CHORDS) { out[0] = (int16_t)root; return 1; }
+    unsigned type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
+    if (!type || type > MKS_CHORDS) { out[0] = (int16_t)el_clampi(root, 0, 127); return 1; }
+    int notes[MKS_CHORD_NOTES];
     unsigned n = 0;
-    for (unsigned i = 0; i < MKS_CHORD_NOTES && mks_chords[chord - 1][i] != -128; ++i) {
-        int note = root + mks_chords[chord - 1][i];
-        if (note >= 0 && note <= 127) out[n++] = (int16_t)note;
+    for (unsigned i = 0; i < MKS_CHORD_NOTES && mks_chords[type - 1][i] != -128; ++i) notes[n++] = root + mks_chords[type - 1][i];
+    /* Inversion: move the lowest notes up an octave, keep ascending order. */
+    for (unsigned k = 0; k < inv && k < n - 1u; ++k) {
+        int low = notes[0] + 12;
+        for (unsigned i = 0; i + 1 < n; ++i) notes[i] = notes[i + 1];
+        notes[n - 1] = low;
     }
-    return n;
+    unsigned count = 0;
+    for (unsigned i = 0; i < n; ++i)
+        if (notes[i] >= 0 && notes[i] <= 127) out[count++] = (int16_t)notes[i];
+    return count;
 }
+#define chord_notes st_chord_notes
 
 static EL_DSP_CODE void release_all(st_track_t *t)
 {
@@ -46,6 +59,7 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
     release_all(t);
     t->playing = 0;
     t->pos = 0;
+    t->tick = 0;
 }
 
 EL_DSP_CODE void st_mute(st_track_t *t, int on)
@@ -54,15 +68,20 @@ EL_DSP_CODE void st_mute(st_track_t *t, int on)
     if (on) release_all(t);
 }
 
-EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, float step_frames)
+/* Called on every 16th; a step lasts rate_ticks 16ths. */
+EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, float sixteenth_frames)
 {
     if (pattern >= ST_PATTERNS) pattern = 0;
     if (pattern != t->current) { t->current = (uint8_t)pattern; t->playing = 0; }
     const st_pattern_t *p = &t->pattern[t->current];
+    unsigned ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0];
+    if (t->playing && ++t->tick < ticks) return;
+    t->tick = 0;
     unsigned pos = t->playing ? t->pos + 1u : 0u;
     if (pos >= p->length) pos = 0;
     t->pos = (uint8_t)pos;
     t->playing = 1;
+    float step_frames = sixteenth_frames * (float)ticks;
     t->step_frames = step_frames;
     t->since_step = 0;
     const st_step_t *s = &p->step[pos];
@@ -143,7 +162,7 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
 /* ---- generator (control side), after the iOS app's SequenceGenerator ----- */
 
 static const char *const style_names[2][ST_STYLES] = {
-    {"KRAFT", "ROTHER", "ROBOT", "ACID"}, {"PAD", "STABS", "PULSE", "SWELL"}};
+    {"KRAFT", "ROTHER", "ROBOT", "ACID"}, {"PADS", "SLOW", "PULSE", "STABS"}};
 
 const char *st_style_name(unsigned area, unsigned style)
 {
@@ -214,30 +233,86 @@ static void melodic(st_step_t *s, unsigned style, unsigned density, uint32_t *r,
     }
 }
 
-/* Strings: chords on electro progressions (i - bVI - bVII - iv and friends). */
-static void strings(st_step_t *s, unsigned style, unsigned density, uint32_t *r, int root)
+/* Strings: four-chord electro / Detroit progressions in minor, written as
+ * (root offset, chord slot + 1). m7 = 1, m9 = 2, MIN = 3, 5+8 = 4, 4THS = 5,
+ * 7SUS4 = 6, MAJ7 = 7, m7b5 = 8. */
+static const int8_t progressions[8][4][2] = {
+    {{0, 2}, {-4, 7}, {-2, 6}, {5, 1}},     /* i9 - VImaj7 - VIIsus - iv7 */
+    {{0, 1}, {5, 1}, {-4, 7}, {-5, 1}},     /* i7 - iv7 - VImaj7 - v7 */
+    {{0, 2}, {-2, 4}, {-4, 7}, {-2, 6}},    /* i9 - VII5 - VImaj7 - VIIsus */
+    {{0, 1}, {3, 7}, {-2, 6}, {-4, 7}},     /* i7 - IIImaj7 - VIIsus - VImaj7 */
+    {{0, 2}, {0, 6}, {-4, 7}, {-5, 2}},     /* i9 - isus - VImaj7 - v9 */
+    {{0, 1}, {-2, 5}, {-4, 5}, {-2, 5}},    /* stacked 4ths, Kraftwerk-cool */
+    {{0, 2}, {-4, 2}, {3, 7}, {-2, 6}},     /* i9 - vi9 - IIImaj7 - VIIsus */
+    {{0, 1}, {0, 2}, {5, 2}, {-2, 6}},      /* i7 - i9 - iv9 - VIIsus */
+};
+
+/* Pick the inversion that keeps the chord closest to the previous one
+ * (smooth voice leading, like a player would). */
+static uint8_t voice_lead(int root, unsigned type, const int16_t *prev, unsigned prev_count)
 {
-    static const int moves[] = {0, -4, -2, 5, 3, -5, 7};
-    static const unsigned chords[] = {1, 2, 1, 6, 3, 5}; /* m7, m9, m7, 7SUS4, MIN, 4THS (slot + 1) */
-    int second = pick(r, moves, 7);
-    unsigned c1 = chords[rnd(r) % 6], c2 = chords[rnd(r) % 6];
+    uint8_t best = (uint8_t)type;
+    int best_cost = 1 << 30;
+    for (unsigned inv = 0; inv < 3; ++inv) {
+        int16_t notes[MKS_CHORD_NOTES];
+        unsigned chord = type | inv << 4, n = st_chord_notes(root, chord, notes);
+        int cost = 0;
+        for (unsigned i = 0; i < n; ++i) {
+            int nearest = 1 << 20;
+            for (unsigned j = 0; j < prev_count; ++j) {
+                int d = notes[i] - prev[j];
+                if (d < 0) d = -d;
+                if (d < nearest) nearest = d;
+            }
+            cost += prev_count ? nearest : notes[i] - root;
+        }
+        if (notes[n - 1] > root + 26) cost += 40;   /* keep the voicing compact */
+        if (cost < best_cost) { best_cost = cost; best = (uint8_t)chord; }
+    }
+    return best;
+}
+
+static void strings(st_pattern_t *out, unsigned style, unsigned density, uint32_t *r, int root)
+{
+    const int8_t (*prog)[2] = progressions[rnd(r) % 8u];
+    int16_t prev[MKS_CHORD_NOTES];
+    unsigned prev_count = 0;
+    uint8_t chords[4];
+    int roots[4];
+    for (unsigned k = 0; k < 4; ++k) {
+        roots[k] = root + prog[k][0];
+        chords[k] = voice_lead(roots[k], (unsigned)prog[k][1], prev, prev_count);
+        prev_count = st_chord_notes(roots[k], chords[k], prev);
+    }
     switch (style) {
-    case 0: /* PAD: two tied chords per bar */
-        for (unsigned i = 0; i < 16; ++i) set(&s[i], root, i < 8 ? 0 : second, i == 0 || i == 8, i != 7 && i != 15, i < 8 ? c1 : c2);
+    case 0:   /* PADS: one held chord per bar, four bars */
+    case 1:   /* SLOW: one held chord per two bars, eight bars */
+        out->rate = style ? ST_RATE_2BARS : ST_RATE_BAR;
+        out->length = 4;
+        out->gate = 100;
+        for (unsigned k = 0; k < 4; ++k) set(&out->step[k], roots[k], 0, k == 0, k != 3, chords[k]);
+        /* Denser settings change chords twice as often (8 steps of half). */
+        if (style == 0 && density > 100) {
+            out->rate = ST_RATE_HALF;
+            out->length = 8;
+            for (unsigned k = 0; k < 8; ++k) set(&out->step[k], roots[k / 2], 0, k == 0, k != 7, chords[k / 2]);
+        }
         break;
-    case 1: { /* STABS: euclidean chord hits */
+    case 2:   /* PULSE: repeated 8th chords, a new chord each bar (4 bars) */
+        out->rate = ST_RATE_8TH;
+        out->length = 32;
+        out->gate = 60;
+        for (unsigned i = 0; i < 32; ++i) set(&out->step[i], roots[i / 8], 0, i % 8 == 0, 0, chords[i / 8]);
+        break;
+    default: {/* STABS: euclidean 16th stabs, chord per half bar */
         unsigned hits = 3u + rnd(r) % 3u + density / 64u, rotate = rnd(r) % 3u;
+        out->rate = ST_RATE_16TH;
+        out->length = 16;
+        out->gate = 35;
         for (unsigned i = 0; i < 16; ++i)
-            if (!i || euclid(hits, 16, rotate, i)) set(&s[i], root, i < 8 ? 0 : second, !i || chance(r, 300), 0, i < 8 ? c1 : c2);
+            if (!i || euclid(hits, 16, rotate, i)) set(&out->step[i], roots[(i / 8) * 2], 0, !i || chance(r, 300), 0, chords[(i / 8) * 2]);
         break;
     }
-    case 2: /* PULSE: 8th-note chords */
-        for (unsigned i = 0; i < 16; i += (density > 90 ? 1u : 2u))
-            set(&s[i], root, i < 8 ? 0 : second, i % 4 == 0, 0, i < 8 ? c1 : c2);
-        break;
-    default: /* SWELL: one chord held through the pattern */
-        for (unsigned i = 0; i < 16; ++i) set(&s[i], root, 0, i == 0, i != 15, c1);
-        break;
     }
 }
 
@@ -249,8 +324,9 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
     out->length = (uint8_t)el_clampi((int)length, 1, ST_STEPS);
     out->gate = area == MKS_AREA_STRINGS ? 90 : area == MKS_AREA_BASS ? 55 : 40;
     for (unsigned s = 0; s < ST_STEPS; ++s) out->step[s].note = (uint8_t)root;
-    if (area == MKS_AREA_STRINGS) strings(out->step, style % ST_STYLES, density, &r, root);
-    else melodic(out->step, style % ST_STYLES, density, &r, root);
+    out->rate = ST_RATE_16TH;
+    if (area == MKS_AREA_STRINGS) { strings(out, style % ST_STYLES, density, &r, root); return; }
+    melodic(out->step, style % ST_STYLES, density, &r, root);
     /* Longer patterns: repeat with a small variation per bar. */
     for (unsigned bar = 16; bar < out->length; bar += 16) {
         for (unsigned i = 0; i < 16 && bar + i < ST_STEPS; ++i) out->step[bar + i] = out->step[i];

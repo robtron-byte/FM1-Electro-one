@@ -36,6 +36,8 @@ enum el_command {
     EL_CMD_TRACK_MUTE,   /* b = on */
     EL_CMD_TRACK_LEVEL,  /* value = 0..127 */
     EL_CMD_TRACK_CHORD,  /* b = live chord 0..8 */
+    EL_CMD_TRACK_RATE,   /* b = step length ST_RATE_* */
+    EL_CMD_STEP_INV,     /* b = step, value = inversion 0..2 */
     EL_CMD_TRACK_CLEAR,  /* clear the current pattern */
     EL_CMD_RECORD_AREA,  /* a = area 0 beat .. 3 bass, b = on; other areas disarm */
     EL_CMD_FX,           /* a = fx parameter, value */

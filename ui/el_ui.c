@@ -21,8 +21,10 @@
  *         STRINGS: GLO + white key 1-9 picks the chord (1 = single notes).
  *   STEP  (SEQ on) white keys switch steps on/off and select them, EDIT + white
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32.
- *         E3 note, E4 octave, E5 chord (STRINGS) or accent, E6 tie.
- *   E3-E6 sound page, E7 sound (GLO length), GLO + E1 note length. */
+ *         E3 note, E4 octave, E5 chord (STRINGS) or accent, E6 inversion
+ *         (STRINGS) or tie.
+ *   E3-E6 sound page, E7 sound (GLO length), GLO + E1 note length
+ *   (STRINGS: step length 1/16 .. 2 bars for long chord sequences). */
 #include "el_ui.h"
 #include <stdio.h>
 #include <string.h>
@@ -386,7 +388,11 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     if (enc[0]) {
         if ((hold & HOLD_GLO) && ui->area == EL_AREA_BEAT && !ui->overview)
             dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + enc[0], 0, DR_KITS - 1), 0, 0, 0);
-        else if ((hold & HOLD_GLO) && synth_area(ui)) {
+        else if ((hold & HOLD_GLO) && synth_area(ui) && ui->area == EL_AREA_STRINGS) {
+            /* Strings: step length 1/16 .. 2 bars, for long chord sequences. */
+            const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
+            el_post3(e, EL_CMD_TRACK_RATE, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->rate + (enc[0] > 0 ? 1 : -1), 0, ST_RATES - 1), 0, 0);
+        } else if ((hold & HOLD_GLO) && synth_area(ui)) {
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
             el_post3(e, EL_CMD_TRACK_GATE, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->gate + enc[0] * 5, 10, 100), 0, 0);
         } else {
@@ -409,10 +415,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (enc[4]) {
             if (ui->area == EL_AREA_STRINGS) {
                 const st_step_t *st = &track_of(ui)->pattern[track_of(ui)->current].step[s];
-                el_post3(e, EL_CMD_STEP_CHORD, track, s, 0, (int16_t)el_clampi(st->chord + enc[4], 0, MKS_CHORDS));
+                el_post3(e, EL_CMD_STEP_CHORD, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_TYPE(st->chord) + enc[4], 0, MKS_CHORDS));
             } else el_post3(e, EL_CMD_STEP_FLAG, track, s, ST_ACCENT, 0);
         }
-        if (enc[5]) el_post3(e, EL_CMD_STEP_FLAG, track, s, ST_TIE, 0);
+        if (enc[5]) {
+            if (ui->area == EL_AREA_STRINGS) {
+                const st_step_t *st = &track_of(ui)->pattern[track_of(ui)->current].step[s];
+                el_post3(e, EL_CMD_STEP_INV, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_INV(st->chord) + (enc[5] > 0 ? 1 : -1), 0, 2));
+            } else el_post3(e, EL_CMD_STEP_FLAG, track, s, ST_TIE, 0);
+        }
     } else {
         for (unsigned i = 0; i < 4; ++i) edit_knob(ui, i, enc[2 + i]);
     }
@@ -477,7 +488,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         const st_pattern_t *p = &t->pattern[t->current];
         mix(&sig[1], t->revision ^ (uint32_t)t->preset << 20);
         mix(&sig[1], (uint32_t)(playing ? t->pos : 0xff) | (uint32_t)t->current << 8 | (uint32_t)t->chord << 16);
-        mix(&sig[1], shown_step_page(ui, p->length, t->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->gate << 12);
+        mix(&sig[1], shown_step_page(ui, p->length, t->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->gate << 12 | (uint32_t)p->rate << 24);
         mix(&sig[1], ui->step_mode[ui->area] | (uint32_t)ui->cursor[ui->area] << 4 | (uint32_t)(ui->octave[ui->area] + 8) << 12);
         for (unsigned s = 0; s < p->length; ++s)
             mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
@@ -657,7 +668,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     for (unsigned s = 0; s < p->length; ++s)
         if (p->step[s].flags & ST_ON) {
             int top = p->step[s].note;
-            if (p->step[s].chord) top += 14;
+            if (ST_CHORD_TYPE(p->step[s].chord)) top += 26;
             if (p->step[s].note < lo) lo = p->step[s].note;
             if (top > hi) hi = top;
         }
@@ -673,27 +684,29 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                 note_name(text, sizeof text, n);
                 gfx_text(b, 2, y - 3, text, DIM, 1);
             }
+        /* Few long steps (chord sequences) get wide columns with the chord name. */
+        int col = shown && shown < 16 ? (16 * CELL) / (int)shown : CELL;
         for (unsigned i = 0; i < shown; ++i) {
             unsigned s = base + i;
-            int x = GRID_X + (int)i * CELL;
-            if (s == pos) gfx_fill(b, x, ROLL_Y, CELL - 2, ROLL_H, 0x2945);
-            if (ui->step_mode[ui->area] && s == ui->cursor[ui->area]) gfx_frame(b, x - 1, ROLL_Y, CELL, ROLL_H, AMBER);
+            int x = GRID_X + (int)i * col;
+            if (s == pos) gfx_fill(b, x, ROLL_Y, col - 2, ROLL_H, 0x2945);
+            if (ui->step_mode[ui->area] && s == ui->cursor[ui->area]) gfx_frame(b, x - 1, ROLL_Y, col, ROLL_H, AMBER);
             const st_step_t *st = &p->step[s];
             if (!(st->flags & ST_ON)) continue;
             int16_t notes[MKS_CHORD_NOTES];
-            unsigned count = 1;
-            notes[0] = st->note;
-            if (st->chord) {
-                count = 0;
-                for (unsigned k = 0; k < MKS_CHORD_NOTES && mks_chords[st->chord - 1][k] != -128; ++k)
-                    notes[count++] = (int16_t)(st->note + mks_chords[st->chord - 1][k]);
-            }
+            unsigned count = st_chord_notes(st->note, st->chord, notes);
             for (unsigned k = 0; k < count; ++k) {
                 int y = ROLL_Y + ROLL_H - 1 - (notes[k] - lo) * ROLL_H / range - 3;
-                int w = (st->flags & ST_TIE) ? CELL : CELL - 2;
+                int w = (st->flags & ST_TIE) ? col : col - 2;
                 /* Root bright when accented, chord tones and plain notes dimmer. */
                 uint16_t c = k == 0 && (st->flags & ST_ACCENT) ? color : (uint16_t)((color >> 1) & 0x7bef);
                 gfx_fill(b, x, y, w, 5, c);
+            }
+            if (col >= 30 && ST_CHORD_TYPE(st->chord)) {
+                char label[12];
+                note_name(label, sizeof label, st->note);
+                gfx_text(b, x + 3, ROLL_Y + 3, label, color, 1);
+                gfx_text(b, x + 3, ROLL_Y + 13, mks_chord_names[ST_CHORD_TYPE(st->chord) - 1], DIM, 1);
             }
         }
     }
@@ -702,13 +715,19 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
         const st_step_t *st = &p->step[ui->cursor[ui->area]];
         char n[8];
         note_name(n, sizeof n, st->note);
-        snprintf(text, sizeof text, "STEP %02u  %s %s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
-                 st->chord ? mks_chord_names[st->chord - 1] : "", (st->flags & ST_ACCENT) ? " ACC" : "",
-                 (st->flags & ST_TIE) ? " TIE" : "");
+        unsigned type = ST_CHORD_TYPE(st->chord), inv = ST_CHORD_INV(st->chord);
+        static const char *const inv_names[3] = {"", " INV1", " INV2"};
+        snprintf(text, sizeof text, "STEP %02u %s %s%s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
+                 type ? mks_chord_names[type - 1] : "", type ? inv_names[inv] : "",
+                 (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "");
+    } else if (ui->area == EL_AREA_STRINGS) {
+        /* Long sequences: show the step length and the whole duration. */
+        static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
+        unsigned sixteenths = p->length * ticks[p->rate < ST_RATES ? p->rate : 0];
+        snprintf(text, sizeof text, "%u x %s = %u BARS  CHORD %s", p->length, st_rate_names[p->rate < ST_RATES ? p->rate : 0],
+                 (sixteenths + 15u) / 16u, t->chord ? mks_chord_names[ST_CHORD_TYPE(t->chord) - 1] : "OFF");
     } else {
-        snprintf(text, sizeof text, "LEN %u  GATE %u%%%s%s", p->length, p->gate,
-                 ui->area == EL_AREA_STRINGS ? "  CHORD " : "",
-                 ui->area == EL_AREA_STRINGS ? (t->chord ? mks_chord_names[t->chord - 1] : "OFF") : "");
+        snprintf(text, sizeof text, "LEN %u  GATE %u%%", p->length, p->gate);
     }
     gfx_text(b, 4, 176, text, TEXT, 1);
     if (t->recording) gfx_text(b, 200, 176, e->transport.running ? "LIVE" : "STEP", RED, 1);
@@ -776,9 +795,10 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         return;
     }
     if (synth_area(ui) && ui->step_mode[ui->area]) {
-        static const char *const labels[4] = {"NOTE", "OCTAVE", "CHORD", "TIE"};
+        static const char *const labels[4] = {"NOTE", "OCTAVE", "CHORD", "INVERS"};
+        static const char *const other[4] = {"NOTE", "OCTAVE", "ACCENT", "TIE"};
         for (unsigned i = 0; i < 4; ++i)
-            gfx_text(b, 4 + (int)i * 59, FOOT_Y, i == 2 && ui->area != EL_AREA_STRINGS ? "ACCENT" : labels[i], DIM, 1);
+            gfx_text(b, 4 + (int)i * 59, FOOT_Y, ui->area == EL_AREA_STRINGS ? labels[i] : other[i], DIM, 1);
         gfx_text(b, 4, FOOT_Y + 12, "E3-E6 EDIT THE STEP", area_color[ui->area], 1);
     } else {
         for (unsigned i = 0; i < 4; ++i) {
@@ -806,7 +826,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             snprintf(line, sizeof line, "%s %u/%u  E7 SOUND  SEQ=STEP", synth_page_names[ui->page[ui->area]],
                      ui->page[ui->area] + 1u, UI_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE  E7=LENGTH" :
-                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9 CHORD  E1=GATE" : "GLO: E1=GATE  E7=LENGTH") :
+                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9 CHORD E1=STEP LEN" : "GLO: E1=GATE  E7=LENGTH") :
                    (ui->hold & HOLD_EDIT) ? "EDIT: KEY=ACCENT/REST" : line;
         }
     }

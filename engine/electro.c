@@ -28,9 +28,10 @@ void el_init(el_engine_t *e)
  * (rhythm, strings, bass), key and default sounds. */
 static const char *const default_sounds[EL_TRACKS] = {"S&H BLEEP", "JX STRINGS", "ROBO BASS"};
 static const uint8_t factory_styles[DR_PATTERNS][EL_TRACKS] = {
-    {2, 1, 1}, {2, 1, 0}, {0, 0, 0}, {0, 0, 0}, {0, 2, 0}, {2, 1, 0}, {2, 2, 1}, {2, 0, 1},
-    {3, 3, 3}, {0, 0, 1}, {2, 3, 1}, {2, 1, 0}, {3, 3, 3}, {2, 1, 1}, {2, 1, 1}, {2, 0, 1},
-    {2, 1, 1}, {2, 2, 1}, {2, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+    /* rhythm style, strings style (0 PADS, 1 SLOW, 2 PULSE, 3 STABS), bass style */
+    {2, 0, 1}, {2, 0, 0}, {0, 1, 0}, {0, 1, 0}, {0, 0, 0}, {2, 2, 0}, {2, 0, 1}, {2, 0, 1},
+    {3, 1, 3}, {0, 1, 1}, {2, 1, 1}, {2, 0, 0}, {3, 2, 3}, {2, 0, 1}, {2, 0, 1}, {2, 0, 1},
+    {2, 1, 1}, {2, 0, 1}, {2, 1, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 /* Generator density per area: the rhythmic sounds stay sparse. */
 static const uint8_t factory_density[EL_TRACKS] = {28, 64, 56};
 static const int8_t factory_keys[DR_PATTERNS] = {0, 2, -3, 1, -5, 3, 0, -2, 5, -3, -4, 2, -5, -2, 0, 0,
@@ -138,12 +139,19 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         t->last_note = s->note;
         break;
     case EL_CMD_STEP_CHORD:
-        s->chord = (uint8_t)el_clampi(c->value, 0, MKS_CHORDS);
+        s->chord = (uint8_t)((s->chord & 0x30u) | (unsigned)el_clampi(c->value, 0, MKS_CHORDS));
+        break;
+    case EL_CMD_STEP_INV:
+        s->chord = (uint8_t)((s->chord & 15u) | (unsigned)el_clampi(c->value, 0, 2) << 4);
+        break;
+    case EL_CMD_TRACK_RATE:
+        p->rate = (uint8_t)el_clampi(c->b, 0, ST_RATES - 1);
+        t->tick = 0;
         break;
     case EL_CMD_STEP_SET:
         s->note = c->c;
         s->flags = (uint8_t)(c->value & 0xff);
-        s->chord = (uint8_t)el_clampi(c->value >> 8, 0, MKS_CHORDS);
+        s->chord = (uint8_t)((c->value >> 8) & 0x3f);
         break;
     case EL_CMD_TRACK_LENGTH:
         p->length = (uint8_t)el_clampi(c->b, 1, ST_STEPS);

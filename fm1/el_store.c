@@ -3,7 +3,7 @@
 #include "fm1.h"
 #include <string.h>
 
-enum { MAGIC = 0x34444c45u /* "ELD4" */, VERSION = 4, PARAMS = 10, KIT_PARAMS = 3 };
+enum { MAGIC = 0x35444c45u /* "ELD5" */, VERSION = 5, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -98,8 +98,12 @@ int el_store_load(el_engine_t *e)
             t->pattern[p] = s->pattern[p];
             t->pattern[p].length = (uint8_t)el_clampi(t->pattern[p].length, 1, ST_STEPS);
             t->pattern[p].gate = (uint8_t)el_clampi(t->pattern[p].gate, 10, 100);
+            t->pattern[p].rate = (uint8_t)el_clampi(t->pattern[p].rate, 0, ST_RATES - 1);
             for (unsigned k = 0; k < ST_STEPS; ++k)
-                t->pattern[p].step[k].chord = (uint8_t)el_clampi(t->pattern[p].step[k].chord, 0, MKS_CHORDS);
+            {
+                unsigned chord = t->pattern[p].step[k].chord, type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
+                t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4);
+            }
         }
         uint8_t v[MP_COUNT];
         for (unsigned p = 0; p < MP_COUNT; ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, mks_param_max(p));
