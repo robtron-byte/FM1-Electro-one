@@ -42,6 +42,15 @@ static const part_params_t params[D8_NUM + 1] = {
               {P("Level", 100), P("Decay", 40), P("Tune", 64), P("Pan", 54), P("Rev", 0), P("Dly", 0)}},
     /* CH */ {6, {P_LEVEL, P_TUNE, P_DECAY, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Pan", 74), P("Rev", 0), P("Dly", 0)}},
+    /* ZP: Tune = start pitch, Sweep = fall time, Depth = how far it falls,
+     * Tone = drive from sine to a buzzy square */
+    /* ZP */ {9, {P_LEVEL, P_TUNE, P_SNAPPY, P_SOUND, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY},
+              {P("Level", 100), P("Tune", 64), P("Sweep", 50), P("Depth", 80), P("Decay", 50), P("Tone", 30),
+               P("Pan", 76), P("Rev", 10), P("Dly", 30)}},
+    /* PU: Tune = pulse width (0.2..5 ms, 1 ms stock), Tone = low-pass,
+     * Decay = AC coupling (short: click, long: thump) */
+    /* PU */ {7, {P_LEVEL, P_TUNE, P_TONE, P_DECAY, P_PAN, P_REV, P_DLY},
+              {P("Level", 100), P("Width", 64), P("Tone", 90), P("Decay", 40), P("Pan", 52), P("Rev", 0), P("Dly", 0)}},
     /* KIT */ {3, {0, 1, 2}, {P("Level", 110), P("Accent", 100), {"Choke", 1, 1, choke_names}}},
 };
 
@@ -78,7 +87,7 @@ EL_DSP_CODE int tr808_get(const tr808_t *t, int part, int p)
 
 /* Fixed per-unit component tolerance: the frequencies of a real 808 sit a
  * little off the nominal values, differently on every machine. */
-static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 0.995f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f};
+static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 0.995f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 static const float metal_hz[6] EL_DSP_DATA = {205.3f, 304.4f, 369.6f, 522.7f, 540.0f, 800.0f};
 static const float metal_tol[6] EL_DSP_DATA = {1.012f, 0.991f, 1.006f, 0.988f, 1.0f, 1.0f};
 
@@ -499,12 +508,59 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     return y * (1.0f + 0.6f * v->accent);
 }
 
+/* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
+ * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
+ * Tone drives it into a soft-clipped square; accent opens it further. */
+static float zap(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_ZP;
+    if (v->age == 0) {
+        v->aux = 1340.0f * spread(t, part, P_TUNE) * spread(t, part, P_TUNE);   /* start Hz */
+        v->pitch = 1.0f;
+    }
+    float sweep = 5.0f * dsp_exp2(6.3f * knob(t, part, P_SNAPPY));            /* ms */
+    float depth = 7.0f * knob(t, part, P_SOUND);                               /* octaves */
+    v->pitch *= decay_coef(MS(sweep));
+    float hz = v->aux * dsp_exp2(-depth * (1.0f - v->pitch));
+    v->out_lp += dsp_min(hz, 18000.0f) * (1.0f / EL_SAMPLE_RATE);
+    if (v->out_lp >= 1.0f) v->out_lp -= 1.0f;
+    float y = dsp_sin(2.0f * DSP_PI * v->out_lp);
+    float drive = 1.0f + 12.0f * knob(t, part, P_TONE) * (0.6f + 0.4f * v->accent);
+    y = dsp_tanh(y * drive) / dsp_tanh(drive);
+    v->env *= decay_coef(MS(20.0f * dsp_exp2(5.3f * knob(t, part, P_DECAY))));
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.3f));
+    if (v->env < 1e-4f) v->active = 0;
+    return y * v->env * attack * (0.35f + 0.65f * v->volts);
+}
+
+/* Pulse: the trigger itself, a rectangle as high as the accent (4..14 V)
+ * and Width long, through the AC coupling of a mixer input (Decay: short =
+ * a dry click, long = a thump with a negative tail) and a Tone low-pass.
+ * Egyptian Lover style ticks. */
+static float pulse(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_PU;
+    float width = MS(1.0f) * spread(t, part, P_TUNE) * spread(t, part, P_TUNE);  /* 0.25..4 ms */
+    float x = (float)v->age < width ? v->volts : 0.0f;
+    float edge = width - (float)v->age;          /* fractional end of the pulse */
+    if (edge > 0.0f && edge < 1.0f) x = v->volts * edge;
+    float hp_ms = 0.15f * dsp_exp2(6.6f * knob(t, part, P_DECAY));              /* 0.15..15 ms */
+    v->dc_y = x - v->dc_x;                       /* 1-pole high-pass (AC coupling) */
+    v->dc_x += v->dc_y * (1.0f - decay_coef(MS(hp_ms)));
+    float cutoff = 600.0f * dsp_exp2(5.0f * knob(t, part, P_TONE));            /* 0.6..19 kHz */
+    float g = 1.0f - dsp_exp(-2.0f * DSP_PI * dsp_min(cutoff, 19000.0f) / EL_SAMPLE_RATE);
+    v->aux2 += (v->dc_y - v->aux2) * g;
+    v->out_lp += (v->aux2 - v->out_lp) * g;
+    if ((float)v->age > width + MS(5.0f * hp_ms + 30.0f)) v->active = 0;
+    return v->out_lp;
+}
+
 /* ---- render ------------------------------------------------------------------------- */
 
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f, 0.3f, 0.7f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
@@ -530,6 +586,8 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             case D8_CP: y = clap(t, v); break;
             case D8_CB: y = cowbell(t, v, cb_src); break;
             case D8_CY: y = cymbal(t, v, low_src, high_src); break;
+            case D8_ZP: y = zap(t, v); break;
+            case D8_PU: y = pulse(t, v); break;
             default: y = hat(t, v, part, high_src * spread(t, part, P_TUNE) / spread(t, D8_CY, P_TUNE)); break;
             }
             ++v->age;

@@ -5,7 +5,7 @@
 
 /* All 24 slots (generated style slots and user slots) and the settings are
  * stored, so the last grooves come back after a restart. */
-enum { MAGIC = 0x38444c45u /* "ELD8" */, VERSION = 8, PARAMS = 10, KIT_PARAMS = 3 };
+enum { MAGIC = 0x39444c45u /* "ELD9" */, VERSION = 9, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];

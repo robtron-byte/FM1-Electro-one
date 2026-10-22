@@ -13,7 +13,7 @@
 #include "tr808.h"
 
 enum {
-    DR_PARTS = D8_NUM,      /* BD SD LT MT HT RS CP CB CY OH CH */
+    DR_PARTS = D8_NUM,      /* BD SD LT MT HT RS CP CB CY OH CH ZP PU */
     DR_STEPS = 32,
     DR_PATTERNS = 24,       /* two banks: 1-16 and 17-24 */
     DR_KITS = 4,

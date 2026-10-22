@@ -13,7 +13,9 @@
 #include "el_config.h"
 #include "fm1_param.h"
 
-enum { D8_BD, D8_SD, D8_LT, D8_MT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_NUM, D8_KIT = D8_NUM };
+/* ZP and PU are additions: an electro zap (pitch-swept oscillator) and the
+ * bare 808 trigger pulse as a sound (the click of the TRIGGER OUT). */
+enum { D8_BD, D8_SD, D8_LT, D8_MT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_ZP, D8_PU, D8_NUM, D8_KIT = D8_NUM };
 enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3, CY_CAL = 18 };
 extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
 

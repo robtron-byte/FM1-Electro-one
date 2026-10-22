@@ -8,7 +8,7 @@
 #include "drums.h"
 #include <string.h>
 
-const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "MT", "HT", "RS", "CP", "CB", "CY", "OH", "CH"};
+const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "MT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
 const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT"};
 
 enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
@@ -34,7 +34,8 @@ static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
      {D8_RS, 3, 1}, {D8_CH, 2, 40}, {D8_CY, 1, 34}, {D8_CB, 1, 70}, {D8_KIT, 2, 1}, {255, 0, 0}},
 };
 
-static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 45, 48, 37, 39, 56, 49, 46, 42};
+/* ZP on 67 (high agogo), PU on 75 (claves) */
+static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 45, 48, 37, 39, 56, 49, 46, 42, 67, 75};
 
 unsigned dr_part_note(unsigned part) { return part < DR_PARTS ? part_notes[part] : 0; }
 

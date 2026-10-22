@@ -42,10 +42,12 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
-| **BEAT** | FX | 808-Drum-Machine (11 Instrumente, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
+| **BEAT** | FX | 808-Drum-Machine (11 Instrumente + ZAP + PULSE, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
 | **RHYTHM** | SCL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
 | **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
 | **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
+
+**ZAP und PULSE.** Zwei Stimmen, die die 808 nicht hat, die im Electro aber dazugehören. **ZAP** ist der Laser-Zap: ein Sinus, der exponentiell nach unten fällt; TUNE setzt die Starthöhe (300 Hz bis 5 kHz), SWEEP die Fallzeit (5 bis 400 ms), DEPTH wie tief er fällt (bis 7 Oktaven), DECAY die Länge, TONE fährt ihn von Sinus bis zum kratzigen Rechteck; Akzent macht ihn schärfer. **PULSE** ist der nackte 808-Trigger als Klang, wie ihn Egyptian Lover gern einsetzt: ein Rechteckimpuls, so hoch wie der Akzent (4 bis 14 V), WIDTH 0,25 bis 4 ms (1 ms wie der Trigger), DECAY die Wechselstromkopplung eines Mischpulteingangs (kurz: trockener Klick, lang: Plopp mit negativem Nachschwinger), TONE ein Tiefpass. Der Generator setzt PULSE vor allem in EGYPT, FREAKY, LOVE und den Miami-Stilen, ZAP gelegentlich in den Electro-Stilen. MIDI: ZAP Note 67, PULSE Note 75.
 
 **Zwei Synth-Engines, pro Bereich wählbar, multitimbral.** Jeder Synth-Bereich spielt entweder mit der MKS-50-Engine oder mit der JP-6-Engine (`engine/jp6.c`, aus der JP-6-App portiert: zwei VCOs mit Cross-Mod und Sync, HPF, 24-dB-VCF mit LPF/BPF/HPF, zwei Hüllkurven, Chorus und die Verzerrung der App). Die Engine kommt mit dem Sound: E7 blättert erst durch die MKS-50-Sounds, dann durch die JP-6-Sounds des Bereichs, EDIT + E7 springt direkt zur anderen Engine. So laufen z. B. JP-6-Strings, MKS-50-Bass und JP-6-Sequenz gleichzeitig. Beide Engines teilen sich den Speicher eines Bereichs, die Wahl kostet also keinen zusätzlichen RAM; eine JP-6-Stimme braucht auf dem PC etwa 30–40 % weniger Rechenzeit als eine MKS-50-Stimme. Engine und Sound werden pro Bereich gespeichert. Über MIDI spielen Kanal 1, 2 und 3 die Bereiche RHYTHM, STRINGS und BASS (Kanal 10 die Drums). Die Sounds sind die Factory-Sounds beider Apps, automatisch übernommen (`tools/convert_presets.py`, `tools/convert_jp6_presets.py`).
 
@@ -74,7 +76,7 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 | SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
 | E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
-**BEAT:** schwarze Taste wählt und spielt ein Instrument, weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
+**BEAT:** schwarze Taste wählt und spielt ein Instrument (SEQ schaltet auf die zweite Ebene: schwarze Taste 1 ZAP, 2 PULSE), weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
 
 **RHYTHM, STRINGS, BASS** haben zwei Modi, SEQ schaltet um:
 

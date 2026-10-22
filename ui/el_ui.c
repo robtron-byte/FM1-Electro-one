@@ -16,7 +16,8 @@
  *                         17-24 and store everything in Flash (SAVE again: store only)
  *   E1 pattern (all areas)   E2 tempo (GLO: fine)
  *
- * BEAT    black keys pick + play a drum, white keys set steps.
+ * BEAT    black keys pick + play a drum (SEQ: second layer with ZAP and PULSE on
+ *         black keys 1-2), white keys set steps.
  *         EDIT + white accent, GLO + white roll, EDIT + black clear, GLO + black mute.
  *         E3-E6 drum sound, E7 length (GLO swing), GLO + E1 kit.
  * RHYTHM / STRINGS / BASS
@@ -38,7 +39,7 @@
 enum { BACK = 0x0000, PANEL = 0x18e3, GRID = 0x2945, TEXT = 0xef5d, DIM = 0x738e, FAINT = 0x4208,
        ACCENT = 0x07ff, RED = 0xf9a6, AMBER = 0xfd20, GREEN = 0x37e6 };
 enum { HOLD_EDIT = 1, HOLD_GLO = 2, HOLD_GEN = 4 };
-enum { HEADER_H = 31, GRID_X = 28, GRID_Y = 34, CELL = 13, ACC_Y = GRID_Y + DR_PARTS * CELL + 2, FOOT_Y = 194 };
+enum { HEADER_H = 31, GRID_X = 28, GRID_Y = 34, CELL = 11, ACC_Y = GRID_Y + DR_PARTS * CELL + 2, FOOT_Y = 194 };
 enum { ROLL_Y = 52, ROLL_H = 118 };
 
 static const uint8_t white_keys[UI_WHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
@@ -48,7 +49,7 @@ static const char *const area_names[EL_AREAS] = {"BEAT", "RHYTHM", "STRINGS", "B
 static const char *const area_tabs[EL_AREAS] = {"BEAT", "RHYT", "STRG", "BASS"};
 static const uint16_t area_color[EL_AREAS] = {0xfb44, 0xfee0, 0xb4bf, 0x3f3b};
 static const uint16_t part_color[DR_PARTS] = {
-    0xf8a3, 0xfc40, 0xfee0, 0xfee0, 0xfee0, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f};
+    0xf8a3, 0xfc40, 0xfee0, 0xfee0, 0xfee0, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f, 0x87f0, 0xffff};
 /* Sound pages of the synth areas (E3-E6). */
 static const char *const synth_page_names[UI_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX"};
 static const uint8_t synth_pages[SYN_ENGINES][UI_PAGES][4] = {
@@ -320,11 +321,20 @@ static void browse_preset(el_ui_t *ui, int delta, int other_engine)
         notice(ui, syn_engine_names[syn_sound_engine((unsigned)index)]);
 }
 
+/* Black key -> drum part. 11 keys for 13 parts: SEQ in BEAT switches to the
+ * second layer, where black keys 1 and 2 are ZAP and PULSE. */
+static int beat_part(const el_ui_t *ui, int black)
+{
+    if (black < 0) return -1;
+    if (!ui->beat_layer) return black < D8_ZP ? black : -1;
+    return black < DR_PARTS - D8_ZP ? D8_ZP + black : -1;
+}
+
 static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
 {
     dr_machine_t *m = &ui->engine->drums;
     const dr_pattern_t *p = &m->pattern[m->current];
-    int part = key_black(key), step = key_white(key);
+    int part = beat_part(ui, key_black(key)), step = key_white(key);
     if (part >= 0) {
         if (hold & HOLD_GLO) dr_post(m, DR_CMD_MUTE, (uint8_t)part, !(m->mute & BIT(part)), 0, 0);
         else if (hold & HOLD_EDIT) { dr_post(m, DR_CMD_CLEAR_PART, (uint8_t)part, 0, 0, 0); notice(ui, "PART CLEARED"); }
@@ -436,6 +446,10 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->save_pick = 0;
             notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");
         }
+    }
+    if ((pressed & BIT(BTN_SEQ)) && !ui->overview && ui->area == EL_AREA_BEAT) {
+        ui->beat_layer = !ui->beat_layer;
+        notice(ui, ui->beat_layer ? "BLACK KEYS: ZAP, PULSE" : "BLACK KEYS: BD .. CH");
     }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
         release_keys(ui, ~0u);
@@ -619,7 +633,8 @@ static void update_leds(el_ui_t *ui)
     if (ui->overview) leds |= 1ull << BTN_HOME;
     else leds |= 1ull << area_buttons[ui->area];
     if (ui->hold & HOLD_GEN) leds |= 1ull << BTN_ARP;
-    if (synth_area(ui) && ui->step_mode[ui->area]) leds |= 1ull << BTN_SEQ;
+    if ((synth_area(ui) && ui->step_mode[ui->area]) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer))
+        leds |= 1ull << BTN_SEQ;
     if (ui->overview) {
         if (m->current / 16u == ui->bank) leds |= 1ull << (14u + white_keys[m->current % 16u]);
         if (m->next != m->current && m->next / 16u == ui->bank && (ui->now / 250u) & 1u)
@@ -639,9 +654,11 @@ static void update_leds(el_ui_t *ui)
             if (playing && m->pos == s) on = !on;
             if (on) leds |= 1ull << (14u + white_keys[i]);
         }
-        for (unsigned part = 0; part < UI_BLACK; ++part) {
+        for (unsigned k = 0; k < UI_BLACK; ++k) {
+            int part = beat_part(ui, (int)k);
+            if (part < 0) continue;
             int on = (ui->hold & HOLD_GLO) ? !(m->mute & BIT(part)) : part == ui->part;
-            if (on) leds |= 1ull << (14u + black_keys[part]);
+            if (on) leds |= 1ull << (14u + black_keys[k]);
         }
     } else {
         st_track_t *t = track_of(ui);
@@ -721,8 +738,8 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
         if (!gfx_touches(b, y, CELL)) continue;
         int muted = (m->mute >> part) & 1u || m->muted;
         if (part == ui->part) gfx_fill(b, 0, y - 1, GRID_X - 2, CELL, 0x3186);
-        gfx_text(b, 3, y + 2, dr_part_names[part], muted ? FAINT : part == ui->part ? TEXT : DIM, 1);
-        if ((m->mute >> part) & 1u) gfx_text(b, 17, y + 2, "M", RED, 1);
+        gfx_text(b, 3, y + 1, dr_part_names[part], muted ? FAINT : part == ui->part ? TEXT : DIM, 1);
+        if ((m->mute >> part) & 1u) gfx_text(b, 17, y + 1, "M", RED, 1);
         for (unsigned i = 0; i < 16; ++i) {
             int x = GRID_X + (int)i * CELL;
             unsigned s = base + i;
