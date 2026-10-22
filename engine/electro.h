@@ -31,7 +31,7 @@ enum el_command {
     EL_CMD_TRACK_LENGTH, /* b = 1..32 */
     EL_CMD_TRACK_GATE,   /* b = 10..100 */
     EL_CMD_TRACK_PARAM,  /* b = mks parameter, value */
-    EL_CMD_TRACK_PRESET, /* b = preset index: loads the staged patch */
+    EL_CMD_TRACK_PRESET, /* b = sound index, c = engine: loads the staged patch */
     EL_CMD_TRACK_PATTERN,/* b = pattern slot: copies the staged pattern */
     EL_CMD_TRACK_MUTE,   /* b = on */
     EL_CMD_TRACK_LEVEL,  /* value = 0..127 */
@@ -55,7 +55,7 @@ typedef struct {
     st_track_t track[EL_TRACKS];
     el_fx_t fx;
     el_mixbus_t mix;
-    uint8_t staged_patch[MP_COUNT];      /* control writes, a command copies */
+    uint8_t staged_patch[SYN_VALUES];      /* control writes, a command copies */
     st_pattern_t staged_pattern;
     volatile uint32_t staged_posted, staged_taken;
     el_queue_t queue;       /* from the control task */

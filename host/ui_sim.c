@@ -122,6 +122,14 @@ int main(int argc, char **argv)
     shot(dir, "05_strings_generator");
     hold(BTN_ARP, 0);
 
+    hold(BTN_EDIT, 1);                /* EDIT + E7: strings from the JP-6 */
+    turn(6, 1);
+    hold(BTN_EDIT, 0);
+    run(300);
+    shot(dir, "05b_strings_jp6");
+    printf("engine: strings on %s %s\n", syn_engine_names[engine.track[1].part.engine],
+           engine.track[1].part.engine == SYN_JP6 ? "ok" : "FAIL");
+
     tap_button(BTN_LFO);              /* BASS */
     tap_button(BTN_LFO);              /* next sound page: ENVELOPE */
     run(300);
@@ -146,12 +154,13 @@ int main(int argc, char **argv)
     hold(BTN_ARP, 0);
     run(300);
     shot(dir, "09_new_groove");
-    int fresh = engine.drums.current == 2 && engine.drums.pattern[2].style == 2;
     /* The new groove is kept in Flash by itself and comes back after a restart. */
     run(2500);
+    int fresh = engine.drums.current == 2 && engine.drums.pattern[2].style == 2;
     static el_engine_t restarted;
     el_init(&restarted);
-    fresh = fresh && el_store_load(&restarted) == 0 &&
+    int lr = el_store_load(&restarted);
+    fresh = fresh && lr == 0 &&
             !memcmp(&restarted.drums.pattern[2], &engine.drums.pattern[2], sizeof(dr_pattern_t)) &&
             !memcmp(&restarted.track[1].pattern[2], &engine.track[1].pattern[2], sizeof(st_pattern_t));
     printf("store: new groove kept over restart %s\n", fresh ? "ok" : "FAIL");
@@ -170,7 +179,7 @@ int main(int argc, char **argv)
     int same = fresh && r == 0 && !memcmp(loaded.drums.pattern, engine.drums.pattern, sizeof loaded.drums.pattern);
     for (unsigned t = 0; t < EL_TRACKS; ++t)
         same = same && !memcmp(loaded.track[t].pattern, engine.track[t].pattern, sizeof loaded.track[t].pattern) &&
-               !memcmp(loaded.track[t].part.v, engine.track[t].part.v, MP_COUNT) &&
+               loaded.track[t].part.engine == engine.track[t].part.engine && !memcmp(syn_values(&loaded.track[t].part), syn_values(&engine.track[t].part), syn_value_count(engine.track[t].part.engine)) &&
                loaded.track[t].muted == engine.track[t].muted && loaded.track[t].level_value == engine.track[t].level_value;
     same = same && !memcmp(loaded.fx.v, engine.fx.v, FX_PARAMS);
     if (!same) {
@@ -179,7 +188,7 @@ int main(int argc, char **argv)
         for (unsigned t = 0; t < EL_TRACKS; ++t) {
             for (unsigned i = 0; i < ST_PATTERNS; ++i)
                 if (memcmp(&loaded.track[t].pattern[i], &engine.track[t].pattern[i], sizeof(st_pattern_t))) printf(" track %u slot %u differs\n", t, i);
-            if (memcmp(loaded.track[t].part.v, engine.track[t].part.v, MP_COUNT)) printf(" track %u sound differs\n", t);
+            if (memcmp(syn_values(&loaded.track[t].part), syn_values(&engine.track[t].part), syn_value_count(engine.track[t].part.engine))) printf(" track %u sound differs\n", t);
         }
     }
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");

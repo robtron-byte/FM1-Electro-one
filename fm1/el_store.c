@@ -5,12 +5,12 @@
 
 /* All 24 slots (generated style slots and user slots) and the settings are
  * stored, so the last grooves come back after a restart. */
-enum { MAGIC = 0x37444c45u /* "ELD7" */, VERSION = 7, PARAMS = 10, KIT_PARAMS = 3 };
+enum { MAGIC = 0x38444c45u /* "ELD8" */, VERSION = 8, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
-    uint8_t v[MP_COUNT];
-    uint8_t preset, level, muted, chord;
+    uint8_t v[SYN_VALUES];
+    uint8_t engine, preset, level, muted, chord;
 } track_payload_t;
 
 typedef struct {
@@ -111,10 +111,11 @@ int el_store_load(el_engine_t *e)
                 t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4);
             }
         }
-        uint8_t v[MP_COUNT];
-        for (unsigned p = 0; p < MP_COUNT; ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, mks_param_max(p));
-        mks_part_load(&t->part, v);
-        t->preset = (uint8_t)(s->preset < mks_preset_count ? s->preset : 0);
+        uint8_t v[SYN_VALUES];
+        unsigned engine = s->engine < SYN_ENGINES ? s->engine : SYN_MKS;
+        for (unsigned p = 0; p < syn_value_count(engine); ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, syn_param_max(engine, p));
+        syn_load(&t->part, engine, v);
+        t->preset = (uint8_t)(s->preset < syn_sound_count() ? s->preset : 0);
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
         t->chord = (uint8_t)el_clampi(s->chord, 0, MKS_CHORDS);
@@ -146,7 +147,8 @@ int el_store_save(el_engine_t *e)
         const st_track_t *t = &e->track[i];
         track_payload_t *s = &d->track[i];
         memcpy(s->pattern, t->pattern, sizeof s->pattern);
-        memcpy(s->v, t->part.v, sizeof s->v);
+        memcpy(s->v, syn_values(&t->part), syn_value_count(t->part.engine));
+        s->engine = t->part.engine;
         s->preset = t->preset;
         s->level = t->level_value;
         s->muted = t->muted;

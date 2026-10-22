@@ -43,11 +43,11 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
 | **BEAT** | FX | 808-Drum-Machine (11 Instrumente, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
-| **RHYTHM** | SCL | MKS-50-Engine, 3 Stimmen: Zaps, Stabs, Bleeps, S&H-Sequenzen, Perc (30 Sounds) | Noten-Steps mit Akzent und Tie |
-| **STRINGS** | ENV | MKS-50-Engine, 4 Stimmen: JX-Strings, Pads, Brass (16 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
-| **BASS** | LFO | MKS-50-Engine, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
+| **RHYTHM** | SCL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
+| **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
+| **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
 
-Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`).
+**Zwei Synth-Engines, pro Bereich wählbar, multitimbral.** Jeder Synth-Bereich spielt entweder mit der MKS-50-Engine oder mit der JP-6-Engine (`engine/jp6.c`, aus der JP-6-App portiert: zwei VCOs mit Cross-Mod und Sync, HPF, 24-dB-VCF mit LPF/BPF/HPF, zwei Hüllkurven, Chorus und die Verzerrung der App). Die Engine kommt mit dem Sound: E7 blättert erst durch die MKS-50-Sounds, dann durch die JP-6-Sounds des Bereichs, EDIT + E7 springt direkt zur anderen Engine. So laufen z. B. JP-6-Strings, MKS-50-Bass und JP-6-Sequenz gleichzeitig. Beide Engines teilen sich den Speicher eines Bereichs, die Wahl kostet also keinen zusätzlichen RAM; eine JP-6-Stimme braucht auf dem PC etwa 30–40 % weniger Rechenzeit als eine MKS-50-Stimme. Engine und Sound werden pro Bereich gespeichert. Über MIDI spielen Kanal 1, 2 und 3 die Bereiche RHYTHM, STRINGS und BASS (Kanal 10 die Drums). Die Sounds sind die Factory-Sounds beider Apps, automatisch übernommen (`tools/convert_presets.py`, `tools/convert_jp6_presets.py`).
 
 **Generierte Grooves statt fester Patterns.** 24 Pattern-Plätze in zwei Bänken. Die Plätze 1–16 sind Stil-Plätze: Dort liegt je ein generierter Groove in seinem Stil (`engine/drum_factory.c`): ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, MIAMI 2, BOOM BASS, DROWNED, ROBOT, PERFECT, EGYPT, FREAKY, LOVE. Jeder Stil bringt Tempo, Swing, Kit, Länge, typische Varianten pro Instrument und eine Akkordfamilie mit. Der Generator wählt daraus und variiert leicht (Geister-Kick, versetzte Hat, Open-Hat-Auftakt); Downbeats, Backbeat und die Figur des Stils bleiben. Zu jedem Beat entstehen passende RHYTHM-, STRINGS- und BASS-Spuren, alles in einer gemeinsamen Moll-Tonart (C, D, A, E, G, F, B♭ oder E♭). **HOME + ARP + weiße Taste** erzeugt für diesen Platz einen neuen Groove. Neu generiert wird nur auf diesen Befehl hin, nie beim Einschalten: Neue Grooves (auch einzelne neue Spuren aus dem Generator) werden zwei Sekunden nach dem letzten Generator-Tastendruck von selbst im Flash abgelegt und sind nach einem Neustart wieder da. Die Plätze 17–24 sind User-Plätze: **SAVE und danach weiße Taste 1–8** legt den laufenden Groove (Beat und alle drei Synth-Spuren) dort ab und speichert ihn mit allen Einstellungen im Flash. SAVE zweimal speichert alles ohne Kopie in einen User-Platz. Im Flash liegen alle 24 Plätze mit Klängen, Pegeln, Effekten, Tempo und Kit.
 
@@ -82,9 +82,9 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 |---|---|---|
 | Tasten | alle 27 Tasten spielen den Sound, die LEDs zeigen, was die Sequenz gerade spielt | weiße Tasten schalten Steps an/aus und wählen sie aus. EDIT + weiß Akzent, GLO + weiß Tie |
 | OCT − / + | Oktave | Steps 1–16 / 17–32 |
-| E3–E6 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
+| E3–E6 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX (je nach Engine) | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
 | REC | läuft: live einspielen (quantisiert). Steht: Noten Schritt für Schritt eingeben, EDIT + Taste = Pause | – |
-| E7 | Sound wählen (GLO: Pattern-Länge) | Sound wählen |
+| E7 | Sound wählen, EDIT + E7: andere Engine (GLO: Pattern-Länge) | Sound wählen, EDIT + E7: andere Engine |
 | GLO + E1 | Notenlänge (Gate) | Notenlänge |
 | STRINGS | GLO + weiße Taste 1–14 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten). GLO + E1: Schrittlänge 1/16 … 2 Takte | E5 Akkordtyp, E6 Umkehrung, GLO + weiß: halten/neu anschlagen |
 

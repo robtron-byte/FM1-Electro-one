@@ -191,6 +191,25 @@ int main(int argc, char **argv)
         failed |= render_slot(&e, chord_styles[k], dir, "chords_", 0, 1);
     }
 
+    /* Multitimbral with both engines: JP-6 sounds on some areas. */
+    static const struct { unsigned slot; const char *sound[EL_TRACKS]; } mixed[] = {
+        {6, {"SEQ PHRYG", "JP STRINGS", "DETROIT B"}},
+        {5, {"COMPUTER", "JP6 STRNG", "ROBO BASS"}},
+        {10, {"SEQ EBM", "JP SLOWSTR", "SYNC GROWL"}},
+    };
+    for (unsigned k = 0; k < sizeof mixed / sizeof mixed[0]; ++k) {
+        el_init(&e);
+        for (unsigned t = 0; t < EL_TRACKS; ++t) {
+            int s = syn_sound_find(SYN_JP6, mixed[k].sound[t]);
+            if (s < 0) s = syn_sound_find(SYN_MKS, mixed[k].sound[t]);
+            if (s < 0) { printf("missing sound %s\n", mixed[k].sound[t]); failed = 1; continue; }
+            float buf[EL_BLOCK * 2];
+            el_load_preset(&e, t, (unsigned)s);
+            el_render_float(&e, buf, EL_BLOCK);
+        }
+        failed |= render_slot(&e, mixed[k].slot, dir, "jp6mix_", 0, 0);
+    }
+
     /* Cost: a busy groove with all four areas for 60 seconds. */
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);

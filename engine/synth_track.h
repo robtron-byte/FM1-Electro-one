@@ -6,7 +6,7 @@
  * Audio-owned; the engine applies queued edits. */
 #ifndef EL_SYNTH_TRACK_H
 #define EL_SYNTH_TRACK_H
-#include "mks.h"
+#include "synth.h"
 
 enum { ST_STEPS = 32, ST_PATTERNS = 24, ST_NO_CHORD = 0 };
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
@@ -31,7 +31,7 @@ typedef struct {
 } st_pattern_t;
 
 typedef struct {
-    mks_part_t part;
+    syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */
     st_pattern_t pattern[ST_PATTERNS];
     uint8_t area, preset, current, pos, playing, muted, recording, level_value;
     uint8_t chord;             /* chord for live keys (0 = none) */

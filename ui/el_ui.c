@@ -27,7 +27,8 @@
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32.
  *         E3 note, E4 octave, E5 chord (STRINGS) or accent, E6 inversion
  *         (STRINGS) or tie.
- *   E3-E6 sound page, E7 sound (GLO length), GLO + E1 note length
+ *   E3-E6 sound page, E7 sound (MKS-50 sounds, then JP-6; EDIT + E7 switches
+ *   the engine), GLO + E7 length, GLO + E1 note length
  *   (STRINGS: step length 1/16 .. 2 bars for long chord sequences). */
 #include "el_ui.h"
 #include <stdio.h>
@@ -50,10 +51,13 @@ static const uint16_t part_color[DR_PARTS] = {
     0xf8a3, 0xfc40, 0xfee0, 0xfee0, 0xfee0, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f};
 /* Sound pages of the synth areas (E3-E6). */
 static const char *const synth_page_names[UI_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX"};
-static const uint8_t synth_pages[UI_PAGES][4] = {
-    {MP_CUTOFF, MP_RESO, MP_VCF_ENV, MP_VCF_LFO}, {MP_T1, MP_T2, MP_L3, MP_T4},
-    {MP_SAW, MP_PULSE, MP_SUB_LEVEL, MP_DCO_ENV}, {MP_LFO_RATE, MP_DCO_LFO, MP_PORTA_TIME, MP_PULSE_DETUNE},
-    {MP_CHORUS, MP_DELAY_SEND, MP_REVERB_SEND, MP_VOLUME}};
+static const uint8_t synth_pages[SYN_ENGINES][UI_PAGES][4] = {
+    {{MP_CUTOFF, MP_RESO, MP_VCF_ENV, MP_VCF_LFO}, {MP_T1, MP_T2, MP_L3, MP_T4},
+     {MP_SAW, MP_PULSE, MP_SUB_LEVEL, MP_DCO_ENV}, {MP_LFO_RATE, MP_DCO_LFO, MP_PORTA_TIME, MP_PULSE_DETUNE},
+     {MP_CHORUS, MP_DELAY_SEND, MP_REVERB_SEND, MP_VOLUME}},
+    {{JP_CUTOFF, JP_RESO, JP_VCF_ENV, JP_VCF_LFO}, {JP_ENV2_A, JP_ENV2_D, JP_ENV2_S, JP_ENV2_R},
+     {JP_MIX, JP_XMOD, JP_PWM_DEPTH, JP_VCO2_FINE}, {JP_LFO_RATE, JP_VCO_LFO, JP_PORTA_TIME, JP_ENV1_D},
+     {JP_CHORUS, JP_DELAY_SEND, JP_REVERB_SEND, JP_VOLUME}}};
 static const char *const note_names[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 static int key_white(unsigned key)
@@ -118,8 +122,9 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
         value = tr808_get(&e->drums.kit, ui->part, (int)param);
         param |= (unsigned)ui->part << 4;
     } else {
-        param = synth_pages[ui->page[ui->area]][slot];
-        value = track_of(ui)->part.v[param];
+        const syn_part_t *part = &track_of(ui)->part;
+        param = synth_pages[part->engine][ui->page[ui->area]][slot];
+        value = syn_values(part)[param];
     }
     *param_out = param;
     uint16_t key = (uint16_t)((ui->overview ? 4u : ui->area) << 8 | (param & 0xffu));
@@ -146,9 +151,10 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         if (d->names) k.text = d->names[el_clampi(k.value, 0, d->max)];
         k.color = part_color[ui->part];
     } else {
-        k.name = mks_param_name(param);
-        k.max = mks_param_max(param);
-        k.text = mks_param_value_name(param, k.value);
+        unsigned engine = track_of(ui)->part.engine;
+        k.name = syn_param_name(engine, param);
+        k.max = syn_param_max(engine, param);
+        k.text = syn_param_value_name(engine, param, k.value);
         k.color = area_color[ui->area];
     }
     return k;
@@ -292,17 +298,26 @@ static void save_to_user(el_ui_t *ui, unsigned user)
     ui->save_pending = 1;
 }
 
-static void browse_preset(el_ui_t *ui, int delta)
+/* E7 steps through the area's sounds: the MKS-50 ones, then the JP-6 ones.
+ * EDIT + E7 jumps to the other engine. */
+static void browse_preset(el_ui_t *ui, int delta, int other_engine)
 {
     st_track_t *t = track_of(ui);
-    int index = t->preset, dir = delta > 0 ? 1 : -1, moves = delta > 0 ? delta : -delta;
+    int count = (int)syn_sound_count(), index = t->preset, dir = delta > 0 ? 1 : -1, moves = delta > 0 ? delta : -delta;
+    if (other_engine) {
+        unsigned want = syn_sound_engine((unsigned)index) == SYN_MKS ? SYN_JP6 : SYN_MKS;
+        for (int i = 0; i < count; ++i)
+            if (syn_sound_engine((unsigned)i) == want && syn_sound_area((unsigned)i) == ui->area) { index = i; break; }
+        moves = 0;
+    }
     while (moves--) {
         int i = index;
-        do i += dir; while (i >= 0 && i < (int)mks_preset_count && mks_presets[i].area != ui->area);
-        if (i < 0 || i >= (int)mks_preset_count) break;
+        do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
+        if (i < 0 || i >= count) break;
         index = i;
     }
-    if (index != t->preset) el_load_preset(ui->engine, ui->area - 1u, (unsigned)index);
+    if (index != t->preset && el_load_preset(ui->engine, ui->area - 1u, (unsigned)index) == 0 && other_engine)
+        notice(ui, syn_engine_names[syn_sound_engine((unsigned)index)]);
 }
 
 static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
@@ -520,7 +535,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
             el_post3(e, EL_CMD_TRACK_LENGTH, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->length + enc[6], 1, ST_STEPS), 0, 0);
         } else {
-            browse_preset(ui, enc[6]);
+            browse_preset(ui, enc[6], (hold & HOLD_EDIT) != 0);
         }
     }
     ui->prev_buttons = c->buttons;
@@ -739,7 +754,8 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     unsigned base = ui->step_page[ui->area] * 16u, pos = playing ? t->pos : 0xffu;
     unsigned shown = p->length > base ? p->length - base : 0;
     if (shown > 16) shown = 16;
-    gfx_text(b, 4, 35, mks_presets[t->preset].name, color, 2);
+    gfx_text(b, 4, 35, syn_sound_name(t->preset), color, 2);
+    gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
     if (ui->step_mode[ui->area]) snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
     else snprintf(text, sizeof text, "KEYS O%+d", ui->octave[ui->area]);
     gfx_text(b, GFX_W - 4 - gfx_text_width(text, 1), 39, text, ui->step_mode[ui->area] ? AMBER : DIM, 1);
@@ -824,7 +840,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
         if (!gfx_touches(b, y, 36)) continue;
         int muted = area_muted(ui, a);
         uint16_t color = muted ? DIM : area_color[a];
-        const char *sound = a ? mks_presets[e->track[a - 1].preset].name : dr_kit_names[m->kit_index];
+        const char *sound = a ? syn_sound_name(e->track[a - 1].preset) : dr_kit_names[m->kit_index];
         unsigned level = a ? e->track[a - 1].level_value : m->level_value;
         gfx_text(b, 4, y + 2, area_names[a], color, 1);
         gfx_text(b, 60, y + 2, sound, muted ? DIM : TEXT, 1);

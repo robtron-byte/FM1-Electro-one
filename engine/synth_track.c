@@ -12,7 +12,7 @@
 void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
 {
     memset(t, 0, sizeof *t);
-    mks_part_init(&t->part, voices, seed);
+    syn_init(&t->part, SYN_MKS, voices, seed);
     t->area = (uint8_t)area;
     t->level_value = 100;
     t->last_note = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : 60;
@@ -49,7 +49,7 @@ unsigned st_chord_notes(int root, unsigned chord, int16_t *out)
 
 static EL_DSP_CODE void release_all(st_track_t *t)
 {
-    for (unsigned i = 0; i < t->sounding_count; ++i) mks_note_off(&t->part, t->sounding[i]);
+    for (unsigned i = 0; i < t->sounding_count; ++i) syn_note_off(&t->part, t->sounding[i]);
     t->sounding_count = 0;
     t->tied = 0;
     t->gate_countdown = 0;
@@ -97,16 +97,16 @@ EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, float sixteenth_frames
         int same = count == t->sounding_count;
         for (unsigned i = 0; same && i < count; ++i) same = notes[i] == t->sounding[i];
         if (!same) {
-            for (unsigned i = 0; i < count; ++i) mks_note_on(&t->part, notes[i], velocity, 1);
+            for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 1);
             for (unsigned i = 0; i < t->sounding_count; ++i) {
                 int keep = 0;
                 for (unsigned j = 0; j < count; ++j) keep |= notes[j] == t->sounding[i];
-                if (!keep) mks_note_off(&t->part, t->sounding[i]);
+                if (!keep) syn_note_off(&t->part, t->sounding[i]);
             }
         }
     } else {
         release_all(t);
-        for (unsigned i = 0; i < count; ++i) mks_note_on(&t->part, notes[i], velocity, 0);
+        for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 0);
     }
     for (unsigned i = 0; i < count; ++i) t->sounding[i] = notes[i];
     t->sounding_count = (uint8_t)count;
@@ -126,13 +126,12 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
 {
     /* Area trims balance the sounds against the 808 at equal level settings. */
     static const float trim[4] EL_DSP_DATA = {1.0f, 2.6f, 0.75f, 4.3f};
-    t->part.level = t->level_value / 127.0f * trim[t->area & 3u];
-    mks_render(&t->part, left, right, dly, rev, frames, bpm);
+    syn_render(&t->part, left, right, dly, rev, frames, bpm, t->level_value / 127.0f * trim[t->area & 3u]);
     t->since_step += (float)frames;
     if (t->gate_countdown > 0) {
         t->gate_countdown -= (float)frames;
         if (t->gate_countdown <= 0) {
-            for (unsigned i = 0; i < t->sounding_count; ++i) mks_note_off(&t->part, t->sounding[i]);
+            for (unsigned i = 0; i < t->sounding_count; ++i) syn_note_off(&t->part, t->sounding[i]);
             t->sounding_count = 0;
             t->gate_countdown = 0;
         }
@@ -144,10 +143,10 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(note, t->chord, notes);
     if (velocity <= 0) {
-        for (unsigned i = 0; i < count; ++i) mks_note_off(&t->part, notes[i]);
+        for (unsigned i = 0; i < count; ++i) syn_note_off(&t->part, notes[i]);
         return;
     }
-    for (unsigned i = 0; i < count; ++i) mks_note_on(&t->part, notes[i], velocity, 0);
+    for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 0);
     t->last_note = (uint8_t)el_clampi(note, 0, 127);
     if (!t->recording || !t->playing) return;
     /* Quantize to the nearest 16th, like the drum recorder. */

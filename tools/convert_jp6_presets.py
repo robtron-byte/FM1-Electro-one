@@ -31,7 +31,7 @@ IGNORED = re.compile(r"^(vcoAfterDepth|vcfAfterDepth|vcaAfterDepth|modSensitivit
 
 # Sound areas of FM1-Electro: 1 rhythmic sounds, 2 strings/pads, 3 bass.
 # Leads and the init tone are left out, as for the MKS-50 sounds.
-AREA = {"zap": 1, "stab": 1, "sequence": 1, "fxPerc": 1, "keys": 1,
+AREA = {"lead": 1, "zap": 1, "stab": 1, "sequence": 1, "fxPerc": 1, "keys": 1,
         "stringsBrass": 2, "pad": 2, "bass": 3}
 BASS_NAMES = set()
 

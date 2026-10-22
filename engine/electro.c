@@ -59,27 +59,29 @@ void el_generate_all(el_engine_t *e, uint32_t seed)
     }
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
-        for (unsigned p = 0; p < mks_preset_count; ++p)
-            if (!strcmp(mks_presets[p].name, default_sounds[i])) {
-                mks_part_load(&t->part, mks_presets[p].v);
-                t->preset = (uint8_t)p;
-            }
+        int s = syn_sound_find(SYN_MKS, default_sounds[i]);
+        if (s >= 0) {
+            syn_load(&t->part, SYN_MKS, syn_sound_values((unsigned)s));
+            t->preset = (uint8_t)s;
+        }
     }
     e->transport.swing = e->drums.pattern[e->drums.current].swing;
 }
 
 static void stage_patch(el_engine_t *e, unsigned preset)
 {
-    for (unsigned i = 0; i < MP_COUNT; ++i) e->staged_patch[i] = mks_presets[preset].v[i];
+    const uint8_t *v = syn_sound_values(preset);
+    unsigned n = syn_value_count(syn_sound_engine(preset));
+    for (unsigned i = 0; i < n; ++i) e->staged_patch[i] = v[i];
 }
 
 int el_load_preset(el_engine_t *e, unsigned track, unsigned preset)
 {
-    if (track >= EL_TRACKS || preset >= mks_preset_count) return -1;
+    if (track >= EL_TRACKS || preset >= syn_sound_count()) return -1;
     if (e->staged_posted != e->staged_taken) return -2;
     stage_patch(e, preset);
     EL_FENCE();
-    if (el_post3(e, EL_CMD_TRACK_PRESET, (uint8_t)track, (uint8_t)preset, 0, 0)) return -1;
+    if (el_post3(e, EL_CMD_TRACK_PRESET, (uint8_t)track, (uint8_t)preset, (uint8_t)syn_sound_engine(preset), 0)) return -1;
     ++e->staged_posted;
     return 0;
 }
@@ -178,12 +180,12 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         p->gate = (uint8_t)el_clampi(c->b, 10, 100);
         break;
     case EL_CMD_TRACK_PARAM:
-        mks_part_set(&t->part, c->b, c->value);
+        syn_set(&t->part, c->b, c->value);
         break;
     case EL_CMD_TRACK_PRESET:
-        mks_part_load(&t->part, e->staged_patch);
+        syn_load(&t->part, c->c, e->staged_patch);
         t->preset = c->b;
-        t->chord = t->part.v[MP_KEY_MODE] == 1 ? (uint8_t)(t->part.v[MP_CHORD] + 1u) : t->chord;
+        if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
         EL_FENCE();
         ++e->staged_taken;
         break;
