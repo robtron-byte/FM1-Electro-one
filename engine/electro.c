@@ -1,4 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Device build: all code and constants of this file run in internal SRAM,
+ * like FM1 Open's own DSP (safe while Flash is written). */
+#ifndef FM1_HOST_TEST
+#pragma code_seg(".volatile_ram_code")
+#pragma const_seg(".volatile_ram.fm1")
+#endif
 #include "electro.h"
 #include <string.h>
 
@@ -9,8 +15,73 @@ void el_init(el_engine_t *e)
     el_queue_init(&e->queue);
     el_queue_init(&e->midi_queue);
     dr_init(&e->drums);
+    fx_init(&e->fx);
+    static const uint8_t voices[EL_TRACKS] = {3, 4, 2};
+    for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
+    el_factory_tracks(e);
     e->transport.swing = e->drums.pattern[0].swing;
     e->master = 0.8f;
+}
+
+/* Factory synth parts for the drum grooves: generator style per area
+ * (rhythm, strings, bass), key and default sounds. */
+static const char *const default_sounds[EL_TRACKS] = {"S&H BLEEP", "JX STRINGS", "ROBO BASS"};
+static const uint8_t factory_styles[DR_PATTERNS][EL_TRACKS] = {
+    {2, 1, 1}, {2, 1, 0}, {0, 0, 0}, {3, 2, 1}, {2, 0, 1}, {2, 1, 3}, {2, 2, 0}, {2, 3, 3},
+    {0, 0, 1}, {0, 0, 0}, {2, 3, 1}, {2, 1, 0}, {3, 3, 3}, {2, 3, 0}, {0, 0, 0}, {0, 0, 0}};
+static const int8_t factory_keys[DR_PATTERNS] = {0, 2, -3, 1, -5, 3, 0, -2, 5, -3, 0, 2, -5, 1, 0, 0};
+
+void el_factory_tracks(el_engine_t *e)
+{
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        st_track_t *t = &e->track[i];
+        for (unsigned p = 0; p < mks_preset_count; ++p)
+            if (!strcmp(mks_presets[p].name, default_sounds[i])) {
+                mks_part_load(&t->part, mks_presets[p].v);
+                t->preset = (uint8_t)p;
+            }
+        for (unsigned slot = 0; slot < DR_PATTERNS; ++slot) {
+            const dr_pattern_t *d = &e->drums.pattern[slot];
+            st_pattern_t *p = &t->pattern[slot];
+            if (!d->hit[D8_BD] && !d->hit[D8_CH]) continue; /* empty slots stay empty */
+            st_generate(p, i + 1u, factory_styles[slot][i], 64, 0x9e3779b9u * (slot + 1u) + i * 7919u, d->length);
+            for (unsigned s = 0; s < ST_STEPS; ++s)
+                p->step[s].note = (uint8_t)el_clampi(p->step[s].note + factory_keys[slot], 0, 127);
+        }
+    }
+}
+
+static void stage_patch(el_engine_t *e, unsigned preset)
+{
+    for (unsigned i = 0; i < MP_COUNT; ++i) e->staged_patch[i] = mks_presets[preset].v[i];
+}
+
+int el_load_preset(el_engine_t *e, unsigned track, unsigned preset)
+{
+    if (track >= EL_TRACKS || preset >= mks_preset_count) return -1;
+    if (e->staged_posted != e->staged_taken) return -2;
+    stage_patch(e, preset);
+    EL_FENCE();
+    if (el_post3(e, EL_CMD_TRACK_PRESET, (uint8_t)track, (uint8_t)preset, 0, 0)) return -1;
+    ++e->staged_posted;
+    return 0;
+}
+
+int el_load_pattern(el_engine_t *e, unsigned track, unsigned slot, const st_pattern_t *p)
+{
+    if (track >= EL_TRACKS || slot >= ST_PATTERNS || !p) return -1;
+    if (e->staged_posted != e->staged_taken) return -2;
+    e->staged_pattern = *p;
+    EL_FENCE();
+    if (el_post3(e, EL_CMD_TRACK_PATTERN, (uint8_t)track, (uint8_t)slot, 0, 0)) return -1;
+    ++e->staged_posted;
+    return 0;
+}
+
+int el_post3(el_engine_t *e, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value)
+{
+    el_cmd_t cmd = {type, a, b, c, value};
+    return el_queue_push(&e->queue, cmd);
 }
 
 int el_post(el_engine_t *e, uint8_t type, uint8_t a, int16_t value)
@@ -40,20 +111,102 @@ int el_midi_input(el_engine_t *e, const uint8_t *m, size_t n)
     return el_queue_push(&e->midi_queue, cmd) == 0;
 }
 
+static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
+{
+    st_track_t *t = &e->track[c->a];
+    st_pattern_t *p = &t->pattern[t->current];
+    st_step_t *s = c->b < ST_STEPS ? &p->step[c->b] : &p->step[0];
+    switch (c->type) {
+    case EL_CMD_NOTE:
+        st_live(t, c->b, el_clampi(c->value, 0, 127) / 127.0f);
+        break;
+    case EL_CMD_STEP_TOGGLE:
+        if (!(s->flags & ST_ON)) { s->note = t->last_note; s->chord = t->chord; }
+        s->flags ^= ST_ON;
+        break;
+    case EL_CMD_STEP_FLAG:
+        s->flags = (uint8_t)((s->flags ^ c->c) | ST_ON);
+        break;
+    case EL_CMD_STEP_NOTE:
+        if (!(s->flags & ST_ON)) { s->flags |= ST_ON; s->note = t->last_note; }
+        else s->note = (uint8_t)el_clampi(s->note + c->value, 0, 127);
+        t->last_note = s->note;
+        break;
+    case EL_CMD_STEP_CHORD:
+        s->chord = (uint8_t)el_clampi(c->value, 0, MKS_CHORDS);
+        break;
+    case EL_CMD_STEP_SET:
+        s->note = c->c;
+        s->flags = (uint8_t)(c->value & 0xff);
+        s->chord = (uint8_t)el_clampi(c->value >> 8, 0, MKS_CHORDS);
+        break;
+    case EL_CMD_TRACK_LENGTH:
+        p->length = (uint8_t)el_clampi(c->b, 1, ST_STEPS);
+        if (t->pos >= p->length) t->pos = (uint8_t)(p->length - 1u);
+        break;
+    case EL_CMD_TRACK_GATE:
+        p->gate = (uint8_t)el_clampi(c->b, 10, 100);
+        break;
+    case EL_CMD_TRACK_PARAM:
+        mks_part_set(&t->part, c->b, c->value);
+        break;
+    case EL_CMD_TRACK_PRESET:
+        mks_part_load(&t->part, e->staged_patch);
+        t->preset = c->b;
+        t->chord = t->part.v[MP_KEY_MODE] == 1 ? (uint8_t)(t->part.v[MP_CHORD] + 1u) : t->chord;
+        EL_FENCE();
+        ++e->staged_taken;
+        break;
+    case EL_CMD_TRACK_PATTERN:
+        if (c->b < ST_PATTERNS) t->pattern[c->b] = e->staged_pattern;
+        EL_FENCE();
+        ++e->staged_taken;
+        break;
+    case EL_CMD_TRACK_MUTE:
+        st_mute(t, c->b);
+        break;
+    case EL_CMD_TRACK_LEVEL:
+        t->level_value = (uint8_t)el_clampi(c->value, 0, 127);
+        break;
+    case EL_CMD_TRACK_CHORD:
+        t->chord = (uint8_t)el_clampi(c->b, 0, MKS_CHORDS);
+        break;
+    case EL_CMD_TRACK_CLEAR:
+        for (unsigned i = 0; i < ST_STEPS; ++i) p->step[i].flags = 0;
+        break;
+    default:
+        return;
+    }
+    ++t->revision;
+}
+
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
+    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_CLEAR) {
+        if (c->a < EL_TRACKS) apply_track(e, c);
+        return;
+    }
     switch (c->type) {
+    case EL_CMD_FX:
+        if (c->a < FX_PARAMS) e->fx.v[c->a] = (uint8_t)el_clampi(c->value, 0, fx_param_max(c->a));
+        break;
+    case EL_CMD_RECORD_AREA:
+        e->drums.recording = c->a == EL_AREA_BEAT && c->b;
+        for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].recording = c->a == i + 1u && c->b;
+        break;
     case EL_CMD_START:
         /* MIDI Start hands the clock to the sender; PLAY on the panel takes
          * it back. c marks commands from the MIDI queue. */
         t->source = c->c ? EL_CLOCK_MIDI : EL_CLOCK_INTERNAL;
         dr_rewind(&e->drums);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) st_rewind(&e->track[i]);
         el_transport_start(t);
         break;
     case EL_CMD_STOP:
         el_transport_stop(t);
         dr_rewind(&e->drums);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) st_rewind(&e->track[i]);
         break;
     case EL_CMD_CONTINUE:
         t->source = c->c ? EL_CLOCK_MIDI : EL_CLOCK_INTERNAL;
@@ -65,6 +218,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_CLOCK_SOURCE:
         el_transport_stop(t);
         dr_rewind(&e->drums);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) st_rewind(&e->track[i]);
         t->source = c->a ? EL_CLOCK_MIDI : EL_CLOCK_INTERNAL;
         break;
     case EL_CMD_MIDI_TICK:
@@ -103,14 +257,24 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, float *left, float *right, un
         int n = (int)(frames - pos);
         n = el_transport_frames_until(t, n);
         n = dr_frames_until(&e->drums, n);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) n = st_frames_until(&e->track[i], n);
         dr_render(&e->drums, left + pos, right + pos, rev + pos, dly + pos, n);
+        for (unsigned i = 0; i < EL_TRACKS; ++i)
+            st_render(&e->track[i], left + pos, right + pos, dly + pos, rev + pos, n, t->bpm);
         uint32_t step;
-        if (el_transport_advance(t, n, &step)) dr_step(&e->drums, step, t->last_length);
+        if (el_transport_advance(t, n, &step)) {
+            dr_step(&e->drums, step, t->last_length);
+            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], e->drums.current, t->last_length);
+        }
         pos += (unsigned)n;
     }
-    if (pos < frames) dr_render(&e->drums, left + pos, right + pos, rev + pos, dly + pos, (int)(frames - pos));
-    /* Reverb and delay sends are summed into the FX bus once the shared
-     * effects from the synth apps are ported; until then they stay unused. */
+    if (pos < frames) {
+        int n = (int)(frames - pos);
+        dr_render(&e->drums, left + pos, right + pos, rev + pos, dly + pos, n);
+        for (unsigned i = 0; i < EL_TRACKS; ++i)
+            st_render(&e->track[i], left + pos, right + pos, dly + pos, rev + pos, n, t->bpm);
+    }
+    fx_render(&e->fx, dly, rev, left, right, (int)frames, t->bpm);
     ++e->blocks;
 }
 

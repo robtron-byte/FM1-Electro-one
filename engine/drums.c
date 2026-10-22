@@ -1,4 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Device build: all code and constants of this file run in internal SRAM,
+ * like FM1 Open's own DSP (safe while Flash is written). */
+#ifndef FM1_HOST_TEST
+#pragma code_seg(".volatile_ram_code")
+#pragma const_seg(".volatile_ram.fm1")
+#endif
 #include "drums.h"
 #include <string.h>
 
@@ -18,10 +24,10 @@ static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
     /* ELECTRO: long tuned kick with saturation, snappy snare, loud clap. */
     {{D8_BD, 2, 104}, {D8_BD, 3, 60}, {D8_BD, 4, 40}, {D8_BD, 5, 26}, {D8_BD, 6, 3},
      {D8_SD, 2, 104}, {D8_SD, 3, 70}, {D8_CP, 0, 76}, {D8_CP, 2, 70},
-     {D8_CH, 2, 40}, {D8_OH, 1, 64}, {D8_CB, 0, 58}, {D8_KIT, 2, 1}, {255, 0, 0}},
+     {D8_CH, 2, 40}, {D8_OH, 1, 64}, {D8_CB, 0, 58}, {D8_SD, 7, 24}, {D8_CP, 7, 34}, {D8_KIT, 2, 1}, {255, 0, 0}},
     /* MIAMI: booming sub kick, darker snare, short hats. */
     {{D8_BD, 0, 80}, {D8_BD, 2, 127}, {D8_BD, 3, 54}, {D8_BD, 4, 52}, {D8_BD, 1, 30},
-     {D8_SD, 1, 50}, {D8_SD, 4, 96}, {D8_CH, 2, 36}, {D8_OH, 1, 58}, {D8_KIT, 2, 1}, {255, 0, 0}},
+     {D8_SD, 1, 50}, {D8_SD, 4, 96}, {D8_CH, 2, 36}, {D8_OH, 1, 58}, {D8_CP, 7, 40}, {D8_KIT, 2, 1}, {255, 0, 0}},
     /* KRAFT: short clicky kick, high tight snare, claves, crushed metal. */
     {{D8_BD, 2, 64}, {D8_BD, 4, 70}, {D8_BD, 1, 72}, {D8_SD, 2, 56}, {D8_SD, 3, 80},
      {D8_SD, 4, 80}, {D8_RS, 3, 1}, {D8_RS, 1, 70}, {D8_CB, 1, 72}, {D8_CH, 2, 30},
@@ -158,7 +164,7 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     float velocity = (p->accent & bit) ? 1.0f : DR_NORMAL;
     m->roll_pending = 0;
     for (unsigned part = 0; part < DR_PARTS; ++part) {
-        if (!(p->hit[part] & bit) || !audible(m, part)) continue;
+        if (!(p->hit[part] & bit) || !audible(m, part) || m->muted) continue;
         if (!(suppress & (1u << part))) drum808_trigger(&m->kit, (int)part, velocity);
         if (p->roll[part] & bit) {
             m->roll_pending |= 1u << part;
@@ -276,6 +282,9 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_PANIC:
         silence(m);
+        break;
+    case DR_CMD_AREA_MUTE:
+        m->muted = step ? 1 : 0;
         break;
     default:
         return;

@@ -1,4 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
+/* Device build: all code and constants of this file run in internal SRAM,
+ * like FM1 Open's own DSP (safe while Flash is written). */
+#ifndef FM1_HOST_TEST
+#pragma code_seg(".volatile_ram_code")
+#pragma const_seg(".volatile_ram.fm1")
+#endif
 #include "transport.h"
 
 void el_transport_init(el_transport_t *t)

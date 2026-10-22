@@ -3,17 +3,22 @@
 #include "fm1.h"
 #include <string.h>
 
-enum { MAGIC = 0x31444c45u /* "ELD1" */, VERSION = 1, PARAMS = 10, KIT_PARAMS = 3 };
-/* FM1 Open: 15 project sectors, settings, staging, then samples/library/tuning
- * up to 536576 bytes (GROOVE_FLASH_BYTES in its instrument.h). */
-enum { FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 13 };
+enum { MAGIC = 0x32444c45u /* "ELD2" */, VERSION = 2, PARAMS = 10, KIT_PARAMS = 3 };
+
+typedef struct {
+    st_pattern_t pattern[ST_PATTERNS];
+    uint8_t v[MP_COUNT];
+    uint8_t preset, level, muted, chord;
+} track_payload_t;
 
 typedef struct {
     dr_pattern_t pattern[DR_PATTERNS];
     uint8_t params[DR_PARTS][PARAMS];
     uint8_t kit_params[KIT_PARAMS];
-    uint8_t kit, level, current, reserved;
-    uint16_t bpm_x10, reserved2;
+    uint8_t kit, level, current, muted;
+    uint16_t bpm_x10, reserved;
+    track_payload_t track[EL_TRACKS];
+    uint8_t fx[FX_PARAMS];
 } payload_t;
 
 typedef struct {
@@ -22,7 +27,12 @@ typedef struct {
     uint32_t crc;
     payload_t data;
 } record_t;
-_Static_assert(sizeof(record_t) <= FM1_FLASH_SECTOR_BYTES, "one record per sector");
+/* Each copy spans SECTORS sectors; two copies alternate. FM1 Open's own data
+ * ends at 536576 bytes (GROOVE_FLASH_BYTES); without room after it, the
+ * copies use FM1 Open project slots 12-15 (sectors 11-14). */
+enum { SECTORS = (sizeof(record_t) + FM1_FLASH_SECTOR_BYTES - 1) / FM1_FLASH_SECTOR_BYTES,
+       FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
+_Static_assert(SECTORS <= 2, "record fits two sectors per copy");
 
 static record_t record; /* static: too large for the control task stack */
 
@@ -39,9 +49,9 @@ static uint32_t crc32(const void *data, size_t bytes)
 
 uint32_t el_store_address(unsigned which)
 {
-    if (fm1_flash_size() >= FM1_OPEN_BYTES + 2u * FM1_FLASH_SECTOR_BYTES)
-        return FM1_OPEN_BYTES + which * FM1_FLASH_SECTOR_BYTES;
-    return (FALLBACK_SECTOR + which) * FM1_FLASH_SECTOR_BYTES;
+    if (fm1_flash_size() >= FM1_OPEN_BYTES + 2u * SECTORS * FM1_FLASH_SECTOR_BYTES)
+        return FM1_OPEN_BYTES + which * SECTORS * FM1_FLASH_SECTOR_BYTES;
+    return (FALLBACK_SECTOR + which * SECTORS) * FM1_FLASH_SECTOR_BYTES;
 }
 
 /* Reads one sector into record; returns its sequence, or 0 when invalid. */
@@ -80,7 +90,27 @@ int el_store_load(el_engine_t *e)
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
     m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
+    m->muted = d->muted ? 1 : 0;
     el_transport_set_bpm(&e->transport, el_clampi(d->bpm_x10, 300, 3000) * 0.1f);
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        st_track_t *t = &e->track[i];
+        const track_payload_t *s = &d->track[i];
+        for (unsigned p = 0; p < ST_PATTERNS; ++p) {
+            t->pattern[p] = s->pattern[p];
+            t->pattern[p].length = (uint8_t)el_clampi(t->pattern[p].length, 1, ST_STEPS);
+            t->pattern[p].gate = (uint8_t)el_clampi(t->pattern[p].gate, 10, 100);
+            for (unsigned k = 0; k < ST_STEPS; ++k)
+                t->pattern[p].step[k].chord = (uint8_t)el_clampi(t->pattern[p].step[k].chord, 0, MKS_CHORDS);
+        }
+        uint8_t v[MP_COUNT];
+        for (unsigned p = 0; p < MP_COUNT; ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, mks_param_max(p));
+        mks_part_load(&t->part, v);
+        t->preset = (uint8_t)(s->preset < mks_preset_count ? s->preset : 0);
+        t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
+        t->muted = s->muted ? 1 : 0;
+        t->chord = (uint8_t)el_clampi(s->chord, 0, MKS_CHORDS);
+    }
+    for (unsigned p = 0; p < FX_PARAMS; ++p) e->fx.v[p] = (uint8_t)el_clampi(d->fx[p], 0, fx_param_max(p));
     return 0;
 }
 
@@ -101,14 +131,27 @@ int el_store_save(el_engine_t *e)
     d->kit = m->kit_index;
     d->level = m->level_value;
     d->current = m->current;
+    d->muted = m->muted;
     d->bpm_x10 = (uint16_t)(e->transport.bpm * 10.0f + 0.5f);
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        const st_track_t *t = &e->track[i];
+        track_payload_t *s = &d->track[i];
+        memcpy(s->pattern, t->pattern, sizeof s->pattern);
+        memcpy(s->v, t->part.v, sizeof s->v);
+        s->preset = t->preset;
+        s->level = t->level_value;
+        s->muted = t->muted;
+        s->chord = t->chord;
+    }
+    memcpy(d->fx, e->fx.v, sizeof d->fx);
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
     record.bytes = sizeof(payload_t);
     record.crc = crc32(d, sizeof *d);
     uint32_t address = el_store_address(target);
-    int r = fm1_flash_erase(address);
+    int r = 0;
+    for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
     if (!r) r = fm1_flash_write(address, &record, sizeof record);
     return r;
 }

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * Panel user interface: reads the FM-1 controls, posts edits to the engine,
+ * Panel user interface with four areas: BEAT (808), RHYTHM (rhythmic synth
+ * sounds), STRINGS (electro strings and pads) and BASS (bass sequences),
+ * plus a HOME overview. Reads the FM-1 controls, posts edits to the engine,
  * drives the key/button LEDs and repaints the LCD in 16-row bands.
  * Control task only. */
 #ifndef EL_UI_H
@@ -13,32 +15,30 @@ enum {
     BTN_OCT_DOWN, BTN_OCT_UP, BTN_FX, BTN_SCL, BTN_ENV, BTN_LFO, BTN_EDIT,
     BTN_GLO, BTN_HOME, BTN_SAVE, BTN_ARP, BTN_SEQ, BTN_PLAY, BTN_REC, BTN_COUNT
 };
-enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7 };
-
-typedef struct {
-    /* What the screen shows; compared against the last painted state. */
-    uint8_t pattern, next, part, step_page, steps_shown, playing, recording, pos;
-    uint8_t param_page, length, swing, kit, mode, gen_style, gen_density, gen_keep;
-    uint16_t bpm_x10, mute, solo;
-    uint32_t revision, notice_id, hold;
-} ui_model_t;
+enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5 };
 
 typedef struct {
     el_engine_t *engine;
     int (*save)(el_engine_t *engine); /* SAVE button; 0 on success */
-    uint8_t part, step_page, follow, param_page;
-    uint8_t gen_style, gen_density, gen_keep;
+    uint8_t area, overview, follow, part;
+    uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];
+    int8_t octave[EL_AREAS];
+    uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
+    uint8_t key_note[UI_KEYS];          /* note sent for each held key, 0xff = none */
+    uint8_t key_track[UI_KEYS];
     uint32_t prev_buttons, prev_keys;
-    /* Parameter values just sent, used until the audio side has applied them. */
-    int16_t shadow_value[DR_PARTS + 1][10];
-    uint32_t shadow_time[DR_PARTS + 1][10];
+    /* Per encoder E3-E6: value just sent, used until the audio side has it. */
+    int16_t shadow_value[4];
+    uint16_t shadow_param[4];   /* area << 8 | parameter */
+    uint32_t shadow_time[4];
     const char *notice;
-    uint32_t notice_until, notice_id;
+    uint32_t notice_until, notice_id, hold;
     uint64_t leds;
     uint8_t leds_valid;
-    ui_model_t shown, model;
-    uint16_t dirty;       /* bands waiting to be painted */
+    uint32_t sig[3];                    /* header, main, footer as last painted */
+    uint16_t dirty;                     /* bands waiting to be painted */
     uint8_t paint_next;
+    uint32_t now;
     gfx_band_t band;
 } el_ui_t;
 

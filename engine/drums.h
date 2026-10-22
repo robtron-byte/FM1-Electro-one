@@ -49,7 +49,8 @@ enum dr_command {
     DR_CMD_KIT,         /* a = kit preset */
     DR_CMD_LEVEL,       /* value = 0..127 */
     DR_CMD_RECORD,      /* b = on */
-    DR_CMD_PANIC
+    DR_CMD_PANIC,
+    DR_CMD_AREA_MUTE    /* b = on: silence the whole beat area */
 };
 
 enum { DR_STYLE_ELECTRO, DR_STYLE_KRAFT, DR_STYLE_ROTHER, DR_STYLE_ROBOT, DR_STYLE_MIAMI };
@@ -73,6 +74,7 @@ typedef struct {
     uint8_t pos;            /* step within the current pattern that fired last */
     uint8_t playing;        /* 1 after the first step since start */
     uint8_t recording;
+    uint8_t muted;          /* whole area muted */
     uint8_t kit_index;
     uint8_t level_value;
     volatile uint32_t revision; /* bumps on every applied edit, for the UI */

@@ -4,60 +4,65 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 
 > Unabhängiges Projekt, nicht mit M-VAVE oder Roland verbunden. „MKS-50“, „Jupiter-6“ und „TR-808“ beschreiben nur die nachgebildete Architektur.
 
-## Stand
+## Variante „Vier Bereiche“ (Branch `bedienung-vier-bereiche`)
 
-| Teil | Status |
-|---|---|
-| Gemeinsame Clock (16tel, Swing, MIDI-Clock-Eingang) | fertig, getestet (Timing auf ±1 Sample) |
-| 808-Drum-Machine: Klang, Sequencer, Patterns, Generator | fertig, getestet auf dem PC |
-| Bedienung am FM-1 (Display, Tasten, LEDs, Encoder) | fertig, im Panel-Simulator getestet |
-| Einbindung ins FM1-Open-Build (Audio, MIDI, Speichern im Flash) | fertig, **noch nicht auf dem Gerät gebaut** |
-| MKS-50-Engine, Arpeggiator, Step-Sequencer | geplant |
-| JP-6-Engine | geplant |
-| Noten-Looper, Delay und Reverb | geplant |
+Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer Clock laufen und gemeinsam das Pattern wechseln:
 
-## 808-Drum-Machine
+| Bereich | Taste | Klang | Sequencer |
+|---|---|---|---|
+| **BEAT** | FX | 808-Drum-Machine (11 Instrumente, 4 Kits) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
+| **RHYTHM** | SCL | MKS-50-Engine, 3 Stimmen: Zaps, Stabs, Bleeps, S&H-Sequenzen, Perc (30 Sounds) | Noten-Steps mit Akzent und Tie |
+| **STRINGS** | ENV | MKS-50-Engine, 4 Stimmen: JX-Strings, Pads, Brass (16 Sounds) | Akkord-Steps (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5), Ties für Flächen |
+| **BASS** | LFO | MKS-50-Engine, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
 
-- **Klang:** das 808-Modell aus FM1 Open (DaisySP/Plaits, MIT) mit 11 Instrumenten: BD, SD, LT, MT, HT, RS, CP, CB, CY, OH, CH. Pro Instrument Level, Tune, Decay, Tone/Snappy, Drive mit 7 Verzerrungsarten, Pan, Reverb- und Delay-Send. Rimshot auch als Clave, Toms auch als Conga, Clap auch als Maracas, Hi-Hat-Choke.
-- **4 Kits:** TR-808, ELECTRO (langer, gesättigter Kick), MIAMI (Sub-Kick), KRAFT (kurz, Claves, gecrushtes Metall).
-- **16 Patterns** mit 1–32 Steps, 808-Akzent-Reihe, **32tel-Rolls** pro Step, Swing 50–75 %, Patternwechsel am Taktende oder sofort, Kopieren.
-- **Live-Aufnahme:** Einspielen während das Pattern läuft, auf das nächste 16tel quantisiert (ohne Doppelanschlag). Mute und Solo pro Instrument.
-- **14 Electro-Grooves ab Werk:** ELECTRO, BRONX 82, NUMBERS, ROTHER, MIAMI, BREAKER, FREESTYL, DROWNED, EBM, TRANS EUR, HALFTIME, CLAVES, BUILD UP (32 Steps mit Snare-Roll), SPACE. Dazu 2 leere Plätze.
-- **Groove-Generator** in den Stilen ELECTRO, KRAFT, ROTHER, ROBOT und MIAMI, mit Dichte-Regler und Option „Kick behalten“. Bei 32 Steps variiert der zweite Takt den ersten.
-- **MIDI:** General-MIDI-Drum-Noten (36 BD, 38 SD, 41/45/48 Toms, 37 RS, 39 CP, 56 CB, 49 CY, 46 OH, 42 CH).
+Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`). Jedes der 14 Electro-Patterns hat ab Werk passende RHYTHM-, STRINGS- und BASS-Spuren aus dem Generator. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
 
-## Bedienung am FM-1
+### Bedienung
 
-Das FM-1 hat 27 Notentasten und 14 Funktionstasten (alle mit LED), 7 Encoder, den MASTER-Regler und ein 240×240-Farbdisplay. Das Display zeigt das Pattern als Raster (11 Instrumente × 16 Steps) mit Lauflicht, Akzent-Reihe und Rolls, darunter die Klangwerte des gewählten Instruments.
+**Überall**
 
 | Bedienung | Funktion |
 |---|---|
-| Schwarze Taste | Instrument wählen und anhören (BD, SD, LT, MT, HT, RS, CP, CB, CY, OH, CH) |
-| Weiße Taste | Step des gewählten Instruments setzen/löschen. LEDs zeigen die Steps und das Lauflicht |
-| EDIT + weiße Taste | Akzent auf diesem Step |
-| SCL + weiße Taste | 32tel-Roll auf diesem Step |
-| EDIT + schwarze Taste | Instrument im Pattern löschen. EDIT + REC löscht das ganze Pattern |
-| GLO + schwarze Taste | Mute. HOME + schwarze Taste: Solo |
-| PLAY | Start/Stop (übernimmt die interne Clock) |
-| REC | Live-Aufnahme an/aus: schwarze Tasten und MIDI-Drums werden quantisiert aufgenommen |
-| OCT − / OCT + | Steps 1–16 / 17–32 bei langen Patterns |
-| ENV | nächste Seite der Klangparameter |
-| LFO halten | Groove-Generator: E3 Stil, E4 Dichte, E5 Kick behalten, weiße Taste erzeugt einen neuen Groove |
-| SAVE | Patterns, Kit-Klang und Tempo im Flash speichern |
-| E1 | Pattern wählen (wechselt am Taktende). GLO + E1: Kit |
-| E2 | Tempo (GLO + E2: in 0,1-BPM-Schritten) |
-| E3–E6 | Klangparameter des gewählten Instruments |
-| E7 | Pattern-Länge. GLO + E7: Swing |
-| MASTER | Gesamtlautstärke |
+| FX / SCL / ENV / LFO | Bereich BEAT / RHYTHM / STRINGS / BASS. Nochmal drücken: nächste Klangseite |
+| GLO + Bereichstaste | Bereich stumm / wieder an |
+| HOME | Übersicht: alle vier Spuren, Pegel, Mute. Weiße Tasten wählen das Pattern 1–16, schwarze Tasten 1–4 schalten die Bereiche stumm. E3–E6 Pegel, GLO + E3–E6 Delay-Zeit, Feedback, Hallgröße, Hallzeit; E7 Hall-Anteil (GLO: Delay-Anteil) |
+| PLAY | Start/Stop |
+| REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
+| ARP halten | Generator für den aktuellen Bereich: E3 Stil, E4 Dichte, weiße Taste erzeugt eine neue Spur |
+| SAVE | alles im Flash speichern |
+| E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
-MIDI: Start/Stop/Continue und MIDI-Clock von außen (nach MIDI-Start folgt das Tempo der Clock), Drum-Noten auf Kanal 10.
+**BEAT:** schwarze Taste wählt und spielt ein Instrument, weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
 
-Die Belegung der Encoder E1–E7 folgt der Nummerierung im FM1-Open-Code. Wo sie physisch sitzen, prüfe ich am ersten Geräte-Build.
+**RHYTHM, STRINGS, BASS** haben zwei Modi, SEQ schaltet um:
+
+| | KEYS (SEQ aus) | STEP (SEQ an) |
+|---|---|---|
+| Tasten | alle 27 Tasten spielen den Sound, die LEDs zeigen, was die Sequenz gerade spielt | weiße Tasten schalten Steps an/aus und wählen sie aus. EDIT + weiß Akzent, GLO + weiß Tie |
+| OCT − / + | Oktave | Steps 1–16 / 17–32 |
+| E3–E6 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
+| REC | läuft: live einspielen (quantisiert). Steht: Noten Schritt für Schritt eingeben, EDIT + Taste = Pause | – |
+| E7 | Sound wählen (GLO: Pattern-Länge) | Sound wählen |
+| GLO + E1 | Notenlänge (Gate) | Notenlänge |
+| STRINGS | GLO + weiße Taste 1–9 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten) | |
+
+Die Encoder-Nummern E1–E7 folgen der Nummerierung im FM1-Open-Code. Wo sie physisch sitzen, prüfe ich am ersten Geräte-Build. Die Bereichstasten FX/SCL/ENV/LFO tragen am Gerät ihre alten Namen. Das Display zeigt die Bereiche als Reiter.
+
+### Stand
+
+| Teil | Status |
+|---|---|
+| Clock, 808-Drum-Machine, Bedienung, Flash-Speicher | fertig, auf dem PC getestet |
+| MKS-50-Klangkern in C (DCO, HPF, 24-dB-Filter, Hüllkurve, LFO, Chorus, Mono/Unison/Glide) | fertig, auf dem PC getestet |
+| Drei Synth-Bereiche mit Step-Sequencer, Akkorden und Generator | fertig, auf dem PC getestet |
+| Delay und Hall | fertig, sparsame Variante (siehe unten) |
+| Firmware auf dem Gerät | **noch nicht gebaut** |
+| JP-6-Engine, Noten-Looper | geplant |
 
 ## Bauen und testen (PC)
 
 ```sh
-make demo      # rendert alle Grooves und Generator-Stile nach build/wav/
+make demo      # rendert alle Grooves (Beat allein und mit allen vier Bereichen) nach build/wav/
 make screens   # Panel-Simulator: Screenshots mit LED-Zustand nach build/screens/
 make test      # Timing-, MIDI-Clock- und Speichertests
 ```
@@ -73,11 +78,13 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhä
 
 Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
 
-**Speicherplatz im Flash:** FM1-Electro speichert in zwei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 14 und 15 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+**Speicherplatz im Flash:** FM1-Electro speichert zwei Kopien zu je zwei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 12–15 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 
-Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). FM1-Electro braucht derzeit rund 40 KB RAM (Code im RAM, Daten, Display-Puffer). Auf dem PC kostet ein dichter 808-Groove 2,6 % Echtzeit. Gemessen auf dem Gerät wird, sobald die Firmware gebaut ist.
+Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Diese Variante braucht geschätzt **rund 190 KB**: etwa 135 KB Daten (davon 90 KB Delay und Hall), dazu rund 50 KB Code im RAM. Das ist knapp. Falls es auf dem Gerät nicht passt, gibt es drei Stellschrauben: Delay-Länge (`FX_DELAY_CAP`), Hall-Leitungen (`FX_REVERB_CAP`) und Stimmenzahl pro Bereich (`electro.c`).
+
+Auf dem PC kosten alle vier Bereiche zusammen 4,5 % Echtzeit, davon die 808 allein 2,6 %. Wie viel davon auf dem 240-MHz-Chip übrig bleibt, zeigt erst die Messung am Gerät. Für Delay und Hall habe ich sparsamere Versionen als in den iOS-Apps gebaut: ein Ping-Pong-Delay mit halber Abtastrate und 16 Bit (bis 0,6 s, klingt etwas dunkler, eher wie Band oder Eimerkette) und einen Hall mit 4 statt 8 Leitungen.
 
 ## Lizenz
 

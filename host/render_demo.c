@@ -117,8 +117,26 @@ int main(int argc, char **argv)
     char path[512], name[32];
     int failed = timing_test() | midi_clock_test();
 
+    /* Full grooves: beat plus rhythm, strings and bass. */
+    for (unsigned i = 0; i < 14; i += 1) {
+        el_init(&e);
+        el_post(&e, EL_CMD_BPM, 0, (int16_t)tempo[i]);
+        dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)i, 1, 0, 0);
+        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[i].kit, 0, 0, 0);
+        unsigned length = e.drums.pattern[i].length;
+        size_t frames; float peak;
+        float *audio = render(&e, tempo[i] / 10.0f, length * (length > 16 ? 2u : 4u), &frames, &peak);
+        slug(name, e.drums.pattern[i].name);
+        snprintf(path, sizeof path, "%s/full_%02u_%s.wav", dir, i + 1, name);
+        write_wav(path, audio, frames);
+        printf("full %-10s peak %.2f -> %s\n", e.drums.pattern[i].name, peak, path);
+        if (peak < 0.05f || peak > 1.0f) { printf("  level out of range\n"); failed = 1; }
+        free(audio);
+    }
+
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         el_init(&e);
+        for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);
         if (!e.drums.pattern[i].hit[D8_BD] && !e.drums.pattern[i].hit[D8_CH]) continue;
         el_post(&e, EL_CMD_BPM, 0, (int16_t)tempo[i]);
         dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)i, 1, 0, 0);
@@ -137,6 +155,7 @@ int main(int argc, char **argv)
 
     for (unsigned s = 0; s < DR_STYLES; ++s) {
         el_init(&e);
+        for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);
         dr_pattern_t p;
         dr_factory_pattern(14, &p);
         p.length = 32;
@@ -154,7 +173,7 @@ int main(int argc, char **argv)
         free(audio);
     }
 
-    /* Cost: a busy groove for 60 seconds. */
+    /* Cost: a busy groove with all four areas for 60 seconds. */
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);
     dr_post(&e.drums, DR_CMD_SELECT, 7, 1, 0, 0);
