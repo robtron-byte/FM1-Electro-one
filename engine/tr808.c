@@ -47,12 +47,11 @@ static const part_params_t params[D8_NUM + 1] = {
     /* ZP */ {9, {P_LEVEL, P_TUNE, P_SNAPPY, P_SOUND, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Sweep", 50), P("Depth", 80), P("Decay", 50), P("Tone", 30),
                P("Pan", 76), P("Rev", 10), P("Dly", 30)}},
-    /* PU: the TRIGGER OUT pulse (+15 V, ~20 ms on the spec sheet, ~10 ms
-     * edge to edge on "Egypt, Egypt") into a mixer channel: Width = pulse
-     * length, Tune = the channel EQ's boost frequency, Tone = how much EQ
-     * (the ring that makes it a blip), Decay = input coupling (spike length) */
+    /* PU: the TRIGGER OUT into a mixer channel, fitted to a recording of a
+     * real 808's trigger. Width = pulse length, Tune = pitch of the
+     * coupling's thump, Ring = its resonance, Decay = spike length. */
     /* PU */ {8, {P_LEVEL, P_SNAPPY, P_TUNE, P_TONE, P_DECAY, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Width", 64), P("Tune", 64), P("Tone", 70), P("Decay", 40), P("Pan", 52),
+              {P("Level", 100), P("Width", 64), P("Tune", 64), P("Ring", 64), P("Decay", 64), P("Pan", 52),
                P("Rev", 0), P("Dly", 0)}},
     /* KIT */ {3, {0, 1, 2}, {P("Level", 110), P("Accent", 100), {"Choke", 1, 1, choke_names}}},
 };
@@ -536,30 +535,39 @@ static float zap(tr808_t *t, tr_voice_t *v)
     return y * v->env * attack * (0.35f + 0.65f * v->volts);
 }
 
-/* Pulse: the 808's TRIGGER OUT (+15 V, a rectangle of ~10-20 ms) plugged
- * straight into a mixer channel, as Egyptian Lover did. The input coupling
- * turns the two edges into a sharp positive spike and, one pulse width
- * later, an equally sharp negative one; the hot 15 V clip the preamp; the
- * channel EQ boost makes each edge ring (the "zap"/blip). Width 2.5..40 ms,
- * Tune 400 Hz..6.4 kHz, Tone = EQ boost and Q, Decay = coupling 0.05..2 ms. */
+/* Pulse: the 808's TRIGGER OUT plugged straight into a mixer channel, as
+ * Egyptian Lover did. Fitted to a recording of a real unit's trigger
+ * (waveform residual -8.5 dB, spectrum within 4.5 dB rms over 40 Hz-8 kHz):
+ * a 15.2 ms pulse rising with a 0.30 ms time constant and falling in
+ * 0.02 ms, with a short positive glitch just before the fall; through the
+ * input coupling (1-pole HP, 0.22 ms) and three 2-pole high-passes,
+ * 341 Hz Q 0.65, 97 Hz Q 2.7, 92 Hz Q 4. Result: a soft positive spike,
+ * then one pulse later a sharp negative crack about twice as loud, each
+ * followed by a low, ringing "plop". All knobs at 64 = the recording.
+ *   Width 3.8..60 ms, Tune: the corners /4..x4, Ring: Q of the low
+ *   resonances /2..x2, Decay: coupling 0.05..0.9 ms. */
 static float pulse(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_PU;
     if (v->age == 0) {
-        float tone = knob(t, part, P_TONE);
-        svf_set(&v->r1, 1600.0f * spread(t, part, P_TUNE) * spread(t, part, P_TUNE), 1.5f + 8.0f * tone);
+        float tune = spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
+        svf_set(&v->r1, 341.0f * tune, 0.65f);
+        svf_set(&v->r2, 97.0f * tune, 2.74f * ring);
+        svf_set(&v->r3, 92.0f * tune, 4.0f * ring);
     }
-    float width = MS(10.0f * dsp_exp2(4.0f * (knob(t, part, P_SNAPPY) - 0.5f)));   /* 2.5..40 ms, 64: 10 ms */
-    float x = (float)v->age < width ? 1.0f : 0.0f;
-    float coupling = MS(0.05f * dsp_exp2(5.3f * knob(t, part, P_DECAY)));
-    v->dc_y = x - v->dc_x;                       /* 1-pole high-pass: the edges */
+    float width = MS(15.15f) * dsp_exp2(4.0f * (knob(t, part, P_SNAPPY) - 0.5f));
+    float age = (float)v->age;
+    /* The trigger voltage: exponential rise, very fast fall, the glitch. */
+    float target = age < width ? 1.0f : 0.0f;
+    v->aux2 += (target - v->aux2) * (age < width ? 0.0719f : 0.6415f);  /* 0.30 / 0.022 ms at 44.1 kHz */
+    float x = v->aux2 + (age < width && age >= width - MS(0.05f) ? 0.233f : 0.0f);
+    float coupling = MS(0.216f) * spread(t, part, P_DECAY) * spread(t, part, P_DECAY);
+    v->dc_y = x - v->dc_x;                       /* input coupling, 1-pole HP */
     v->dc_x += v->dc_y * (1.0f - decay_coef(coupling));
-    float y = dsp_tanh(2.5f * v->dc_y) * 0.42f;  /* 15 V into a line input: clipped */
-    float tone = knob(t, part, P_TONE);
-    y += (0.6f + 7.0f * tone) * svf_bp(&v->r1, y, 0) * (0.15f + 0.85f * tone);
-    v->out_lp += (y - v->out_lp) * 0.72f;        /* mixer bandwidth, ~9 kHz */
-    if ((float)v->age > width + MS(60.0f)) v->active = 0;
-    return v->out_lp * (0.6f + 0.4f * v->volts);
+    float y = svf_hp(&v->r3, svf_hp(&v->r2, svf_hp(&v->r1, v->dc_y)));
+    v->lp1 += (y - v->lp1) * 0.0043f;            /* 30 Hz DC block */
+    if (age > width + MS(50.0f)) v->active = 0;
+    return (y - v->lp1) * 1.49f * (0.75f + 0.25f * v->volts);
 }
 
 /* ---- render ------------------------------------------------------------------------- */
@@ -567,7 +575,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f, 0.3f, 0.5f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f, 0.3f, 0.3f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
