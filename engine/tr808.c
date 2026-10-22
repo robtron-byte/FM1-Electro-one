@@ -92,8 +92,8 @@ void tr808_init(tr808_t *t)
     for (int part = 0; part < D8_NUM; ++part) t->v[part].rng = 0x9e3779b9u * (uint32_t)(part + 1);
     t->noise = 0x1234567u;
     for (int i = 0; i < 6; ++i) t->metal_phase[i] = 0.137f * (float)i;
-    svf_set(&t->metal_bp1, 3440.0f, 1.5f);
-    svf_set(&t->metal_bp2, 7100.0f, 1.5f);
+    svf_set(&t->metal_bp1, 3450.0f, 6.0f);
+    svf_set(&t->metal_bp2, 7100.0f, 6.0f);
 }
 
 /* ---- building blocks ------------------------------------------------------- */
@@ -360,19 +360,38 @@ static float clap(tr808_t *t, tr_voice_t *v)
     return dsp_tanh(y * 1.4f) / 1.2f;   /* the BA662 VCA's distortion */
 }
 
-/* Shared metal source: six Schmitt-trigger square oscillators. */
-static inline float square(float phase) { return phase < 0.5f ? 1.0f : -1.0f; }
+/* Shared metal source: six HD14584 Schmitt-trigger oscillators, 0/5 V
+ * rectangles with 47.98 % duty (Werner), summed through equal resistors
+ * into a 7-level staircase. Band-limited with PolyBLEP: the edges are what
+ * strike the band-passes, aliased edges would add a grainy noise floor. */
+#define METAL_DUTY 0.4798f
+static inline float blep(float t, float dt)
+{
+    if (t < dt) { t /= dt; return t + t - t * t - 1.0f; }
+    if (t > 1.0f - dt) { t = (t - 1.0f) / dt; return t * t + t + t + 1.0f; }
+    return 0.0f;
+}
+
+static inline float rect(float phase, float dt)
+{
+    float y = phase < METAL_DUTY ? 1.0f : 0.0f;
+    float down = phase - METAL_DUTY;
+    if (down < 0) down += 1.0f;
+    return y + 0.5f * blep(phase, dt) - 0.5f * blep(down, dt);
+}
 
 static float metal(tr808_t *t, float tune, float *cowbell)
 {
-    float sum = 0;
+    float sum = 0, r[6];
     for (int i = 0; i < 6; ++i) {
-        t->metal_phase[i] += metal_hz[i] * metal_tol[i] * tune / EL_SAMPLE_RATE;
+        float dt = metal_hz[i] * metal_tol[i] * tune * (1.0f / EL_SAMPLE_RATE);
+        t->metal_phase[i] += dt;
         if (t->metal_phase[i] >= 1.0f) t->metal_phase[i] -= 1.0f;
-        sum += square(t->metal_phase[i]);
+        r[i] = rect(t->metal_phase[i], dt);
+        sum += r[i];
     }
-    *cowbell = square(t->metal_phase[4]) + square(t->metal_phase[5]);
-    return sum * (1.0f / 6.0f);
+    *cowbell = 2.0f * (r[4] + r[5]) - 2.0f;
+    return sum * (1.0f / 3.0f) - 1.0f;
 }
 
 static float cowbell(tr808_t *t, tr_voice_t *v, float src)
@@ -393,38 +412,85 @@ static float cowbell(tr808_t *t, tr_voice_t *v, float src)
     return swing(y * e * (0.45f + 0.55f * v->volts * 14.0f / 4.0f / 3.5f)) * 1.4f;
 }
 
+/* Swing-type VCA (one transistor, the envelope is its collector supply):
+ * it passes mainly the positive half and clips against the envelope, so
+ * the metal voices get rougher, not only quieter, as they decay (Werner's
+ * "wild swing"). Linear for small signals at a high envelope. */
+static inline float swing_vca(float x, float env)
+{
+    float r = x > 0 ? 4.0f * x : 0.1f * x;
+    return r * env / (env + (r > 0 ? r : -r) + 1e-6f);
+}
+
+/* Cymbal calibration (fitted with host/analyze_cymbal.py against the band
+ * balance and decay measurements of a real TR-808 at all 25 TONE / DECAY
+ * settings, Fischer sample set). Host builds may change it. */
+float tr808_cy_cal[CY_CAL] = {
+    /* drive  low   decay short  tau_s  tone_s tone_l tone_d  tau_l0 tau_l1 tau_d0 tau_d1 lag_l lag_d  tone_p */
+    1.2f,  1.0f,  1.0f,  1.0f,  30.0f, 3.0f,  1.0f,  0.5f,  300.0f, 800.0f, 100.0f, 380.0f, 60.0f, 6.0f, 2.0f};
+
+/* Cymbal after the circuit (Service Notes p.13, Werner ICMC-14): the
+ * staircase through two band-passes (3.45 and 7.1 kHz, Q 6), three swing
+ * VCAs with their own envelopes, three Sallen-Key high-passes, TONE.
+ *   low band:   3.45 kHz -> VCA (reservoir behind a ~70 ms RC: it blooms and
+ *               peaks ~120 ms after the hit) -> HP 2.5 kHz Q 0.97 -> the tone
+ *               network's 4.2 kHz pole. Its decay follows DECAY too.
+ *   DECAY band: 7.1 kHz -> VCA (DECAY, RC lag) -> HP 8.84 kHz Q 1, x2.
+ *   short band: 7.1 kHz -> VCA (fixed, short) -> HP 10.32 kHz Q 5.64 plus a
+ *               1-pole HP 5.2 kHz, +8.86 dB: the bright "tss" of the strike.
+ * TONE mainly lifts the short band against the low one. */
 static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
 {
     const int part = D8_CY;
+    const float *k = tr808_cy_cal;
     if (v->age == 0) {
-        svf_set(&v->r1, 2500.0f, 0.7f);     /* low band high-pass */
-        svf_set(&v->r2, 10500.0f, 1.2f);    /* resonant Sallen-Key high-pass */
-        svf_set(&v->r3, 10500.0f, 1.2f);
+        svf_set(&v->r1, 2500.0f, 0.97f);
+        svf_set(&v->r2, 8840.0f, 1.0f);
+        svf_set(&v->r3, 10320.0f, 5.64f);
+        /* The three reservoirs charge to the trigger height: accent +6 dB. */
+        v->aux = 0.5f + 0.5f * v->accent;
     }
-    float decay = 350.0f + 850.0f * knob(t, part, P_DECAY);
-    v->env *= decay_coef(MS(decay) / 2.3f);       /* low band, DECAY knob */
-    v->env2 *= decay_coef(MS(75.0f) / 2.3f);      /* short upper band */
-    v->env3 *= decay_coef(MS(700.0f) / 2.3f);     /* fixed mid upper band */
-    float attack = dsp_min(1.0f, (float)v->age / MS(1.0f));
-    float tone = knob(t, part, P_TONE), level = 0.45f + 0.55f * v->volts * 14.0f / 4.0f / 3.5f;
-    float low = svf_hp(&v->r1, low_src) * v->env;
-    float high = svf_hp(&v->r2, high_src) * v->env2 + svf_hp(&v->r3, high_src) * v->env3 * 0.6f;
-    float y = ((1.2f - 0.7f * tone) * low + (0.5f + 0.9f * tone) * high) * attack * level;
-    if (v->env < 1e-4f && v->env3 < 1e-4f) v->active = 0;
-    return swing(y) * 1.2f;
+    float decay = knob(t, part, P_DECAY), tone = powf_approx(knob(t, part, P_TONE), k[14]);
+    v->env *= decay_coef(MS(k[8] + k[9] * decay));       /* low band reservoir */
+    v->env2 *= decay_coef(MS(k[10] + k[11] * decay));     /* DECAY band reservoir */
+    v->env3 *= decay_coef(MS(k[4]));                      /* short band */
+    v->lag1 += (v->env - v->lag1) * (1.0f / MS(k[12]));
+    v->lag2 += (v->env2 - v->lag2) * (1.0f / MS(k[13]));
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
+    float peak = v->aux * attack, d = k[0];
+    float low = swing_vca(low_src * d, v->lag1 * peak);
+    float mid = swing_vca(high_src * d * 1.14f, v->lag2 * peak);
+    float hi = swing_vca(high_src * d * 1.14f, v->env3 * peak);
+    low = svf_hp(&v->r1, low);
+    v->lp1 += (low - v->lp1) * 0.4513f;                   /* 4.2 kHz pole */
+    mid = 2.0f * svf_hp(&v->r2, mid);
+    hi = svf_hp(&v->r3, hi);
+    v->hp1 += (hi - v->hp1) * 0.5243f;                    /* 1-pole HP 5.2 kHz */
+    hi = 2.78f * (hi - v->hp1);
+    float g_low = k[1] * dsp_exp2(-k[6] * (tone - 0.5f)), g_mid = k[2] * dsp_exp2(k[7] * (tone - 0.5f));
+    float g_hi = k[3] * dsp_exp2(k[5] * (tone - 0.5f));
+    if (v->env < 1e-4f && v->env2 < 1e-4f && v->age > MS(300.0f)) v->active = 0;
+    return g_low * v->lp1 + g_mid * mid + g_hi * hi;
 }
 
+/* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators
+ * (no noise), a swing VCA, then a Sallen-Key high-pass, OH 7.8 kHz and
+ * CH 11.7 kHz, both Q 2.5. Decay chart: OH 90 / 450 / 600 ms over its
+ * DECAY knob, CH 50 ms. Accent +6 dB like the chart. */
 static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 {
-    if (v->age == 0) svf_set(&v->r1, 7000.0f, 0.9f);
-    float decay = part == D8_CH ? 50.0f * spread(t, part, P_DECAY) : 90.0f + 510.0f * knob(t, part, P_DECAY);
+    if (v->age == 0) {
+        svf_set(&v->r1, part == D8_CH ? 11700.0f : 7800.0f, 2.5f);
+        v->aux = 0.5f + 0.5f * v->accent;
+    }
+    float k = knob(t, part, P_DECAY);
+    float decay = part == D8_CH ? 50.0f * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
     v->env *= decay_coef(MS(decay) / 2.3f);
     if (v->aux2 > 0) v->env *= decay_coef(MS(7.0f));    /* choked by the closed hat */
-    float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
-    float level = 0.45f + 0.55f * v->volts * 14.0f / 4.0f / 3.5f;
-    float y = svf_hp(&v->r1, src) * v->env * attack * level;
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
+    float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
     if (v->env < 1e-4f) v->active = 0;
-    return swing(y) * 1.6f;
+    return y;
 }
 
 /* ---- render ------------------------------------------------------------------------- */

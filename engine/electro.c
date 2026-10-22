@@ -123,6 +123,12 @@ int el_midi_input(el_engine_t *e, const uint8_t *m, size_t n)
             cmd.type = EL_CMD_DRUM_HIT;
             cmd.a = (uint8_t)part;
             cmd.value = m[2];
+        } else if (n >= 3 && ((m[0] & 0xf0u) == 0x90u || (m[0] & 0xf0u) == 0x80u) && (m[0] & 15u) < EL_TRACKS) {
+            /* Multitimbral: channel 1 RHYTHM, 2 STRINGS, 3 BASS. */
+            cmd.type = EL_CMD_NOTE;
+            cmd.a = (uint8_t)(m[0] & 15u);
+            cmd.b = (uint8_t)(m[1] & 127u);
+            cmd.value = (m[0] & 0xf0u) == 0x90u ? (int16_t)(m[2] & 127u) : 0;
         } else return 0;
     }
     return el_queue_push(&e->midi_queue, cmd) == 0;

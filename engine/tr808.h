@@ -14,7 +14,8 @@
 #include "fm1_param.h"
 
 enum { D8_BD, D8_SD, D8_LT, D8_MT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_NUM, D8_KIT = D8_NUM };
-enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3 };
+enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3, CY_CAL = 15 };
+extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
 
 typedef struct { float ic1, ic2, g, k, a1, a2, a3; } tr_svf_t;
 
@@ -24,6 +25,7 @@ typedef struct {
     float pulse, pulse_lp, volts, accent;  /* trigger pulse (normalised volts) */
     float env, env2, env3, aux, aux2, pitch;
     float out_lp, dc_x, dc_y, pink[3];
+    float lag1, lag2, lp1, hp1;          /* cymbal: envelope lags, tone pole, 1-pole HP */
     tr_svf_t r1, r2, r3;
 } tr_voice_t;
 
