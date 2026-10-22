@@ -49,7 +49,21 @@ static inline float delay_read(const int16_t *line, unsigned write, float back)
     return (a + (b - a) * frac) * (1.0f / 32767.0f);
 }
 
-EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, float *left, float *right, int frames, float bpm)
+/* Non-linear reverb taps: 16 echoes from 20 to 330 ms at nearly flat level,
+ * then nothing - the classic gated 80s / electro snare and clap. Positions
+ * in half-rate frames, alternating sides. */
+static const uint16_t gate_taps[16] EL_DSP_DATA = {441, 783, 1102, 1433, 1764, 2117, 2448, 2800,
+                                                    3131, 3484, 3815, 4167, 4498, 4851, 5182, 7277};
+static const float gate_gains[16] EL_DSP_DATA = {0.62f, 0.58f, 0.6f, 0.55f, 0.57f, 0.53f, 0.55f, 0.5f,
+                                                  0.52f, 0.47f, 0.48f, 0.42f, 0.4f, 0.32f, 0.22f, 0.0f};
+
+static inline float gate_read(const int16_t *line, unsigned write, unsigned back)
+{
+    return line[(write + FX_GATE_CAP - back) % FX_GATE_CAP] * (1.0f / 32767.0f);
+}
+
+EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, const float *gate,
+                           float *left, float *right, int frames, float bpm)
 {
     const uint8_t *v = fx->v;
     /* Delay: tempo-synced time, glided so tempo changes bend instead of click. */
@@ -77,8 +91,11 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, floa
         if (delay_on) {
             fx->time += (target - fx->time) * 0.0002f;
             float yl = delay_read(fx->delay[0], fx->dw, fx->time), yr = delay_read(fx->delay[1], fx->dw, fx->time);
-            /* Ping-pong: the input enters left, each side feeds the other. */
-            float in = dly[n];
+            /* Ping-pong: the input enters left, each side feeds the other.
+             * The send is high-passed (about 200 Hz) to keep the echoes off
+             * the kick and bass. */
+            fx->dly_hp[0] += (dly[n] - fx->dly_hp[0]) * 0.0281f;
+            float in = dly[n] - fx->dly_hp[0];
             float wl = soft(in + fb * yr), wr = soft(fb * yl);
             fx->lp[0] += (wl - fx->lp[0]) * tone;
             fx->lp[1] += (wr - fx->lp[1]) * tone;
@@ -95,7 +112,9 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, floa
             right[n] += yr * dret;
         }
         if (reverb_on) {
-            float x = rev[n];
+            /* High-passed send (about 300 Hz): a clean low end under the hall. */
+            fx->rev_hp[0] += (rev[n] - fx->rev_hp[0]) * 0.0418f;
+            float x = rev[n] - fx->rev_hp[0];
             for (int d = 0; d < 2; ++d) {
                 float delayed = fx->diff[d][(fx->fw - dsize[d]) & (FX_DIFF_CAP - 1)];
                 float w = x + diffusion * delayed;
@@ -125,5 +144,33 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, floa
             left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * rret;
             right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * rret;
         }
+        /* Gated reverb: diffused input at half rate, flat tap cluster. */
+        fx->gate_hp[0] += (gate[n] - fx->gate_hp[0]) * 0.0418f;
+        fx->gate_acc += gate[n] - fx->gate_hp[0];
+        fx->gate_half ^= 1u;
+        if (!fx->gate_half) {
+            float x = fx->gate_acc * 0.5f;
+            fx->gate_acc = 0;
+            static const unsigned sizes[2] = {142, 107};
+            for (int d = 0; d < 2; ++d) {
+                float delayed = fx->gate_diff[d][(fx->gfw - sizes[d]) & 255u];
+                float w = x + 0.6f * delayed;
+                fx->gate_diff[d][fx->gfw & 255u] = w;
+                x = delayed - 0.6f * w;
+            }
+            fx->gfw = (fx->gfw + 1u) & 255u;
+            fx->gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
+            float gl = 0, gr = 0;
+            for (int t = 0; t < 15; ++t) {
+                float s = gate_read(fx->gate, fx->gw, gate_taps[t]) * gate_gains[t];
+                if (t & 1) gr += s; else gl += s;
+            }
+            fx->gw = (fx->gw + 1u) % FX_GATE_CAP;
+            /* Gentle low-pass (about 9 kHz at the half rate) on the return. */
+            fx->gate_lp[0] += (gl - fx->gate_lp[0]) * 0.7f;
+            fx->gate_lp[1] += (gr - fx->gate_lp[1]) * 0.7f;
+        }
+        left[n] += fx->gate_lp[0] * 0.5f;
+        right[n] += fx->gate_lp[1] * 0.5f;
     }
 }

@@ -14,24 +14,24 @@ const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT"
 enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
 #define DR_NORMAL (DR_NORMAL_VELOCITY_Q7 / 127.0f)
 
-/* Kit presets: part, parameter index (as listed by drum808_param), value.
- * Part D8_KIT addresses Level / Accent / Choke. Applied on top of defaults. */
+/* Kit presets: part, parameter index (as listed by tr808_param), value,
+ * applied on top of the stock circuit. TR-808 is the untouched machine. */
 typedef struct { uint8_t part, param, value; } dr_kit_entry_t;
 enum { DR_KIT_ENTRIES = 16 };
 static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
-    /* TR-808: model defaults, tighter closed hat, choke CH>OH. */
-    {{D8_CH, 2, 44}, {D8_KIT, 2, 1}, {255, 0, 0}},
-    /* ELECTRO: long tuned kick with saturation, snappy snare, loud clap. */
-    {{D8_BD, 2, 104}, {D8_BD, 3, 60}, {D8_BD, 4, 40}, {D8_BD, 5, 26}, {D8_BD, 6, 3},
-     {D8_SD, 2, 104}, {D8_SD, 3, 70}, {D8_CP, 0, 76}, {D8_CP, 2, 70},
-     {D8_CH, 2, 40}, {D8_OH, 1, 64}, {D8_CB, 0, 58}, {D8_SD, 7, 24}, {D8_CP, 7, 34}, {D8_KIT, 2, 1}, {255, 0, 0}},
-    /* MIAMI: booming sub kick, darker snare, short hats. */
-    {{D8_BD, 0, 80}, {D8_BD, 2, 127}, {D8_BD, 3, 54}, {D8_BD, 4, 52}, {D8_BD, 1, 30},
-     {D8_SD, 1, 50}, {D8_SD, 4, 96}, {D8_CH, 2, 36}, {D8_OH, 1, 58}, {D8_CP, 7, 40}, {D8_KIT, 2, 1}, {255, 0, 0}},
-    /* KRAFT: short clicky kick, high tight snare, claves, crushed metal. */
-    {{D8_BD, 2, 64}, {D8_BD, 4, 70}, {D8_BD, 1, 72}, {D8_SD, 2, 56}, {D8_SD, 3, 80},
-     {D8_SD, 4, 80}, {D8_RS, 3, 1}, {D8_RS, 1, 70}, {D8_CB, 1, 72}, {D8_CH, 2, 30},
-     {D8_CY, 3, 34}, {D8_CY, 4, 6}, {D8_OH, 3, 20}, {D8_OH, 4, 6}, {D8_KIT, 2, 2}, {255, 0, 0}},
+    /* TR-808: stock, a touch of gated reverb on the clap. */
+    {{D8_CP, 5, 24}, {255, 0, 0}},
+    /* ELECTRO (Anthony Rother style): longer kick with a little drive,
+     * snappy snare and clap in the non-linear reverb, tight hats. */
+    {{D8_BD, 2, 82}, {D8_BD, 3, 42}, {D8_BD, 7, 14}, {D8_SD, 2, 72}, {D8_SD, 3, 88}, {D8_SD, 6, 44},
+     {D8_CP, 0, 108}, {D8_CP, 5, 56}, {D8_CH, 2, 52}, {D8_OH, 1, 34}, {D8_CB, 0, 84}, {D8_RS, 0, 92},
+     {D8_RS, 5, 30}, {D8_KIT, 1, 110}, {255, 0, 0}},
+    /* MIAMI: booming long kick, a bit lower and driven, darker snare. */
+    {{D8_BD, 1, 58}, {D8_BD, 2, 116}, {D8_BD, 0, 112}, {D8_BD, 7, 28}, {D8_BD, 3, 30},
+     {D8_SD, 2, 40}, {D8_SD, 3, 76}, {D8_CP, 5, 40}, {D8_CH, 2, 44}, {255, 0, 0}},
+    /* KRAFT: short clicky kick, high tight snare, claves, darker cymbal. */
+    {{D8_BD, 2, 34}, {D8_BD, 3, 86}, {D8_SD, 1, 74}, {D8_SD, 2, 84}, {D8_SD, 3, 52}, {D8_SD, 6, 52},
+     {D8_RS, 3, 1}, {D8_CH, 2, 40}, {D8_CY, 1, 34}, {D8_CB, 1, 70}, {D8_KIT, 2, 1}, {255, 0, 0}},
 };
 
 static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 45, 48, 37, 39, 56, 49, 46, 42};
@@ -59,10 +59,9 @@ static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index)
 {
     if (index >= DR_KITS) return;
     float level = m->level;
-    drum808_init(&m->kit);
+    tr808_init(&m->kit);
     for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[index][i].part != 255; ++i)
-        drum808_set(&m->kit, kits[index][i].part, kits[index][i].param, kits[index][i].value);
-    drum808_pan_settle(&m->kit);
+        tr808_set(&m->kit, kits[index][i].part, kits[index][i].param, kits[index][i].value);
     m->kit_index = (uint8_t)index;
     m->level = level;
 }
@@ -97,10 +96,7 @@ int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p)
 
 static EL_DSP_CODE void silence(dr_machine_t *m)
 {
-    drum808_t *k = &m->kit;
-    d8_voice_t *voices[] = {&k->bd, &k->sd, &k->tom[0], &k->tom[1], &k->tom[2], &k->rs,
-                            &k->cl, &k->ma, &k->cp, &k->cb, &k->ch, &k->oh, &k->cy};
-    for (unsigned i = 0; i < sizeof voices / sizeof voices[0]; ++i) voices[i]->active = 0;
+    tr808_silence(&m->kit);
     m->roll_pending = 0;
     m->suppress = 0;
 }
@@ -114,7 +110,7 @@ static inline int audible(const dr_machine_t *m, unsigned part)
 EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record)
 {
     if (part >= DR_PARTS || velocity <= 0.0f) return;
-    drum808_trigger(&m->kit, (int)part, velocity);
+    tr808_trigger(&m->kit, (int)part, velocity);
     if (!record || !m->recording || !m->playing) return;
     /* Quantize to the nearest 16th. A hit late in a step lands on the next
      * one, which must not play it a second time. */
@@ -165,7 +161,7 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     m->roll_pending = 0;
     for (unsigned part = 0; part < DR_PARTS; ++part) {
         if (!(p->hit[part] & bit) || !audible(m, part) || m->muted) continue;
-        if (!(suppress & (1u << part))) drum808_trigger(&m->kit, (int)part, velocity);
+        if (!(suppress & (1u << part))) tr808_trigger(&m->kit, (int)part, velocity);
         if (p->roll[part] & bit) {
             m->roll_pending |= 1u << part;
             m->roll_velocity[part] = velocity * (DR_ROLL_SCALE_Q7 / 127.0f);
@@ -182,22 +178,23 @@ EL_DSP_CODE int dr_frames_until(const dr_machine_t *m, int limit)
     return frames < limit ? frames : limit;
 }
 
-EL_DSP_CODE void dr_render(dr_machine_t *m, float *left, float *right, float *rev, float *dly, int frames)
+EL_DSP_CODE void dr_render(dr_machine_t *m, float *kick, float *left, float *right,
+                           float *rev, float *gate, float *dly, int frames)
 {
-    if (frames > 0) {
-        /* The kit adds into the buses; scale by level through a local sum. */
+    if (frames > 0 && tr808_active(&m->kit)) {
         /* Static scratch keeps the audio interrupt's stack small. Plain
          * loops: no libc (Flash-resident) calls on the audio path. */
-        static float l[EL_BLOCK], r[EL_BLOCK], v[EL_BLOCK], d[EL_BLOCK];
-        for (int i = 0; i < frames; ++i) l[i] = r[i] = v[i] = d[i] = 0.0f;
-        if (drum808_active(&m->kit)) drum808_render_st(&m->kit, l, r, v, d, frames);
-        else drum808_advance_idle(&m->kit, frames);
-        float g = m->level;
+        static float k[EL_BLOCK], l[EL_BLOCK], r[EL_BLOCK], v[EL_BLOCK], g[EL_BLOCK], d[EL_BLOCK];
+        for (int i = 0; i < frames; ++i) k[i] = l[i] = r[i] = v[i] = g[i] = d[i] = 0.0f;
+        tr808_render(&m->kit, k, l, r, v, g, d, frames);
+        float gain = m->level;
         for (int i = 0; i < frames; ++i) {
-            left[i] += g * l[i];
-            right[i] += g * r[i];
-            rev[i] += g * v[i];
-            dly[i] += g * d[i];
+            kick[i] += gain * k[i];
+            left[i] += gain * l[i];
+            right[i] += gain * r[i];
+            rev[i] += gain * v[i];
+            gate[i] += gain * g[i];
+            dly[i] += gain * d[i];
         }
     }
     m->since_step += (float)frames;
@@ -205,7 +202,7 @@ EL_DSP_CODE void dr_render(dr_machine_t *m, float *left, float *right, float *re
     m->roll_countdown -= (float)frames;
     if (m->roll_countdown > 0.0f) return;
     for (unsigned part = 0; part < DR_PARTS; ++part)
-        if (m->roll_pending & (1u << part)) drum808_trigger(&m->kit, (int)part, m->roll_velocity[part]);
+        if (m->roll_pending & (1u << part)) tr808_trigger(&m->kit, (int)part, m->roll_velocity[part]);
     m->roll_pending = 0;
 }
 
@@ -268,7 +265,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         if (part < DR_PARTS) m->solo = (uint16_t)(step ? m->solo | (1u << part) : m->solo & ~(1u << part));
         break;
     case DR_CMD_PARAM:
-        drum808_set(&m->kit, (int)part, (int)step, c->value);
+        tr808_set(&m->kit, (int)part, (int)step, c->value);
         break;
     case DR_CMD_KIT:
         apply_kit(m, part);

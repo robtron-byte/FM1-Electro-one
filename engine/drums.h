@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * 808 drum machine: 11 parts from the DaisySP/Plaits 808 model, 16 patterns
+ * 808 drum machine: the 11 circuit-informed TR-808 voices of tr808.c, 16 patterns
  * of up to 32 steps with accent, 32nd rolls, mute/solo, live recording,
  * electro factory grooves and a style-based groove generator.
  *
@@ -10,8 +10,7 @@
 #define EL_DRUMS_H
 #include "el_config.h"
 #include "el_queue.h"
-#include "el_d808_names.h"
-#include "drum808_state.h"
+#include "tr808.h"
 
 enum {
     DR_PARTS = D8_NUM,      /* BD SD LT MT HT RS CP CB CY OH CH */
@@ -56,7 +55,7 @@ enum dr_command {
 enum { DR_STYLE_ELECTRO, DR_STYLE_KRAFT, DR_STYLE_ROTHER, DR_STYLE_ROBOT, DR_STYLE_MIAMI };
 
 typedef struct {
-    drum808_t kit;
+    tr808_t kit;
     dr_pattern_t pattern[DR_PATTERNS];
     el_queue_t queue;
     float level;            /* output gain */
@@ -107,8 +106,10 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames);
 EL_DSP_CODE void dr_rewind(dr_machine_t *m);
 /* Frames until the next internal event (rolls), or limit. */
 EL_DSP_CODE int dr_frames_until(const dr_machine_t *m, int limit);
-/* Render frames into the stereo bus and the reverb/delay sends (added). */
-EL_DSP_CODE void dr_render(dr_machine_t *m, float *left, float *right, float *rev, float *dly, int frames);
+/* Render frames (added): kick alone, the rest of the kit in stereo, sends
+ * to the hall, the gated reverb and the delay. */
+EL_DSP_CODE void dr_render(dr_machine_t *m, float *kick, float *left, float *right,
+                           float *rev, float *gate, float *dly, int frames);
 /* Trigger a part from MIDI or a pad; record into the pattern when armed. */
 EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record);
 

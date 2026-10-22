@@ -16,11 +16,12 @@ void el_init(el_engine_t *e)
     el_queue_init(&e->midi_queue);
     dr_init(&e->drums);
     fx_init(&e->fx);
+    mb_init(&e->mix);
     static const uint8_t voices[EL_TRACKS] = {3, 4, 2};
     for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
     el_factory_tracks(e);
     e->transport.swing = e->drums.pattern[0].swing;
-    e->master = 0.8f;
+    e->master = 1.0f;
 }
 
 /* Factory synth parts for the drum grooves: generator style per area
@@ -230,37 +231,47 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_DRUM_HIT:
         dr_hit(&e->drums, c->a, el_clampi(c->value, 1, 127) / 127.0f, 1);
         break;
+    case EL_CMD_MIX:
+        e->mix.enabled = c->a ? 1 : 0;
+        break;
     default:
         break;
     }
 }
 
-/* Gentle saturation instead of hard clipping at full scale. */
-static inline float saturate(float x)
+/* Buses, static so the audio interrupt's stack stays small. */
+static float kick[EL_BLOCK], drum_l[EL_BLOCK], drum_r[EL_BLOCK], bass_l[EL_BLOCK], bass_r[EL_BLOCK];
+static float synth_l[EL_BLOCK], synth_r[EL_BLOCK], rev[EL_BLOCK], gate[EL_BLOCK], dly[EL_BLOCK];
+static float left[EL_BLOCK], right[EL_BLOCK];
+
+static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
 {
-    x = el_clampf(x, -3.0f, 3.0f);
-    return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
+    el_transport_t *t = &e->transport;
+    dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        int bass = i == EL_AREA_BASS - 1u;
+        st_render(&e->track[i], (bass ? bass_l : synth_l) + pos, (bass ? bass_r : synth_r) + pos,
+                  dly + pos, rev + pos, n, t->bpm);
+    }
 }
 
-static EL_DSP_CODE void render_bus(el_engine_t *e, float *left, float *right, unsigned frames)
+static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
 {
-    static float rev[EL_BLOCK], dly[EL_BLOCK];
     el_cmd_t c;
     while (el_queue_pop(&e->queue, &c)) apply(e, &c);
     while (el_queue_pop(&e->midi_queue, &c)) apply(e, &c);
     dr_process_commands(&e->drums);
     el_transport_t *t = &e->transport;
     t->swing = e->drums.pattern[e->drums.current].swing;
-    for (unsigned i = 0; i < frames; ++i) left[i] = right[i] = rev[i] = dly[i] = 0.0f;
+    for (unsigned i = 0; i < frames; ++i)
+        kick[i] = drum_l[i] = drum_r[i] = bass_l[i] = bass_r[i] = synth_l[i] = synth_r[i] = rev[i] = gate[i] = dly[i] = 0.0f;
     unsigned pos = 0, guard = 0;
     while (pos < frames && guard++ < 64) {
         int n = (int)(frames - pos);
         n = el_transport_frames_until(t, n);
         n = dr_frames_until(&e->drums, n);
         for (unsigned i = 0; i < EL_TRACKS; ++i) n = st_frames_until(&e->track[i], n);
-        dr_render(&e->drums, left + pos, right + pos, rev + pos, dly + pos, n);
-        for (unsigned i = 0; i < EL_TRACKS; ++i)
-            st_render(&e->track[i], left + pos, right + pos, dly + pos, rev + pos, n, t->bpm);
+        render_sources(e, (int)pos, n);
         uint32_t step;
         if (el_transport_advance(t, n, &step)) {
             dr_step(&e->drums, step, t->last_length);
@@ -268,37 +279,31 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, float *left, float *right, un
         }
         pos += (unsigned)n;
     }
-    if (pos < frames) {
-        int n = (int)(frames - pos);
-        dr_render(&e->drums, left + pos, right + pos, rev + pos, dly + pos, n);
-        for (unsigned i = 0; i < EL_TRACKS; ++i)
-            st_render(&e->track[i], left + pos, right + pos, dly + pos, rev + pos, n, t->bpm);
-    }
-    fx_render(&e->fx, dly, rev, left, right, (int)frames, t->bpm);
+    if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
+    /* Effect returns sit with the synths (high-passed, gently ducked). */
+    fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
+    mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, left, right, (int)frames);
     ++e->blocks;
 }
-
-/* Mix bus, static so the audio interrupt's stack stays small. */
-static float left[EL_BLOCK], right[EL_BLOCK];
 
 EL_DSP_CODE void el_render(el_engine_t *e, int32_t *output, unsigned frames)
 {
     if (frames > EL_BLOCK) frames = EL_BLOCK;
-    render_bus(e, left, right, frames);
+    render_bus(e, frames);
     float g = e->master;
     for (unsigned i = 0; i < frames; ++i) {
-        output[2 * i] = (int32_t)(saturate(g * left[i]) * 8388607.0f);
-        output[2 * i + 1] = (int32_t)(saturate(g * right[i]) * 8388607.0f);
+        output[2 * i] = (int32_t)(el_clampf(g * left[i], -1.0f, 1.0f) * 8388607.0f);
+        output[2 * i + 1] = (int32_t)(el_clampf(g * right[i], -1.0f, 1.0f) * 8388607.0f);
     }
 }
 
 EL_DSP_CODE void el_render_float(el_engine_t *e, float *output, unsigned frames)
 {
     if (frames > EL_BLOCK) frames = EL_BLOCK;
-    render_bus(e, left, right, frames);
+    render_bus(e, frames);
     float g = e->master;
     for (unsigned i = 0; i < frames; ++i) {
-        output[2 * i] = saturate(g * left[i]);
-        output[2 * i + 1] = saturate(g * right[i]);
+        output[2 * i] = g * left[i];
+        output[2 * i + 1] = g * right[i];
     }
 }

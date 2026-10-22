@@ -3,7 +3,7 @@
 #include "fm1.h"
 #include <string.h>
 
-enum { MAGIC = 0x32444c45u /* "ELD2" */, VERSION = 2, PARAMS = 10, KIT_PARAMS = 3 };
+enum { MAGIC = 0x33444c45u /* "ELD3" */, VERSION = 3, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -83,10 +83,9 @@ int el_store_load(el_engine_t *e)
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
     for (unsigned part = 0; part < DR_PARTS; ++part)
-        for (int p = 0; p < drum808_nparams((int)part) && p < PARAMS; ++p)
-            drum808_set(&m->kit, (int)part, p, d->params[part][p]);
-    for (int p = 0; p < KIT_PARAMS; ++p) drum808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
-    drum808_pan_settle(&m->kit);
+        for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
+            tr808_set(&m->kit, (int)part, p, d->params[part][p]);
+    for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
     m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
@@ -125,9 +124,9 @@ int el_store_save(el_engine_t *e)
     payload_t *d = &record.data;
     memcpy(d->pattern, m->pattern, sizeof d->pattern);
     for (unsigned part = 0; part < DR_PARTS; ++part)
-        for (int p = 0; p < drum808_nparams((int)part) && p < PARAMS; ++p)
-            d->params[part][p] = (uint8_t)drum808_get(&m->kit, (int)part, p);
-    for (int p = 0; p < KIT_PARAMS; ++p) d->kit_params[p] = (uint8_t)drum808_get(&m->kit, D8_KIT, p);
+        for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
+            d->params[part][p] = (uint8_t)tr808_get(&m->kit, (int)part, p);
+    for (int p = 0; p < KIT_PARAMS; ++p) d->kit_params[p] = (uint8_t)tr808_get(&m->kit, D8_KIT, p);
     d->kit = m->kit_index;
     d->level = m->level_value;
     d->current = m->current;

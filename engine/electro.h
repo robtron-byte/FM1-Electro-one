@@ -10,6 +10,7 @@
 #include "drums.h"
 #include "synth_track.h"
 #include "fx.h"
+#include "mixbus.h"
 
 enum el_command {
     EL_CMD_START,        /* c = 1 when it came from MIDI (follow its clock) */
@@ -37,7 +38,8 @@ enum el_command {
     EL_CMD_TRACK_CHORD,  /* b = live chord 0..8 */
     EL_CMD_TRACK_CLEAR,  /* clear the current pattern */
     EL_CMD_RECORD_AREA,  /* a = area 0 beat .. 3 bass, b = on; other areas disarm */
-    EL_CMD_FX            /* a = fx parameter, value */
+    EL_CMD_FX,           /* a = fx parameter, value */
+    EL_CMD_MIX           /* a = 1: mix and master processing on, 0: off (A/B) */
 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
@@ -48,6 +50,7 @@ typedef struct {
     dr_machine_t drums;
     st_track_t track[EL_TRACKS];
     el_fx_t fx;
+    el_mixbus_t mix;
     uint8_t staged_patch[MP_COUNT];      /* control writes, a command copies */
     st_pattern_t staged_pattern;
     volatile uint32_t staged_posted, staged_taken;

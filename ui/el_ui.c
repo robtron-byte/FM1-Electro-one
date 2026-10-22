@@ -108,7 +108,7 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
         else value = e->fx.v[slot == 0 ? FX_DELAY_DIV : slot == 1 ? FX_DELAY_FB : slot == 2 ? FX_REVERB_SIZE : FX_REVERB_DECAY];
     } else if (ui->area == EL_AREA_BEAT) {
         param = ui->page[0] * 4u + slot;
-        value = drum808_get(&e->drums.kit, ui->part, (int)param);
+        value = tr808_get(&e->drums.kit, ui->part, (int)param);
         param |= (unsigned)ui->part << 4;
     } else {
         param = synth_pages[ui->page[ui->area]][slot];
@@ -132,7 +132,7 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         if ((ui->hold & HOLD_GLO) && slot == 0) k.text = fx_delay_division_name(k.value);
         k.color = (ui->hold & HOLD_GLO) ? ACCENT : area_color[slot];
     } else if (ui->area == EL_AREA_BEAT) {
-        const fm1_param_t *d = drum808_param(ui->part, (int)(param & 15u));
+        const fm1_param_t *d = tr808_param(ui->part, (int)(param & 15u));
         if (!d) return k;
         k.name = d->name;
         k.max = d->max;
@@ -320,7 +320,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             continue;
         }
         if (!ui->overview && ui->area == a) {
-            unsigned pages = a == EL_AREA_BEAT ? ((unsigned)drum808_nparams(ui->part) + 3u) / 4u : UI_PAGES;
+            unsigned pages = a == EL_AREA_BEAT ? ((unsigned)tr808_nparams(ui->part) + 3u) / 4u : UI_PAGES;
             ui->page[a] = (uint8_t)((ui->page[a] + 1u) % pages);
         } else {
             release_keys(ui, ~0u);
@@ -790,7 +790,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
-            unsigned pages = ((unsigned)drum808_nparams(ui->part) + 3u) / 4u;
+            unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;
             snprintf(line, sizeof line, "%s %u/%u KIT %s SW%u L%u%s", dr_part_names[ui->part], ui->page[0] + 1u, pages,
                      dr_kit_names[ui->engine->drums.kit_index], p->swing, p->length,
                      p->length > 16 ? (ui->step_page[0] ? " 2/2" : " 1/2") : "");

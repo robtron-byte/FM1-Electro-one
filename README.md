@@ -4,6 +4,38 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 
 > Unabhängiges Projekt, nicht mit M-VAVE oder Roland verbunden. „MKS-50“, „Jupiter-6“ und „TR-808“ beschreiben nur die nachgebildete Architektur.
 
+## Branch `sound-808`: authentische 808 und fertiger Mix
+
+Auf diesem Branch steckt die Arbeit am Sound:
+
+- **TR-808, neu aus der Schaltung nachgebaut** (`engine/tr808.c`). Jede Stimme besteht wie im Original aus Resonatoren, Oszillatoren, Filtern und Hüllkurven. Angeregt werden sie vom 1-ms-Triggerimpuls, dessen Höhe der Akzent ist (4–14 V). Der Akzent verändert also auch den Klang, nicht nur die Lautstärke.
+- **Grundstimmung wie beim Original:**
+
+  | Instrument | Stimmung |
+  |---|---|
+  | Bassdrum | 50 Hz, mit Attack-Punch, Retrigger-Impuls, leichtem Tonhöhenabfall und Klick über TONE |
+  | Snare | 173 + 336 Hz |
+  | Toms | 90 / 135 / 185 Hz |
+  | Congas | 185 / 280 / 400 Hz |
+  | Rimshot | 455 + 1667 Hz |
+  | Claves | 2,5 kHz |
+  | Metall-Sounds | sechs Rechteck-Oszillatoren bei 205,3–800 Hz mit Bandpässen bei 3,44 und 7,1 kHz |
+  | Clap | drei Sägezahn-Impulse plus Hallfahne |
+
+  Die Pegel normal/Akzent folgen der Tabelle im Roland-Servicehandbuch. Alle Werte und Quellen stehen in [`docs/TR808.md`](docs/TR808.md).
+- **Mischung im Stil von Anthony Rother** (`engine/mixbus.c`):
+  - Die Kick läuft unkomprimiert am Drum-Bus vorbei.
+  - Drum-Bus: Kompressor 2:1 plus Bandsättigung.
+  - Die Kick duckt Bass und Flächen.
+  - Hochpass und Präsenz auf den Synths.
+  - Snare, Clap und Rimshot bekommen einen nichtlinearen Gated-Reverb (nach TC NonLin2), alles andere den Hall.
+  - Summe nach Art des SPL Kultube: Kompressor 1,8:1 und Röhrensättigung, danach ein Limiter bei −1 dBFS.
+  - Ergebnis: rund −9 bis −10 LUFS, die Lautheit eines fertigen Club-Tracks.
+- **Soundcheck:**
+  - `make soundcheck` rendert jedes Instrument einzeln (normal, Akzent, Tune- und Decay-Verlauf) nach `build/sc/` und misst Frequenz und Ausklingzeit.
+  - `make demo` erzeugt unter anderem `ab_rother_raw.wav` und `ab_rother_mixed.wav` für den Vorher/Nachher-Vergleich der Mischkette.
+  - `python3 host/loudness.py datei.wav` misst die Lautheit in LUFS.
+
 ## Variante „Vier Bereiche“ (Branch `bedienung-vier-bereiche`)
 
 Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer Clock laufen und gemeinsam das Pattern wechseln:
@@ -82,9 +114,9 @@ Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät 
 
 ## Speicher und Rechenzeit
 
-Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Diese Variante braucht geschätzt **rund 190 KB**: etwa 135 KB Daten (davon 90 KB Delay und Hall), dazu rund 50 KB Code im RAM. Das ist knapp. Falls es auf dem Gerät nicht passt, gibt es drei Stellschrauben: Delay-Länge (`FX_DELAY_CAP`), Hall-Leitungen (`FX_REVERB_CAP`) und Stimmenzahl pro Bereich (`electro.c`).
+Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Mit der neuen 808 und der Mischkette braucht dieser Branch geschätzt **rund 210 KB** (156 KB Daten plus Code im RAM): etwa 135 KB Daten (davon 90 KB Delay und Hall), dazu rund 50 KB Code im RAM. Das ist knapp. Falls es auf dem Gerät nicht passt, gibt es drei Stellschrauben: Delay-Länge (`FX_DELAY_CAP`), Hall-Leitungen (`FX_REVERB_CAP`) und Stimmenzahl pro Bereich (`electro.c`).
 
-Auf dem PC kosten alle vier Bereiche zusammen 4,5 % Echtzeit, davon die 808 allein 2,6 %. Wie viel davon auf dem 240-MHz-Chip übrig bleibt, zeigt erst die Messung am Gerät. Für Delay und Hall habe ich sparsamere Versionen als in den iOS-Apps gebaut: ein Ping-Pong-Delay mit halber Abtastrate und 16 Bit (bis 0,6 s, klingt etwas dunkler, eher wie Band oder Eimerkette) und einen Hall mit 4 statt 8 Leitungen.
+Auf dem PC kosten alle vier Bereiche mit Mischkette zusammen 5,9 % Echtzeit. Wie viel davon auf dem 240-MHz-Chip übrig bleibt, zeigt erst die Messung am Gerät. Für Delay und Hall habe ich sparsamere Versionen als in den iOS-Apps gebaut: ein Ping-Pong-Delay mit halber Abtastrate und 16 Bit (bis 0,6 s, klingt etwas dunkler, eher wie Band oder Eimerkette) und einen Hall mit 4 statt 8 Leitungen.
 
 ## Lizenz
 

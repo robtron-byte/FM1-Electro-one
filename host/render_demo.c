@@ -117,6 +117,21 @@ int main(int argc, char **argv)
     char path[512], name[32];
     int failed = timing_test() | midi_clock_test();
 
+    /* A/B: the same groove without and with the mix / master processing. */
+    for (int processed = 0; processed < 2; ++processed) {
+        el_init(&e);
+        el_post(&e, EL_CMD_MIX, (uint8_t)processed, 0);
+        el_post(&e, EL_CMD_BPM, 0, 1280);
+        dr_post(&e.drums, DR_CMD_SELECT, 3, 1, 0, 0);
+        dr_post(&e.drums, DR_CMD_KIT, e.drums.pattern[3].kit, 0, 0, 0);
+        size_t frames; float peak;
+        float *audio = render(&e, 128.0f, 64, &frames, &peak);
+        snprintf(path, sizeof path, "%s/ab_rother_%s.wav", dir, processed ? "mixed" : "raw");
+        write_wav(path, audio, frames);
+        printf("A/B %s peak %.2f -> %s\n", processed ? "mixed" : "raw", peak, path);
+        free(audio);
+    }
+
     /* Full grooves: beat plus rhythm, strings and bass. */
     for (unsigned i = 0; i < 14; i += 1) {
         el_init(&e);

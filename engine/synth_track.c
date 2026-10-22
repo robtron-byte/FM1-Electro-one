@@ -105,7 +105,7 @@ EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit)
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm)
 {
     /* Area trims balance the sounds against the 808 at equal level settings. */
-    static const float trim[4] EL_DSP_DATA = {1.0f, 2.2f, 0.9f, 2.4f};
+    static const float trim[4] EL_DSP_DATA = {1.0f, 2.6f, 0.75f, 4.3f};
     t->part.level = t->level_value / 127.0f * trim[t->area & 3u];
     mks_render(&t->part, left, right, dly, rev, frames, bpm);
     t->since_step += (float)frames;
