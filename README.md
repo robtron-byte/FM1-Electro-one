@@ -49,7 +49,7 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 
 Die Sounds sind die Factory-Sounds der MKS-50-App, automatisch übernommen (`tools/convert_presets.py`).
 
-**Generierte Grooves statt fester Patterns.** 24 Pattern-Plätze in zwei Bänken. Die Plätze 1–16 sind Stil-Plätze: Bei jedem Einschalten erzeugt der Generator dort neue Grooves, jeder Platz in seinem Stil (`engine/drum_factory.c`): ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, MIAMI 2, BOOM BASS, DROWNED, ROBOT, PERFECT, EGYPT, FREAKY, LOVE. Jeder Stil bringt Tempo, Swing, Kit, Länge, typische Varianten pro Instrument und eine Akkordfamilie mit. Der Generator wählt daraus und variiert leicht (Geister-Kick, versetzte Hat, Open-Hat-Auftakt); Downbeats, Backbeat und die Figur des Stils bleiben. Zu jedem Beat entstehen passende RHYTHM-, STRINGS- und BASS-Spuren, alles in einer gemeinsamen Moll-Tonart (C, D, A, E, G, F, B♭ oder E♭). **HOME + ARP + weiße Taste** erzeugt für diesen Platz sofort einen neuen Groove. Die Plätze 17–24 sind User-Plätze: **SAVE und danach weiße Taste 1–8** legt den laufenden Groove (Beat und alle drei Synth-Spuren) dort ab und speichert ihn mit allen Einstellungen im Flash. SAVE zweimal speichert nur die Einstellungen. Gespeichert werden nur die User-Plätze, Klänge, Pegel, Effekte, Tempo und Kit, nicht die Stil-Plätze.
+**Generierte Grooves statt fester Patterns.** 24 Pattern-Plätze in zwei Bänken. Die Plätze 1–16 sind Stil-Plätze: Dort liegt je ein generierter Groove in seinem Stil (`engine/drum_factory.c`): ELECTRO, BRONX 82, NUMBERS, TRANS EUR, TOUR, COMPUTER, ROTHER, MIAMI, MIAMI 2, BOOM BASS, DROWNED, ROBOT, PERFECT, EGYPT, FREAKY, LOVE. Jeder Stil bringt Tempo, Swing, Kit, Länge, typische Varianten pro Instrument und eine Akkordfamilie mit. Der Generator wählt daraus und variiert leicht (Geister-Kick, versetzte Hat, Open-Hat-Auftakt); Downbeats, Backbeat und die Figur des Stils bleiben. Zu jedem Beat entstehen passende RHYTHM-, STRINGS- und BASS-Spuren, alles in einer gemeinsamen Moll-Tonart (C, D, A, E, G, F, B♭ oder E♭). **HOME + ARP + weiße Taste** erzeugt für diesen Platz einen neuen Groove. Neu generiert wird nur auf diesen Befehl hin, nie beim Einschalten: Neue Grooves (auch einzelne neue Spuren aus dem Generator) werden zwei Sekunden nach dem letzten Generator-Tastendruck von selbst im Flash abgelegt und sind nach einem Neustart wieder da. Die Plätze 17–24 sind User-Plätze: **SAVE und danach weiße Taste 1–8** legt den laufenden Groove (Beat und alle drei Synth-Spuren) dort ab und speichert ihn mit allen Einstellungen im Flash. SAVE zweimal speichert alles ohne Kopie in einen User-Platz. Im Flash liegen alle 24 Plätze mit Klängen, Pegeln, Effekten, Tempo und Kit.
 
 **Akkordfolgen im Stil von Anthony Rother und Kraftwerk.** Die Streicher spielen Vier-Akkord-Schleifen mit einem oder zwei Takten pro Akkord (PADS: ein Step pro Takt, SLOW: ein Step pro zwei Takte, PULSE: Achtel bzw. Viertel, STABS: 16tel), mit automatischer Stimmführung über die Umkehrungen. Jeder Stil wählt eine von drei Familien mit je acht Schleifen (`engine/synth_track.c`):
 
@@ -71,7 +71,7 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 | PLAY | Start/Stop |
 | REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
 | ARP halten | Generator für den aktuellen Bereich: E3 Stil, E4 Dichte, weiße Taste erzeugt eine neue Spur |
-| SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: nur Einstellungen |
+| SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
 | E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
 **BEAT:** schwarze Taste wählt und spielt ein Instrument, weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. E3–E6 Klang, E7 Länge (GLO: Swing), GLO + E1 Kit.
@@ -120,7 +120,7 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhä
 
 Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
 
-**Speicherplatz im Flash:** FM1-Electro speichert die User-Plätze und Einstellungen (3,5 KB) in zwei Kopien zu je einem 4-KB-Sektor hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 13–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 9–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 

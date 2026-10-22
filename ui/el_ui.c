@@ -6,13 +6,14 @@
  *                         active one again for the next sound page
  *   GLO + area button     mute / unmute that area
  *   HOME                  overview (white keys pick patterns, OCT -/+ bank 1-16 / 17-24,
- *                         black keys 1-4 mute areas). Slots 1-16 are generated in
- *                         their style at power-up; ARP + white key = new groove
- *                         for that slot (drums, rhythm, strings, bass).
+ *                         black keys 1-4 mute areas). Slots 1-16 hold a generated
+ *                         groove in their style; ARP + white key = new groove for
+ *                         that slot (drums, rhythm, strings, bass). New grooves are
+ *                         kept in Flash by themselves and survive a restart.
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
  *   ARP held              generator: E3 style, E4 density, white key = new part
- *   SAVE                  then white key 1-8: store the playing groove in user slot
- *                         17-24 plus all settings in Flash (SAVE again: settings only)
+ *   SAVE                  then white key 1-8: copy the playing groove to user slot
+ *                         17-24 and store everything in Flash (SAVE again: store only)
  *   E1 pattern (all areas)   E2 tempo (GLO: fine)
  *
  * BEAT    black keys pick + play a drum, white keys set steps.
@@ -200,6 +201,12 @@ static void set_area_mute(el_ui_t *ui, unsigned area, int on)
     else el_post3(ui->engine, EL_CMD_TRACK_MUTE, (uint8_t)(area - 1u), (uint8_t)on, 0, 0);
 }
 
+static void keep_later(el_ui_t *ui)
+{
+    ui->autosave = 1;
+    ui->autosave_at = ui->now + 2000u;
+}
+
 static void generate(el_ui_t *ui, unsigned key)
 {
     el_engine_t *e = ui->engine;
@@ -210,7 +217,7 @@ static void generate(el_ui_t *ui, unsigned key)
         const dr_pattern_t *p = &m->pattern[m->current];
         dr_generate(&g, ui->gen_style[0], ui->gen_density[0], seed, ui->gen_keep ? p : NULL);
         g.length = p->length;
-        if (dr_post_pattern(m, m->current, &g) == 0) notice(ui, "NEW BEAT");
+        if (dr_post_pattern(m, m->current, &g) == 0) { notice(ui, "NEW BEAT"); keep_later(ui); }
         return;
     }
     st_track_t *t = track_of(ui);
@@ -228,7 +235,7 @@ static void generate(el_ui_t *ui, unsigned key)
             for (unsigned s = 0; s < ST_STEPS; ++s) g.step[s].note = (uint8_t)el_clampi(g.step[s].note + shift, 0, 127);
             break;
         }
-    if (el_load_pattern(e, ui->area - 1u, t->current, &g) == 0) notice(ui, "NEW PART");
+    if (el_load_pattern(e, ui->area - 1u, t->current, &g) == 0) { notice(ui, "NEW PART"); keep_later(ui); }
 }
 
 /* Whole-slot groove: style slots keep their style, user slots take the
@@ -255,7 +262,13 @@ static void run_jobs(el_ui_t *ui)
         if (++ui->job_stage > 1u + EL_TRACKS) {
             ui->job_stage = 0;
             notice(ui, "NEW GROOVE");
+            keep_later(ui);
         }
+    }
+    if (ui->autosave && !ui->job_stage && (int32_t)(ui->now - ui->autosave_at) >= 0 &&
+        e->drums.staging_posted == e->drums.staging_taken && e->staged_posted == e->staged_taken) {
+        ui->autosave = 0;
+        if (ui->save && ui->save(e) != 0) notice(ui, "SAVE FAILED");
     }
     if (ui->save_pending && (int32_t)(e->slot_copies - ui->save_copies) >= 0) {
         ui->save_pending = 0;
@@ -406,7 +419,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             notice(ui, "SAVE: WHITE KEY 1-8");
         } else {
             ui->save_pick = 0;
-            notice(ui, ui->save(e) == 0 ? "SETTINGS SAVED" : "SAVE FAILED");
+            notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");
         }
     }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
@@ -879,7 +892,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         }
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
-    if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8, SAVE: SETTINGS";
+    if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8 OR SAVE AGAIN";
     char line[48];
     if (!hint) {
         if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX";

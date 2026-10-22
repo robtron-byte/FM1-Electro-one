@@ -32,6 +32,10 @@ typedef struct {
     /* SAVE: pick a user slot with a white key, wait for the copy, store. */
     uint8_t save_pick, save_pending;
     uint32_t save_copies;
+    /* New grooves are kept in Flash on their own, shortly after the last
+     * generator key press (they survive a restart). */
+    uint8_t autosave;
+    uint32_t autosave_at;
     uint8_t key_note[UI_KEYS];          /* note sent for each held key, 0xff = none */
     uint8_t key_track[UI_KEYS];
     uint32_t prev_buttons, prev_keys;

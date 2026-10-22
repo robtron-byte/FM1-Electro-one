@@ -3,18 +3,18 @@
 #include "fm1.h"
 #include <string.h>
 
-/* Only the user slots (17-24) and the settings are stored: the style slots
- * are generated fresh at every power-up. */
-enum { MAGIC = 0x36444c45u /* "ELD6" */, VERSION = 6, PARAMS = 10, KIT_PARAMS = 3 };
+/* All 24 slots (generated style slots and user slots) and the settings are
+ * stored, so the last grooves come back after a restart. */
+enum { MAGIC = 0x37444c45u /* "ELD7" */, VERSION = 7, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
-    st_pattern_t pattern[DR_USER_SLOTS];
+    st_pattern_t pattern[ST_PATTERNS];
     uint8_t v[MP_COUNT];
     uint8_t preset, level, muted, chord;
 } track_payload_t;
 
 typedef struct {
-    dr_pattern_t pattern[DR_USER_SLOTS];
+    dr_pattern_t pattern[DR_PATTERNS];
     uint8_t params[DR_PARTS][PARAMS];
     uint8_t kit_params[KIT_PARAMS];
     uint8_t kit, level, current, muted;
@@ -73,16 +73,18 @@ int el_store_load(el_engine_t *e)
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
     dr_machine_t *m = &e->drums;
     const payload_t *d = &record.data;
-    for (unsigned i = 0; i < DR_USER_SLOTS; ++i) {
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         dr_pattern_t p = d->pattern[i];
         p.name[DR_NAME] = 0;
         p.length = (uint8_t)el_clampi(p.length, 1, DR_STEPS);
         p.swing = (uint8_t)el_clampi(p.swing, 50, 75);
         p.kit = (uint8_t)(p.kit % DR_KITS);
         p.style = (uint8_t)(p.style % DR_STYLES);
-        m->pattern[DR_STYLE_SLOTS + i] = p;
+        m->pattern[i] = p;
     }
-    /* Audio is not running yet: the kit can be set directly. */
+    /* Audio is not running yet: the kit can be set directly. DR_CMD_KIT also
+     * stores the kit in the current pattern, so select that one first. */
+    m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
     for (unsigned part = 0; part < DR_PARTS; ++part)
@@ -98,8 +100,8 @@ int el_store_load(el_engine_t *e)
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
         const track_payload_t *s = &d->track[i];
-        for (unsigned p = DR_STYLE_SLOTS; p < DR_PATTERNS; ++p) {
-            t->pattern[p] = s->pattern[p - DR_STYLE_SLOTS];
+        for (unsigned p = 0; p < ST_PATTERNS; ++p) {
+            t->pattern[p] = s->pattern[p];
             t->pattern[p].length = (uint8_t)el_clampi(t->pattern[p].length, 1, ST_STEPS);
             t->pattern[p].gate = (uint8_t)el_clampi(t->pattern[p].gate, 10, 100);
             t->pattern[p].rate = (uint8_t)el_clampi(t->pattern[p].rate, 0, ST_RATES - 1);
@@ -130,7 +132,7 @@ int el_store_save(el_engine_t *e)
     const dr_machine_t *m = &e->drums;
     memset(&record, 0, sizeof record);
     payload_t *d = &record.data;
-    memcpy(d->pattern, &m->pattern[DR_STYLE_SLOTS], sizeof d->pattern);
+    memcpy(d->pattern, m->pattern, sizeof d->pattern);
     for (unsigned part = 0; part < DR_PARTS; ++part)
         for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
             d->params[part][p] = (uint8_t)tr808_get(&m->kit, (int)part, p);
@@ -143,7 +145,7 @@ int el_store_save(el_engine_t *e)
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         const st_track_t *t = &e->track[i];
         track_payload_t *s = &d->track[i];
-        memcpy(s->pattern, &t->pattern[DR_STYLE_SLOTS], sizeof s->pattern);
+        memcpy(s->pattern, t->pattern, sizeof s->pattern);
         memcpy(s->v, t->part.v, sizeof s->v);
         s->preset = t->preset;
         s->level = t->level_value;

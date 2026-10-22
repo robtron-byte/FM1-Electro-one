@@ -147,6 +147,14 @@ int main(int argc, char **argv)
     run(300);
     shot(dir, "09_new_groove");
     int fresh = engine.drums.current == 2 && engine.drums.pattern[2].style == 2;
+    /* The new groove is kept in Flash by itself and comes back after a restart. */
+    run(2500);
+    static el_engine_t restarted;
+    el_init(&restarted);
+    fresh = fresh && el_store_load(&restarted) == 0 &&
+            !memcmp(&restarted.drums.pattern[2], &engine.drums.pattern[2], sizeof(dr_pattern_t)) &&
+            !memcmp(&restarted.track[1].pattern[2], &engine.track[1].pattern[2], sizeof(st_pattern_t));
+    printf("store: new groove kept over restart %s\n", fresh ? "ok" : "FAIL");
 
     tap_button(BTN_PLAY);
     tap_button(BTN_SAVE);             /* SAVE, then white key 1: user slot 17 */
@@ -158,15 +166,22 @@ int main(int argc, char **argv)
     fresh = fresh && !memcmp(engine.drums.pattern[user].hit, engine.drums.pattern[2].hit, sizeof engine.drums.pattern[2].hit);
     static el_engine_t loaded;
     el_init(&loaded);
-    el_generate_all(&loaded, 12345u);      /* another power-up: other style grooves */
     int r = el_store_load(&loaded);
-    int same = fresh && r == 0 && !memcmp(&loaded.drums.pattern[user], &engine.drums.pattern[user],
-                                          DR_USER_SLOTS * sizeof(dr_pattern_t));
+    int same = fresh && r == 0 && !memcmp(loaded.drums.pattern, engine.drums.pattern, sizeof loaded.drums.pattern);
     for (unsigned t = 0; t < EL_TRACKS; ++t)
-        same = same && !memcmp(&loaded.track[t].pattern[user], &engine.track[t].pattern[user], DR_USER_SLOTS * sizeof(st_pattern_t)) &&
+        same = same && !memcmp(loaded.track[t].pattern, engine.track[t].pattern, sizeof loaded.track[t].pattern) &&
                !memcmp(loaded.track[t].part.v, engine.track[t].part.v, MP_COUNT) &&
                loaded.track[t].muted == engine.track[t].muted && loaded.track[t].level_value == engine.track[t].level_value;
     same = same && !memcmp(loaded.fx.v, engine.fx.v, FX_PARAMS);
+    if (!same) {
+        printf("debug r=%d fresh=%d\n", r, fresh);
+        for (unsigned i = 0; i < DR_PATTERNS; ++i) if (memcmp(&loaded.drums.pattern[i], &engine.drums.pattern[i], sizeof(dr_pattern_t))) { const unsigned char *a = (const void *)&loaded.drums.pattern[i], *b = (const void *)&engine.drums.pattern[i]; printf(" drum slot %u differs:", i); for (unsigned k = 0; k < sizeof(dr_pattern_t); ++k) if (a[k] != b[k]) printf(" @%u %02x/%02x", k, a[k], b[k]); printf("\n"); }
+        for (unsigned t = 0; t < EL_TRACKS; ++t) {
+            for (unsigned i = 0; i < ST_PATTERNS; ++i)
+                if (memcmp(&loaded.track[t].pattern[i], &engine.track[t].pattern[i], sizeof(st_pattern_t))) printf(" track %u slot %u differs\n", t, i);
+            if (memcmp(loaded.track[t].part.v, engine.track[t].part.v, MP_COUNT)) printf(" track %u sound differs\n", t);
+        }
+    }
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
     return same ? 0 : 1;
 }
