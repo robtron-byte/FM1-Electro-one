@@ -433,14 +433,16 @@ static inline float swing_vca(float x, float env)
     return r * env / (env + (r > 0 ? r : -r) + 1e-6f);
 }
 
-/* Cymbal calibration (fitted with host/analyze_cymbal.py against the band
- * balance and decay measurements of a real TR-808 at all 25 TONE / DECAY
- * settings, Fischer sample set). Host builds may change it. */
+/* Cymbal calibration, fitted with host/cymbal_check.c + host/analyze_cymbal.py
+ * against band measurements of a real TR-808 at all 25 TONE / DECAY
+ * settings (Fischer sample set): high/low band balance within 0.4 dB rms,
+ * decay times within ~8 % (early) / ~10 % (late), 1/3 octaves within
+ * 3.5 dB rms at TONE 5 / DECAY 2.5. Host builds may change it. */
 float tr808_cy_cal[CY_CAL] = {
     /* drive  low   decay short  tau_s  tone_s tone_l tone_d  tau_l0 tau_l1 tau_d0 tau_d1 lag_l lag_d  tone_p */
-    1.2f,  1.0f,  1.0f,  1.0f,  30.0f, 3.0f,  1.0f,  0.5f,  300.0f, 800.0f, 100.0f, 380.0f, 60.0f, 6.0f, 2.0f,
+    0.5476f, 0.5929f, 0.8818f, 1.658f, 47.71f, 1.884f, -0.4735f, 0.7804f, 159.7f, 469.2f, 102.8f, 173.6f, 58.48f, 4.648f, 1.996f,
     /* hh2 Hz  hh3 Hz   output low-pass Hz */
-    8840.0f, 10320.0f, 18000.0f};
+    10267.0f, 9089.0f, 11913.0f};
 
 /* Cymbal after the circuit (Service Notes p.13, Werner ICMC-14): the
  * staircase through two band-passes (3.45 and 7.1 kHz, Q 6), three swing
@@ -575,7 +577,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
