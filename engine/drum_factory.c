@@ -16,9 +16,10 @@ typedef struct {
     const char *row[DR_PARTS + 1];
 } dr_recipe_t;
 
-/* Minimal, classic electro and Kraftwerk-style grooves: kick, snare or
- * clap and hats carry everything; accents are sparse and percussion
- * (rim, cowbell, toms, cymbal) only appears as a single colour note. */
+/* Minimal, classic electro, Kraftwerk- and Miami-bass-style grooves: kick,
+ * snare or clap and hats carry everything; accents are sparse. Percussion
+ * only where the style needs it (cowbell in PERFECT / MIAMI 2, rim on the
+ * MIAMI clap). The song-style grooves are reconstructions, not transcriptions. */
 static const dr_recipe_t factory[DR_PATTERNS] = {
     /* BD                  SD                  LT MT HT RS
        CP                  CB                  CY                  OH
@@ -51,10 +52,12 @@ static const dr_recipe_t factory[DR_PATTERNS] = {
         "x...x...x...x...", 0, 0, 0, 0, 0,
         "....x.......x...", 0, 0, "..x...x...x...x.",
         "x...x...x...x...", "x...x...x...x..."}},
-    {"MIAMI", 56, KMIAMI, {
-        "x......x..x.....", "....x.......x...", 0, 0, 0, 0,
-        0, 0, 0, 0,
-        "x.x.x.x.x.x.x.x.", "....x.......x..."}},
+    /* Classic booty bass (Luke / 2 Live Crew style): rim doubles the clap,
+     * gapped 16th hats for the jerky stop-start feel. */
+    {"MIAMI", 50, KMIAMI, {
+        "x.....x...x.....", 0, 0, 0, 0, "....x.......x...",
+        "....x.......x...", 0, 0, "..x...........x.",
+        "x..xx.xxx.xxx..x", "x...x.......x..."}},
     {"DROWNED", 50, K808, {
         "x.....x.x.....x.", "....x.......x...", 0, 0, 0, 0,
         0, 0, 0, 0,
@@ -63,10 +66,12 @@ static const dr_recipe_t factory[DR_PATTERNS] = {
         "x...x...x...x...", "....x.......x...", 0, 0, 0, 0,
         0, 0, 0, 0,
         "..x...x...x...x.", "x...x...x...x..."}},
-    {"HALFTIME", 52, KMIAMI, {
-        "x.........x.....", 0, 0, 0, 0, 0,
-        "........x.......", 0, 0, 0,
-        "x.x.x.x.x.x.x.x.", "x.......x......."}},
+    /* Car-audio bass (Bass Patrol / Magic Mike style): sparse kicks so the
+     * long 808 tail rings like a sub bass, open hats on the offbeats. */
+    {"BOOM BASS", 50, KMIAMI, {
+        "x......x..x.....", 0, 0, 0, 0, 0,
+        "....x.......x...", 0, 0, "..x...x...x...x.",
+        "xx.xxx.xxx.xxx.x", "x...x.....x.x..."}},
     {"ROBOT", 50, KKRAFT, {
         "x...x.....x.....", "....x.......x...", 0, 0, 0, "...........x....",
         0, 0, 0, 0,
@@ -75,12 +80,24 @@ static const dr_recipe_t factory[DR_PATTERNS] = {
         "x.....x...x.....x.....x...x.....", "....x.......x.......x.......x.xx", 0, 0, 0, 0,
         0, 0, "x...............................", 0,
         "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x...", "x...........x...............x.xx"}},
-    {"SPACE", 52, K808, {
-        "x.......x.x.....", 0, 0, 0, 0, 0,
-        "....x.......x...", 0, "x...............", 0,
-        "..x...x...x...x.", "x...x...x...x..."}},
-    {"INIT A", 50, K808, {0}},
-    {"INIT B", 50, KELECTRO, {0}},
+    /* Electro-bass, two bars (Dynamix II / Maggotron style): the kick plays
+     * the bass figure, cowbell answers, snare pickup at the end. */
+    {"MIAMI 2", 50, KMIAMI, {
+        "x.....x.x.....x.x.....x...x.x...", "....x.......x.......x.......x..x", 0, 0, 0, 0,
+        "....x.......x.......x.......x...", "...x.....x.....x...x.....x......", 0, 0,
+        "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.", "x.......x.......x..............."}},
+    /* In the style of "Looking for the Perfect Beat" (Baker / Robie, 1983):
+     * straight electro, clap over snare, cowbell figure, open hat pickup. */
+    {"PERFECT", 50, KELECTRO, {
+        "x.....x...x.....", "....x.......x...", 0, 0, 0, 0,
+        "....x.......x...", "x..x..x...x.x...", 0, "..............x.",
+        "x.x.x.x.x.x.x...", "x...x.......x..."}},
+    /* The same, two bars: busier kick and a tom run into the next bar. */
+    {"PERFECT 2", 50, KELECTRO, {
+        "x.....x...x.....x.....x.x.x.x.x.", "..............................xx",
+        "............................x...", "..........................x.....", "........................x.......", 0,
+        "....x.......x.......x.......x...", 0, 0, 0,
+        "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.", "x...x.......x.......x.......x.xx"}},
 };
 
 static uint32_t parse_row(const char *row, uint32_t *roll, unsigned *length)

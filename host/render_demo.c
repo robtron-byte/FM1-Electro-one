@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
     static const uint16_t tempo[DR_PATTERNS] = {1120, 1180, 1250, 1160, 1240, 1280, 1280, 1300,
-                                                1380, 1240, 1000, 1200, 1240, 1060, 1200, 1200};
+                                                1380, 1240, 1360, 1200, 1240, 1250, 1200, 1200};
     static el_engine_t e;
     char path[512], name[32];
     int failed = timing_test() | midi_clock_test();
@@ -133,7 +133,7 @@ int main(int argc, char **argv)
     }
 
     /* Full grooves: beat plus rhythm, strings and bass. */
-    for (unsigned i = 0; i < 14; i += 1) {
+    for (unsigned i = 0; i < DR_PATTERNS; i += 1) {
         el_init(&e);
         el_post(&e, EL_CMD_BPM, 0, (int16_t)tempo[i]);
         dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)i, 1, 0, 0);
