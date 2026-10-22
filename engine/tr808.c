@@ -427,7 +427,9 @@ static inline float swing_vca(float x, float env)
  * settings, Fischer sample set). Host builds may change it. */
 float tr808_cy_cal[CY_CAL] = {
     /* drive  low   decay short  tau_s  tone_s tone_l tone_d  tau_l0 tau_l1 tau_d0 tau_d1 lag_l lag_d  tone_p */
-    1.2f,  1.0f,  1.0f,  1.0f,  30.0f, 3.0f,  1.0f,  0.5f,  300.0f, 800.0f, 100.0f, 380.0f, 60.0f, 6.0f, 2.0f};
+    1.2f,  1.0f,  1.0f,  1.0f,  30.0f, 3.0f,  1.0f,  0.5f,  300.0f, 800.0f, 100.0f, 380.0f, 60.0f, 6.0f, 2.0f,
+    /* hh2 Hz  hh3 Hz   output low-pass Hz */
+    8840.0f, 10320.0f, 18000.0f};
 
 /* Cymbal after the circuit (Service Notes p.13, Werner ICMC-14): the
  * staircase through two band-passes (3.45 and 7.1 kHz, Q 6), three swing
@@ -445,8 +447,8 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
     const float *k = tr808_cy_cal;
     if (v->age == 0) {
         svf_set(&v->r1, 2500.0f, 0.97f);
-        svf_set(&v->r2, 8840.0f, 1.0f);
-        svf_set(&v->r3, 10320.0f, 5.64f);
+        svf_set(&v->r2, k[15], 1.0f);
+        svf_set(&v->r3, k[16], 5.64f);
         /* The three reservoirs charge to the trigger height: accent +6 dB. */
         v->aux = 0.5f + 0.5f * v->accent;
     }
@@ -470,7 +472,9 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
     float g_low = k[1] * dsp_exp2(-k[6] * (tone - 0.5f)), g_mid = k[2] * dsp_exp2(k[7] * (tone - 0.5f));
     float g_hi = k[3] * dsp_exp2(k[5] * (tone - 0.5f));
     if (v->env < 1e-4f && v->env2 < 1e-4f && v->age > MS(300.0f)) v->active = 0;
-    return g_low * v->lp1 + g_mid * mid + g_hi * hi;
+    /* Tone network and LEVEL buffer: nearly flat, rolling off at the top. */
+    v->out_lp += (g_low * v->lp1 + g_mid * mid + g_hi * hi - v->out_lp) * (1.0f - dsp_exp(-2.0f * DSP_PI * k[17] / EL_SAMPLE_RATE));
+    return v->out_lp * (1.0f + 0.6f * v->accent);   /* accent +6 dB, see hat() */
 }
 
 /* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators
@@ -490,7 +494,9 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
     float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
     if (v->env < 1e-4f) v->active = 0;
-    return y;
+    /* Accent: the higher reservoir alone gives ~+2 dB through the clipping
+     * VCA; the chart's +6 dB needs the rest as gain. */
+    return y * (1.0f + 0.6f * v->accent);
 }
 
 /* ---- render ------------------------------------------------------------------------- */
@@ -498,7 +504,7 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 1.771f, 2.245f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 1.483f, 0.478f, 1.751f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)

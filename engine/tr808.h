@@ -14,7 +14,7 @@
 #include "fm1_param.h"
 
 enum { D8_BD, D8_SD, D8_LT, D8_MT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_NUM, D8_KIT = D8_NUM };
-enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3, CY_CAL = 15 };
+enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3, CY_CAL = 18 };
 extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
 
 typedef struct { float ic1, ic2, g, k, a1, a2, a3; } tr_svf_t;
