@@ -3,7 +3,7 @@
 #include "fm1.h"
 #include <string.h>
 
-enum { MAGIC = 0x33444c45u /* "ELD3" */, VERSION = 3, PARAMS = 10, KIT_PARAMS = 3 };
+enum { MAGIC = 0x34444c45u /* "ELD4" */, VERSION = 4, PARAMS = 10, KIT_PARAMS = 3 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -29,10 +29,10 @@ typedef struct {
 } record_t;
 /* Each copy spans SECTORS sectors; two copies alternate. FM1 Open's own data
  * ends at 536576 bytes (GROOVE_FLASH_BYTES); without room after it, the
- * copies use FM1 Open project slots 12-15 (sectors 11-14). */
+ * copies use the last FM1 Open project slots (sectors 15 - 2 * SECTORS .. 14). */
 enum { SECTORS = (sizeof(record_t) + FM1_FLASH_SECTOR_BYTES - 1) / FM1_FLASH_SECTOR_BYTES,
        FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
-_Static_assert(SECTORS <= 2, "record fits two sectors per copy");
+_Static_assert(SECTORS <= 3, "record fits three sectors per copy");
 
 static record_t record; /* static: too large for the control task stack */
 

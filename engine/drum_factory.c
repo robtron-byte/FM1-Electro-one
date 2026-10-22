@@ -98,6 +98,34 @@ static const dr_recipe_t factory[DR_PATTERNS] = {
         "............................x...", "..........................x.....", "........................x.......", 0,
         "....x.......x.......x.......x...", 0, 0, 0,
         "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.", "x...x.......x.......x.......x.xx"}},
+    /* Bank 2. Egyptian Lover style (LA electro, 808 played live): reconstructions
+     * from tempos and descriptions, not transcriptions. */
+    /* "Egypt, Egypt" style, 127 BPM: syncopated boom kick, clap over snare,
+     * running 16th hats, cowbell and rim answers, roll and toms in bar two. */
+    {"EGYPT", 50, KMIAMI, {
+        "x..x..x...x..x..x..x..x...x..x..", "....x.......x.......x.......xxxx",
+        "............................x...", ".............................x..", "..............................x.",
+        "...x......x..x.....x......x.....",
+        "....x.......x.......x.......xxxx", "..x...x.x.....x...x...x.x.......", 0, 0,
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxx....", "x...x.x...x.x...x...x.x...x.xxxx"}},
+    /* "Freak-A-Holic" / "Girls" style, 128 BPM: galloping hats, offbeat open
+     * hat, cowbell figure, 16th clap roll closing the phrase. */
+    {"FREAKY", 50, KELECTRO, {
+        "x.....x...x..x..x.....x...x.x..x", "....x.......x.......x.......x.xx", 0, 0, 0, 0,
+        "....x.......x.......x.......xxxx", "x..x..x...x.....x..x..x...x.....", 0, "..x...x...x...x...x...x...x.....",
+        "xx.xxx.xxx.xxx.xxx.xxx.xxx.xxxxx", "x.x.x.x.x.x.x.x.x.x.x.x.x.x.xxxx"}},
+    /* "Computer Love" / "Planet E" style, 125 BPM: slower, 8th hats, boom
+     * kick, crash on the one and a tom run at the end of bar two. */
+    {"LOVE", 53, KMIAMI, {
+        "x..x..x.x.....x.x..x..x.x..x..x.", "....x.......x.......x.......x...",
+        "............................x...", ".............................x..", "..............................x.", 0,
+        "....x.......x..x....x.......x...", 0, "x...............................", "..............x...............x.",
+        "x.x.x.x.x.x.x...x.x.x.x.x.x.x...", "x.......x.......x.......x......."}},
+    {"INIT A", 50, K808, {0}},
+    {"INIT B", 50, KELECTRO, {0}},
+    {"INIT C", 50, KMIAMI, {0}},
+    {"INIT D", 50, KKRAFT, {0}},
+    {"INIT E", 50, K808, {0}},
 };
 
 static uint32_t parse_row(const char *row, uint32_t *roll, unsigned *length)

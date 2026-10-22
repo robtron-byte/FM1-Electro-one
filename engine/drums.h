@@ -15,7 +15,7 @@
 enum {
     DR_PARTS = D8_NUM,      /* BD SD LT MT HT RS CP CB CY OH CH */
     DR_STEPS = 32,
-    DR_PATTERNS = 16,
+    DR_PATTERNS = 24,       /* two banks: 1-16 and 17-24 */
     DR_KITS = 4,
     DR_STYLES = 5,
     DR_NAME = 10

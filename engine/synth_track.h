@@ -6,7 +6,7 @@
 #define EL_SYNTH_TRACK_H
 #include "mks.h"
 
-enum { ST_STEPS = 32, ST_PATTERNS = 16, ST_NO_CHORD = 0 };
+enum { ST_STEPS = 32, ST_PATTERNS = 24, ST_NO_CHORD = 0 };
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
 
 typedef struct {

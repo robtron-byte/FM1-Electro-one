@@ -5,7 +5,8 @@
  *   FX / SCL / ENV / LFO  areas BEAT / RHYTHM / STRINGS / BASS; press the
  *                         active one again for the next sound page
  *   GLO + area button     mute / unmute that area
- *   HOME                  overview (white keys pick patterns, black keys 1-4 mute areas)
+ *   HOME                  overview (white keys pick patterns, OCT -/+ bank 1-16 / 17-24,
+ *                         black keys 1-4 mute areas)
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
  *   ARP held              generator: E3 style, E4 density, white key = new part
  *   SAVE                  store everything in Flash
@@ -351,7 +352,9 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
     if (pressed & (BIT(BTN_OCT_DOWN) | BIT(BTN_OCT_UP))) {
         int up = (pressed & BIT(BTN_OCT_UP)) != 0;
-        if (synth_area(ui) && !ui->step_mode[ui->area]) {
+        if (ui->overview) {
+            ui->bank = (uint8_t)(up && DR_PATTERNS > 16);   /* patterns 1-16 / 17-24 */
+        } else if (synth_area(ui) && !ui->step_mode[ui->area]) {
             release_keys(ui, ~0u);
             ui->octave[ui->area] = (int8_t)el_clampi(ui->octave[ui->area] + (up ? 1 : -1), -3, 2);
         } else if (!ui->overview) {
@@ -367,7 +370,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (!(keys_down & BIT(key))) continue;
         if (ui->overview) {
             int w = key_white(key), b = key_black(key);
-            if (w >= 0) dr_post(m, DR_CMD_SELECT, (uint8_t)w, 0, 0, 0);
+            if (w >= 0 && ui->bank * 16u + (unsigned)w < DR_PATTERNS)
+                dr_post(m, DR_CMD_SELECT, (uint8_t)(ui->bank * 16u + (unsigned)w), 0, 0, 0);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
         } else if ((hold & HOLD_GEN) && key_white(key) >= 0) {
             generate(ui, key);
@@ -458,7 +462,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[1], ui->area | ui->overview << 3 | (uint32_t)playing << 4 | (uint32_t)ui->part << 8);
     mix(&sig[1], (uint32_t)(playing ? m->pos : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
-        mix(&sig[1], m->revision | m->mute << 8);
+        mix(&sig[1], m->revision | m->mute << 8 | (uint32_t)ui->bank << 24);
         for (unsigned t = 0; t < EL_TRACKS; ++t) {
             mix(&sig[1], e->track[t].revision ^ e->track[t].preset << 20 ^ e->track[t].level_value << 12);
             mix(&sig[1], e->track[t].pos);
@@ -510,8 +514,10 @@ static void update_leds(el_ui_t *ui)
     if (ui->hold & HOLD_GEN) leds |= 1ull << BTN_ARP;
     if (synth_area(ui) && ui->step_mode[ui->area]) leds |= 1ull << BTN_SEQ;
     if (ui->overview) {
-        leds |= 1ull << (14u + white_keys[m->current]);
-        if (m->next != m->current && (ui->now / 250u) & 1u) leds |= 1ull << (14u + white_keys[m->next]);
+        if (m->current / 16u == ui->bank) leds |= 1ull << (14u + white_keys[m->current % 16u]);
+        if (m->next != m->current && m->next / 16u == ui->bank && (ui->now / 250u) & 1u)
+            leds |= 1ull << (14u + white_keys[m->next % 16u]);
+        leds |= 1ull << (ui->bank ? BTN_OCT_UP : BTN_OCT_DOWN);
         for (unsigned a = 0; a < EL_AREAS; ++a)
             if (!area_muted(ui, a)) leds |= 1ull << (14u + black_keys[a]);
     } else if (ui->area == EL_AREA_BEAT) {
@@ -747,7 +753,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
             if (on) gfx_fill(b, x + 2, accent ? cy + 2 : cy + 6, 8, accent ? 13 : 9, color);
         }
     }
-    gfx_text(b, 4, 180, "WHITE KEYS: PATTERN  BLACK 1-4: MUTE", DIM, 1);
+    gfx_text(b, 4, 180, ui->bank ? "KEYS: PATTERN 17-24  OCT: BANK" : "KEYS: PATTERN 1-16  OCT: BANK", DIM, 1);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)

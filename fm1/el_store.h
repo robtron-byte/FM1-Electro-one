@@ -7,7 +7,7 @@
 #include "electro.h"
 
 /* Sectors used: after FM1 Open's area when the partition has room there,
- * otherwise FM1 Open project slots 12-15 (unused while FM1-Electro runs). */
+ * otherwise the last FM1 Open project slots (unused while FM1-Electro runs). */
 uint32_t el_store_address(unsigned which);
 /* Before audio starts: load the newest valid save into the engine.
  * Returns 0 when loaded, 1 when nothing was saved yet, <0 on Flash errors. */

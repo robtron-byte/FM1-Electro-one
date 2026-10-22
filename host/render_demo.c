@@ -112,7 +112,8 @@ int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
     static const uint16_t tempo[DR_PATTERNS] = {1120, 1180, 1250, 1160, 1240, 1280, 1280, 1300,
-                                                1380, 1240, 1360, 1200, 1240, 1250, 1200, 1200};
+                                                1380, 1240, 1360, 1200, 1240, 1250, 1200, 1200,
+                                                1270, 1280, 1250, 1200, 1200, 1200, 1200, 1200};
     static el_engine_t e;
     char path[512], name[32];
     int failed = timing_test() | midi_clock_test();
