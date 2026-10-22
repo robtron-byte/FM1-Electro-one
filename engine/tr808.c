@@ -256,11 +256,13 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
  *  - the noise covers 1.2 .. 9 kHz with a fast 30 ms decay plus a quieter
  *    90 ms tail (the measured envelope is longer than one RC alone),
  *  - the trigger edge leaks through as a short click. */
-/* Snare calibration, fitted with host/snare_check.c against recordings of a
- * real TR-808 at 16 TONE / SNAPPY settings (Fischer sample set). */
+/* Snare calibration, fitted with host/snare_check.c + host/analyze_snare.py
+ * against recordings of a real TR-808 at 16 TONE / SNAPPY settings: mode
+ * levels within 0.8 dB rms, noise level within 0.4 dB, decays within ~6 %,
+ * noise spectrum within 2.4 dB rms (1-12.7 kHz). */
 float tr808_sd_cal[SD_CAL] = {
     /* low  high  q_low  q_high  noise  n_tau1 n_tau2 n_mix  n_hp    n_lp     snap */
-    1.0f, 0.35f, 13.0f, 7.9f,   1.0f,  22.0f, 60.0f, 0.15f, 1200.0f, 9000.0f, 0.3f};
+    0.9546f, 0.1238f, 15.75f, 8.558f, 0.4709f, 28.89f, 39.58f, 0.1607f, 2098.7f, 7739.4f, 0.2575f};
 
 /* Snare (Service Notes, Werner): two bridged-T resonators struck by the
  * trigger pulse, 172 and 339 Hz (as measured on the recordings; the 1981
@@ -596,7 +598,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 1.561f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 5.87f, 20.603f, 20.528f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
