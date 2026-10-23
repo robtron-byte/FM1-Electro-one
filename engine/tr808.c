@@ -205,36 +205,45 @@ EL_DSP_CODE int tr808_active(const tr808_t *t)
 /* Bass drum: shaped pulse into one resonator, attack switch to ~130 Hz for
  * 5 ms, retrigger kick, amplitude-dependent pitch sigh, tone low-pass with
  * the pulse leaking through (click), slight asymmetric non-linearity. */
+/* Bass drum calibration, fitted with host/hit_render.c + host/fit_bd.py
+ * against recordings of a real TR-808 bass drum at five DECAY settings. */
+float tr808_bd_cal[BD_CAL] = {
+    /* f0     sigh   sigh_acc att_hz att_q att_ms gain  retrig h2       h3       click q0    q_span sigh_ms drive */
+    50.0f, 0.02f, 0.04f,   130.0f, 6.0f, 5.0f,  1.6f, 0.8f,  0.0126f, -0.009f, 0.04f, 2.3f, 5.19f, 40.0f,  1.4f};
+
 static float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
-    float f0 = 50.0f * tolerance[part] * dsp_exp2((t->pot[part][P_TUNE] - 64) / 64.0f);
-    float q = 2.3f * dsp_exp2(5.19f * powf_approx(knob(t, part, P_DECAY), 0.8f));
+    const float *k = tr808_bd_cal;
+    float f0 = k[0] * tolerance[part] * dsp_exp2((t->pot[part][P_TUNE] - 64) / 64.0f);
+    float q = k[11] * dsp_exp2(k[12] * powf_approx(knob(t, part, P_DECAY), 0.8f));
     float pulse = trigger_pulse(v);
-    uint32_t attack = (uint32_t)MS(5.0f);
-    if (v->age == attack) v->aux = -0.8f * 0.2f * v->volts;  /* retrigger pulse */
+    uint32_t attack = (uint32_t)MS(k[5]);
+    if (v->age == attack) v->aux = -k[7] * 0.2f * v->volts;  /* retrigger pulse */
     v->aux *= 0.99955f;                                      /* 50 ms */
     if ((v->age & 7u) == 0) {
-        if (v->age < attack) svf_set(&v->r1, 130.0f * tolerance[part], 6.0f);
+        if (v->age < attack) svf_set(&v->r1, k[3] * tolerance[part], k[4]);
         else {
-            /* Sigh: up to about a semitone at full accent, following the level. */
-            float sigh = (0.02f + 0.04f * v->accent) * v->env;
+            /* Sigh: the pitch starts high and glides down to f0 with its own
+             * time constant (measured: ~52 -> 44 Hz within ~100 ms). */
+            float sigh = (k[1] + k[2] * v->accent) * v->pitch;
             svf_set(&v->r1, f0 * (1.0f + sigh), q);
         }
     }
     v->env *= decay_coef(q / (DSP_PI * f0) * EL_SAMPLE_RATE);
+    v->pitch *= decay_coef(MS(k[13]));
     /* Raw resonator voltage (not normalised by Q): switching Q at the end of
      * the attack keeps the waveform continuous, as in the circuit. */
-    float y = svf_bp(&v->r1, (pulse + v->aux) * 1.6f, 0) / v->r1.k;
-    /* Feedback buffer non-linearity: 2nd harmonic about -44 dB, 3rd -53 dB. */
-    float x = y * 1.4f;
-    y = (x + 0.0126f * x * x - 0.009f * x * x * x) / 1.4f;
+    float y = svf_bp(&v->r1, (pulse + v->aux) * k[6], 0) / v->r1.k;
+    /* Feedback buffer non-linearity: 2nd and 3rd harmonics. */
+    float x = y * k[14];
+    y = (x + k[8] * x * x + k[9] * x * x * x) / k[14];
     float drive = knob(t, part, P_SNAPPY);
     if (drive > 0) { float d = 1.0f + 6.0f * drive; y = dsp_tanh(y * d) / dsp_sqrt(d); }
     /* Tone: 1-pole low-pass 305 Hz .. 7.2 kHz on the click path. */
     float tone = knob(t, part, P_TONE);
     float cutoff = 305.0f * dsp_exp2(4.56f * tone);
-    float click = pulse * (0.04f + 0.18f * tone);
+    float click = pulse * (k[10] + 0.18f * tone);
     v->out_lp += (y + click - v->out_lp) * dsp_min(1.0f, 2.0f * DSP_PI * cutoff / EL_SAMPLE_RATE);
     /* The resonator itself is far below the tone corner; pass it straight
      * and only filter the click edge. */
@@ -341,8 +350,8 @@ static float rim(tr808_t *t, tr_voice_t *v)
     int clave = t->pot[part][P_SOUND] == 1;
     float tune = tolerance[part] * spread(t, part, P_TUNE), pulse = trigger_pulse(v);
     if (v->age == 0) {
-        svf_set(&v->r1, 455.0f * tune, 6.7f);
-        svf_set(&v->r2, 1667.0f * tune, 13.5f);
+        svf_set(&v->r1, 455.0f * tune, 6.7f * tr808_mx_cal[7]);
+        svf_set(&v->r2, 1667.0f * tune, 13.5f * tr808_mx_cal[7]);
         svf_set(&v->r3, 2500.0f * tune, 120.0f);
     }
     float gate_ms = (clave ? 25.0f : 22.0f) * spread(t, part, P_DECAY);
@@ -381,8 +390,8 @@ static float clap(tr808_t *t, tr_voice_t *v)
     float ms = (float)v->age / MS(1.0f), saw;
     if (ms < 30.0f) { float in = ms - 10.0f * (float)(int)(ms / 10.0f); saw = 1.0f - in / 10.0f; }
     else saw = dsp_exp(-(ms - 30.0f) / 8.7f);
-    v->env2 *= decay_coef(MS(43.0f) * spread(t, part, P_DECAY));
-    float e = saw + 0.38f * v->env2;
+    v->env2 *= decay_coef(MS(tr808_mx_cal[5]) * spread(t, part, P_DECAY));
+    float e = saw + tr808_mx_cal[6] * v->env2;
     if (ms > 30.0f && v->env2 < 1e-4f) v->active = 0;
     float y = bp * e * v->volts * 1.5f;
     return dsp_tanh(y * 1.4f) / 1.2f;   /* the BA662 VCA's distortion */
@@ -422,20 +431,29 @@ static float metal(tr808_t *t, float tune, float *cowbell)
     return sum * (1.0f / 3.0f) - 1.0f;
 }
 
+/* Calibration of cowbell, clap tail, rim shot ring and the hats, fitted
+ * against single-hit recordings of a real TR-808 (envelope and 1/3-octave
+ * spectrum): cowbell, clap tail 98 ms, rim ring +19 %, closed hat 27 ms
+ * to -20 dB, open hat a touch brighter. */
+float tr808_mx_cal[MX_CAL] = {
+    /* cb_hz  cb_q  cb_t1 cb_t2  cb_mix cp_tail cp_gain rs_q  ch_ms  oh_hf */
+    2934.0f, 0.406f, 1.663f, 38.52f, 0.655f, 98.53f, 0.275f, 1.193f, 27.42f, 0.238f};
+
+/* Cowbell (Service Notes, Werner "More Cowbell"): the 540 and 800 Hz
+ * rectangles through their own gates into one broad band-pass, so their
+ * harmonics up to a few kHz stay in (fitted: ~2.9 kHz, Q 0.4); a fast
+ * click (1.7 ms) into a ~39 ms decay, as on the recording. */
 static float cowbell(tr808_t *t, tr_voice_t *v, float src)
 {
     const int part = D8_CB;
-    if (v->age == 0) {
-        float tune = spread(t, part, P_TUNE);
-        svf_set(&v->r1, 880.0f * tune, 4.5f);
-        svf_set(&v->r2, 880.0f * tune, 2.5f);
-    }
-    float y = svf_bp(&v->r2, svf_bp(&v->r1, src * 0.5f, 0), 0);
-    /* Two-stage decay: down by half within 50 ms, then a ~500 ms tail. */
-    v->env *= decay_coef(MS(15.0f));
-    v->env2 *= decay_coef(MS(150.0f) * spread(t, part, P_DECAY));
+    const float *k = tr808_mx_cal;
+    if (v->age == 0) svf_set(&v->r1, k[0] * spread(t, part, P_TUNE), k[1]);
+    float y = svf_bp(&v->r1, src * 0.5f, 0);
+    float decay = spread(t, part, P_DECAY);
+    v->env *= decay_coef(MS(k[2]) * decay);
+    v->env2 *= decay_coef(MS(k[3]) * decay);
     float attack = dsp_min(1.0f, (float)v->age / MS(0.7f));
-    float e = (0.5f * v->env + 0.5f * v->env2) * attack;
+    float e = (k[4] * v->env + (1.0f - k[4]) * v->env2) * attack;
     if (v->env2 < 1e-4f) v->active = 0;
     return swing(y * e * (0.45f + 0.55f * v->volts * 14.0f / 4.0f / 3.5f)) * 1.4f;
 }
@@ -518,11 +536,15 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         v->aux = 0.5f + 0.5f * v->accent;
     }
     float k = knob(t, part, P_DECAY);
-    float decay = part == D8_CH ? 50.0f * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
+    float decay = part == D8_CH ? tr808_mx_cal[8] * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
     v->env *= decay_coef(MS(decay) / 2.3f);
     if (v->aux2 > 0) v->env *= decay_coef(MS(7.0f));    /* choked by the closed hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
     float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
+    if (part == D8_OH) {                         /* open hat: a little more top end */
+        v->out_lp += (y - v->out_lp) * 0.7277f;  /* ~9 kHz */
+        y += tr808_mx_cal[9] * (y - v->out_lp);
+    }
     if (v->env < 1e-4f) v->active = 0;
     /* Accent: the higher reservoir alone gives ~+2 dB through the clipping
      * VCA; the chart's +6 dB needs the rest as gain. */
