@@ -227,6 +227,19 @@ int main(int argc, char **argv)
         failed |= render_slot(&e, 6, dir, prefix, 0, 0);
     }
 
+    /* The PO-12 kit on a few grooves (beat only and full). */
+    static const unsigned po_slots[] = {6, 13, 7};
+    for (unsigned k = 0; k < sizeof po_slots / sizeof po_slots[0]; ++k)
+        for (int full = 0; full < 2; ++full) {
+            unsigned slot = po_slots[k];
+            el_init(&e);
+            dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
+            float buf[EL_BLOCK * 2];
+            el_render_float(&e, buf, EL_BLOCK);
+            dr_post(&e.drums, DR_CMD_KIT, 4, 0, 0, 0);    /* PO-12 */
+            failed |= render_slot(&e, slot, dir, full ? "po12_full_" : "po12_beat_", !full, 0);
+        }
+
     /* Cost: a busy groove with all four areas for 60 seconds. */
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);

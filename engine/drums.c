@@ -9,7 +9,7 @@
 #include <string.h>
 
 const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
-const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT"};
+const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT", "PO-12"};
 
 enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
 #define DR_NORMAL (DR_NORMAL_VELOCITY_Q7 / 127.0f)
@@ -32,6 +32,9 @@ static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
     /* KRAFT: short clicky kick, high tight snare, claves, darker cymbal. */
     {{D8_BD, 2, 34}, {D8_BD, 3, 86}, {D8_SD, 1, 74}, {D8_SD, 2, 84}, {D8_SD, 3, 52}, {D8_SD, 6, 52},
      {D8_RS, 3, 1}, {D8_CH, 2, 40}, {D8_CY, 1, 34}, {D8_CB, 1, 70}, {D8_KIT, 2, 1}, {255, 0, 0}},
+    /* PO-12: the pocket operator's sounds (resynthesised, engine/po12.c),
+     * knobs at the centre = as recorded. */
+    {{D8_KIT, 3, 1}, {D8_OH, 1, 64}, {D8_ZP, 4, 64}, {255, 0, 0}},
 };
 
 /* ZP on 67 (high agogo), PU on 75 (claves) */

@@ -16,7 +16,7 @@ enum {
     DR_PARTS = D8_NUM,      /* BD SD LT HT RS CP CB CY OH CH ZP PU */
     DR_STEPS = 32,
     DR_PATTERNS = 24,       /* two banks: 1-16 and 17-24 */
-    DR_KITS = 4,
+    DR_KITS = 5,
     DR_STYLES = 16,
     DR_STYLE_SLOTS = 16,    /* slots 1-16: generated in their style */
     DR_USER_SLOTS = 8,      /* slots 17-24: the user's saved grooves */

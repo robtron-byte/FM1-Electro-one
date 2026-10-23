@@ -7,6 +7,7 @@
 #endif
 #include "tr808.h"
 #include "dsp_math.h"
+#include "po12.h"
 #include <string.h>
 
 #define MS(x) ((x) * 0.001f * EL_SAMPLE_RATE)
@@ -15,6 +16,7 @@ enum { P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_SNAPPY, P_SOUND, P_PAN, P_REV, P_DLY 
 /* ---- parameters ------------------------------------------------------------ */
 
 static const char *const tom_names[] = {"TOM", "CONGA"}, *const rim_names[] = {"RIM", "CLAVE"};
+static const char *const sd_names[] = {"LATE", "EARLY"}, *const engine_names[] = {"TR-808", "PO-12"};
 static const char *const clap_names[] = {"CLAP", "MARAC"}, *const choke_names[] = {"OFF", "CH>OH"};
 #define P(n, d) {n, 127, d, 0}
 /* Every part has the same 9 slots; parts list only the ones they use. */
@@ -22,8 +24,10 @@ typedef struct { uint8_t count; uint8_t slot[TR_PARAMS]; fm1_param_t desc[TR_PAR
 static const part_params_t params[D8_NUM + 1] = {
     /* BD */ {8, {P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY, P_SNAPPY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Tone", 50), P("Pan", 64), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
-    /* SD */ {8, {P_LEVEL, P_TUNE, P_TONE, P_SNAPPY, P_DECAY, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0)}},
+    /* SD: Sound = later units (172 / 339 Hz) or the first ones (238 / 476 Hz) */
+    /* SD */ {9, {P_LEVEL, P_TUNE, P_TONE, P_SNAPPY, P_DECAY, P_PAN, P_REV, P_DLY, P_SOUND},
+              {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0),
+               {"Sound", 1, 0, sd_names}}},
     /* LT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 45), P("Rev", 0), P("Dly", 0)}},
     /* HT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
@@ -51,7 +55,8 @@ static const part_params_t params[D8_NUM + 1] = {
     /* PU */ {8, {P_LEVEL, P_SNAPPY, P_TUNE, P_TONE, P_DECAY, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Width", 64), P("Tune", 64), P("Ring", 64), P("Decay", 64), P("Pan", 52),
                P("Rev", 0), P("Dly", 0)}},
-    /* KIT */ {3, {0, 1, 2}, {P("Level", 110), P("Accent", 100), {"Choke", 1, 1, choke_names}}},
+    /* KIT: Engine switches every part but PU to the PO-12 style voices */
+    /* KIT */ {4, {0, 1, 2, 3}, {P("Level", 110), P("Accent", 100), {"Choke", 1, 1, choke_names}, {"Engine", 1, 0, engine_names}}},
 };
 
 int tr808_nparams(int part) { return (unsigned)part <= D8_KIT ? params[part].count : 0; }
@@ -163,11 +168,32 @@ static inline float trigger_pulse(tr_voice_t *v)
 /* Transistor "swing" VCA: mild asymmetric gain. */
 static inline float swing(float x) { return x > 0 ? x : x * (0.75f - 0.15f * x); }
 
+/* ---- PO-12 engine -------------------------------------------------------------- */
+
+/* Parts that the PO-12 kit plays (PU stays the 808 trigger) and their
+ * sounds; the Sound switch picks the second one. */
+static inline int po_engine(const tr808_t *t, int part) { return t->kit[3] && part != D8_PU; }
+
+static inline unsigned po_sound(const tr808_t *t, int part)
+{
+    static const uint8_t first[D8_NUM] = {PO_BD, PO_SD, PO_LOTOM, PO_HITOM, PO_STICKS, PO_CLAP, PO_COWBELL, PO_CY, PO_OH,
+                                         PO_CH, PO_BLIP, 0};
+    static const uint8_t second[D8_NUM] = {PO_BD, PO_SYNSD, PO_BASSTONE, PO_TONE, PO_CLICK, PO_NOISE, PO_COWBELL, PO_CY,
+                                          PO_OH, PO_CH, PO_BLIP, 0};
+    int alt = (part == D8_SD || part == D8_LT || part == D8_HT || part == D8_RS || part == D8_CP) && t->pot[part][P_SOUND];
+    return alt ? second[part] : first[part];
+}
+
 /* ---- trigger ------------------------------------------------------------------- */
 
 EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
 {
     if ((unsigned)part >= D8_NUM || velocity <= 0) return;
+    if (po_engine(t, part)) {
+        po_trigger(&t->po[part], po_sound(t, part), velocity, knob(t, part, P_TUNE), knob(t, part, P_DECAY));
+        if (part == D8_CH && t->kit[2] && t->po[D8_OH].active) t->po[D8_OH].choke = 1;
+        return;
+    }
     tr_voice_t *v = &t->v[part];
     /* Accent: trigger height 4 V normal up to 14 V (scaled by the kit's
      * ACCENT knob); soft MIDI hits below the normal level are just quieter. */
@@ -191,12 +217,12 @@ EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
 
 EL_DSP_CODE void tr808_silence(tr808_t *t)
 {
-    for (int i = 0; i < D8_NUM; ++i) t->v[i].active = 0;
+    for (int i = 0; i < D8_NUM; ++i) t->v[i].active = t->po[i].active = 0;
 }
 
 EL_DSP_CODE int tr808_active(const tr808_t *t)
 {
-    for (int i = 0; i < D8_NUM; ++i) if (t->v[i].active) return 1;
+    for (int i = 0; i < D8_NUM; ++i) if (t->v[i].active || t->po[i].active) return 1;
     return 0;
 }
 
@@ -300,8 +326,9 @@ static float snare(tr808_t *t, tr_voice_t *v)
     v->pitch *= 0.99623f;
     if ((v->age & 7u) == 0) {
         float knock = 1.0f + (0.04f + 0.04f * v->accent) * v->pitch;
-        svf_set(&v->r1, 172.0f * tune * knock, k[2] * decay);
-        svf_set(&v->r2, 339.0f * tune * knock, k[3] * decay);
+        float early = t->pot[part][P_SOUND] ? 1.384f : 1.0f;   /* 238 / 476 Hz */
+        svf_set(&v->r1, 172.0f * early * tune * knock, k[2] * decay);
+        svf_set(&v->r2, 339.0f * early * 1.016f * tune * knock, k[3] * decay);
     }
     float tone = knob(t, part, P_TONE);
     /* Raw resonator voltages, as the circuit sums them. */
@@ -633,6 +660,9 @@ static float pulse(tr808_t *t, tr_voice_t *v)
  * metal voices and clap set to a conventional mix level. */
 static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 20.6f, 18.91f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
 
+/* PO-12 kit output: its own balance (po12.c), +4.6 dB to sit like the 808 kit in the mix. */
+static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};
+
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
 {
@@ -647,8 +677,18 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         }
         for (int part = 0; part < D8_NUM; ++part) {
             tr_voice_t *v = &t->v[part];
-            if (!v->active) continue;
             float y;
+            if (po_engine(t, part)) {
+                if (!t->po[part].active) continue;
+                y = po_tick(&t->po[part]) * po_trim[part] * (t->pot[part][P_LEVEL] / 100.0f) * level;
+                if (part == D8_BD) { kick[n] += y; }
+                else { left[n] += y * t->pan_l[part]; right[n] += y * t->pan_r[part]; }
+                float r = y * knob(t, part, P_REV), d = y * knob(t, part, P_DLY);
+                if (part == D8_SD || part == D8_CP || part == D8_RS) gate[n] += r; else rev[n] += r;
+                dly[n] += d;
+                continue;
+            }
+            if (!v->active) continue;
             switch (part) {
             case D8_BD: y = bass_drum(t, v); break;
             case D8_SD: y = snare(t, v); break;

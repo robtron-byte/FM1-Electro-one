@@ -12,13 +12,14 @@
 #define EL_TR808_H
 #include "el_config.h"
 #include "fm1_param.h"
+#include "po12.h"
 
 /* ZP and PU are additions: an electro zap (pitch-swept oscillator) and the
  * bare 808 trigger pulse as a sound (the click of the TRIGGER OUT). */
 /* Two tom/conga circuits (low and high) of the 808's three; the middle one
  * is left out to keep the kit lean. */
 enum { D8_BD, D8_SD, D8_LT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_ZP, D8_PU, D8_NUM, D8_KIT = D8_NUM };
-enum { TR_PARAMS = 9, TR_KIT_PARAMS = 3, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10 };
+enum { TR_PARAMS = 9, TR_KIT_PARAMS = 4, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10 };
 extern float tr808_mx_cal[MX_CAL];   /* cowbell, clap, rim, hats calibration */
 extern float tr808_bd_cal[BD_CAL];   /* bass drum calibration (see tr808.c) */
 extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
@@ -38,8 +39,9 @@ typedef struct {
 
 typedef struct {
     uint8_t pot[D8_NUM][TR_PARAMS];
-    uint8_t kit[TR_KIT_PARAMS];             /* level, accent, choke */
+    uint8_t kit[TR_KIT_PARAMS];             /* level, accent, choke, engine (0 808, 1 PO-12) */
     tr_voice_t v[D8_NUM];
+    po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */
     float metal_phase[6];                    /* shared six-oscillator metal source */
     tr_svf_t metal_bp1, metal_bp2;           /* its 3.44 kHz and 7.1 kHz band-passes */
     uint32_t noise;

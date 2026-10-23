@@ -14,3 +14,5 @@ The hit indices in the scripts belong to the "808 Basics Kit A" recording
 used for the current calibration. The cymbal and snare have their own
 tools (`host/cymbal_check.c` + `host/analyze_cymbal.py`,
 `host/snare_check.c` + `host/analyze_snare.py`).
+
+PO-12 kit: `make build/po_render`, then `PO_WAV=po12.wav PO_SEG=po_seg.npy python3 host/calibration/fit_po12.py init.json 900 [sound indices]` (one hit per sound, sounds 1-16 in order, default knobs).
