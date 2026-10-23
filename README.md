@@ -100,12 +100,17 @@ Die Encoder-Nummern E1–E7 folgen der Nummerierung im FM1-Open-Code. Wo sie phy
 
 | Teil | Status |
 |---|---|
-| Clock, 808-Drum-Machine, Bedienung, Flash-Speicher | fertig, auf dem PC getestet |
-| MKS-50-Klangkern in C (DCO, HPF, 24-dB-Filter, Hüllkurve, LFO, Chorus, Mono/Unison/Glide) | fertig, auf dem PC getestet |
-| Drei Synth-Bereiche mit Step-Sequencer, Akkorden und Generator | fertig, auf dem PC getestet |
-| Delay und Hall | fertig, sparsame Variante (siehe unten) |
-| Firmware auf dem Gerät | **noch nicht gebaut** |
-| JP-6-Engine, Noten-Looper | geplant |
+| Clock, Bedienung (vier Bereiche + HOME), Flash-Speicher | fertig, auf dem PC und im Panel-Simulator getestet |
+| 808-Drum-Machine (12 Stimmen inkl. ZAP und PULSE), an Aufnahmen echter 808 abgeglichen | fertig, auf dem PC getestet |
+| PO-12-Kit (16 Sounds, nachsynthetisiert) | fertig, auf dem PC getestet; Regler A/B noch nicht vermessen |
+| MKS-50-Engine (DCO, HPF, 24-dB-Filter, Hüllkurve, LFO, Chorus, Mono/Unison/Glide) | fertig, auf dem PC getestet |
+| JP-6-Engine, pro Bereich wählbar, multitimbral (MIDI-Kanal 1–3) | fertig, auf dem PC getestet; nicht gegen die App gehört |
+| Drei Synth-Bereiche mit Step-Sequencer, Akkorden (Rother/Kraftwerk-Folgen) und Generator | fertig, auf dem PC getestet |
+| Live-Aufnahme in die Patterns (REC, quantisiert), Groove-Generator, User-Plätze | fertig, auf dem PC getestet |
+| Delay, Hall, Gated Reverb, Verzerrung als Send, Mix- und Master-Bus | fertig, auf dem PC getestet |
+| Firmware auf dem Gerät | **noch nicht gebaut** (braucht die JieLi-Toolchain unter Windows) |
+| Arpeggiator der Apps (die ARP-Taste ist hier der Generator) | offen |
+| Noten-Looper der Apps (frei laufende Loop-Aufnahme über den Patterns) | offen |
 
 ## Bauen und testen (PC)
 
