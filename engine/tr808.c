@@ -205,11 +205,14 @@ EL_DSP_CODE int tr808_active(const tr808_t *t)
 /* Bass drum: shaped pulse into one resonator, attack switch to ~130 Hz for
  * 5 ms, retrigger kick, amplitude-dependent pitch sigh, tone low-pass with
  * the pulse leaking through (click), slight asymmetric non-linearity. */
-/* Bass drum calibration, fitted with host/hit_render.c + host/fit_bd.py
- * against recordings of a real TR-808 bass drum at five DECAY settings. */
+/* Bass drum calibration, fitted with host/hit_render.c and
+ * host/calibration/fit_bd.py against recordings of a real TR-808 bass drum
+ * at five DECAY settings: pitch glides from ~52 to 44 Hz within ~100 ms,
+ * 2nd / 3rd harmonics at about -33..-43 / -35..-50 dB, decays within
+ * ~2 dB rms of the envelopes. */
 float tr808_bd_cal[BD_CAL] = {
     /* f0     sigh   sigh_acc att_hz att_q att_ms gain  retrig h2       h3       click q0    q_span sigh_ms drive */
-    50.0f, 0.02f, 0.04f,   130.0f, 6.0f, 5.0f,  1.6f, 0.8f,  0.0126f, -0.009f, 0.04f, 2.3f, 5.19f, 40.0f,  1.4f};
+    43.91f, 0.3451f, 0.03772f, 216.1f, 12.91f, 5.097f, 1.541f, 0.4058f, 0.09819f, -0.321f, 0.002613f, 2.91f, 5.743f, 37.45f, 4.777f};
 
 static float bass_drum(tr808_t *t, tr_voice_t *v)
 {
@@ -620,7 +623,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {7.421f, 5.87f, 20.603f, 18.905f, 8.573f, 2.043f, 0.644f, 0.727f, 0.478f, 1.751f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 20.6f, 18.91f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
