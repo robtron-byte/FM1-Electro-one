@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * FM1-Electro engine: transport plus the instruments that follow it.
  * The 808 drum machine, three synth areas (MKS-50 / JP-6) with step
- * sequencer, arpeggiator and note looper, shared effects and the mix bus. */
+ * sequencer and arpeggiator, shared effects and the mix bus. */
 #ifndef EL_ELECTRO_H
 #define EL_ELECTRO_H
 #include "el_config.h"
@@ -40,7 +40,6 @@ enum el_command {
     EL_CMD_STEP_INV,     /* b = step, value = inversion 0..2 */
     EL_CMD_TRACK_CLEAR,  /* clear the current pattern */
     EL_CMD_TRACK_ARP,    /* b = ARP_* setting, value */
-    EL_CMD_TRACK_LOOP,   /* b = LOOP_CMD_*, value */
     EL_CMD_RECORD_AREA,  /* a = area 0 beat .. 3 bass, b = on; other areas disarm */
     EL_CMD_FX,           /* a = fx parameter, value */
     EL_CMD_MIX,          /* a = 1: mix and master processing on, 0: off (A/B) */

@@ -14,7 +14,6 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
     memset(t, 0, sizeof *t);
     syn_init(&t->part, SYN_MKS, voices, seed);
     arp_init(&t->arp);
-    loop_init(&t->loop);
     t->area = (uint8_t)area;
     t->level_value = 100;
     t->last_note = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : 60;
@@ -57,14 +56,6 @@ static EL_DSP_CODE void release_all(st_track_t *t)
     t->gate_countdown = 0;
 }
 
-/* Notes of the looper; a muted area stays silent. */
-static EL_DSP_CODE void loop_play(void *ctx, int note, int velocity)
-{
-    st_track_t *t = ctx;
-    if (!velocity) syn_note_off(&t->part, note);
-    else if (!t->muted) syn_note_on(&t->part, note, velocity / 127.0f, 0);
-}
-
 /* Live recording into the pattern: nearest 16th, like the drum recorder. */
 static EL_DSP_CODE void record_step(st_track_t *t, int note, unsigned chord, float velocity)
 {
@@ -78,17 +69,13 @@ static EL_DSP_CODE void record_step(st_track_t *t, int note, unsigned chord, flo
     ++t->revision;
 }
 
-/* Arpeggiator notes: played, looped and recorded like keys. */
+/* Arpeggiator notes: played and recorded like keys. */
 static EL_DSP_CODE void arp_play(st_track_t *t, arp_events_t ev)
 {
-    if (ev.off >= 0) {
-        syn_note_off(&t->part, ev.off);
-        loop_note(&t->loop, ev.off, 0);
-    }
+    if (ev.off >= 0) syn_note_off(&t->part, ev.off);
     if (ev.on >= 0) {
         float velocity = ev.velocity / 127.0f;
         syn_note_on(&t->part, ev.on, velocity, 0);
-        loop_note(&t->loop, ev.on, ev.velocity);
         record_step(t, ev.on, 0, velocity);
     }
 }
@@ -99,15 +86,9 @@ EL_DSP_CODE void st_arp_set(st_track_t *t, unsigned param, int value)
     arp_play(t, arp_set(&t->arp, param, value));
 }
 
-EL_DSP_CODE void st_loop_command(st_track_t *t, unsigned cmd, int value)
-{
-    loop_command(&t->loop, cmd, value, loop_play, t);
-}
-
 EL_DSP_CODE void st_rewind(st_track_t *t)
 {
     release_all(t);
-    loop_rewind(&t->loop, loop_play, t);
     t->playing = 0;
     t->pos = 0;
     t->tick = 0;
@@ -116,10 +97,7 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
 EL_DSP_CODE void st_mute(st_track_t *t, int on)
 {
     t->muted = on ? 1 : 0;
-    if (on) {
-        release_all(t);
-        loop_silence(&t->loop, loop_play, t);
-    }
+    if (on) release_all(t);
 }
 
 /* Called on every 16th; a step lasts rate_ticks 16ths. */
@@ -127,7 +105,6 @@ EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, uint32_t step, float s
 {
     t->arp.chord = t->chord;
     arp_play(t, arp_sync(&t->arp, step, sixteenth_frames));
-    loop_sync(&t->loop, step, sixteenth_frames, loop_play, t);
     if (pattern >= ST_PATTERNS) pattern = 0;
     if (pattern != t->current) { t->current = (uint8_t)pattern; t->playing = 0; }
     const st_pattern_t *p = &t->pattern[t->current];
@@ -173,7 +150,6 @@ EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, uint32_t step, float s
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit)
 {
     limit = arp_frames_until(&t->arp, limit);
-    limit = loop_frames_until(&t->loop, limit);
     if (t->gate_countdown <= 0 || !t->sounding_count) return limit;
     int frames = (int)t->gate_countdown;
     if ((float)frames < t->gate_countdown) ++frames;
@@ -196,7 +172,6 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
     }
     t->arp.chord = t->chord;
     arp_play(t, arp_advance(&t->arp, frames, t->playing, bpm));
-    loop_advance(&t->loop, frames, loop_play, t);
 }
 
 EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
@@ -212,16 +187,10 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(note, t->chord, notes);
     if (velocity <= 0) {
-        for (unsigned i = 0; i < count; ++i) {
-            syn_note_off(&t->part, notes[i]);
-            loop_note(&t->loop, notes[i], 0);
-        }
+        for (unsigned i = 0; i < count; ++i) syn_note_off(&t->part, notes[i]);
         return;
     }
-    for (unsigned i = 0; i < count; ++i) {
-        syn_note_on(&t->part, notes[i], velocity, 0);
-        loop_note(&t->loop, notes[i], vel ? vel : 1);
-    }
+    for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 0);
     t->last_note = (uint8_t)el_clampi(note, 0, 127);
     record_step(t, note, t->chord, velocity);
 }

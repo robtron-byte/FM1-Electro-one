@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * Shared 16th-note clock for drums, step sequencer, arpeggiator and looper.
+ * Shared 16th-note clock for drums, step sequencer and arpeggiator.
  * Audio-owned: only the audio interrupt calls these functions. */
 #ifndef EL_TRANSPORT_H
 #define EL_TRANSPORT_H

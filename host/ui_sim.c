@@ -236,59 +236,12 @@ int main(int argc, char **argv)
     arp_ok = arp_ok && bass->arp.v[ARP_ON] == 0 && bass->arp.count == 0;
     printf("arp: %u notes in 1 s running, %u stopped, hold, off %s\n", running_notes, free_notes, arp_ok ? "ok" : "FAIL");
 
-    /* Looper: 1 bar, three notes, then it plays; overdub adds one more. */
-    hold(BTN_EDIT, 1);                /* empty pattern, so only the loop plays */
-    tap_button(BTN_REC);
-    hold(BTN_EDIT, 0);
-    tap_button(BTN_PLAY);
-    tap_button(BTN_LFO);              /* LOOP page */
-    turn(2, -3);                      /* 1 bar */
-    hold(BTN_GLO, 1);
-    tap_button(BTN_REC);              /* arm */
-    hold(BTN_GLO, 0);
-    int loop_ok = bass->loop.state == LOOP_ARMED && loop_bars(&bass->loop) == 1;
-    run(200);
-    tap_key(0);
-    loop_ok = loop_ok && bass->loop.state == LOOP_RECORDING;
-    run(300);
-    tap_key(4);
-    run(300);
-    tap_key(7);
-    run(2500);
-    loop_ok = loop_ok && bass->loop.state == LOOP_PLAYING && bass->loop.count == 6;
-    int heard = 0;
-    for (unsigned i = 0; i < 500; ++i) {
-        run(5);
-        for (unsigned k = 0; k < 16; ++k) heard |= bass->loop.sounding[k] != 0;
-    }
-    shot(dir, "13_bass_loop");
-    hold(BTN_GLO, 1);
-    tap_button(BTN_REC);              /* overdub */
-    hold(BTN_GLO, 0);
-    loop_ok = loop_ok && bass->loop.state == LOOP_OVERDUB;
-    tap_key(9);
-    hold(BTN_GLO, 1);
-    tap_button(BTN_REC);              /* plays again */
-    hold(BTN_GLO, 0);
-    loop_ok = loop_ok && heard && bass->loop.state == LOOP_PLAYING && bass->loop.count == 8;
-    printf("loop: %u events, played back %s, overdub %s\n", bass->loop.count, heard ? "yes" : "no", loop_ok ? "ok" : "FAIL");
-
-    tap_button(BTN_SAVE);             /* SAVE twice: everything, loops included */
+    tap_button(BTN_SAVE);             /* SAVE twice: everything, HOLD is still on */
     tap_button(BTN_SAVE);
     static el_engine_t again;
     el_init(&again);
-    int kept = el_store_load(&again) == 0 && again.track[2].loop.count == bass->loop.count &&
-               again.track[2].loop.state == LOOP_PLAYING && loop_bars(&again.track[2].loop) == 1 &&
-               again.track[2].arp.v[ARP_HOLD] == 1 && again.track[2].arp.v[ARP_RATE] == bass->arp.v[ARP_RATE];
-    for (unsigned k = 0; kept && k < bass->loop.count; ++k)
-        kept = again.track[2].loop.ev[k].pos == bass->loop.ev[k].pos && again.track[2].loop.ev[k].note == bass->loop.ev[k].note &&
-               !again.track[2].loop.ev[k].velocity == !bass->loop.ev[k].velocity;
-    hold(BTN_EDIT, 1);
-    hold(BTN_GLO, 1);
-    tap_button(BTN_REC);              /* EDIT + GLO + REC: clear */
-    hold(BTN_GLO, 0);
-    hold(BTN_EDIT, 0);
-    kept = kept && bass->loop.state == LOOP_EMPTY && bass->loop.count == 0;
-    printf("store: loop and arp kept over restart, clear %s\n", kept ? "ok" : "FAIL");
-    return same && arp_ok && loop_ok && kept ? 0 : 1;
+    int kept = el_store_load(&again) == 0 && again.track[2].arp.v[ARP_HOLD] == 1 &&
+               again.track[2].arp.v[ARP_RATE] == bass->arp.v[ARP_RATE] && again.track[2].arp.v[ARP_GATE] == bass->arp.v[ARP_GATE];
+    printf("store: arp settings kept over restart %s\n", kept ? "ok" : "FAIL");
+    return same && arp_ok && kept ? 0 : 1;
 }

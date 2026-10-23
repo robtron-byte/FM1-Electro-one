@@ -4,11 +4,12 @@
 #include <stddef.h>
 #include <string.h>
 
-/* All 24 slots (generated style slots and user slots), the settings and the
- * note loops are stored, so the last grooves come back after a restart.
- * Version 13 appended the arpeggiators and loops; a version 12 record is
- * the same without them and still loads. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
+/* All 24 slots (generated style slots and user slots) and the settings are
+ * stored, so the last grooves come back after a restart. Version 14 appends
+ * the arpeggiator settings. Older records still load: version 12 is the same
+ * without them, version 13 also carried note loops (the looper now lives on
+ * the branch "looper"), of which only the arpeggiator settings are taken. */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -16,24 +17,25 @@ typedef struct {
     uint8_t engine, preset, level, muted, chord;
 } track_payload_t;
 
-typedef struct {
-    dr_pattern_t pattern[DR_PATTERNS];
-    uint8_t params[DR_PARTS][PARAMS];
-    uint8_t kit_params[KIT_PARAMS];
-    uint8_t kit, level, current, muted;
-    uint16_t bpm_x10, reserved;
-    track_payload_t track[EL_TRACKS];
+/* Fields of version 12; the later versions append to them. Each version is
+ * its own struct, so the sizes include the compiler's padding exactly as
+ * that version wrote them. */
+#define FIELDS_V12                         \
+    dr_pattern_t pattern[DR_PATTERNS];     \
+    uint8_t params[DR_PARTS][PARAMS];      \
+    uint8_t kit_params[KIT_PARAMS];        \
+    uint8_t kit, level, current, muted;    \
+    uint16_t bpm_x10, reserved;            \
+    track_payload_t track[EL_TRACKS];      \
     uint8_t fx[FX_PARAMS];
-    /* Version 13. A loop event packs into 3 bytes: position (13 bits), note
-     * (7) and velocity (4, 0 = note off). */
-    struct {
-        uint8_t arp[ARP_PARAMS];
-        uint8_t loop_bars, loop_muted;
-        uint16_t loop_count;
-        uint8_t loop[LOOP_EVENTS][3];
-    } area[EL_TRACKS];
-} payload_t;
-#define V12_BYTES offsetof(payload_t, area)
+
+typedef struct { FIELDS_V12 } payload_v12_t;
+/* Version 13 per area: arpeggiator, loop bars, muted, count, 192 events. */
+typedef struct { uint8_t arp[ARP_PARAMS], bars, muted; uint16_t count; uint8_t loop[192][3]; } area_v13_t;
+typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
+typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_t;   /* version 14 */
+#define V12_BYTES sizeof(payload_v12_t)
+#define V13_BYTES sizeof(payload_v13_t)
 
 typedef struct {
     uint32_t magic, sequence;
@@ -46,9 +48,16 @@ typedef struct {
  * copies use the last FM1 Open project slots (sectors 15 - 2 * SECTORS .. 14). */
 enum { SECTORS = (sizeof(record_t) + FM1_FLASH_SECTOR_BYTES - 1) / FM1_FLASH_SECTOR_BYTES,
        FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
-_Static_assert(SECTORS <= 3, "record fits three sectors per copy");
+_Static_assert(SECTORS == 3, "three sectors per copy, as in every version so far");
 
-static record_t record; /* static: too large for the control task stack */
+/* Static: too large for the control task stack. Room for the larger
+ * version 13 record when an old one is read. */
+static union {
+    record_t r;
+    uint8_t v13[offsetof(record_t, data) + V13_BYTES];
+} buffer;
+_Static_assert(sizeof buffer <= 3 * FM1_FLASH_SECTOR_BYTES, "version 13 record fits three sectors");
+#define record buffer.r
 
 static uint32_t crc32(const void *data, size_t bytes)
 {
@@ -71,38 +80,22 @@ uint32_t el_store_address(unsigned which)
 /* Reads one sector into record; returns its sequence, or 0 when invalid. */
 static uint32_t read_valid(unsigned which)
 {
-    if (fm1_flash_read(el_store_address(which), &record, sizeof record) != FM1_FLASH_OK) return 0;
+    if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     if (!(record.version == VERSION && record.bytes == sizeof(payload_t)) &&
+        !(record.version == VERSION_13 && record.bytes == V13_BYTES) &&
         !(record.version == VERSION_12 && record.bytes == V12_BYTES)) return 0;
     if (crc32(&record.data, record.bytes) != record.crc) return 0;
     return record.sequence;
 }
 
-/* Arpeggiator settings and note loops (version 13). A loop that does not
- * read back sorted and inside its bars is dropped. */
-static void load_areas(el_engine_t *e, const payload_t *d)
+/* Arpeggiator settings (version 13 and later). */
+static void load_areas(el_engine_t *e, const payload_t *d, unsigned version)
 {
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
-        st_track_t *t = &e->track[i];
+        const uint8_t *arp = version == VERSION_13 ? ((const payload_v13_t *)(const void *)d)->area[i].arp : d->arp[i];
         for (unsigned p = 0; p < ARP_PARAMS; ++p)
-            t->arp.v[p] = (uint8_t)el_clampi(d->area[i].arp[p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
-        note_loop_t *l = &t->loop;
-        l->bars = (uint8_t)(d->area[i].loop_bars % LOOP_BAR_CHOICES);
-        l->muted = d->area[i].loop_muted ? 1 : 0;
-        unsigned count = d->area[i].loop_count, end = loop_bars(l) * 16u * LOOP_UNITS, last = 0, ok = count <= LOOP_EVENTS;
-        for (unsigned k = 0; ok && k < count; ++k) {
-            const uint8_t *b = d->area[i].loop[k];
-            unsigned packed = b[0] | (unsigned)b[1] << 8 | (unsigned)b[2] << 16, pos = packed & 0x1fffu, vel = packed >> 20;
-            ok = pos < end && pos >= last;
-            last = pos;
-            l->ev[k].pos = (uint16_t)pos;
-            l->ev[k].note = (uint8_t)((packed >> 13) & 127u);
-            l->ev[k].velocity = (uint8_t)(vel ? vel * 8u + 7u : 0u);
-        }
-        l->count = ok ? (uint16_t)count : 0;
-        l->next = 0;
-        l->state = l->count ? LOOP_PLAYING : LOOP_EMPTY;
+            e->track[i].arp.v[p] = (uint8_t)el_clampi(arp[p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
     }
 }
 
@@ -162,7 +155,7 @@ int el_store_load(el_engine_t *e)
         t->chord = (uint8_t)el_clampi(s->chord, 0, MKS_CHORDS);
     }
     for (unsigned p = 0; p < FX_PARAMS; ++p) e->fx.v[p] = (uint8_t)el_clampi(d->fx[p], 0, fx_param_max(p));
-    if (record.version >= VERSION) load_areas(e, d);
+    if (record.version >= VERSION_13) load_areas(e, d, record.version);
     return 0;
 }
 
@@ -197,27 +190,7 @@ int el_store_save(el_engine_t *e)
         s->chord = t->chord;
     }
     memcpy(d->fx, e->fx.v, sizeof d->fx);
-    for (unsigned i = 0; i < EL_TRACKS; ++i) {
-        const st_track_t *t = &e->track[i];
-        const note_loop_t *l = &t->loop;
-        memcpy(d->area[i].arp, t->arp.v, ARP_PARAMS);
-        d->area[i].loop_bars = l->bars;
-        d->area[i].loop_muted = l->muted;
-        /* An armed or empty looper stores nothing; a take still being
-         * recorded is stored as far as it got. */
-        unsigned count = l->state >= LOOP_RECORDING ? l->count : 0;
-        if (count > LOOP_EVENTS) count = LOOP_EVENTS;
-        d->area[i].loop_count = (uint16_t)count;
-        for (unsigned k = 0; k < count; ++k) {
-            const loop_event_t *ev = &l->ev[k];
-            unsigned vel = ev->velocity ? (ev->velocity >> 3) : 0;
-            if (ev->velocity && !vel) vel = 1;
-            unsigned packed = (ev->pos & 0x1fffu) | (unsigned)(ev->note & 127u) << 13 | vel << 20;
-            d->area[i].loop[k][0] = (uint8_t)packed;
-            d->area[i].loop[k][1] = (uint8_t)(packed >> 8);
-            d->area[i].loop[k][2] = (uint8_t)(packed >> 16);
-        }
-    }
+    for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;

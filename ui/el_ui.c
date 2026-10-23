@@ -15,8 +15,6 @@
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
  *   ARP held              generator: E3 style, E4 density, white key = new part
  *   ARP tapped            RHYTHM / STRINGS / BASS: arpeggiator on / off (EDIT + ARP: HOLD)
- *   GLO + REC             note looper of the area: arm (starts with the first note),
- *                         then overdub on / off; EDIT + GLO + REC clears the loop
  *   SAVE                  then white key 1-8: copy the playing groove to user slot
  *                         17-24 and store everything in Flash (SAVE again: store only)
  *   E1 pattern (all areas)   E2 tempo (GLO: fine)
@@ -35,7 +33,7 @@
  *         (STRINGS) or tie.
  *   E3-E6 sound page, E7 sound (MKS-50 sounds, then JP-6; EDIT + E7 switches
  *   the engine), GLO + E7 length, GLO + E1 note length. After the five sound
- *   pages: ARP (mode, rate, octaves, gate) and LOOP (bars, play on / off)
+ *   pages: ARP (mode, rate, octaves, gate)
  *   (STRINGS: step length 1/16 .. 2 bars for long chord sequences). */
 #include "el_ui.h"
 #include <stdio.h>
@@ -45,9 +43,9 @@
 enum { BACK = 0x0000, PANEL = 0x18e3, GRID = 0x2945, TEXT = 0xef5d, DIM = 0x738e, FAINT = 0x4208,
        ACCENT = 0x07ff, RED = 0xf9a6, AMBER = 0xfd20, GREEN = 0x37e6 };
 enum { HOLD_EDIT = 1, HOLD_GLO = 2, HOLD_GEN = 4 };
-/* Synth areas: the sound pages, then the arpeggiator and the looper. */
-enum { PAGE_ARP = UI_PAGES, PAGE_LOOP, SYNTH_PAGES };
-enum { PARAM_ARP = 0xe0, PARAM_LOOP = 0xf0 };
+/* Synth areas: the sound pages, then the arpeggiator. */
+enum { PAGE_ARP = UI_PAGES, SYNTH_PAGES };
+enum { PARAM_ARP = 0xe0 };
 enum { HEADER_H = 31, GRID_X = 28, GRID_Y = 34, CELL = 12, ACC_Y = GRID_Y + DR_PARTS * CELL + 2, FOOT_Y = 194 };
 enum { ROLL_Y = 52, ROLL_H = 118 };
 
@@ -60,9 +58,8 @@ static const uint16_t area_color[EL_AREAS] = {0xfb44, 0xfee0, 0xb4bf, 0x3f3b};
 static const uint16_t part_color[DR_PARTS] = {
     0xf8a3, 0xfc40, 0xfee0, 0xfee0, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f, 0x87f0, 0xffff};
 /* Sound pages of the synth areas (E3-E6). */
-static const char *const synth_page_names[SYNTH_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX", "ARP", "LOOP"};
+static const char *const synth_page_names[SYNTH_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX", "ARP"};
 static const uint8_t arp_page[4] = {ARP_MODE, ARP_RATE, ARP_OCTAVES, ARP_GATE};
-static const uint16_t loop_color[LOOP_STATES] = {0x4208, 0xfd20, 0xf9a6, 0x37e6, 0xf9a6};
 static const uint8_t synth_pages[SYN_ENGINES][UI_PAGES][4] = {
     {{MP_CUTOFF, MP_RESO, MP_VCF_ENV, MP_VCF_LFO}, {MP_T1, MP_T2, MP_L3, MP_T4},
      {MP_SAW, MP_PULSE, MP_SUB_LEVEL, MP_DCO_ENV}, {MP_LFO_RATE, MP_DCO_LFO, MP_PORTA_TIME, MP_PULSE_DETUNE},
@@ -139,10 +136,6 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
     } else if (ui->page[ui->area] == PAGE_ARP) {
         param = PARAM_ARP + arp_page[slot];
         value = track_of(ui)->arp.v[arp_page[slot]];
-    } else if (ui->page[ui->area] == PAGE_LOOP) {
-        const note_loop_t *l = &track_of(ui)->loop;
-        param = PARAM_LOOP + slot;
-        value = slot == 0 ? l->bars : slot == 1 ? !l->muted : 0;
     } else {
         const syn_part_t *part = &track_of(ui)->part;
         param = synth_pages[part->engine][ui->page[ui->area]][slot];
@@ -186,11 +179,6 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         k.text = a == ARP_MODE ? arp_mode_names[k.value % ARP_MODES] : a == ARP_RATE ? arp_rate_names[k.value % ARP_RATES] :
                  a == ARP_OCTAVES ? octaves[k.value & 3] : 0;
         k.color = area_color[ui->area];
-    } else if (param >= PARAM_LOOP) {
-        static const char *const bars[LOOP_BAR_CHOICES] = {"1 BAR", "2 BARS", "4 BARS", "8 BARS"};
-        if (param == PARAM_LOOP) { k.name = "BARS"; k.max = LOOP_BAR_CHOICES - 1; k.text = bars[k.value & 3]; }
-        else if (param == PARAM_LOOP + 1) { k.name = "LOOP"; k.max = 1; k.text = k.value ? "PLAYS" : "SILENT"; }
-        k.color = area_color[ui->area];
     } else {
         unsigned engine = track_of(ui)->part.engine;
         k.name = syn_param_name(engine, param);
@@ -222,10 +210,6 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
                         (int16_t)value);
     } else if (ui->area == EL_AREA_BEAT) {
         r = dr_post(&e->drums, DR_CMD_PARAM, ui->part, (uint8_t)(param & 15u), 0, (int16_t)value);
-    } else if (param >= PARAM_LOOP) {
-        if (param == PARAM_LOOP && track_of(ui)->loop.state >= LOOP_RECORDING) notice(ui, "CLEAR THE LOOP FIRST");
-        r = el_post3(e, EL_CMD_TRACK_LOOP, (uint8_t)(ui->area - 1u), param == PARAM_LOOP ? LOOP_CMD_BARS : LOOP_CMD_PLAY, 0,
-                     (int16_t)value);
     } else if (param >= PARAM_ARP) {
         r = el_post3(e, EL_CMD_TRACK_ARP, (uint8_t)(ui->area - 1u), (uint8_t)(param - PARAM_ARP), 0, (int16_t)value);
     } else {
@@ -465,20 +449,6 @@ static void toggle_arp(el_ui_t *ui, int hold)
     }
 }
 
-/* GLO + REC: the area's note looper. empty -> armed -> (first note)
- * recording -> playing <-> overdub. EDIT + GLO + REC clears it. */
-static void looper(el_ui_t *ui, int clear)
-{
-    if (!synth_area(ui)) { notice(ui, "LOOPER: RHYTHM STRINGS BASS"); return; }
-    const note_loop_t *l = &track_of(ui)->loop;
-    static const char *const next[LOOP_STATES] = {"LOOP ARMED: PLAY", "LOOP CANCELLED", "LOOP CLOSED", "LOOP OVERDUB",
-                                                  "LOOP PLAYS"};
-    unsigned state = l->state < LOOP_STATES ? l->state : 0;
-    if (el_post3(ui->engine, EL_CMD_TRACK_LOOP, (uint8_t)(ui->area - 1u), clear ? LOOP_CMD_CLEAR : LOOP_CMD_RECORD, 0, 0))
-        return;
-    notice(ui, clear ? "LOOP CLEARED" : next[state]);
-}
-
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 {
     el_engine_t *e = ui->engine;
@@ -515,9 +485,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         el_post(e, e->transport.running ? EL_CMD_STOP : EL_CMD_START, 0, 0);
         ui->follow = 1;
     }
-    if ((pressed & BIT(BTN_REC)) && (hold & HOLD_GLO)) {
-        looper(ui, (hold & HOLD_EDIT) != 0);
-    } else if (pressed & BIT(BTN_REC)) {
+    if (pressed & BIT(BTN_REC)) {
         if (hold & HOLD_EDIT) {
             if (ui->area == EL_AREA_BEAT) dr_post(m, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
             else el_post3(e, EL_CMD_TRACK_CLEAR, (uint8_t)(ui->area - 1u), 0, 0, 0);
@@ -677,8 +645,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
     for (unsigned a = 0; a < EL_AREAS; ++a)
-        mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1 |
-                     (uint32_t)(a ? e->track[a - 1].loop.state : 0) << 2 | (uint32_t)((ui->now / 250u) & 1u) << 6);
+        mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1);
     mix(&sig[1], ui->area | ui->overview << 3 | (uint32_t)playing << 4 | (uint32_t)ui->part << 8);
     mix(&sig[1], (uint32_t)(playing ? m->pos : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
@@ -699,8 +666,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         mix(&sig[1], (uint32_t)(playing ? t->pos : 0xff) | (uint32_t)t->current << 8 | (uint32_t)t->chord << 16);
         mix(&sig[1], shown_step_page(ui, p->length, t->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->gate << 12 | (uint32_t)p->rate << 24);
         mix(&sig[1], ui->step_mode[ui->area] | (uint32_t)ui->cursor[ui->area] << 4 | (uint32_t)(ui->octave[ui->area] + 8) << 12);
-        mix(&sig[1], t->arp.v[ARP_ON] | (uint32_t)t->arp.v[ARP_HOLD] << 1 | (uint32_t)t->loop.state << 2 |
-                     (uint32_t)(loop_progress(&t->loop) * 64.0f) << 8 | (uint32_t)t->loop.count << 16);
+        mix(&sig[1], t->arp.v[ARP_ON] | (uint32_t)t->arp.v[ARP_HOLD] << 1);
         for (unsigned s = 0; s < p->length; ++s)
             mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
     }
@@ -712,7 +678,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[2], ui->gen_style[a] | (uint32_t)ui->gen_density[a] << 8 | (uint32_t)ui->gen_keep << 16);
     if (synth_area(ui))
         mix(&sig[2], ui->step_mode[ui->area] | (uint32_t)track_of(ui)->chord << 4 | (uint32_t)ui->cursor[ui->area] << 8 |
-                     (uint32_t)track_of(ui)->loop.state << 16 | (uint32_t)track_of(ui)->arp.v[ARP_HOLD] << 20);
+                     (uint32_t)track_of(ui)->arp.v[ARP_HOLD] << 20);
 }
 
 static void mark_dirty(el_ui_t *ui)
@@ -734,14 +700,7 @@ static void update_leds(el_ui_t *ui)
     uint64_t leds = 0;
     if (playing) leds |= 1ull << BTN_PLAY;
     if (m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording) leds |= 1ull << BTN_REC;
-    /* Looper of the shown area: REC blinks while armed, stays lit while it
-     * records or overdubs. */
-    if (synth_area(ui)) {
-        unsigned state = track_of(ui)->loop.state;
-        if (state == LOOP_RECORDING || state == LOOP_OVERDUB || (state == LOOP_ARMED && (ui->now / 250u) & 1u))
-            leds |= 1ull << BTN_REC;
-        if (track_of(ui)->arp.v[ARP_ON]) leds |= 1ull << BTN_ARP;
-    }
+    if (synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) leds |= 1ull << BTN_ARP;
     if (ui->overview) leds |= 1ull << BTN_HOME;
     else leds |= 1ull << area_buttons[ui->area];
     if (ui->hold & HOLD_GEN) leds |= 1ull << BTN_ARP;
@@ -820,12 +779,6 @@ static void draw_header(el_ui_t *ui, gfx_band_t *b)
         gfx_text(b, x + 6, 3, area_tabs[a], active ? BACK : color, 1);
         if (muted) gfx_text(b, x + 46, 3, "M", active ? BACK : RED, 1);
         else if (a ? e->track[a - 1].recording : m->recording) gfx_fill(b, x + 48, 4, 6, 6, RED);
-        /* Looper: a ring, amber (blinking) armed, red recording, green playing. */
-        unsigned state = a ? e->track[a - 1].loop.state : LOOP_EMPTY;
-        if (state != LOOP_EMPTY && (state != LOOP_ARMED || (ui->now / 250u) & 1u)) {
-            gfx_fill(b, x + 38, 3, 7, 8, active ? BACK : loop_color[state]);
-            gfx_fill(b, x + 40, 5, 3, 4, active ? color : PANEL);
-        }
     }
     snprintf(text, sizeof text, "%02u", m->current + 1u);
     int x = gfx_text(b, 4, 19, text, ACCENT, 1);
@@ -942,16 +895,6 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                 gfx_text(b, x + 3, ROLL_Y + 13, mks_chord_names[ST_CHORD_TYPE(st->chord) - 1], DIM, 1);
             }
         }
-    }
-    /* Looper: bars and position under the roll. */
-    const note_loop_t *l = &t->loop;
-    if (l->state != LOOP_EMPTY && gfx_touches(b, ROLL_Y + ROLL_H - 12, 12)) {
-        unsigned bars = loop_bars(l), w = 16 * CELL - 2;
-        float at = loop_progress(l);
-        snprintf(text, sizeof text, "LOOP %s %u%s", loop_state_names[l->state], bars, bars > 1 ? " BARS" : " BAR");
-        gfx_text(b, GRID_X + (int)w - gfx_text_width(text, 1) - 2, ROLL_Y + ROLL_H - 12, text, loop_color[l->state], 1);
-        gfx_fill(b, GRID_X, ROLL_Y + ROLL_H - 2, (int)w, 2, GRID);
-        if (l->state >= LOOP_RECORDING) gfx_fill(b, GRID_X, ROLL_Y + ROLL_H - 2, (int)(at * (float)w), 2, loop_color[l->state]);
     }
     /* Step / chord info line. */
     if (ui->step_mode[ui->area]) {
@@ -1077,8 +1020,6 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             if (page == PAGE_ARP)
                 snprintf(line, sizeof line, "ARP %s%s  TAP ARP  EDIT+ARP=HOLD", t->arp.v[ARP_ON] ? "ON" : "OFF",
                          t->arp.v[ARP_HOLD] ? " HOLD" : "");
-            else if (page == PAGE_LOOP)
-                snprintf(line, sizeof line, "%s  GLO+REC  +EDIT=CLEAR", loop_state_names[t->loop.state % LOOP_STATES]);
             else
                 snprintf(line, sizeof line, "%s %u/%u  E7 SOUND  SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE  E7=LENGTH" :

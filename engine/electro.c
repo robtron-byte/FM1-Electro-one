@@ -209,9 +209,6 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_TRACK_ARP:
         st_arp_set(t, c->b, c->value);
         break;
-    case EL_CMD_TRACK_LOOP:
-        st_loop_command(t, c->b, c->value);
-        break;
     default:
         return;
     }
@@ -221,7 +218,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_LOOP) {
+    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }
