@@ -20,7 +20,7 @@ enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5
 typedef struct {
     el_engine_t *engine;
     int (*save)(el_engine_t *engine); /* SAVE button; 0 on success */
-    uint8_t area, overview, follow, part, bank, beat_layer;
+    uint8_t area, overview, follow, part, bank, beat_layer, arp_tap;
     uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];
     int8_t octave[EL_AREAS];
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;

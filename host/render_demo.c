@@ -227,6 +227,35 @@ int main(int argc, char **argv)
         failed |= render_slot(&e, 6, dir, prefix, 0, 0);
     }
 
+    /* Arpeggiator on RHYTHM instead of its sequence: a latched minor chord
+     * in the key of the groove, two styles. */
+    static const struct { uint8_t mode, rate, octaves; unsigned slot; } arps[] = {{2, 2, 1, 6}, {3, 5, 2, 0}, {0, 1, 1, 13}};
+    for (unsigned k = 0; k < sizeof arps / sizeof arps[0]; ++k) {
+        char prefix[16];
+        el_init(&e);
+        unsigned slot = arps[k].slot;
+        dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
+        float buf[EL_BLOCK * 2];
+        el_render_float(&e, buf, EL_BLOCK);
+        el_post3(&e, EL_CMD_TRACK_CLEAR, 0, 0, 0, 0);
+        el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_MODE, 0, arps[k].mode);
+        el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_RATE, 0, arps[k].rate);
+        el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_OCTAVES, 0, arps[k].octaves);
+        el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_HOLD, 0, 1);
+        el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_ON, 0, 1);
+        int root = 48;
+        const st_pattern_t *bp = &e.track[2].pattern[slot];
+        for (unsigned i = 0; i < bp->length; ++i)
+            if (bp->step[i].flags & ST_ON) { root = 48 + bp->step[i].note % 12; break; }
+        static const int chord[3] = {0, 3, 7};
+        for (unsigned i = 0; i < 3; ++i) el_post3(&e, EL_CMD_NOTE, 0, (uint8_t)(root + chord[i]), 0, 100);
+        for (unsigned i = 0; i < 3; ++i) el_post3(&e, EL_CMD_NOTE, 0, (uint8_t)(root + chord[i]), 0, 0);
+        el_render_float(&e, buf, EL_BLOCK);
+        snprintf(prefix, sizeof prefix, "arp_%s_", arp_mode_names[arps[k].mode]);
+        for (char *c = prefix; *c; ++c) if (*c == '/') *c = '-';
+        failed |= render_slot(&e, slot, dir, prefix, 0, 0);
+    }
+
     /* The PO-12 kit on a few grooves (beat only and full). */
     static const unsigned po_slots[] = {6, 13, 7};
     for (unsigned k = 0; k < sizeof po_slots / sizeof po_slots[0]; ++k)

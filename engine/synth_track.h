@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * One synth area (rhythm sounds, strings, bass): an MKS-50 sound plus a
  * step sequencer with notes, chords (type + inversion), accents and ties.
+ * Live keys can run through an arpeggiator, and a note looper records
+ * what is played on top of the patterns.
  * Each pattern has its own step length, from a 16th up to two bars, so the
  * strings can run long chord sequences (e.g. 8 steps of one bar each).
  * Audio-owned; the engine applies queued edits. */
 #ifndef EL_SYNTH_TRACK_H
 #define EL_SYNTH_TRACK_H
 #include "synth.h"
+#include "arp.h"
+#include "note_loop.h"
 
 enum { ST_STEPS = 32, ST_PATTERNS = 24, ST_NO_CHORD = 0 };
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
@@ -39,6 +43,8 @@ typedef struct {
     int16_t sounding[MKS_CHORD_NOTES];
     uint8_t sounding_count, tied, tick;
     float gate_countdown, step_frames, since_step;
+    arp_t arp;
+    note_loop_t loop;
     volatile uint32_t revision;
 } st_track_t;
 
@@ -46,7 +52,8 @@ typedef struct {
 void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed);
 
 /* Audio side. */
-EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, float step_frames);
+/* Every transport 16th: step is its absolute number since Start. */
+EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, uint32_t step, float sixteenth_frames);
 EL_DSP_CODE void st_rewind(st_track_t *t);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);
@@ -54,6 +61,8 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
  * when armed and running. velocity 0 = note off. */
 EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity);
 EL_DSP_CODE void st_mute(st_track_t *t, int on);
+EL_DSP_CODE void st_arp_set(st_track_t *t, unsigned param, int value);
+EL_DSP_CODE void st_loop_command(st_track_t *t, unsigned cmd, int value);
 
 /* Notes of a step: root plus chord type and inversion (up to MKS_CHORD_NOTES). */
 unsigned st_chord_notes(int root, unsigned chord, int16_t *out);

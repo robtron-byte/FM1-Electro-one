@@ -132,6 +132,8 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
       <dt>BEAT</dt><dd>Schwarze Taste wählt und spielt ein Instrument (SEQ: zweite Ebene mit PULSE), weiße Tasten setzen Steps. GLO + E1: Kit (auch PO-12).</dd>
       <dt>Synths</dt><dd>Tasten spielen den Sound, SEQ schaltet in den Step-Modus. E7 Sound, EDIT + E7 andere Engine (MKS-50 / JP-6).</dd>
       <dt>ARP halten</dt><dd>Generator: E3 Stil, E4 Dichte, weiße Taste = neue Spur.</dd>
+      <dt>ARP antippen</dt><dd>In RHYTHM, STRINGS, BASS: Arpeggiator an/aus (eingerastet: zweimal tippen). EDIT + ARP: Hold. Einstellungen auf der Seite ARP (Bereichstaste weiterdrücken): Modus, Rate, Oktaven, Gate.</dd>
+      <dt>GLO + REC</dt><dd>Noten-Looper des Bereichs: scharf, startet mit der ersten Note, nimmt die eingestellten Takte auf und spielt dann weiter. Nochmal: Overdub an/aus. EDIT + GLO + REC löscht. Takte auf der Seite LOOP.</dd>
       <dt>SAVE</dt><dd>Dann weiße Taste 1–8: Groove in User-Platz 17–24. Gespeichert wird im Browser.</dd>
       <dt>E1 / E2</dt><dd>Pattern / Tempo.</dd>
     </dl>
@@ -152,6 +154,9 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   const $ = (id) => document.getElementById(id);
   const status = (t) => { $("status").textContent = t; };
   let ex = null, buttons = 0, keys = 0, latched = 0;
+  /* Presses since the last control pass: a tap shorter than one pass still
+   * reaches the firmware as down, then up. */
+  let tapButtons = 0, tapKeys = 0;
   const enc = [0, 0, 0, 0, 0, 0, 0], encAngle = [0, 0, 0, 0, 0, 0, 0];
 
   /* ---- panel ---------------------------------------------------------- */
@@ -162,7 +167,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
     const down = (e) => {
       e.preventDefault();
       if ($("latch").checked && LATCHABLE.has(i)) { latched ^= 1 << i; b.classList.toggle("latched", !!(latched & (1 << i))); return; }
-      buttons |= 1 << i; b.classList.add("down");
+      buttons |= 1 << i; tapButtons |= 1 << i; b.classList.add("down");
       try { b.setPointerCapture(e.pointerId); } catch (_) {}
     };
     const up = () => { buttons &= ~(1 << i); b.classList.remove("down"); };
@@ -210,7 +215,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   /* Keys follow pointers (glissando, several fingers). */
   const pointerKey = new Map();
   const keyAt = (x, y) => { const el = document.elementFromPoint(x, y); const i = keyEls.indexOf(el && el.closest ? el.closest(".key") : null); return i; };
-  const setKeys = () => { keys = 0; pointerKey.forEach((k) => { if (k >= 0) keys |= 1 << k; }); keyEls.forEach((el, k) => el.classList.toggle("down", !!(keys & (1 << k)) || !!(kbKeys & (1 << k)))); };
+  const setKeys = () => { const before = keys | kbKeys; keys = 0; pointerKey.forEach((k) => { if (k >= 0) keys |= 1 << k; }); tapKeys |= (keys | kbKeys) & ~before; keyEls.forEach((el, k) => el.classList.toggle("down", !!(keys & (1 << k)) || !!(kbKeys & (1 << k)))); };
   kb.addEventListener("pointerdown", (e) => { e.preventDefault(); try { kb.setPointerCapture(e.pointerId); } catch (_) {} pointerKey.set(e.pointerId, keyAt(e.clientX, e.clientY)); setKeys(); });
   kb.addEventListener("pointermove", (e) => { if (!pointerKey.has(e.pointerId)) return; const k = keyAt(e.clientX, e.clientY); if (k !== pointerKey.get(e.pointerId)) { pointerKey.set(e.pointerId, k); setKeys(); } });
   const lift = (e) => { pointerKey.delete(e.pointerId); setKeys(); };
@@ -222,8 +227,8 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   window.addEventListener("keydown", (e) => {
     if (e.target && (e.target.tagName === "INPUT" || e.target.getAttribute("role") === "slider")) return;
     const k = KEYMAP[e.key.toLowerCase()];
-    if (k !== undefined) { kbKeys |= 1 << k; setKeys(); e.preventDefault(); }
-    if (e.code === "Space") { buttons |= 1 << 12; e.preventDefault(); }
+    if (k !== undefined) { const before = keys | kbKeys; kbKeys |= 1 << k; tapKeys |= kbKeys & ~before; setKeys(); e.preventDefault(); }
+    if (e.code === "Space") { buttons |= 1 << 12; tapButtons |= 1 << 12; e.preventDefault(); }
   });
   window.addEventListener("keyup", (e) => {
     const k = KEYMAP[e.key.toLowerCase()];
@@ -260,9 +265,10 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   const t0 = performance.now();
   function control() {
     if (!ex) return;
-    ex.sim_control(Math.floor(performance.now() - t0) >>> 0, (buttons | latched) >>> 0, (keys | kbKeys) >>> 0,
+    ex.sim_control(Math.floor(performance.now() - t0) >>> 0, (buttons | latched | tapButtons) >>> 0, (keys | kbKeys | tapKeys) >>> 0,
       enc[0], enc[1], enc[2], enc[3], enc[4], enc[5], enc[6], +$("master").value);
     enc.fill(0);
+    tapButtons = 0; tapKeys = 0;
   }
 
   /* Without sound the engine still runs, so the sequencer moves. */

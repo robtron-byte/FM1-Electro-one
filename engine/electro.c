@@ -206,6 +206,12 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_TRACK_CLEAR:
         for (unsigned i = 0; i < ST_STEPS; ++i) p->step[i].flags = 0;
         break;
+    case EL_CMD_TRACK_ARP:
+        st_arp_set(t, c->b, c->value);
+        break;
+    case EL_CMD_TRACK_LOOP:
+        st_loop_command(t, c->b, c->value);
+        break;
     default:
         return;
     }
@@ -215,7 +221,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_CLEAR) {
+    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_LOOP) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }
@@ -321,7 +327,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         uint32_t step;
         if (el_transport_advance(t, n, &step)) {
             dr_step(&e->drums, step, t->last_length);
-            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], e->drums.current, t->last_length);
+            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], e->drums.current, step, t->last_length);
         }
         pos += (unsigned)n;
     }

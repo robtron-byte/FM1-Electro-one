@@ -63,6 +63,8 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 - **KRAFT** (NUMBERS, TRANS EUR, TOUR, COMPUTER, ROBOT, LOVE): schlichte Dreiklänge, Zwei-Akkord-Pendel (i–v wie „The Model“), Moll mit Sus2 und ein Maj7-Zwischenspiel wie in „Computer Love“, Moll-♭VI wie bei „The Robots“, Mediant-Rückungen wie „Europe Endless“.
 - **ELECTRO** (BRONX 82, MIAMI, MIAMI 2, BOOM BASS, PERFECT, EGYPT, FREAKY): Detroit- und Miami-Moll-Schleifen mit m7, m9, Maj7 und 7sus4.
 
+**Arpeggiator und Noten-Looper.** Jeder Synth-Bereich hat einen Arpeggiator, aus den iOS-Apps übernommen (`engine/arp.c`): Er sammelt die gehaltenen Tasten, bei STRINGS samt Live-Akkord, und spielt sie im Takt als UP, DOWN, UP/DN, RAND oder ORDER (Spielreihenfolge) über 1–4 Oktaven, mit Rate 1/32 bis 1/1 (auch Triolen und punktiert), Gate und HOLD. Die erste Note kommt sofort, die weiteren auf dem Raster. Läuft der Sequencer nicht, spielt der Arpeggiator im eingestellten Tempo weiter. Der Looper (`engine/note_loop.c`) arbeitet wie der Loop-Recorder der Apps: scharf schalten, er startet mit der ersten Note, nimmt genau 1, 2, 4 oder 8 Takte auf und spielt dann lückenlos weiter, mit Overdub. Anders als in den Apps nimmt er Noten statt Audio auf, denn schon zwei Takte Stereo-Audio bräuchten mehr RAM, als dem FM-1 übrig bleibt. Dafür klingt die Schleife beim Soundwechsel mit dem neuen Sound. Die Schleife läuft frei über die Patterns (auf dem Taktraster des Sequencers), nimmt auch die Arpeggiator-Noten auf und wird mit allem anderen im Flash gespeichert.
+
 Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und aus Akkord-Sheets der Community, keine Transkriptionen der Platten. Der Bass bleibt als Ostinato auf dem Grundton, die Akkorde bewegen sich darüber. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
 
 ### Bedienung
@@ -77,6 +79,8 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 | PLAY | Start/Stop |
 | REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
 | ARP halten | Generator für den aktuellen Bereich: E3 Stil, E4 Dichte, weiße Taste erzeugt eine neue Spur |
+| ARP antippen | RHYTHM / STRINGS / BASS: Arpeggiator an/aus, die Tasten spielen dann den Arpeggiator. EDIT + ARP: HOLD |
+| GLO + REC | Noten-Looper des Bereichs: scharf (startet mit der ersten Note), nach den Takten spielt er; nochmal: Overdub an/aus. EDIT + GLO + REC löscht die Schleife. Im Reiter zeigt ein Ring den Zustand (gelb scharf, rot Aufnahme, grün spielt) |
 | SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
 | E1 / E2 | Pattern (alle Bereiche, wechselt am Taktende) / Tempo (GLO: fein) |
 
@@ -88,7 +92,7 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 |---|---|---|
 | Tasten | alle 27 Tasten spielen den Sound, die LEDs zeigen, was die Sequenz gerade spielt | weiße Tasten schalten Steps an/aus und wählen sie aus. EDIT + weiß Akzent, GLO + weiß Tie |
 | OCT − / + | Oktave | Steps 1–16 / 17–32 |
-| E3–E6 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX (je nach Engine) | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
+| E3–E6 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX (je nach Engine), dann ARP (Modus, Rate, Oktaven, Gate) und LOOP (Takte, Schleife an/stumm) | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
 | REC | läuft: live einspielen (quantisiert). Steht: Noten Schritt für Schritt eingeben, EDIT + Taste = Pause | – |
 | E7 | Sound wählen, EDIT + E7: andere Engine (GLO: Pattern-Länge) | Sound wählen, EDIT + E7: andere Engine |
 | GLO + E1 | Notenlänge (Gate) | Notenlänge |
@@ -109,8 +113,8 @@ Die Encoder-Nummern E1–E7 folgen der Nummerierung im FM1-Open-Code. Wo sie phy
 | Live-Aufnahme in die Patterns (REC, quantisiert), Groove-Generator, User-Plätze | fertig, auf dem PC getestet |
 | Delay, Hall, Gated Reverb, Verzerrung als Send, Mix- und Master-Bus | fertig, auf dem PC getestet |
 | Firmware auf dem Gerät | **noch nicht gebaut** (braucht die JieLi-Toolchain unter Windows) |
-| Arpeggiator der Apps (die ARP-Taste ist hier der Generator) | offen |
-| Noten-Looper der Apps (frei laufende Loop-Aufnahme über den Patterns) | offen |
+| Arpeggiator der Apps (UP, DOWN, UP/DN, RAND, ORDER, 1/32–1/1, 1–4 Oktaven, Hold), pro Synth-Bereich | fertig, auf dem PC und im Simulator getestet |
+| Noten-Looper (1/2/4/8 Takte, Overdub, frei über den Patterns, wird gespeichert) | fertig, auf dem PC und im Simulator getestet |
 
 ## Simulator im Browser
 
@@ -135,11 +139,11 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhä
 
 Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
 
-**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 9–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze, Einstellungen und Loops (rund 12 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 9–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 
-Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Mit der neuen 808 und der Mischkette braucht dieser Branch geschätzt **rund 210 KB** (156 KB Daten plus Code im RAM): etwa 135 KB Daten (davon 90 KB Delay und Hall), dazu rund 50 KB Code im RAM. Das ist knapp. Falls es auf dem Gerät nicht passt, gibt es drei Stellschrauben: Delay-Länge (`FX_DELAY_CAP`), Hall-Leitungen (`FX_REVERB_CAP`) und Stimmenzahl pro Bereich (`electro.c`).
+Das FM-1 hat rund 512 KB internes RAM. Laut SDK-Bibliothek belegt die Systemsoftware davon vor dem Linken etwa 196 KB fest, mindestens 48 KB braucht der Laufzeit-Heap (Bluetooth, USB). Mit der neuen 808 und der Mischkette braucht dieser Branch geschätzt **rund 210 KB** (156 KB Daten plus Code im RAM): etwa 135 KB Daten (davon 90 KB Delay und Hall), dazu rund 50 KB Code im RAM. Arpeggiatoren und Loops kommen mit zusammen 2,7 KB dazu. Das ist knapp. Falls es auf dem Gerät nicht passt, gibt es drei Stellschrauben: Delay-Länge (`FX_DELAY_CAP`), Hall-Leitungen (`FX_REVERB_CAP`) und Stimmenzahl pro Bereich (`electro.c`).
 
 Auf dem PC kosten alle vier Bereiche mit Mischkette zusammen 5,9 % Echtzeit. Wie viel davon auf dem 240-MHz-Chip übrig bleibt, zeigt erst die Messung am Gerät. Für Delay und Hall habe ich sparsamere Versionen als in den iOS-Apps gebaut: ein Ping-Pong-Delay mit halber Abtastrate und 16 Bit (bis 0,6 s, klingt etwas dunkler, eher wie Band oder Eimerkette) und einen Hall mit 4 statt 8 Leitungen.
 
