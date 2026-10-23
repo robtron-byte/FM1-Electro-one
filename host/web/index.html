@@ -1,0 +1,341 @@
+<title>FM1-Electro Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column, the FM-1 panel as a hardware object (display, encoders,
+   buttons, keys), operating notes below. Single dark look on purpose: the
+   device is black, its LEDs only read on a dark panel. */
+:root {
+  color-scheme: dark;
+  --ground: #121315;      /* room behind the device */
+  --body: #1d1f22;        /* device housing */
+  --plate: #26292d;       /* panel plate */
+  --edge: #3a3e44;        /* seams, key borders */
+  --ink: #e9e6df;         /* silk-screen print */
+  --ink-dim: #8d918f;     /* secondary print */
+  --led: #ff7a2f;         /* button LEDs (FM-1 orange) */
+  --led-key: #ffc94a;     /* key LEDs */
+  --key-white: #ece9e1;
+  --key-black: #17181a;
+  --accent: #5fd4c3;      /* status, links */
+  --f-display: "Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 40px; }
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.45rem; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+h1 small { display: block; font-family: var(--f-body); font-weight: 400; font-size: .82rem; color: var(--ink-dim); letter-spacing: 0; }
+.sound { font-family: var(--f-display); font-weight: 600; font-size: .95rem; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--led); color: #1a0f08; border: 0; border-radius: 6px; padding: 10px 16px; cursor: pointer; }
+.sound[aria-pressed="true"] { background: var(--plate); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge); }
+.sound:focus-visible, .btn:focus-visible, .enc:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.device { background: var(--body); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 1px 0 #2c2f33 inset, 0 18px 40px #0008; }
+.top { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.lcd { background: #000; border-radius: 6px; padding: 6px; box-shadow: inset 0 0 0 1px var(--edge); }
+.lcd canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; image-rendering: pixelated; }
+.master { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 4px; }
+.master input { writing-mode: vertical-lr; direction: rtl; height: 160px; width: 28px; accent-color: var(--led); }
+.label { font-family: var(--f-display); font-size: .68rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
+
+.encoders { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.enc { display: flex; flex-direction: column; align-items: center; gap: 4px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: ns-resize; background: none; border: 0; color: inherit; padding: 0; }
+.enc .cap { width: 100%; max-width: 46px; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a4f56, #24272b 70%);
+  box-shadow: 0 0 0 2px #111, 0 3px 6px #0009; position: relative; }
+.enc .cap::after { content: ""; position: absolute; left: 50%; top: 8%; width: 3px; height: 30%; margin-left: -1.5px; background: var(--ink); border-radius: 2px;
+  transform-origin: 50% 140%; transform: rotate(var(--rot, 0deg)); }
+.enc .arrows { display: flex; gap: 2px; }
+.enc .arrows span { font-family: var(--f-mono); font-size: .75rem; color: var(--ink-dim); padding: 0 4px; border-radius: 3px; background: var(--plate); cursor: pointer; }
+
+.buttons { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px 6px; }
+.btn { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; padding: 0; color: inherit; cursor: pointer;
+  touch-action: none; user-select: none; -webkit-user-select: none; }
+.btn .face { width: 100%; height: 30px; border-radius: 5px; background: var(--plate); box-shadow: inset 0 0 0 1px var(--edge), 0 2px 0 #0007; transition: background .06s; }
+.btn.lit .face { background: var(--led); box-shadow: 0 0 12px #ff7a2f88, inset 0 0 0 1px #ffb27f; }
+.btn.down .face { transform: translateY(1px); box-shadow: inset 0 0 0 1px var(--ink-dim); }
+.btn.latched .face { box-shadow: inset 0 0 0 2px var(--accent); }
+.btn .name { font-family: var(--f-display); font-size: .66rem; font-weight: 600; letter-spacing: .06em; color: var(--ink); }
+.btn .role { font-size: .6rem; color: var(--ink-dim); line-height: 1; min-height: .7rem; }
+
+.keys { position: relative; height: 112px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.key { position: absolute; top: 0; border-radius: 0 0 5px 5px; }
+.key.w { height: 100%; background: var(--key-white); box-shadow: inset 0 0 0 1px #b9b5ab; }
+.key.b { height: 60%; background: var(--key-black); box-shadow: inset 0 0 0 1px #000; z-index: 2; }
+.key.lit.w { background: var(--led-key); }
+.key.lit.b { background: #b5862a; }
+.key.down { filter: brightness(.8); }
+.key .tag { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-family: var(--f-display); font-size: .55rem; font-weight: 600; color: #6c675c; }
+.key.b .tag { color: #9a9a9a; bottom: 3px; }
+
+.opts { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: .85rem; color: var(--ink-dim); }
+.opts label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.opts input { accent-color: var(--accent); }
+.opts button { font: inherit; color: var(--ink); background: var(--plate); border: 1px solid var(--edge); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+.status { font-family: var(--f-mono); font-size: .78rem; color: var(--accent); }
+
+.notes { display: flex; flex-direction: column; gap: 10px; }
+.notes h2 { font-family: var(--f-display); font-size: 1rem; letter-spacing: .04em; margin: 4px 0 0; }
+.notes dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: .9rem; }
+.notes dt { font-family: var(--f-display); font-weight: 600; letter-spacing: .03em; color: var(--ink); }
+.notes dd { margin: 0; color: var(--ink-dim); min-width: 0; }
+.notes p { margin: 0; color: var(--ink-dim); font-size: .88rem; max-width: 65ch; }
+kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); border: 1px solid var(--edge); border-radius: 3px; padding: 0 4px; color: var(--ink); }
+@media (max-width: 420px) {
+  .device { padding: 10px; gap: 12px; }
+  .master input { height: 120px; }
+  .btn .face { height: 26px; }
+  .keys { height: 96px; }
+  .notes dl { grid-template-columns: 1fr; gap: 2px; }
+  .notes dd { margin-bottom: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .btn .face { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>FM1-Electro<small>Panel-Simulator · die echte Firmware, im Browser</small></h1>
+    <button class="sound" id="sound" aria-pressed="false">Ton an</button>
+  </header>
+
+  <section class="device" aria-label="FM-1 Bedienfeld">
+    <div class="top">
+      <div class="lcd"><canvas id="lcd" width="240" height="240" aria-label="Display"></canvas></div>
+      <div class="master">
+        <span class="label">Master</span>
+        <input type="range" id="master" min="0" max="1023" value="800" aria-label="Master-Lautstärke">
+      </div>
+    </div>
+    <div class="encoders" id="encoders"></div>
+    <div class="buttons" id="buttons"></div>
+    <div class="keys" id="keys" aria-label="Tastatur F3 bis G5"></div>
+  </section>
+
+  <div class="opts">
+    <label for="latch"><input type="checkbox" id="latch" checked> EDIT, GLO, ARP rasten ein</label>
+    <button id="reset" type="button">Speicher löschen</button>
+    <span class="status" id="status">Lädt …</span>
+  </div>
+
+  <section class="notes">
+    <h2>So bedienst du es</h2>
+    <p>Encoder: ziehen nach oben/unten, Mausrad oder die Pfeile darunter. EDIT, GLO und ARP rasten auf Wunsch ein (Häkchen oben), dann tippst du sie an, statt sie zu halten. Am Rechner spielen <kbd>A</kbd>–<kbd>K</kbd> die weißen Tasten ab F3, <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>Z</kbd> <kbd>U</kbd> die schwarzen, <kbd>Leertaste</kbd> ist PLAY.</p>
+    <dl>
+      <dt>FX SCL ENV LFO</dt><dd>Bereich BEAT, RHYTHM, STRINGS, BASS; nochmal drücken: nächste Klangseite. GLO + Bereich: stumm.</dd>
+      <dt>HOME</dt><dd>Übersicht. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove, EDIT halten: Verzerrungs-Sends.</dd>
+      <dt>BEAT</dt><dd>Schwarze Taste wählt und spielt ein Instrument (SEQ: zweite Ebene mit PULSE), weiße Tasten setzen Steps. GLO + E1: Kit (auch PO-12).</dd>
+      <dt>Synths</dt><dd>Tasten spielen den Sound, SEQ schaltet in den Step-Modus. E7 Sound, EDIT + E7 andere Engine (MKS-50 / JP-6).</dd>
+      <dt>ARP halten</dt><dd>Generator: E3 Stil, E4 Dichte, weiße Taste = neue Spur.</dd>
+      <dt>SAVE</dt><dd>Dann weiße Taste 1–8: Groove in User-Platz 17–24. Gespeichert wird im Browser.</dd>
+      <dt>E1 / E2</dt><dd>Pattern / Tempo.</dd>
+    </dl>
+  </section>
+</div>
+
+<script>
+(() => {
+  const WASM_B64 = "%%WASM%%";
+  const NAMES = ["OCT-", "OCT+", "FX", "SCL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
+  const ROLES = ["", "", "BEAT", "RHYT", "STRG", "BASS", "", "", "", "", "GEN", "STEP", "", ""];
+  const LATCHABLE = new Set([6, 7, 10]);
+  const WHITE = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26];
+  const BLACK = [1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25];
+  const DRUMS = ["BD", "SD", "LT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP"];
+  const NOTE = ["F", "F#", "G", "G#", "A", "A#", "B", "C", "C#", "D", "D#", "E"];
+
+  const $ = (id) => document.getElementById(id);
+  const status = (t) => { $("status").textContent = t; };
+  let ex = null, buttons = 0, keys = 0, latched = 0;
+  const enc = [0, 0, 0, 0, 0, 0, 0], encAngle = [0, 0, 0, 0, 0, 0, 0];
+
+  /* ---- panel ---------------------------------------------------------- */
+  const btnEls = NAMES.map((n, i) => {
+    const b = document.createElement("button");
+    b.className = "btn"; b.type = "button"; b.id = "btn" + i;
+    b.innerHTML = `<span class="face"></span><span class="name">${n}</span><span class="role">${ROLES[i]}</span>`;
+    const down = (e) => {
+      e.preventDefault();
+      if ($("latch").checked && LATCHABLE.has(i)) { latched ^= 1 << i; b.classList.toggle("latched", !!(latched & (1 << i))); return; }
+      buttons |= 1 << i; b.classList.add("down");
+      try { b.setPointerCapture(e.pointerId); } catch (_) {}
+    };
+    const up = () => { buttons &= ~(1 << i); b.classList.remove("down"); };
+    b.addEventListener("pointerdown", down);
+    b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
+    $("buttons").appendChild(b);
+    return b;
+  });
+  $("latch").addEventListener("change", () => { latched = 0; btnEls.forEach((b) => b.classList.remove("latched")); });
+
+  const encEls = [];
+  for (let i = 0; i < 7; i++) {
+    const w = document.createElement("div");
+    w.className = "enc"; w.tabIndex = 0; w.setAttribute("role", "slider"); w.setAttribute("aria-label", "Encoder E" + (i + 1));
+    w.innerHTML = `<span class="cap"></span><span class="label">E${i + 1}</span><span class="arrows"><span data-d="-1">−</span><span data-d="1">+</span></span>`;
+    const turn = (d) => { enc[i] += d; encAngle[i] += d * 18; w.querySelector(".cap").style.setProperty("--rot", encAngle[i] + "deg"); };
+    let y0 = null;
+    const cap = w.querySelector(".cap");
+    cap.addEventListener("pointerdown", (e) => { y0 = e.clientY; e.preventDefault(); try { cap.setPointerCapture(e.pointerId); } catch (_) {} });
+    cap.addEventListener("pointermove", (e) => { if (y0 === null) return; const d = Math.trunc((y0 - e.clientY) / 9); if (d) { turn(d); y0 -= d * 9; } });
+    const stop = () => { y0 = null; };
+    cap.addEventListener("pointerup", stop); cap.addEventListener("pointercancel", stop);
+    w.addEventListener("wheel", (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+    w.querySelectorAll(".arrows span").forEach((s) => s.addEventListener("click", () => turn(+s.dataset.d)));
+    w.addEventListener("keydown", (e) => { if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); } if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); } });
+    $("encoders").appendChild(w); encEls.push(w);
+  }
+
+  const keyEls = [];
+  const kb = $("keys");
+  WHITE.forEach((k, n) => {
+    const el = document.createElement("div");
+    el.className = "key w"; el.style.left = (n * 100 / 16) + "%"; el.style.width = (100 / 16) + "%";
+    const note = NOTE[k % 12] + (3 + Math.floor((k + 5) / 12));
+    el.innerHTML = `<span class="tag">${n === 0 || NOTE[k % 12] === "C" ? note : ""}</span>`;
+    kb.appendChild(el); keyEls[k] = el;
+  });
+  BLACK.forEach((k, n) => {
+    const el = document.createElement("div");
+    const leftWhite = WHITE.indexOf(k - 1);
+    el.className = "key b"; el.style.left = ((leftWhite + 1) * 100 / 16 - 100 / 16 * 0.3) + "%"; el.style.width = (100 / 16 * 0.6) + "%";
+    el.innerHTML = `<span class="tag">${DRUMS[n]}</span>`;
+    kb.appendChild(el); keyEls[k] = el;
+  });
+  /* Keys follow pointers (glissando, several fingers). */
+  const pointerKey = new Map();
+  const keyAt = (x, y) => { const el = document.elementFromPoint(x, y); const i = keyEls.indexOf(el && el.closest ? el.closest(".key") : null); return i; };
+  const setKeys = () => { keys = 0; pointerKey.forEach((k) => { if (k >= 0) keys |= 1 << k; }); keyEls.forEach((el, k) => el.classList.toggle("down", !!(keys & (1 << k)) || !!(kbKeys & (1 << k)))); };
+  kb.addEventListener("pointerdown", (e) => { e.preventDefault(); try { kb.setPointerCapture(e.pointerId); } catch (_) {} pointerKey.set(e.pointerId, keyAt(e.clientX, e.clientY)); setKeys(); });
+  kb.addEventListener("pointermove", (e) => { if (!pointerKey.has(e.pointerId)) return; const k = keyAt(e.clientX, e.clientY); if (k !== pointerKey.get(e.pointerId)) { pointerKey.set(e.pointerId, k); setKeys(); } });
+  const lift = (e) => { pointerKey.delete(e.pointerId); setKeys(); };
+  kb.addEventListener("pointerup", lift); kb.addEventListener("pointercancel", lift);
+
+  /* Computer keyboard: piano row from F3, space = PLAY. */
+  const KEYMAP = { a: 0, w: 1, s: 2, e: 3, d: 4, r: 5, f: 6, g: 7, z: 8, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14, p: 15 };
+  let kbKeys = 0;
+  window.addEventListener("keydown", (e) => {
+    if (e.target && (e.target.tagName === "INPUT" || e.target.getAttribute("role") === "slider")) return;
+    const k = KEYMAP[e.key.toLowerCase()];
+    if (k !== undefined) { kbKeys |= 1 << k; setKeys(); e.preventDefault(); }
+    if (e.code === "Space") { buttons |= 1 << 12; e.preventDefault(); }
+  });
+  window.addEventListener("keyup", (e) => {
+    const k = KEYMAP[e.key.toLowerCase()];
+    if (k !== undefined) { kbKeys &= ~(1 << k); setKeys(); }
+    if (e.code === "Space") buttons &= ~(1 << 12);
+  });
+
+  /* ---- firmware ------------------------------------------------------- */
+  const STORE_KEY = "fm1electro-flash-v1", STORE_FROM = 536576, STORE_LEN = 24576;
+  function b64ToBytes(b64) { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function bytesToB64(u) { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+  let flashSeen = 0;
+  function saveFlash() {
+    try { const f = new Uint8Array(ex.memory.buffer, ex.sim_flash() + STORE_FROM, STORE_LEN); localStorage.setItem(STORE_KEY, bytesToB64(f)); } catch (_) {}
+  }
+
+  const lcd = $("lcd"), ctx2d = lcd.getContext("2d"), img = ctx2d.createImageData(240, 240);
+  function draw() {
+    if (ex) {
+      const px = new Uint16Array(ex.memory.buffer, ex.sim_screen(), 240 * 240), d = img.data;
+      for (let i = 0, j = 0; i < px.length; i++, j += 4) {
+        const v = px[i];
+        d[j] = ((v >> 11) & 31) * 255 / 31; d[j + 1] = ((v >> 5) & 63) * 255 / 63; d[j + 2] = (v & 31) * 255 / 31; d[j + 3] = 255;
+      }
+      ctx2d.putImageData(img, 0, 0);
+      const leds = new Uint8Array(ex.memory.buffer, ex.sim_leds(), 41);
+      for (let i = 0; i < 14; i++) btnEls[i].classList.toggle("lit", !!leds[i]);
+      for (let k = 0; k < 27; k++) keyEls[k].classList.toggle("lit", !!leds[14 + k]);
+      if (ex.sim_flash_writes() !== flashSeen) { flashSeen = ex.sim_flash_writes(); saveFlash(); }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  const t0 = performance.now();
+  function control() {
+    if (!ex) return;
+    ex.sim_control(Math.floor(performance.now() - t0) >>> 0, (buttons | latched) >>> 0, (keys | kbKeys) >>> 0,
+      enc[0], enc[1], enc[2], enc[3], enc[4], enc[5], enc[6], +$("master").value);
+    enc.fill(0);
+  }
+
+  /* Without sound the engine still runs, so the sequencer moves. */
+  let silentTimer = null, actx = null, node = null;
+  const RATE = 44100;
+  function silentClock() {
+    let last = performance.now(), acc = 0;
+    silentTimer = setInterval(() => {
+      const now = performance.now(); acc += (now - last) * RATE / 1000; last = now;
+      const blk = ex.sim_block();
+      let n = 0;
+      while (acc >= blk && n++ < 64) { ex.sim_render(); acc -= blk; }
+      if (acc > blk * 64) acc = 0;
+    }, 10);
+  }
+
+  function startAudio() {
+    if (actx) { actx.close(); actx = null; node = null; $("sound").textContent = "Ton an"; $("sound").setAttribute("aria-pressed", "false"); silentClock(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { status("Dieser Browser kann keinen Ton ausgeben."); return; }
+    try { actx = new AC({ sampleRate: RATE, latencyHint: "interactive" }); } catch (_) { actx = new AC(); }
+    clearInterval(silentTimer);
+    const blk = ex.sim_block();
+    const ratio = RATE / actx.sampleRate;      /* resample when the device runs at 48 kHz */
+    let buf = new Float32Array(0), pos = 0, have = 0;
+    node = actx.createScriptProcessor(1024, 0, 2);
+    node.onaudioprocess = (e) => {
+      const L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1), n = L.length;
+      const need = Math.ceil(n * ratio) + 2;
+      while (have - pos < need) {
+        ex.sim_render();
+        const a = new Float32Array(ex.memory.buffer, ex.sim_audio(), blk * 2);
+        if (buf.length < (have - Math.floor(pos) + blk) * 2) { const nb = new Float32Array((have - Math.floor(pos) + blk) * 4); nb.set(buf.subarray(Math.floor(pos) * 2, have * 2)); have -= Math.floor(pos); pos -= Math.floor(pos); buf = nb; }
+        buf.set(a, have * 2); have += blk;
+      }
+      for (let i = 0; i < n; i++) {
+        const p = Math.floor(pos), f = pos - p;
+        L[i] = buf[p * 2] + (buf[p * 2 + 2] - buf[p * 2]) * f;
+        R[i] = buf[p * 2 + 1] + (buf[p * 2 + 3] - buf[p * 2 + 1]) * f;
+        pos += ratio;
+      }
+      const drop = Math.floor(pos); buf.copyWithin(0, drop * 2, have * 2); have -= drop; pos -= drop;
+    };
+    node.connect(actx.destination);
+    if (actx.state === "suspended") actx.resume();
+    $("sound").textContent = "Ton aus"; $("sound").setAttribute("aria-pressed", "true");
+    status("Ton läuft (" + Math.round(actx.sampleRate / 100) / 10 + " kHz). PLAY startet den Groove.");
+  }
+  $("sound").addEventListener("click", () => { if (ex) startAudio(); });
+
+  $("reset").addEventListener("click", () => {
+    try { localStorage.removeItem(STORE_KEY); } catch (_) {}
+    ex.sim_init(0); flashSeen = ex.sim_flash_writes(); status("Speicher gelöscht, Werks-Set geladen.");
+  });
+
+  WebAssembly.instantiate(b64ToBytes(WASM_B64), {}).then(({ instance }) => {
+    ex = instance.exports;
+    let restore = 0;
+    try {
+      const saved = localStorage.getItem(STORE_KEY);
+      const f = new Uint8Array(ex.memory.buffer, ex.sim_flash(), ex.sim_flash_bytes());
+      f.fill(255);
+      if (saved) { const b = b64ToBytes(saved); if (b.length === STORE_LEN) { f.set(b, STORE_FROM); restore = 1; } }
+    } catch (_) {}
+    ex.sim_init(restore);
+    flashSeen = ex.sim_flash_writes();
+    setInterval(control, 5);
+    silentClock();
+    requestAnimationFrame(draw);
+    status(restore ? "Gespeicherte Grooves geladen. Tippe „Ton an“." : "Bereit. Tippe „Ton an“, dann PLAY.");
+    if (navigator.requestMIDIAccess) navigator.requestMIDIAccess().then((m) => {
+      m.inputs.forEach((inp) => { inp.onmidimessage = (ev) => { const d = ev.data; ex.sim_midi(d[0], d[1] || 0, d[2] || 0); }; });
+    }).catch(() => {});
+  }).catch((e) => status("Firmware konnte nicht starten: " + e.message));
+})();
+</script>

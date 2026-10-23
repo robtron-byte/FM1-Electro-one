@@ -112,6 +112,10 @@ Die Encoder-Nummern E1–E7 folgen der Nummerierung im FM1-Open-Code. Wo sie phy
 | Arpeggiator der Apps (die ARP-Taste ist hier der Generator) | offen |
 | Noten-Looper der Apps (frei laufende Loop-Aufnahme über den Patterns) | offen |
 
+## Simulator im Browser
+
+`make web` übersetzt die echte Firmware (Engine, Bedienung, Speicher) mit clang nach WebAssembly und baut daraus `build/web/fm1-electro-simulator.html`: Display, Encoder, Tasten mit LEDs, Klaviatur und Ton im Browser, auch auf dem Handy. Die FM1-Open-Schnittstelle (Display, LEDs, Bedienelemente, Flash) ist in `host/web/sim.c` nachgebildet, gespeicherte Grooves bleiben im Browser. Rechenzeit und Speicher des echten Geräts bildet der Simulator nicht ab.
+
 ## Bauen und testen (PC)
 
 ```sh

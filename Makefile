@@ -55,6 +55,21 @@ build/po_render: host/po_render.c engine/po12.c engine/po12.h
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/po_render.c engine/po12.c -lm
 
+WASM_FLAGS = --target=wasm32 -O2 -ffreestanding -nostdlib -fvisibility=hidden -isystem host/web/include \
+             -DFM1_HOST_TEST -DFM1_OPEN_WEB -Iengine -Iui -Ifm1 -Isdk_include -Ithird_party/daisy808 -std=c99 \
+             -Wall -Wno-unused-parameter -Wno-misleading-indentation -Wno-unknown-pragmas \
+             -Wl,--no-entry -Wl,--export-dynamic -Wl,--initial-memory=4194304 -Wl,-z,stack-size=262144
+
+# Browser panel simulator (needs clang with the wasm32 target and wasm-ld).
+web: build/web/fm1-electro-simulator.html
+
+build/web/fm1sim.wasm: host/web/sim.c host/web/libc.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
+	@mkdir -p build/web
+	clang $(WASM_FLAGS) -o $@ host/web/sim.c host/web/libc.c $(ENGINE) ui/gfx.c ui/el_ui.c fm1/el_store.c
+
+build/web/fm1-electro-simulator.html: build/web/fm1sim.wasm host/web/index.html tools/build_web.py
+	python3 tools/build_web.py build/web/fm1sim.wasm host/web/index.html $@
+
 test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 	@mkdir -p build/wav build/wav_jp6 build/screens
 	./build/synth_test build/wav > /dev/null
@@ -66,4 +81,4 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean
+.PHONY: demo test screens presets soundcheck clean web
