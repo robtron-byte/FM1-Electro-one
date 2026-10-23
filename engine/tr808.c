@@ -254,8 +254,13 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
     /* Output DC block (about 3.4 Hz). */
     float o = out - v->dc_x + 0.99952f * v->dc_y;
     v->dc_x = out; v->dc_y = o;
-    if (v->age > (uint32_t)MS(30.0f) && v->env * v->volts < 1e-4f) v->active = 0;
-    return o;
+    /* End of the sound: fade out over a few ms instead of stopping, so the
+     * last ripple and the DC blocker's slow settling never end in a step. */
+    if (v->age > (uint32_t)MS(30.0f) && v->env * v->volts < 1e-4f) {
+        v->env3 *= 0.9925f;                  /* tau 3 ms */
+        if (v->env3 < 1e-3f) v->active = 0;
+    }
+    return o * v->env3;
 }
 
 /* Snare: two resonators (173 / 336 Hz on later units) cross-faded by TONE,
@@ -548,10 +553,13 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         v->out_lp += (y - v->out_lp) * 0.7277f;  /* ~9 kHz */
         y += tr808_mx_cal[9] * (y - v->out_lp);
     }
-    if (v->env < 1e-4f) v->active = 0;
+    if (v->env < 1e-4f) {                        /* fade out, no step at the end */
+        v->env3 *= 0.9925f;
+        if (v->env3 < 1e-3f) v->active = 0;
+    }
     /* Accent: the higher reservoir alone gives ~+2 dB through the clipping
      * VCA; the chart's +6 dB needs the rest as gain. */
-    return y * (1.0f + 0.6f * v->accent);
+    return y * v->env3 * (1.0f + 0.6f * v->accent);
 }
 
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
