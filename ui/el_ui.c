@@ -4,7 +4,7 @@
  *   MASTER   SELECT              screen         KNOB 1  KNOB 2  KNOB 3  KNOB 4
  *   PRESETS  ALGORITHM                          FX   SEL  ENV  LFO  EDIT GLO
  *   OCT -    OCT +                              HOME SAVE ARP  SEQ  PLAY REC  (PLAY = PLAY/STOP)
- *   27 keys, white ones numbered 01-16
+ *   27 keys in two rows: 11 black ones (3-2-3-2-1) above 16 white ones
  *
  * The left column is structure: SELECT the pattern, ALGORITHM tempo (GLO:
  * pattern length, EDIT: swing / note length / step length), PRESETS the

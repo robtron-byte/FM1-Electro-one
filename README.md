@@ -77,7 +77,7 @@ Die Belegung folgt dem Bedienfeld des FM-1 (Lage laut der Workbench von FM1 Open
 MASTER   SELECT              Display        KNOB 1  KNOB 2  KNOB 3  KNOB 4
 PRESETS  ALGORITHM                          FX   SEL  ENV  LFO  EDIT GLO
 OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
-27 Tasten, die weißen mit 01–16 bedruckt
+27 Tasten in zwei Reihen: 11 schwarze (3-2-3-2-1) über 16 weißen
 ```
 
 **Links die Struktur, rechts der Klang.** SELECT wählt das Pattern, ALGORITHM das Tempo (GLO: Pattern-Länge, EDIT: Swing bzw. Noten- oder Schrittlänge), PRESETS den Sound eines Bereichs, in BEAT das Kit. KNOB 1–4 rechts stellen immer den Klang ein. In HOME sind es die Pegel (bzw. Verzerrungs-Sends) der vier Bereiche, deren Tasten FX, SEL, ENV und LFO direkt darunter liegen. EDIT und GLO sind die beiden Umschalter.
