@@ -8,8 +8,10 @@
  * stored, so the last grooves come back after a restart. Version 14 appends
  * the arpeggiator settings. Older records still load: version 12 is the same
  * without them, version 13 also carried note loops (the looper now lives on
- * the branch "looper"), of which only the arpeggiator settings are taken. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
+ * the branch "looper"), of which only the arpeggiator settings are taken.
+ * Version 15 has the layout of 14; the toms' knobs were reordered (see
+ * old_tom_params). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -33,7 +35,11 @@ typedef struct { FIELDS_V12 } payload_v12_t;
 /* Version 13 per area: arpeggiator, loop bars, muted, count, 192 events. */
 typedef struct { uint8_t arp[ARP_PARAMS], bars, muted; uint16_t count; uint8_t loop[192][3]; } area_v13_t;
 typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
-typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_t;   /* version 14 */
+typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_t;   /* versions 14, 15 */
+/* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
+ * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
+ * of each old knob in the new order: */
+static const uint8_t old_tom_params[7] = {4, 0, 2, 5, 6, 7, 8};
 #define V12_BYTES sizeof(payload_v12_t)
 #define V13_BYTES sizeof(payload_v13_t)
 
@@ -82,7 +88,7 @@ static uint32_t read_valid(unsigned which)
 {
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
-    if (!(record.version == VERSION && record.bytes == sizeof(payload_t)) &&
+    if (!((record.version == VERSION || record.version == VERSION_14) && record.bytes == sizeof(payload_t)) &&
         !(record.version == VERSION_13 && record.bytes == V13_BYTES) &&
         !(record.version == VERSION_12 && record.bytes == V12_BYTES)) return 0;
     if (crc32(&record.data, record.bytes) != record.crc) return 0;
@@ -121,9 +127,11 @@ int el_store_load(el_engine_t *e)
     m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
-    for (unsigned part = 0; part < DR_PARTS; ++part)
-        for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
-            tr808_set(&m->kit, (int)part, p, d->params[part][p]);
+    for (unsigned part = 0; part < DR_PARTS; ++part) {
+        int tom = (part == D8_LT || part == D8_HT) && record.version < VERSION;
+        for (int p = 0; p < (tom ? 7 : tr808_nparams((int)part)) && p < PARAMS; ++p)
+            tr808_set(&m->kit, (int)part, tom ? old_tom_params[p] : p, d->params[part][p]);
+    }
     for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;

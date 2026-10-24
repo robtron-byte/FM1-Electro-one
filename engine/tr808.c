@@ -28,10 +28,15 @@ static const part_params_t params[D8_NUM + 1] = {
     /* SD */ {9, {P_LEVEL, P_TUNE, P_TONE, P_SNAPPY, P_DECAY, P_PAN, P_REV, P_DLY, P_SOUND},
               {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0),
                {"Sound", 1, 0, sd_names}}},
-    /* LT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 45), P("Rev", 0), P("Dly", 0)}},
-    /* HT */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, tom_names}, P("Pan", 83), P("Rev", 0), P("Dly", 0)}},
+    /* Toms: the four knobs of the breakdown first (Pitch, Bend = how far
+     * the pitch sags, Decay, Noise), then Level. Store version 15 moved
+     * them here from Level, Tune, Decay, Sound, Pan, Rev, Dly. */
+    /* LT */ {9, {P_TUNE, P_SNAPPY, P_DECAY, P_TONE, P_LEVEL, P_SOUND, P_PAN, P_REV, P_DLY},
+              {P("Pitch", 64), P("Bend", 64), P("Decay", 64), P("Noise", 64), P("Level", 100), {"Sound", 1, 0, tom_names},
+               P("Pan", 45), P("Rev", 0), P("Dly", 0)}},
+    /* HT */ {9, {P_TUNE, P_SNAPPY, P_DECAY, P_TONE, P_LEVEL, P_SOUND, P_PAN, P_REV, P_DLY},
+              {P("Pitch", 64), P("Bend", 64), P("Decay", 64), P("Noise", 64), P("Level", 100), {"Sound", 1, 0, tom_names},
+               P("Pan", 83), P("Rev", 0), P("Dly", 0)}},
     /* RS */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, rim_names}, P("Pan", 51), P("Rev", 0), P("Dly", 0)}},
     /* CP */ {8, {P_LEVEL, P_TONE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY, P_TUNE},
@@ -350,30 +355,52 @@ static float snare(tr808_t *t, tr_voice_t *v)
     return out;
 }
 
-/* Toms / congas: one resonator; diodes make the pitch start sharp and drop
- * (x1.06 normal, x1.14 accent). Toms add a little low-passed pink noise. */
-/* Tuning range (low, stock, high) of LT, HT, LC, HC; the middle circuit
- * (MT 135 Hz / MC 280 Hz) is left out. */
-static const float tom_hz[4][3] EL_DSP_DATA = {{80, 90, 100}, {165, 185, 220},
-                                               {165, 185, 220}, {370, 400, 455}};
+/* Toms / congas, rebuilt after tachyonbeats' "808 part 06: low tom"
+ * breakdown and fitted to its audio (residual -31 dB): a sine that starts
+ * on -cos with a 0.19 ms edge, its pitch sagging from f0 * (1 + bend) to
+ * f0 with a 43 ms time constant (LT: 119 -> 93 Hz), an exponential fade
+ * (75 ms), a little band-passed noise (1.4 %) and a click, all through a
+ * gentle tanh drive (0.76). Accent pushes the body harder into the drive
+ * and bends a little further. HT and the congas scale the times with the
+ * pitch; congas bend less, decay faster and have no noise. */
+static const float tom_hz[4] EL_DSP_DATA = {93.0f, 185.0f, 185.0f, 400.0f};   /* LT, HT, LC, HC */
 static float tom(tr808_t *t, tr_voice_t *v, int part)
 {
     int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-    float k = knob(t, part, P_TUNE), lo = tom_hz[idx][0], mid = tom_hz[idx][1], hi = tom_hz[idx][2];
-    float f0 = (k < 0.5f ? lo * dsp_exp2(2.0f * k * dsp_log2(mid / lo)) : mid * dsp_exp2((2.0f * k - 1.0f) * dsp_log2(hi / mid))) * tolerance[part];
-    float q = (conga ? 45.0f : 25.0f) * spread(t, part, P_DECAY);
-    float pulse = trigger_pulse(v);
-    float drop = (conga ? 0.3f : 1.0f) * (0.06f + 0.10f * v->accent);
-    v->pitch *= decay_coef(MS(13.0f + 15.0f * v->accent));
-    if ((v->age & 7u) == 0) svf_set(&v->r1, f0 * (1.0f + drop * v->pitch), q);
-    float y = svf_bp(&v->r1, pulse * 2.4f, 0);
-    v->env2 *= decay_coef(q / (DSP_PI * f0) * EL_SAMPLE_RATE);
-    if (!conga) {
-        v->env *= decay_coef(MS(85.0f) / 2.3f);
-        v->out_lp += (noise(&v->rng) - v->out_lp) * 0.0554f;   /* ~400 Hz */
-        y += v->out_lp * v->env * v->volts * 0.1f;
+    float f0 = tom_hz[idx] * dsp_exp2(0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f);   /* fitted: no tolerance */
+    float scale = dsp_sqrt(93.0f / f0);   /* times as fitted for LT, shorter for higher drums */
+    if (v->age == 0) {
+        v->lag2 = v->lag1;          /* what still rings fades out instead of clicking */
+        v->aux = 0;                 /* phase: the hit starts on -cos */
+        svf_set(&v->r1, 500.0f * f0 / tom_hz[idx], 1.0f);
     }
-    if (v->age > (uint32_t)MS(30.0f) && v->env2 * v->volts < 1e-4f) v->active = 0;
+    float bend = 0.277f * knob(t, part, P_SNAPPY) * 2.0f * (conga ? 0.35f : 1.0f) * (1.0f + 0.4f * v->accent);
+    v->pitch *= decay_coef(MS(42.9f * scale));
+    float hz = f0 * (1.0f + bend * v->pitch);
+    v->aux += hz * (1.0f / EL_SAMPLE_RATE);
+    if (v->aux >= 1.0f) v->aux -= 1.0f;
+    float body = -dsp_cos(2.0f * DSP_PI * v->aux);
+    v->env *= decay_coef(MS(74.9f * scale * (conga ? 0.65f : 1.0f) * dsp_exp2((t->pot[part][P_DECAY] - 64) / 48.0f)));
+    v->env3 *= decay_coef(MS(0.19f));
+    body *= v->env * (1.0f - v->env3);
+    if (!conga) {
+        /* Noise: band-passed around 500 Hz (the fit's residual), 10 ms. */
+        float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
+        v->env2 *= decay_coef(MS(10.0f));
+        float amount = 0.014f * dsp_exp2((t->pot[part][P_TONE] - 64) / 16.0f);
+        body += svf_bp(&v->r1, noise(&v->rng), 0) * 2.0f * amount * v->env2 * attack;
+        /* Click: a 0.3 ms spike, high-passed at 1 kHz. */
+        float c = dsp_exp(-(float)v->age / MS(0.3f));
+        v->out_lp += (c - v->out_lp) * 0.133f;
+        body += 0.03f * (c - v->out_lp);
+    }
+    float soft = v->volts * 14.0f / (4.0f + 10.0f * v->accent);   /* MIDI hits below normal */
+    float in = body * (1.0f + 1.2f * v->accent) * soft;
+    float y = (dsp_tanh(0.76f * (in + 0.0025f)) - dsp_tanh(0.76f * 0.0025f)) * (1.0f + 0.5f * v->accent);
+    v->lag2 *= decay_coef(MS(1.5f));
+    y += v->lag2;
+    v->lag1 = y;
+    if (v->age > (uint32_t)MS(30.0f) && v->env < 1e-4f && dsp_abs(v->lag2) < 1e-5f) { v->lag1 = 0; v->active = 0; }
     return y;
 }
 
@@ -658,7 +685,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 20.6f, 18.91f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 0.0788f, 0.1085f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
 
 /* PO-12 kit output: its own balance (po12.c), +4.6 dB to sit like the 808 kit in the mix. */
 static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};

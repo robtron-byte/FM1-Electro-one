@@ -15,8 +15,8 @@ Auf diesem Branch steckt die Arbeit am Sound:
   |---|---|
   | Bassdrum | 50 Hz, mit Attack-Punch, Retrigger-Impuls, leichtem Tonhöhenabfall und Klick über TONE |
   | Snare | 173 + 336 Hz |
-  | Toms | 90 / 135 / 185 Hz |
-  | Congas | 185 / 280 / 400 Hz |
+  | Toms | 93 / 185 Hz (Sinus, sackt in 43 ms um 28 % ab, nach tachyonbeats) |
+  | Congas | 185 / 400 Hz |
   | Rimshot | 455 + 1667 Hz |
   | Claves | 2,5 kHz |
   | Metall-Sounds | sechs Rechteck-Oszillatoren bei 205,3–800 Hz mit Bandpässen bei 3,44 und 7,1 kHz |
