@@ -2,8 +2,8 @@
  * Four-area panel, laid out after the FM-1's front:
  *
  *   MASTER   SELECT              screen         KNOB 1  KNOB 2  KNOB 3  KNOB 4
- *   PRESETS  ALGORITHM                          FX   SCL  ENV  LFO  EDIT GLO
- *   OCT -    OCT +                              HOME SAVE ARP  SEQ  PLAY REC
+ *   PRESETS  ALGORITHM                          FX   SEL  ENV  LFO  EDIT GLO
+ *   OCT -    OCT +                              HOME SAVE ARP  SEQ  PLAY REC  (PLAY = PLAY/STOP)
  *   27 keys, white ones numbered 01-16
  *
  * The left column is structure: SELECT the pattern, ALGORITHM tempo (GLO:
@@ -12,7 +12,7 @@
  * button it belongs to on the HOME pages. EDIT and GLO are the two shifts.
  *
  * Everywhere
- *   FX / SCL / ENV / LFO  areas BEAT / RHYTHM / STRINGS / BASS; press the
+ *   FX / SEL / ENV / LFO  areas BEAT / RHYTHM / STRINGS / BASS; press the
  *                         active one again for the next sound page
  *   GLO + area button     mute / unmute that area
  *   HOME                  overview: KNOB 1-4 levels (GLO: delay time, feedback, reverb
@@ -68,7 +68,7 @@ enum { ROLL_Y = 52, ROLL_H = 118 };
 
 static const uint8_t white_keys[UI_WHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const uint8_t black_keys[UI_BLACK] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
-static const uint8_t area_buttons[EL_AREAS] = {BTN_FX, BTN_SCL, BTN_ENV, BTN_LFO};
+static const uint8_t area_buttons[EL_AREAS] = {BTN_FX, BTN_SEL, BTN_ENV, BTN_LFO};
 static const char *const area_names[EL_AREAS] = {"BEAT", "RHYTHM", "STRINGS", "BASS"};
 static const char *const area_tabs[EL_AREAS] = {"BEAT", "RHYT", "STRG", "BASS"};
 static const uint16_t area_color[EL_AREAS] = {0xfb44, 0xfee0, 0xb4bf, 0x3f3b};

@@ -151,7 +151,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
     <h2>So bedienst du es</h2>
     <p>Encoder: ziehen nach oben/unten, Mausrad oder die Pfeile darunter. EDIT, GLO und ARP rasten auf Wunsch ein (Häkchen oben), dann tippst du sie an, statt sie zu halten. Am Rechner spielen <kbd>A</kbd>–<kbd>K</kbd> die weißen Tasten ab F3, <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>Z</kbd> <kbd>U</kbd> die schwarzen, <kbd>Leertaste</kbd> ist PLAY.</p>
     <dl>
-      <dt>FX SCL ENV LFO</dt><dd>Bereich BEAT, RHYTHM, STRINGS, BASS; nochmal drücken: nächste Klangseite. GLO + Bereich: stumm.</dd>
+      <dt>FX SEL ENV LFO</dt><dd>Bereich BEAT, RHYTHM, STRINGS, BASS; nochmal drücken: nächste Klangseite. GLO + Bereich: stumm.</dd>
       <dt>HOME</dt><dd>Übersicht. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove. EDIT halten: Verzerrung, KNOB 1–4 Sends, PRESETS Typ, ALGORITHM Drive, SELECT Ton.</dd>
       <dt>Links: Struktur</dt><dd>SELECT Pattern. ALGORITHM Tempo, GLO + ALGORITHM Pattern-Länge, EDIT + ALGORITHM Swing (BEAT), Notenlänge (RHYTHM, BASS) bzw. Schrittlänge (STRINGS). PRESETS Sound bzw. in BEAT das Kit.</dd>
       <dt>Rechts: Klang</dt><dd>KNOB 1–4 stellen den Klang ein; in HOME die Pegel der vier Bereiche, deren Tasten direkt darunter liegen.</dd>
@@ -167,7 +167,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
 <script>
 (() => {
   const WASM_B64 = "%%WASM%%";
-  const NAMES = ["OCT-", "OCT+", "FX", "SCL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"];
+  const NAMES = ["OCT-", "OCT+", "FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY/STOP", "REC"];
   const ROLES = ["", "", "BEAT", "RHYT", "STRG", "BASS", "", "", "", "", "GEN", "STEP", "", ""];
   const LATCHABLE = new Set([6, 7, 10]);
   const WHITE = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26];

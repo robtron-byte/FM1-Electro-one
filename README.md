@@ -43,7 +43,7 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
 | **BEAT** | FX | 808-Drum-Machine (10 Instrumente + ZAP + PULSE, 5 Kits inkl. PO-12; Toms/Congas tief und hoch) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
-| **RHYTHM** | SCL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
+| **RHYTHM** | SEL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
 | **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, m9, MIN, 5+8, 4THS, 7SUS4, MAJ7, m7b5, MAJ, SUS2, ADD9, MAJ9, 7) und Umkehrung |
 | **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
 
@@ -71,22 +71,22 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 
 ### Bedienung
 
-Die Belegung folgt dem Bedienfeld des FM-1 (Lage laut der Workbench von FM1 Open):
+Die Belegung folgt dem Bedienfeld des FM-1 (Lage laut der Workbench von FM1 Open, bestätigt durch ein Foto des Geräts):
 
 ```
 MASTER   SELECT              Display        KNOB 1  KNOB 2  KNOB 3  KNOB 4
-PRESETS  ALGORITHM                          FX   SCL  ENV  LFO  EDIT GLO
-OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY REC
+PRESETS  ALGORITHM                          FX   SEL  ENV  LFO  EDIT GLO
+OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
 27 Tasten, die weißen mit 01–16 bedruckt
 ```
 
-**Links die Struktur, rechts der Klang.** SELECT wählt das Pattern, ALGORITHM das Tempo (GLO: Pattern-Länge, EDIT: Swing bzw. Noten- oder Schrittlänge), PRESETS den Sound eines Bereichs, in BEAT das Kit. KNOB 1–4 rechts stellen immer den Klang ein. In HOME sind es die Pegel (bzw. Verzerrungs-Sends) der vier Bereiche, deren Tasten FX, SCL, ENV und LFO direkt darunter liegen. EDIT und GLO sind die beiden Umschalter.
+**Links die Struktur, rechts der Klang.** SELECT wählt das Pattern, ALGORITHM das Tempo (GLO: Pattern-Länge, EDIT: Swing bzw. Noten- oder Schrittlänge), PRESETS den Sound eines Bereichs, in BEAT das Kit. KNOB 1–4 rechts stellen immer den Klang ein. In HOME sind es die Pegel (bzw. Verzerrungs-Sends) der vier Bereiche, deren Tasten FX, SEL, ENV und LFO direkt darunter liegen. EDIT und GLO sind die beiden Umschalter.
 
 **Überall**
 
 | Bedienung | Funktion |
 |---|---|
-| FX / SCL / ENV / LFO | Bereich BEAT / RHYTHM / STRINGS / BASS. Nochmal drücken: nächste Klangseite |
+| FX / SEL / ENV / LFO | Bereich BEAT / RHYTHM / STRINGS / BASS. Nochmal drücken: nächste Klangseite |
 | GLO + Bereichstaste | Bereich stumm / wieder an |
 | HOME | Übersicht: alle vier Spuren, Pegel, Mute. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove, OCT − / + schaltet die Bank (Stile 1–16 / User 17–24), schwarze Tasten 1–4 schalten die Bereiche stumm. KNOB 1–4 Pegel, GLO + KNOB 1–4 Delay-Zeit, Feedback, Hallgröße, Hallzeit; PRESETS Hall-Anteil (GLO: Delay-Anteil), GLO + ALGORITHM Tempo fein |
 | HOME + EDIT | Verzerrung: KNOB 1–4 Send von BEAT, RHYTHM, STRINGS, BASS; PRESETS Typ (OD, DIST, RAT, TUBE), ALGORITHM Drive, SELECT Ton |
@@ -111,7 +111,7 @@ OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY REC
 | REC | läuft: live einspielen (quantisiert). Steht: Noten Schritt für Schritt eingeben, EDIT + Taste = Pause | – |
 | STRINGS | GLO + weiße Taste 1–14 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten) | KNOB 3 Akkordtyp, KNOB 4 Umkehrung, GLO + weiß: halten/neu anschlagen |
 
-Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) und deckt sich mit dem FM-1-Emulator von Joakim Eriksson und der Verwendung in FM1 Open selbst (SELECT = 0, ALGORITHM = 1, KNOB 1–4 = 2–5, PRESETS = 6). Die Bereichstasten FX/SCL/ENV/LFO tragen am Gerät ihre alten Namen (SCL heißt in der Workbench SEL). Das Display zeigt die Bereiche als Reiter.
+Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) und deckt sich mit dem FM-1-Emulator von Joakim Eriksson und der Verwendung in FM1 Open selbst (SELECT = 0, ALGORITHM = 1, KNOB 1–4 = 2–5, PRESETS = 6). Die Bereichstasten FX/SEL/ENV/LFO tragen am Gerät ihre alten Namen. Das Display zeigt die Bereiche als Reiter.
 
 ### Stand
 

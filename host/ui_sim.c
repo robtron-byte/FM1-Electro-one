@@ -130,7 +130,7 @@ int main(int argc, char **argv)
     turn(1, 4);
     hold(BTN_GLO, 0);
 
-    tap_button(BTN_SCL);              /* RHYTHM */
+    tap_button(BTN_SEL);              /* RHYTHM */
     run(400);
     shot(dir, "03_rhythm");
 
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
 
     tap_button(BTN_HOME);             /* overview */
     hold(BTN_GLO, 1);
-    tap_button(BTN_SCL);              /* GLO + RHYTHM: mute it */
+    tap_button(BTN_SEL);              /* GLO + RHYTHM: mute it */
     hold(BTN_GLO, 0);
     turn(5, -6);                      /* bass level down */
     run(400);
