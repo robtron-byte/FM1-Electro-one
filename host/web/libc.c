@@ -29,6 +29,13 @@ char *strncpy(char *d, const char *s, size_t n)
     return d;
 }
 size_t strlen(const char *s) { size_t n = 0; while (s[n]) ++n; return n; }
+char *strchr(const char *s, int c)
+{
+    for (;; ++s) {
+        if (*s == (char)c) return (char *)s;
+        if (!*s) return 0;
+    }
+}
 
 int vsnprintf(char *out, size_t size, const char *f, va_list ap)
 {

@@ -8,3 +8,4 @@ int memcmp(const void *a, const void *b, size_t n);
 int strcmp(const char *a, const char *b);
 char *strncpy(char *d, const char *s, size_t n);
 size_t strlen(const char *s);
+char *strchr(const char *s, int c);
