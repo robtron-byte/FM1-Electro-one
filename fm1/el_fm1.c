@@ -30,6 +30,8 @@ int el_fm1_control(void)
         el_store_load(&engine);
         el_ui_init(&ui, &engine);
         ui.save = el_store_save;
+        ui.sound_get = el_sound_get;
+        ui.sound_put = el_sound_put;
         EL_FENCE();
         ready = 1;
     }

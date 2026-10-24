@@ -81,6 +81,16 @@ int el_post3(el_engine_t *e, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int1
 /* Control task: load a factory sound / a whole pattern into a synth track.
  * Returns 0, -1 queue full, -2 while the previous one is still pending. */
 int el_load_preset(el_engine_t *e, unsigned track, unsigned preset);
+/* Same with any values (a user sound): id is what the track shows as its
+ * sound (factory index, or EL_USER_SOUND + slot). */
+int el_load_sound(el_engine_t *e, unsigned track, unsigned id, unsigned engine, const uint8_t *values);
+enum { EL_USER_SOUND = 200, EL_USER_SOUNDS = 32, EL_SOUND_NAME = 10 };
+/* A user sound slot (stored by fm1/el_store.c). */
+typedef struct {
+    char name[EL_SOUND_NAME + 1];
+    uint8_t engine, used;
+    uint8_t v[SYN_VALUES];
+} el_sound_t;
 int el_load_pattern(el_engine_t *e, unsigned track, unsigned slot, const st_pattern_t *p);
 /* MIDI routing task: its own queue, so the two tasks never share a producer
  * side. Handles clock, Start/Continue/Stop and drum notes on channel 10. */

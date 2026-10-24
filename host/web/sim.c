@@ -68,6 +68,8 @@ EXPORT void sim_init(int restore)
     el_store_load(&engine);
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
+    ui.sound_get = el_sound_get;
+    ui.sound_put = el_sound_put;
 }
 
 /* One control pass: panel state since the last call. */

@@ -20,6 +20,14 @@ enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5
 typedef struct {
     el_engine_t *engine;
     int (*save)(el_engine_t *engine); /* SAVE button; 0 on success */
+    /* User sound slots (fm1/el_store.c); may be NULL. */
+    int (*sound_get)(unsigned slot, el_sound_t *out);
+    int (*sound_put)(unsigned slot, const el_sound_t *in);
+    char user_name[EL_USER_SOUNDS][EL_SOUND_NAME + 1];
+    uint8_t user_engine[EL_USER_SOUNDS], user_used[EL_USER_SOUNDS], user_cached;
+    /* SAVE in the editor: slot and name of the sound being stored. */
+    uint8_t sound_save, sound_slot, name_cursor;
+    char sound_name[EL_SOUND_NAME + 1];
     uint8_t area, overview, follow, part, bank, beat_layer, arp_tap;
     /* Synth editor (EDIT + area button): section and page per area. */
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];

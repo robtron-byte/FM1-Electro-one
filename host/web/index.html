@@ -159,7 +159,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
       <dt>Rechts: Klang</dt><dd>KNOB 1–4 stellen den Klang ein; in HOME die Pegel der vier Bereiche, deren Tasten direkt darunter liegen.</dd>
       <dt>BEAT</dt><dd>Schwarze Taste wählt und spielt ein Instrument (SEQ: zweite Ebene mit PULSE), weiße Tasten setzen Steps. GLO + SELECT wählt das Instrument, ohne es zu spielen. PRESETS: Kit (auch PO-12).</dd>
       <dt>Synths</dt><dd>Tasten spielen den Sound, SEQ schaltet in den Step-Modus (GLO + SELECT wählt den Step). PRESETS Sound, EDIT + PRESETS andere Engine (MKS-50 / JP-6).</dd>
-      <dt>EDIT + Bereich</dt><dd>Synth-Editor für RHYTHM, STRINGS oder BASS (EDIT leuchtet): alle Parameter der Engine in den Sektionen des Original-Panels. SELECT Sektion, ALGORITHM Seite, KNOB 1–4 die vier Regler, PRESETS Sound, EDIT + PRESETS andere Engine. Die Tasten spielen, der Sequencer läuft weiter. Bereichstaste nochmal: zurück.</dd>
+      <dt>EDIT + Bereich</dt><dd>Synth-Editor für RHYTHM, STRINGS oder BASS (EDIT leuchtet): alle Parameter der Engine in den Sektionen des Original-Panels. SELECT Sektion, ALGORITHM Seite, KNOB 1–4 die vier Regler, PRESETS Sound, EDIT + PRESETS andere Engine. Die Tasten spielen, der Sequencer läuft weiter. Bereichstaste nochmal: zurück. SAVE im Editor speichert den Sound in einen von 32 eigenen Plätzen (PRESETS Platz, KNOB 1 Cursor, KNOB 2 Buchstabe, SAVE nochmal); PRESETS findet sie nach den Werks-Sounds.</dd>
       <dt>ARP halten</dt><dd>Generator: KNOB 1 Stil, KNOB 2 Dichte, weiße Taste = neue Spur.</dd>
       <dt>ARP antippen</dt><dd>In RHYTHM, STRINGS, BASS: Arpeggiator an/aus (eingerastet: zweimal tippen). EDIT + ARP: Hold. Einstellungen auf der Seite ARP (Bereichstaste weiterdrücken): Modus, Rate, Oktaven, Gate.</dd>
       <dt>SAVE</dt><dd>Dann weiße Taste 1–8: Groove in User-Platz 17–24. Gespeichert wird im Browser.</dd>
@@ -267,7 +267,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   });
 
   /* ---- firmware ------------------------------------------------------- */
-  const STORE_KEY = "fm1electro-flash-v1", STORE_FROM = 536576, STORE_LEN = 24576;
+  const STORE_KEY = "fm1electro-flash-v1", STORE_FROM = 536576, STORE_LEN = 32768;   /* grooves (6 sectors), user sounds (2) */
   function b64ToBytes(b64) { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
   function bytesToB64(u) { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
   let flashSeen = 0;
@@ -361,7 +361,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
       const saved = localStorage.getItem(STORE_KEY);
       const f = new Uint8Array(ex.memory.buffer, ex.sim_flash(), ex.sim_flash_bytes());
       f.fill(255);
-      if (saved) { const b = b64ToBytes(saved); if (b.length === STORE_LEN) { f.set(b, STORE_FROM); restore = 1; } }
+      if (saved) { const b = b64ToBytes(saved); if (b.length <= STORE_LEN) { f.set(b, STORE_FROM); restore = 1; } }   /* older saves are shorter */
     } catch (_) {}
     ex.sim_init(restore);
     flashSeen = ex.sim_flash_writes();

@@ -375,26 +375,146 @@ static void save_to_user(el_ui_t *ui, unsigned user)
     ui->save_pending = 1;
 }
 
-/* E7 steps through the area's sounds: the MKS-50 ones, then the JP-6 ones.
- * EDIT + E7 jumps to the other engine. */
+/* ---- sounds: factory ones, then the user slots ----------------------------- */
+
+/* Names of the user slots, read once from Flash (and after each store). */
+static void user_cache(el_ui_t *ui)
+{
+    if (ui->user_cached) return;
+    ui->user_cached = 1;
+    for (unsigned i = 0; i < EL_USER_SOUNDS; ++i) {
+        el_sound_t s;
+        ui->user_used[i] = 0;
+        if (!ui->sound_get || ui->sound_get(i, &s) != 0 || !s.used) continue;
+        memcpy(ui->user_name[i], s.name, sizeof ui->user_name[i]);
+        ui->user_engine[i] = s.engine;
+        ui->user_used[i] = 1;
+    }
+}
+
+/* What the display shows for a sound id: factory name or "U05 NAME". */
+static const char *sound_label(el_ui_t *ui, unsigned id)
+{
+    static char label[EL_SOUND_NAME + 6];
+    if (id < EL_USER_SOUND) return syn_sound_name(id);
+    user_cache(ui);
+    unsigned slot = id - EL_USER_SOUND;
+    snprintf(label, sizeof label, "U%02u %s", slot + 1u, slot < EL_USER_SOUNDS && ui->user_used[slot] ? ui->user_name[slot] : "?");
+    return label;
+}
+
+static unsigned sound_engine_of(el_ui_t *ui, unsigned id)
+{
+    if (id < EL_USER_SOUND) return syn_sound_engine(id);
+    user_cache(ui);
+    return ui->user_engine[(id - EL_USER_SOUND) % EL_USER_SOUNDS];
+}
+
+static int load_sound_id(el_ui_t *ui, unsigned id)
+{
+    unsigned track = ui->area - 1u;
+    if (id < EL_USER_SOUND) return el_load_preset(ui->engine, track, id);
+    el_sound_t s;
+    if (!ui->sound_get || ui->sound_get(id - EL_USER_SOUND, &s) != 0 || !s.used) return -1;
+    return el_load_sound(ui->engine, track, id, s.engine, s.v);
+}
+
+/* One step through the area's factory sounds (MKS-50, then JP-6), then the
+ * user slots (all of them, whatever area they were made in). */
+static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
+{
+    int count = (int)syn_sound_count();
+    user_cache(ui);
+    if (id < EL_USER_SOUND) {
+        int i = (int)id;
+        do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
+        if (i >= 0 && i < count) return (unsigned)i;
+        if (dir > 0)
+            for (unsigned u = 0; u < EL_USER_SOUNDS; ++u) if (ui->user_used[u]) return EL_USER_SOUND + u;
+        return id;
+    }
+    for (int u = (int)(id - EL_USER_SOUND) + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
+        if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
+    if (dir < 0)
+        for (int i = count - 1; i >= 0; --i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
+    return id;
+}
+
+/* PRESETS steps through the sounds; EDIT + PRESETS jumps to the other
+ * engine's first factory sound. */
 static void browse_preset(el_ui_t *ui, int delta, int other_engine)
 {
     st_track_t *t = track_of(ui);
-    int count = (int)syn_sound_count(), index = t->preset, dir = delta > 0 ? 1 : -1, moves = delta > 0 ? delta : -delta;
+    unsigned id = t->preset;
+    int count = (int)syn_sound_count(), dir = delta > 0 ? 1 : -1, moves = delta > 0 ? delta : -delta;
     if (other_engine) {
-        unsigned want = syn_sound_engine((unsigned)index) == SYN_MKS ? SYN_JP6 : SYN_MKS;
+        unsigned want = sound_engine_of(ui, id) == SYN_MKS ? SYN_JP6 : SYN_MKS;
         for (int i = 0; i < count; ++i)
-            if (syn_sound_engine((unsigned)i) == want && syn_sound_area((unsigned)i) == ui->area) { index = i; break; }
+            if (syn_sound_engine((unsigned)i) == want && syn_sound_area((unsigned)i) == ui->area) { id = (unsigned)i; break; }
         moves = 0;
     }
     while (moves--) {
-        int i = index;
-        do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
-        if (i < 0 || i >= count) break;
-        index = i;
+        unsigned n = next_sound(ui, id, dir);
+        if (n == id) break;
+        id = n;
     }
-    if (index != t->preset && el_load_preset(ui->engine, ui->area - 1u, (unsigned)index) == 0 && other_engine)
-        notice(ui, syn_engine_names[syn_sound_engine((unsigned)index)]);
+    if (id != t->preset && load_sound_id(ui, id) == 0 && other_engine)
+        notice(ui, syn_engine_names[sound_engine_of(ui, id)]);
+}
+
+/* SAVE in the editor: pick a user slot (PRESETS or SELECT), name it (KNOB 1
+ * cursor, KNOB 2 letter), SAVE again stores it; any other button cancels. */
+static const char name_chars[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#&/.+";
+
+static void sound_save_start(el_ui_t *ui)
+{
+    const st_track_t *t = track_of(ui);
+    user_cache(ui);
+    unsigned slot = 0;
+    if (t->preset >= EL_USER_SOUND) slot = (t->preset - EL_USER_SOUND) % EL_USER_SOUNDS;
+    else while (slot + 1u < EL_USER_SOUNDS && ui->user_used[slot]) ++slot;
+    const char *base = t->preset >= EL_USER_SOUND && ui->user_used[slot] ? ui->user_name[slot] : syn_sound_name(t->preset);
+    memset(ui->sound_name, ' ', EL_SOUND_NAME);
+    ui->sound_name[EL_SOUND_NAME] = 0;
+    for (unsigned i = 0; i < EL_SOUND_NAME && base[i]; ++i) {
+        char c = base[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        ui->sound_name[i] = strchr(name_chars, c) ? c : ' ';
+    }
+    ui->sound_slot = (uint8_t)slot;
+    ui->name_cursor = 0;
+    ui->sound_save = 1;
+}
+
+static void sound_save_store(el_ui_t *ui)
+{
+    st_track_t *t = track_of(ui);
+    el_sound_t s;
+    memset(&s, 0, sizeof s);
+    memcpy(s.name, ui->sound_name, EL_SOUND_NAME);
+    for (int i = EL_SOUND_NAME - 1; i >= 0 && s.name[i] == ' '; --i) s.name[i] = 0;   /* no trailing blanks */
+    s.engine = t->part.engine;
+    s.used = 1;
+    memcpy(s.v, syn_values(&t->part), syn_value_count(s.engine));
+    ui->sound_save = 0;
+    if (!ui->sound_put || ui->sound_put(ui->sound_slot, &s) != 0) { notice(ui, "SOUND SAVE FAILED"); return; }
+    ui->user_cached = 0;   /* names read again */
+    load_sound_id(ui, EL_USER_SOUND + ui->sound_slot);   /* the area now shows the slot */
+    notice(ui, "SOUND SAVED");
+}
+
+static void sound_save_edit(el_ui_t *ui, const int16_t *enc)
+{
+    int slot_turn = enc[0] + enc[6];
+    if (slot_turn) ui->sound_slot = (uint8_t)el_clampi((int)ui->sound_slot + slot_turn, 0, EL_USER_SOUNDS - 1);
+    if (enc[2]) ui->name_cursor = (uint8_t)el_clampi((int)ui->name_cursor + enc[2], 0, EL_SOUND_NAME - 1);
+    if (enc[3]) {
+        int n = (int)sizeof name_chars - 1;
+        const char *at = strchr(name_chars, ui->sound_name[ui->name_cursor]);
+        int i = at ? (int)(at - name_chars) : 0;
+        i = ((i + enc[3]) % n + n) % n;
+        ui->sound_name[ui->name_cursor] = name_chars[i];
+    }
 }
 
 /* Black key -> drum part. 11 keys for 12 parts: BD .. ZAP on the black
@@ -499,6 +619,13 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     uint32_t pressed = c->buttons & ~ui->prev_buttons, keys_down = c->keys & ~ui->prev_keys;
     unsigned hold = hold_mask(c->buttons);
     ui->hold = hold;
+    if (ui->sound_save && !in_editor(ui)) ui->sound_save = 0;
+    if (ui->sound_save && (pressed & ~BIT(BTN_SAVE))) {
+        ui->sound_save = 0;
+        notice(ui, "SOUND SAVE CANCELLED");
+        pressed = 0;   /* the cancelling press does nothing else */
+    }
+    if (ui->sound_save) keys_down = 0;   /* naming: the keys rest */
     /* ARP tapped (nothing else used while it was down): arpeggiator. */
     if (pressed & BIT(BTN_ARP)) ui->arp_tap = 1;
     if ((pressed & ~BIT(BTN_ARP)) || keys_down) ui->arp_tap = 0;
@@ -552,7 +679,10 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->cursor[ui->area] = 0;
         }
     }
-    if ((pressed & BIT(BTN_SAVE)) && ui->save) {
+    if ((pressed & BIT(BTN_SAVE)) && in_editor(ui) && ui->sound_put) {
+        if (ui->sound_save) sound_save_store(ui);
+        else sound_save_start(ui);
+    } else if ((pressed & BIT(BTN_SAVE)) && ui->save) {
         if (!ui->save_pick) {
             ui->save_pick = 1;
             notice(ui, "SAVE: WHITE KEY 1-8");
@@ -612,6 +742,12 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     /* Encoders by where they sit: the left column is structure (SELECT
      * pattern, ALGORITHM tempo and length, PRESETS sound or kit), the four
      * knobs on the right are the sound. */
+    if (ui->sound_save) {
+        sound_save_edit(ui, c->encoders);
+        ui->prev_buttons = c->buttons;
+        ui->prev_keys = c->keys;
+        return;
+    }
     const int16_t *enc = c->encoders;
     const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM], presets = enc[ENC_PRESETS];
     int dist_page = ui->overview && (hold & HOLD_EDIT);
@@ -750,6 +886,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         unsigned section, page;
         ed_position(ui, &section, &page);
         mix(&sig[1], 0x5eed0000u | section | page << 4 | (uint32_t)t->part.engine << 8 | (uint32_t)t->preset << 12 | (uint32_t)t->muted << 24);
+        mix(&sig[1], ui->sound_save | (uint32_t)ui->sound_slot << 1 | (uint32_t)ui->name_cursor << 8 | (uint32_t)ui->user_cached << 16);
+        for (unsigned i = 0; i < EL_SOUND_NAME; ++i) mix(&sig[1], (uint8_t)ui->sound_name[i]);
         const ed_section_t *sec = ed_section(t->part.engine, section);
         for (unsigned i = 0; i < sec->count; ++i) mix(&sig[1], syn_values(&t->part)[sec->param[i]]);
     } else {
@@ -765,7 +903,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     }
     mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16 |
                  (uint32_t)ui->editor << 24 | (uint32_t)ui->ed_section[ui->area] << 25);
-    mix(&sig[2], ui->ed_page[ui->area]);
+    mix(&sig[2], ui->ed_page[ui->area] | (uint32_t)ui->sound_save << 8 | (uint32_t)ui->name_cursor << 9);
+    if (ui->sound_save) mix(&sig[2], (uint8_t)ui->sound_name[ui->name_cursor]);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->save_pick << 31);
     for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
@@ -802,6 +941,7 @@ static void update_leds(el_ui_t *ui)
     if ((synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer))
         leds |= 1ull << BTN_SEQ;
     if (in_editor(ui)) leds |= 1ull << BTN_EDIT;
+    if (ui->sound_save && (ui->now / 250u) & 1u) leds |= 1ull << BTN_SAVE;
     if (ui->overview) {
         if (m->current / 16u == ui->bank) leds |= 1ull << (14u + white_keys[m->current % 16u]);
         if (m->next != m->current && m->next / 16u == ui->bank && (ui->now / 250u) & 1u)
@@ -938,7 +1078,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     unsigned base = ui->step_page[ui->area] * 16u, pos = playing ? t->pos : 0xffu;
     unsigned shown = p->length > base ? p->length - base : 0;
     if (shown > 16) shown = 16;
-    gfx_text(b, 4, 35, syn_sound_name(t->preset), color, 2);
+    gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
     gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
     if (ui->step_mode[ui->area]) snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
     else snprintf(text, sizeof text, "%s O%+d", t->arp.v[ARP_ON] ? (t->arp.v[ARP_HOLD] ? "ARP-H" : "ARP") : "KEYS",
@@ -1023,11 +1163,30 @@ static void draw_editor(el_ui_t *ui, gfx_band_t *b)
     unsigned section, page;
     ed_position(ui, &section, &page);
     if (gfx_touches(b, 35, 16)) {
-        gfx_text(b, 4, 35, syn_sound_name(t->preset), color, 2);
+        gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
         const char *engine = syn_engine_names[t->part.engine];
         gfx_text(b, GFX_W - 4 - gfx_text_width(engine, 1), 39, engine, AMBER, 1);
     }
-    ed_draw(b, &t->part, section, page, color, 56, FOOT_Y - 6 - 56);
+    if (!ui->sound_save) {
+        ed_draw(b, &t->part, section, page, color, 56, FOOT_Y - 6 - 56);
+        return;
+    }
+    /* Storing the sound: slot, what it replaces, the name with its cursor. */
+    char text[32];
+    user_cache(ui);
+    unsigned slot = ui->sound_slot;
+    if (gfx_touches(b, 60, 10)) gfx_text(b, 4, 60, "SAVE SOUND TO USER SLOT", AMBER, 1);
+    snprintf(text, sizeof text, "U%02u", slot + 1u);
+    if (gfx_touches(b, 78, 24)) gfx_text(b, 4, 78, text, color, 3);
+    if (ui->user_used[slot]) snprintf(text, sizeof text, "REPLACES %s", ui->user_name[slot]);
+    else snprintf(text, sizeof text, "EMPTY");
+    if (gfx_touches(b, 108, 10)) gfx_text(b, 4, 108, text, ui->user_used[slot] ? RED : DIM, 1);
+    if (gfx_touches(b, 128, 22)) {
+        gfx_fill(b, 2, 126, GFX_W - 4, 22, PANEL);
+        gfx_text(b, 6, 130, ui->sound_name, TEXT, 2);
+        gfx_fill(b, 6 + (int)ui->name_cursor * 12, 147, 10, 2, AMBER);
+    }
+    if (gfx_touches(b, 160, 10)) gfx_text(b, 4, 160, syn_engine_names[t->part.engine], DIM, 1);
 }
 
 static void draw_overview(el_ui_t *ui, gfx_band_t *b)
@@ -1040,7 +1199,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
         if (!gfx_touches(b, y, 36)) continue;
         int muted = area_muted(ui, a);
         uint16_t color = muted ? DIM : area_color[a];
-        const char *sound = a ? syn_sound_name(e->track[a - 1].preset) : dr_kit_names[m->kit_index];
+        const char *sound = a ? sound_label(ui, e->track[a - 1].preset) : dr_kit_names[m->kit_index];
         unsigned level = a ? e->track[a - 1].level_value : m->level_value;
         gfx_text(b, 4, y + 2, area_names[a], color, 1);
         gfx_text(b, 60, y + 2, sound, muted ? DIM : TEXT, 1);
@@ -1091,7 +1250,17 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         gfx_text(b, 4, GFX_H - 12, "GENERATOR: PRESS A WHITE KEY", AMBER, 1);
         return;
     }
-    if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
+    if (in_editor(ui) && ui->sound_save) {
+        static const char *const labels[4] = {"CURSOR", "LETTER", "", ""};
+        for (unsigned i = 0; i < 2; ++i) gfx_text(b, 4 + (int)i * 59, FOOT_Y, labels[i], DIM, 1);
+        gfx_text(b, 180, FOOT_Y, "PRESETS", DIM, 1);
+        gfx_text(b, 180, FOOT_Y + 12, "SLOT", area_color[ui->area], 1);
+        char pos[8];
+        snprintf(pos, sizeof pos, "%u", ui->name_cursor + 1u);
+        gfx_text(b, 4, FOOT_Y + 12, pos, area_color[ui->area], 2);
+        char letter[2] = {ui->sound_name[ui->name_cursor] == ' ' ? '_' : ui->sound_name[ui->name_cursor], 0};
+        gfx_text(b, 63, FOOT_Y + 12, letter, area_color[ui->area], 2);
+    } else if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
         static const char *const labels[4] = {"NOTE", "OCTAVE", "CHORD", "INVERS"};
         static const char *const other[4] = {"NOTE", "OCTAVE", "ACCENT", "TIE"};
         for (unsigned i = 0; i < 4; ++i)
@@ -1125,8 +1294,10 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                      p->length > 16 ? (ui->step_page[0] ? " 2/2" : " 1/2") : "");
             hint = (ui->hold & HOLD_EDIT) ? "EDIT: ACCENT/CLEAR  ALGO=SWING" :
                    (ui->hold & HOLD_GLO) ? "GLO: ROLL/MUTE SEL=PART ALGO=LENGTH" : line;
+        } else if (in_editor(ui) && ui->sound_save) {
+            hint = "SAVE=STORE  OTHER BUTTON=CANCEL";
         } else if (in_editor(ui)) {
-            hint = (ui->hold & HOLD_EDIT) ? "EDIT: PRESETS=OTHER ENGINE  AREA=BACK" : "SELECT=SECTION ALGO=PAGE PRESETS=SOUND";
+            hint = (ui->hold & HOLD_EDIT) ? "EDIT: PRESETS=OTHER ENGINE  AREA=BACK" : "SEL=SECTION ALGO=PAGE SAVE=SOUND";
         } else {
             unsigned page = ui->page[ui->area];
             const st_track_t *t = track_of(ui);

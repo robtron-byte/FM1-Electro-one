@@ -68,20 +68,20 @@ void el_generate_all(el_engine_t *e, uint32_t seed)
     e->transport.swing = e->drums.pattern[e->drums.current].swing;
 }
 
-static void stage_patch(el_engine_t *e, unsigned preset)
-{
-    const uint8_t *v = syn_sound_values(preset);
-    unsigned n = syn_value_count(syn_sound_engine(preset));
-    for (unsigned i = 0; i < n; ++i) e->staged_patch[i] = v[i];
-}
-
 int el_load_preset(el_engine_t *e, unsigned track, unsigned preset)
 {
-    if (track >= EL_TRACKS || preset >= syn_sound_count()) return -1;
+    if (preset >= syn_sound_count()) return -1;
+    return el_load_sound(e, track, preset, syn_sound_engine(preset), syn_sound_values(preset));
+}
+
+int el_load_sound(el_engine_t *e, unsigned track, unsigned id, unsigned engine, const uint8_t *values)
+{
+    if (track >= EL_TRACKS || id > 255 || engine >= SYN_ENGINES || !values) return -1;
     if (e->staged_posted != e->staged_taken) return -2;
-    stage_patch(e, preset);
+    unsigned n = syn_value_count(engine);
+    for (unsigned i = 0; i < n; ++i) e->staged_patch[i] = values[i];
     EL_FENCE();
-    if (el_post3(e, EL_CMD_TRACK_PRESET, (uint8_t)track, (uint8_t)preset, (uint8_t)syn_sound_engine(preset), 0)) return -1;
+    if (el_post3(e, EL_CMD_TRACK_PRESET, (uint8_t)track, (uint8_t)id, (uint8_t)engine, 0)) return -1;
     ++e->staged_posted;
     return 0;
 }

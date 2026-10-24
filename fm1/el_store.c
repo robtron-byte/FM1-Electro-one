@@ -58,9 +58,21 @@ _Static_assert(SECTORS == 3, "three sectors per copy, as in every version so far
 
 /* Static: too large for the control task stack. Room for the larger
  * version 13 record when an old one is read. */
+/* User sound bank: one sector per copy. */
+enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 1 };
+typedef struct { char name[EL_SOUND_NAME]; uint8_t engine, used; uint8_t v[SYN_VALUES]; } sound_slot_t;
+typedef struct {
+    uint32_t magic, sequence;
+    uint16_t version, count;
+    uint32_t crc;
+    sound_slot_t slot[EL_USER_SOUNDS];
+} bank_t;
+_Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one sector");
+
 static union {
     record_t r;
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
+    bank_t bank;
 } buffer;
 _Static_assert(sizeof buffer <= 3 * FM1_FLASH_SECTOR_BYTES, "version 13 record fits three sectors");
 #define record buffer.r
@@ -157,7 +169,8 @@ int el_store_load(el_engine_t *e)
         unsigned engine = s->engine < SYN_ENGINES ? s->engine : SYN_MKS;
         for (unsigned p = 0; p < syn_value_count(engine); ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, syn_param_max(engine, p));
         syn_load(&t->part, engine, v);
-        t->preset = (uint8_t)(s->preset < syn_sound_count() ? s->preset : 0);
+        int user = s->preset >= EL_USER_SOUND && s->preset < EL_USER_SOUND + EL_USER_SOUNDS;
+        t->preset = (uint8_t)(s->preset < syn_sound_count() || user ? s->preset : 0);
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
         t->chord = (uint8_t)el_clampi(s->chord, 0, MKS_CHORDS);
@@ -210,3 +223,77 @@ int el_store_save(el_engine_t *e)
     if (!r) r = fm1_flash_write(address, &record, sizeof record);
     return r;
 }
+
+/* ---- user sounds ----------------------------------------------------------- */
+
+/* After the two groove copies when the partition has room there, otherwise
+ * the FM1 Open project slots just below the groove fallback (7 and 8). */
+uint32_t el_sound_address(unsigned which)
+{
+    if (fm1_flash_size() >= FM1_OPEN_BYTES + (2u * SECTORS + 2u) * FM1_FLASH_SECTOR_BYTES)
+        return FM1_OPEN_BYTES + (2u * SECTORS + which) * FM1_FLASH_SECTOR_BYTES;
+    return (FALLBACK_SECTOR - 2u + which) * FM1_FLASH_SECTOR_BYTES;
+}
+
+static uint32_t bank_valid(unsigned which)
+{
+    bank_t *k = &buffer.bank;
+    if (fm1_flash_read(el_sound_address(which), k, sizeof *k) != FM1_FLASH_OK) return 0;
+    if (k->magic != BANK_MAGIC || k->version != BANK_VERSION || k->count != EL_USER_SOUNDS) return 0;
+    if (crc32(k->slot, sizeof k->slot) != k->crc) return 0;
+    return k->sequence;
+}
+
+/* Newest valid copy into the buffer; returns its index, or -1 for none. */
+static int bank_read(void)
+{
+    uint32_t a = bank_valid(0), b = bank_valid(1);
+    if (!a && !b) return -1;
+    unsigned newest = (int32_t)(a - b) > 0 || !b ? 0u : 1u;
+    if (newest == 1u) bank_valid(1);   /* the buffer still holds copy 1 when b is valid */
+    else bank_valid(0);
+    return (int)newest;
+}
+
+int el_sound_get(unsigned slot, el_sound_t *out)
+{
+    if (slot >= EL_USER_SOUNDS || !out) return -1;
+    memset(out, 0, sizeof *out);
+    if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
+    if (bank_read() < 0) return 0;
+    const sound_slot_t *s = &buffer.bank.slot[slot];
+    if (!s->used || s->engine >= SYN_ENGINES) return 0;
+    memcpy(out->name, s->name, EL_SOUND_NAME);
+    out->name[EL_SOUND_NAME] = 0;
+    out->engine = s->engine;
+    out->used = 1;
+    for (unsigned p = 0; p < syn_value_count(s->engine); ++p)
+        out->v[p] = (uint8_t)el_clampi(s->v[p], 0, syn_param_max(s->engine, p));
+    return 0;
+}
+
+int el_sound_put(unsigned slot, const el_sound_t *in)
+{
+    if (slot >= EL_USER_SOUNDS || !in || in->engine >= SYN_ENGINES) return -1;
+    if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
+    bank_t *k = &buffer.bank;
+    int current = bank_read();
+    uint32_t sequence = current >= 0 ? k->sequence + 1u : 1u;
+    if (current < 0) memset(k, 0, sizeof *k);
+    sound_slot_t *s = &k->slot[slot];
+    memset(s, 0, sizeof *s);
+    memcpy(s->name, in->name, EL_SOUND_NAME);
+    s->engine = in->engine;
+    s->used = 1;
+    memcpy(s->v, in->v, syn_value_count(in->engine));
+    k->magic = BANK_MAGIC;
+    k->version = BANK_VERSION;
+    k->count = EL_USER_SOUNDS;
+    k->sequence = sequence ? sequence : 1u;
+    k->crc = crc32(k->slot, sizeof k->slot);
+    uint32_t address = el_sound_address(current == 0 ? 1u : 0u);   /* overwrite the older copy */
+    int r = fm1_flash_erase(address);
+    if (!r) r = fm1_flash_write(address, k, sizeof *k);
+    return r;
+}
+

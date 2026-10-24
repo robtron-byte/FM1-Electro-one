@@ -93,6 +93,7 @@ OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
 | PLAY | Start/Stop |
 | REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
 | EDIT + Bereichstaste | **Synth-Editor** für RHYTHM, STRINGS oder BASS: alle Parameter der Engine (MKS-50: 51, JP-6: 69) in den Sektionen des Original-Panels (MKS-50: DCO, VCF, VCA, ENV, LFO, CHORUS, KEY, FX; JP-6: VCO-1, VCO-2, MOD, VCF, VCA, ENV-1, ENV-2, LFO, KEY, FX). SELECT Sektion, ALGORITHM Seite, KNOB 1–4 die Regler der Seite, PRESETS Sound (EDIT: andere Engine). Das Display zeigt Hüllkurve, Filterkurve und LFO-Welle als Grafik, sonst alle Regler der Sektion als Balken. Die Tasten spielen, der Sequencer spielt die Spur weiter. Bereichstaste nochmal (oder HOME, SEQ): zurück. Kostet keine Rechenzeit, nur eine andere Ansicht |
+| SAVE im Editor | **Eigenen Sound speichern** (32 User-Plätze U01–U32, für beide Engines): PRESETS oder SELECT wählt den Platz (das Display zeigt, was dort liegt), KNOB 1 Cursor, KNOB 2 Buchstabe für den Namen, SAVE nochmal speichert, jede andere Taste bricht ab. PRESETS blättert nach den Werks-Sounds des Bereichs durch alle eigenen Sounds, in jedem Bereich |
 | ARP halten | Generator für den aktuellen Bereich: KNOB 1 Stil, KNOB 2 Dichte, weiße Taste erzeugt eine neue Spur |
 | ARP antippen | RHYTHM / STRINGS / BASS: Arpeggiator an/aus, die Tasten spielen dann den Arpeggiator. EDIT + ARP: HOLD |
 | SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
@@ -153,7 +154,7 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhä
 
 Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
 
-**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open. Ist dort kein Platz, nutzt es die Projekt-Slots 9–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open, die 32 eigenen Sounds (2,6 KB) in zwei weiteren Sektoren dahinter, getrennt von den Grooves. Ist dort kein Platz, nutzt es die Projekt-Slots 7–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 
 ## Speicher und Rechenzeit
 

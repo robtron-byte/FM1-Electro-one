@@ -14,4 +14,10 @@ uint32_t el_store_address(unsigned which);
 int el_store_load(el_engine_t *e);
 /* Save the current state. Briefly silences audio while Flash is written. */
 int el_store_save(el_engine_t *e);
+/* User sounds: 32 slots in their own sector (two alternating copies), so
+ * saving a sound never touches the grooves. get returns 0 (out->used tells
+ * whether the slot holds a sound) or <0 on Flash errors. */
+int el_sound_get(unsigned slot, el_sound_t *out);
+int el_sound_put(unsigned slot, const el_sound_t *in);
+uint32_t el_sound_address(unsigned which);
 #endif

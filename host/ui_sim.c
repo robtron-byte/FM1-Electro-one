@@ -102,6 +102,8 @@ int main(int argc, char **argv)
     el_init(&engine);
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
+    ui.sound_get = el_sound_get;
+    ui.sound_put = el_sound_put;
     run(100);
     shot(dir, "01_beat");
 
@@ -329,5 +331,47 @@ int main(int argc, char **argv)
     tap_button(BTN_LFO);                  /* the area button leaves */
     ed_ok = ed_ok && !ui.editor;
     printf("editor: all parameters, navigation, keys, leave %s\n", ed_ok ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok && ed_ok ? 0 : 1;
+    /* User sounds: SAVE in the editor, rename, slot 3, SAVE stores; PRESETS
+     * finds it after the factory sounds; another button cancels; the groove
+     * keeps pointing at it over a restart. */
+    hold(BTN_EDIT, 1);
+    tap_button(BTN_LFO);
+    hold(BTN_EDIT, 0);
+    turn(2, 4);                           /* change a knob: a sound of our own */
+    run(200);
+    tap_button(BTN_SAVE);
+    int us_ok = ui.sound_save == 1;
+    turn(6, -40);                         /* PRESETS: slot 1 */
+    turn(6, 2);                           /* slot 3 */
+    turn(2, -20);                         /* KNOB 1: first letter */
+    turn(3, 1);                           /* KNOB 2: next letter */
+    run(100);
+    char typed = ui.sound_name[0];
+    shot(dir, "20_sound_save");
+    tap_button(BTN_SAVE);
+    run(400);
+    el_sound_t got;
+    int gr = el_sound_get(2, &got);
+    us_ok = us_ok && !ui.sound_save && gr == 0 && got.used && got.engine == bass->part.engine && got.name[0] == typed &&
+            !memcmp(got.v, syn_values(&bass->part), syn_value_count(got.engine)) && bass->preset == EL_USER_SOUND + 2;
+    shot(dir, "21_sound_saved");
+    turn(6, -1);                          /* back to the factory sounds */
+    run(300);
+    us_ok = us_ok && bass->preset < EL_USER_SOUND;
+    turn(6, 200);                         /* to the end: the user slot */
+    run(300);
+    us_ok = us_ok && bass->preset == EL_USER_SOUND + 2;
+    tap_button(BTN_SAVE);                 /* cancel with another button */
+    tap_button(BTN_OCT_UP);
+    us_ok = us_ok && !ui.sound_save && ui.editor;
+    tap_button(BTN_LFO);                  /* leave the editor, store the groove */
+    tap_button(BTN_SAVE);
+    tap_button(BTN_SAVE);
+    static el_engine_t reboot;
+    el_init(&reboot);
+    us_ok = us_ok && el_store_load(&reboot) == 0 && reboot.track[2].preset == EL_USER_SOUND + 2 &&
+            !memcmp(syn_values(&reboot.track[2].part), got.v, syn_value_count(got.engine));
+    printf("sounds: user slot 3 \"%s\" (%s) stored, found, cancel, restart %s\n", got.name, syn_engine_names[got.engine],
+           us_ok ? "ok" : "FAIL");
+    return same && arp_ok && kept && beat_ok && ed_ok && us_ok ? 0 : 1;
 }

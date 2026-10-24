@@ -76,7 +76,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 	./build/synth_test build/wav > /dev/null
 	./build/jp6_test build/wav_jp6 > /dev/null
 	./build/render_demo build/wav | grep -E "^(timing|midi clock)"
-	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^arp\|^layout\|^editor"
+	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^arp\|^layout\|^editor\|^sounds"
 	@echo "host tests ok"
 
 clean:
