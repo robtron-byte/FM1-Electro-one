@@ -45,6 +45,7 @@ typedef struct {
     float metal_phase[6];                    /* shared six-oscillator metal source */
     tr_svf_t metal_bp1, metal_bp2;           /* its 3.44 kHz and 7.1 kHz band-passes */
     uint32_t noise;
+    float noise_now;                         /* this frame's sample of the shared noise source */
     float pan_l[D8_NUM], pan_r[D8_NUM];
 } tr808_t;
 

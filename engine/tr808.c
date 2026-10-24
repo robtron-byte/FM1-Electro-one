@@ -343,7 +343,7 @@ static float snare(tr808_t *t, tr_voice_t *v)
     v->env *= decay_coef(MS(k[5]) * decay);
     v->env2 *= decay_coef(MS(k[6]) * decay);
     float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
-    float n = svf_hp(&v->r3, noise(&v->rng));
+    float n = svf_hp(&v->r3, t->noise_now);
     float lp = 1.0f - dsp_exp(-2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE);
     v->aux += (n - v->aux) * lp;
     v->out_lp += (v->aux - v->out_lp) * lp;
@@ -388,7 +388,7 @@ static float tom(tr808_t *t, tr_voice_t *v, int part)
         float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
         v->env2 *= decay_coef(MS(10.0f));
         float amount = 0.014f * dsp_exp2((t->pot[part][P_TONE] - 64) / 16.0f);
-        body += svf_bp(&v->r1, noise(&v->rng), 0) * 2.0f * amount * v->env2 * attack;
+        body += svf_bp(&v->r1, t->noise_now, 0) * 2.0f * amount * v->env2 * attack;
         /* Click: a 0.3 ms spike, high-passed at 1 kHz. */
         float c = dsp_exp(-(float)v->age / MS(0.3f));
         v->out_lp += (c - v->out_lp) * 0.133f;
@@ -439,7 +439,7 @@ static float rim(tr808_t *t, tr_voice_t *v)
 static float clap(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_CP;
-    float n = noise(&v->rng);
+    float n = t->noise_now;
     if (t->pot[part][P_SOUND] == 1) {
         if (v->age == 0) svf_set(&v->r1, 6000.0f * spread(t, part, P_TUNE), 0.8f);
         float ms = (float)v->age / MS(1.0f), rise = 13.0f, fall = 17.0f * spread(t, part, P_DECAY);
@@ -702,6 +702,9 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             low_src = svf_bp(&t->metal_bp1, m, 0);
             high_src = svf_bp(&t->metal_bp2, m, 0);
         }
+        /* One white-noise source feeds snare, clap / maracas and toms, as
+         * on the 808: hit together, their noise is the same. */
+        t->noise_now = noise(&t->noise);
         for (int part = 0; part < D8_NUM; ++part) {
             tr_voice_t *v = &t->v[part];
             float y;
