@@ -4,7 +4,10 @@
  * Kraftwerk, Miami bass, Egyptian Lover and Anthony Rother idioms) and the
  * generator picks and varies them, so each run gives a new groove that
  * stays in the style. The song styles are reconstructions from tempos and
- * descriptions, not transcriptions. Control task only: tables in Flash. */
+ * descriptions, not transcriptions. Control task only: tables in Flash.
+ * Tempos from published analyses (Tunebat, Beatsource, GetSongBPM; 2009
+ * remasters): Numbers ~130, Computer World 129, Computer Love 125,
+ * Trans-Europe Express 108, Destroy Him My Robots 129, Father 133 BPM. */
 #include "drums.h"
 #include <string.h>
 
@@ -22,11 +25,11 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "x.....x...x..x..|x.....x...x.....", 0, 0, 0, 0,
         "....x.......x...", "|x..x..x...x..x..", 0, 0,
         "x.x.x.x.x.x.x.x.|x.xxx.xxx.xxx.xx", "|...........x....", 0, "x.....x.........|x...x.......x..."}},
-    {"NUMBERS", 1250, 50, KKRAFT, 16, 0, 1, 0, DR_HARMONY_KRAFT, {
+    {"NUMBERS", 1300, 50, KKRAFT, 16, 0, 1, 0, DR_HARMONY_KRAFT, {
         "x..x..x...x.....|x..x..x...x..x..", "....x.......x..x|....x.......x...", 0, 0, 0,
         0, 0, 0, 0,
         "xxxxxxxxxxxxxxxx|x.xxx.xxx.xxx.xx", 0, 0, "x...x...x...x..."}},
-    {"TRANS EUR", 1160, 50, KKRAFT, 16, 0, 1, 0, DR_HARMONY_KRAFT, {
+    {"TRANS EUR", 1080, 50, KKRAFT, 16, 0, 1, 0, DR_HARMONY_KRAFT, {
         "x.......x.......|x.......x.x.....", "....x.......x...", 0, 0, 0,
         0, 0, 0, 0,
         "..x...x...x...x.|x.x.x.x.x.x.x.x.", 0, 0, "x.......x......."}},
@@ -34,11 +37,11 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "x.....x.x.......|x.....x.x.....x.", "....x.......x..x|....x.......x...", 0, 0, 0,
         0, 0, 0, 0,
         "x.x.x.x.x.x.x.x.", 0, 0, "x...x.......x..."}},
-    {"COMPUTER", 1280, 50, KKRAFT, 16, 2, 2, 0, DR_HARMONY_KRAFT, {
+    {"COMPUTER", 1290, 50, KKRAFT, 16, 2, 2, 0, DR_HARMONY_KRAFT, {
         "x..x..x.x.......|x..x..x...x.....", "....x.......x...", 0, 0, 0,
         0, 0, 0, 0,
         "x.xxx.xxx.xxx.xx|xxxxxxxxxxxxxxxx", 0, 0, "x.......x......."}},
-    {"ROTHER", 1280, 50, KELECTRO, 16, 2, 0, 1, DR_HARMONY_ROTHER, {
+    {"ROTHER", 1300, 50, KELECTRO, 16, 2, 0, 1, DR_HARMONY_ROTHER, {
         "x...x...x...x...|x...x...x...x.x.|x...x...x..x.x..", 0, 0, 0, "|......x.......x.",
         "....x.......x...", 0, 0, "..x...x...x...x.",
         "x...x...x...x...|xx..xx..xx..xx..", "|..............x.", 0, "x...x...x...x..."}},
