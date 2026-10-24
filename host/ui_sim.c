@@ -3,6 +3,7 @@
  * panel calls, plays a scripted session and writes screenshots (PPM) plus
  * the LED state next to each. Usage: ui_sim <output directory> */
 #include "el_ui.h"
+#include "el_editor.h"
 #include "el_store.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -265,5 +266,68 @@ int main(int argc, char **argv)
     int kept = el_store_load(&again) == 0 && again.track[2].arp.v[ARP_HOLD] == 1 &&
                again.track[2].arp.v[ARP_RATE] == bass->arp.v[ARP_RATE] && again.track[2].arp.v[ARP_GATE] == bass->arp.v[ARP_GATE];
     printf("store: arp settings kept over restart %s\n", kept ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok ? 0 : 1;
+    /* Synth editor: every parameter once (MKS-50 without its aftertouch
+     * depths), EDIT + area button opens it, SELECT section, ALGORITHM page,
+     * KNOB 1 edits, keys play even in STEP mode, the area button leaves. */
+    int ed_ok = 1;
+    for (unsigned engine = 0; engine < SYN_ENGINES; ++engine) {
+        unsigned count = syn_value_count(engine), seen[128] = {0};
+        for (unsigned sct = 0; sct < ed_sections(engine); ++sct) {
+            const ed_section_t *sec = ed_section(engine, sct);
+            for (unsigned i = 0; i < sec->count; ++i) ++seen[sec->param[i]];
+        }
+        for (unsigned prm = 0; prm < count; ++prm) {
+            int want = !(engine == SYN_MKS && (prm == MP_DCO_AFTER || prm == MP_VCF_AFTER || prm == MP_VCA_AFTER));
+            if ((int)seen[prm] != want) { printf("  editor: %s %s seen %u\n", syn_engine_names[engine], syn_param_name(engine, prm), seen[prm]); ed_ok = 0; }
+        }
+    }
+    tap_button(BTN_LFO);                  /* BASS (leaves any other page) */
+    if (!ui.step_mode[EL_AREA_BASS]) tap_button(BTN_SEQ);   /* STEP mode on: the editor must still play */
+    hold(BTN_EDIT, 1);
+    tap_button(BTN_LFO);
+    hold(BTN_EDIT, 0);
+    run(100);
+    ed_ok = ed_ok && ui.editor && ui.area == EL_AREA_BASS && leds[BTN_EDIT];
+    shot(dir, "14_editor_first");
+    unsigned engine = bass->part.engine;
+    turn(0, 1);                           /* SELECT: next section */
+    run(50);
+    unsigned sec1 = ui.ed_section[EL_AREA_BASS];
+    unsigned prm1 = ed_param(engine, sec1, 0, 0);
+    int before_v = syn_values(&bass->part)[prm1];
+    turn(2, 3);                           /* KNOB 1 */
+    run(200);
+    int after_v = syn_values(&bass->part)[prm1];
+    shot(dir, "15_editor_section2");
+    ed_ok = ed_ok && sec1 == 1 && after_v != before_v;
+    printf("editor: %s section %s, %s %d -> %d\n", syn_engine_names[engine], ed_section(engine, sec1)->name,
+           syn_param_name(engine, prm1), before_v, after_v);
+    turn(1, 1);                           /* ALGORITHM: page 2 of the section */
+    run(50);
+    ed_ok = ed_ok && ui.ed_page[EL_AREA_BASS] == (ed_pages(ed_section(engine, sec1)) > 1 ? 1 : 0);
+    st_pattern_t pat_before = bass->pattern[bass->current];
+    tap_key(4);                           /* plays, does not switch a step */
+    ed_ok = ed_ok && !memcmp(&pat_before, &bass->pattern[bass->current], sizeof pat_before);
+    turn(0, 2);                           /* the envelope */
+    run(100);
+    shot(dir, "16_editor_env");
+    hold(BTN_EDIT, 1);                    /* other engine */
+    turn(6, 1);
+    hold(BTN_EDIT, 0);
+    run(300);
+    turn(0, -10);
+    turn(0, 5);                           /* JP-6: ENVELOPE 1 */
+    run(100);
+    shot(dir, "17_editor_jp6_env1");
+    turn(0, 2);                           /* LFO */
+    run(100);
+    shot(dir, "18_editor_jp6_lfo");
+    turn(0, -4);                          /* VCF */
+    run(100);
+    shot(dir, "19_editor_jp6_vcf");
+    ed_ok = ed_ok && bass->part.engine == SYN_JP6;
+    tap_button(BTN_LFO);                  /* the area button leaves */
+    ed_ok = ed_ok && !ui.editor;
+    printf("editor: all parameters, navigation, keys, leave %s\n", ed_ok ? "ok" : "FAIL");
+    return same && arp_ok && kept && beat_ok && ed_ok ? 0 : 1;
 }

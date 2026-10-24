@@ -12,7 +12,7 @@ build/render_demo: host/render_demo.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/render_demo.c $(ENGINE) -lm
 
-UI = ui/gfx.c ui/el_ui.c fm1/el_store.c
+UI = ui/gfx.c ui/el_ui.c ui/el_editor.c fm1/el_store.c
 
 build/ui_sim: host/ui_sim.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
 	@mkdir -p build
@@ -66,7 +66,7 @@ web: build/web/fm1-electro-simulator.html
 
 build/web/fm1sim.wasm: host/web/sim.c host/web/libc.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
 	@mkdir -p build/web
-	clang $(WASM_FLAGS) -o $@ host/web/sim.c host/web/libc.c $(ENGINE) ui/gfx.c ui/el_ui.c fm1/el_store.c
+	clang $(WASM_FLAGS) -o $@ host/web/sim.c host/web/libc.c $(ENGINE) ui/gfx.c ui/el_ui.c ui/el_editor.c fm1/el_store.c
 
 build/web/fm1-electro-simulator.html: build/web/fm1sim.wasm host/web/index.html tools/build_web.py
 	python3 tools/build_web.py build/web/fm1sim.wasm host/web/index.html $@
@@ -76,7 +76,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 	./build/synth_test build/wav > /dev/null
 	./build/jp6_test build/wav_jp6 > /dev/null
 	./build/render_demo build/wav | grep -E "^(timing|midi clock)"
-	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^arp\|^layout"
+	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^arp\|^layout\|^editor"
 	@echo "host tests ok"
 
 clean:

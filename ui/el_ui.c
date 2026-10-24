@@ -47,8 +47,14 @@
  *   KNOB 1-4 sound page, PRESETS sound (MKS-50 sounds, then JP-6; EDIT +
  *   PRESETS switches the engine), EDIT + ALGORITHM note length (STRINGS: step
  *   length 1/16 .. 2 bars for long chord sequences). After the five sound
- *   pages: ARP (mode, rate, octaves, gate). */
+ *   pages: ARP (mode, rate, octaves, gate).
+ *   EDIT + area button: synth editor for that area, every parameter of the
+ *   engine in the sections of the original panel (EDIT LED on). SELECT
+ *   section, ALGORITHM page, KNOB 1-4 the four knobs of the page, PRESETS
+ *   sound, keys play; the sequencer keeps playing. The area button again
+ *   (or HOME, SEQ) leaves it. */
 #include "el_ui.h"
+#include "el_editor.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -129,6 +135,18 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
 
 static st_track_t *track_of(el_ui_t *ui) { return &ui->engine->track[ui->area - 1u]; }
 static int synth_area(const el_ui_t *ui) { return !ui->overview && ui->area != EL_AREA_BEAT; }
+static int in_editor(const el_ui_t *ui) { return ui->editor && synth_area(ui); }
+
+/* Editor position, kept inside the sections and pages of the engine. */
+static void ed_position(el_ui_t *ui, unsigned *section, unsigned *page)
+{
+    unsigned engine = track_of(ui)->part.engine, n = ed_sections(engine);
+    if (ui->ed_section[ui->area] >= n) ui->ed_section[ui->area] = (uint8_t)(n - 1u);
+    unsigned pages = ed_pages(ed_section(engine, ui->ed_section[ui->area]));
+    if (ui->ed_page[ui->area] >= pages) ui->ed_page[ui->area] = (uint8_t)(pages - 1u);
+    *section = ui->ed_section[ui->area];
+    *page = ui->ed_page[ui->area];
+}
 
 /* ---- parameters behind E3-E6 ------------------------------------------- */
 
@@ -150,6 +168,12 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
         param = ui->page[0] * 4u + slot;
         value = tr808_get(&e->drums.kit, ui->part, (int)param);
         param |= (unsigned)ui->part << 4;
+    } else if (in_editor(ui)) {
+        const syn_part_t *part = &track_of(ui)->part;
+        unsigned section, page;
+        ed_position(ui, &section, &page);
+        param = ed_param(part->engine, section, page, slot);
+        value = param == ED_NONE ? 0 : syn_values(part)[param];
     } else if (ui->page[ui->area] == PAGE_ARP) {
         param = PARAM_ARP + arp_page[slot];
         value = track_of(ui)->arp.v[arp_page[slot]];
@@ -187,7 +211,9 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         k.max = d->max;
         if (d->names) k.text = d->names[el_clampi(k.value, 0, d->max)];
         k.color = part_color[ui->part];
-    } else if (param >= PARAM_ARP && param < PARAM_ARP + ARP_PARAMS) {
+    } else if (in_editor(ui) && param == ED_NONE) {
+        return k;
+    } else if (!in_editor(ui) && param >= PARAM_ARP && param < PARAM_ARP + ARP_PARAMS) {
         static const char *const octaves[4] = {"1 OCT", "2 OCT", "3 OCT", "4 OCT"};
         unsigned a = param - PARAM_ARP;
         static const char *const names[ARP_PARAMS] = {"ARP", "MODE", "RATE", "OCTAVES", "GATE", "HOLD"};
@@ -227,7 +253,7 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
                         (int16_t)value);
     } else if (ui->area == EL_AREA_BEAT) {
         r = dr_post(&e->drums, DR_CMD_PARAM, ui->part, (uint8_t)(param & 15u), 0, (int16_t)value);
-    } else if (param >= PARAM_ARP) {
+    } else if (!in_editor(ui) && param >= PARAM_ARP) {
         r = el_post3(e, EL_CMD_TRACK_ARP, (uint8_t)(ui->area - 1u), (uint8_t)(param - PARAM_ARP), 0, (int16_t)value);
     } else {
         r = el_post3(e, EL_CMD_TRACK_PARAM, (uint8_t)(ui->area - 1u), (uint8_t)param, 0, (int16_t)value);
@@ -408,7 +434,7 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
     uint8_t track = (uint8_t)(ui->area - 1u);
     const st_pattern_t *p = &t->pattern[t->current];
     int step = key_white(key);
-    if (ui->step_mode[ui->area]) {
+    if (ui->step_mode[ui->area] && !ui->editor) {   /* the editor always plays */
         if (step < 0) return;
         unsigned s = (unsigned)step + ui->step_page[ui->area] * 16u;
         if (s >= p->length) return;
@@ -488,16 +514,29 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             set_area_mute(ui, a, !area_muted(ui, a));
             continue;
         }
-        if (!ui->overview && ui->area == a) {
+        if (hold & HOLD_EDIT) {
+            /* EDIT + area button: the synth editor of that area, again: back. */
+            if (a == EL_AREA_BEAT) { notice(ui, "EDITOR: RHYTHM STRINGS BASS"); continue; }
+            int leave = in_editor(ui) && ui->area == a;
+            release_keys(ui, ~0u);
+            ui->area = (uint8_t)a;
+            ui->overview = 0;
+            ui->editor = (uint8_t)!leave;
+            continue;
+        }
+        if (in_editor(ui) && ui->area == a) {
+            ui->editor = 0;
+        } else if (!ui->overview && ui->area == a) {
             unsigned pages = a == EL_AREA_BEAT ? ((unsigned)tr808_nparams(ui->part) + 3u) / 4u : SYNTH_PAGES;
             ui->page[a] = (uint8_t)((ui->page[a] + 1u) % pages);
         } else {
             release_keys(ui, ~0u);
             ui->area = (uint8_t)a;
             ui->overview = 0;
+            if (a == EL_AREA_BEAT) ui->editor = 0;
         }
     }
-    if (pressed & BIT(BTN_HOME)) ui->overview = !ui->overview;
+    if (pressed & BIT(BTN_HOME)) { ui->overview = !ui->overview; ui->editor = 0; }
     if (pressed & BIT(BTN_PLAY)) {
         el_post(e, e->transport.running ? EL_CMD_STOP : EL_CMD_START, 0, 0);
         ui->follow = 1;
@@ -528,6 +567,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
         release_keys(ui, ~0u);
+        ui->editor = 0;
         ui->step_mode[ui->area] = !ui->step_mode[ui->area];
     }
     if (pressed & (BIT(BTN_OCT_DOWN) | BIT(BTN_OCT_UP))) {
@@ -582,7 +622,12 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (algo) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + algo * 2, 0, 127));
         if (select) el_post(e, EL_CMD_FX, FX_DIST_TONE, (int16_t)el_clampi(fv[FX_DIST_TONE] + select * 2, 0, 127));
     }
-    if (select && !dist_page) {
+    int editor_nav = in_editor(ui) && !(hold & (HOLD_GLO | HOLD_EDIT | HOLD_GEN));
+    if (select && editor_nav) {
+        unsigned n = ed_sections(track_of(ui)->part.engine);
+        ui->ed_section[ui->area] = (uint8_t)el_clampi((int)ui->ed_section[ui->area] + select, 0, (int)n - 1);
+        ui->ed_page[ui->area] = 0;
+    } else if (select && !dist_page) {
         if ((hold & HOLD_GLO) && !ui->overview && ui->area == EL_AREA_BEAT) {
             /* GLO + SELECT: the instrument, PULSE included, without playing it. */
             ui->part = (uint8_t)el_clampi((int)ui->part + select, 0, DR_PARTS - 1);
@@ -598,7 +643,12 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             dr_post(m, DR_CMD_SELECT, (uint8_t)el_clampi((int)m->next + select, 0, DR_PATTERNS - 1), 0, 0, 0);
         }
     }
-    if (algo && !dist_page) {
+    if (algo && editor_nav) {
+        unsigned section, page;
+        ed_position(ui, &section, &page);
+        unsigned pages = ed_pages(ed_section(track_of(ui)->part.engine, section));
+        ui->ed_page[ui->area] = (uint8_t)el_clampi((int)page + algo, 0, (int)pages - 1);
+    } else if (algo && !dist_page) {
         int bpm = (int)(e->transport.bpm * 10.0f + 0.5f);
         if (ui->overview || !(hold & (HOLD_GLO | HOLD_EDIT))) {
             /* Tempo; in HOME, GLO + ALGORITHM is the fine tempo. */
@@ -623,7 +673,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (enc[ENC_KNOB1]) ui->gen_style[a] = (uint8_t)el_clampi(ui->gen_style[a] + enc[ENC_KNOB1], 0, (int)styles - 1);
         if (enc[ENC_KNOB1 + 1]) ui->gen_density[a] = (uint8_t)el_clampi(ui->gen_density[a] + enc[ENC_KNOB1 + 1] * 4, 0, 127);
         if (enc[ENC_KNOB1 + 2] && a == EL_AREA_BEAT) ui->gen_keep = enc[ENC_KNOB1 + 2] > 0;
-    } else if (synth_area(ui) && ui->step_mode[ui->area]) {
+    } else if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
         uint8_t track = (uint8_t)(ui->area - 1u), s = ui->cursor[ui->area];
         const int16_t *k = enc + ENC_KNOB1;
         if (k[0]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, k[0]);
@@ -695,6 +745,13 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         const dr_pattern_t *p = &m->pattern[m->current];
         mix(&sig[1], m->revision | (uint32_t)m->mute << 8 | (uint32_t)m->solo << 20);
         mix(&sig[1], shown_step_page(ui, p->length, m->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->swing << 12);
+    } else if (in_editor(ui)) {
+        st_track_t *t = track_of(ui);
+        unsigned section, page;
+        ed_position(ui, &section, &page);
+        mix(&sig[1], 0x5eed0000u | section | page << 4 | (uint32_t)t->part.engine << 8 | (uint32_t)t->preset << 12 | (uint32_t)t->muted << 24);
+        const ed_section_t *sec = ed_section(t->part.engine, section);
+        for (unsigned i = 0; i < sec->count; ++i) mix(&sig[1], syn_values(&t->part)[sec->param[i]]);
     } else {
         st_track_t *t = track_of(ui);
         const st_pattern_t *p = &t->pattern[t->current];
@@ -706,7 +763,9 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         for (unsigned s = 0; s < p->length; ++s)
             mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
     }
-    mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16);
+    mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16 |
+                 (uint32_t)ui->editor << 24 | (uint32_t)ui->ed_section[ui->area] << 25);
+    mix(&sig[2], ui->ed_page[ui->area]);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->save_pick << 31);
     for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
@@ -740,8 +799,9 @@ static void update_leds(el_ui_t *ui)
     if (ui->overview) leds |= 1ull << BTN_HOME;
     else leds |= 1ull << area_buttons[ui->area];
     if (ui->hold & HOLD_GEN) leds |= 1ull << BTN_ARP;
-    if ((synth_area(ui) && ui->step_mode[ui->area]) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer))
+    if ((synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer))
         leds |= 1ull << BTN_SEQ;
+    if (in_editor(ui)) leds |= 1ull << BTN_EDIT;
     if (ui->overview) {
         if (m->current / 16u == ui->bank) leds |= 1ull << (14u + white_keys[m->current % 16u]);
         if (m->next != m->current && m->next / 16u == ui->bank && (ui->now / 250u) & 1u)
@@ -771,7 +831,7 @@ static void update_leds(el_ui_t *ui)
         st_track_t *t = track_of(ui);
         const st_pattern_t *p = &t->pattern[t->current];
         int tplay = playing && t->playing;
-        if (ui->step_mode[ui->area]) {
+        if (ui->step_mode[ui->area] && !ui->editor) {
             unsigned page = ui->step_page[ui->area];
             if (p->length > 16) leds |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
             for (unsigned i = 0; i < UI_WHITE; ++i) {
@@ -955,6 +1015,21 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     if (t->recording) gfx_text(b, 200, 176, e->transport.running ? "LIVE" : "STEP", RED, 1);
 }
 
+/* Synth editor: sound and engine, then the section tabs and picture. */
+static void draw_editor(el_ui_t *ui, gfx_band_t *b)
+{
+    st_track_t *t = track_of(ui);
+    uint16_t color = t->muted ? DIM : area_color[ui->area];
+    unsigned section, page;
+    ed_position(ui, &section, &page);
+    if (gfx_touches(b, 35, 16)) {
+        gfx_text(b, 4, 35, syn_sound_name(t->preset), color, 2);
+        const char *engine = syn_engine_names[t->part.engine];
+        gfx_text(b, GFX_W - 4 - gfx_text_width(engine, 1), 39, engine, AMBER, 1);
+    }
+    ed_draw(b, &t->part, section, page, color, 56, FOOT_Y - 6 - 56);
+}
+
 static void draw_overview(el_ui_t *ui, gfx_band_t *b)
 {
     el_engine_t *e = ui->engine;
@@ -1016,7 +1091,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         gfx_text(b, 4, GFX_H - 12, "GENERATOR: PRESS A WHITE KEY", AMBER, 1);
         return;
     }
-    if (synth_area(ui) && ui->step_mode[ui->area]) {
+    if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
         static const char *const labels[4] = {"NOTE", "OCTAVE", "CHORD", "INVERS"};
         static const char *const other[4] = {"NOTE", "OCTAVE", "ACCENT", "TIE"};
         for (unsigned i = 0; i < 4; ++i)
@@ -1050,6 +1125,8 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                      p->length > 16 ? (ui->step_page[0] ? " 2/2" : " 1/2") : "");
             hint = (ui->hold & HOLD_EDIT) ? "EDIT: ACCENT/CLEAR  ALGO=SWING" :
                    (ui->hold & HOLD_GLO) ? "GLO: ROLL/MUTE SEL=PART ALGO=LENGTH" : line;
+        } else if (in_editor(ui)) {
+            hint = (ui->hold & HOLD_EDIT) ? "EDIT: PRESETS=OTHER ENGINE  AREA=BACK" : "SELECT=SECTION ALGO=PAGE PRESETS=SOUND";
         } else {
             unsigned page = ui->page[ui->area];
             const st_track_t *t = track_of(ui);
@@ -1074,6 +1151,7 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
     if (gfx_touches(b, HEADER_H, FOOT_Y - 4 - HEADER_H)) {
         if (ui->overview) draw_overview(ui, b);
         else if (ui->area == EL_AREA_BEAT) draw_beat(ui, b);
+        else if (in_editor(ui)) draw_editor(ui, b);
         else draw_synth(ui, b);
     }
     if (gfx_touches(b, FOOT_Y - 4, GFX_H)) draw_footer(ui, b);

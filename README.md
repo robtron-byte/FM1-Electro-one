@@ -92,6 +92,7 @@ OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
 | HOME + EDIT | Verzerrung: KNOB 1–4 Send von BEAT, RHYTHM, STRINGS, BASS; PRESETS Typ (OD, DIST, RAT, TUBE), ALGORITHM Drive, SELECT Ton |
 | PLAY | Start/Stop |
 | REC | Aufnahme in den aktuellen Bereich. EDIT + REC löscht dessen Pattern |
+| EDIT + Bereichstaste | **Synth-Editor** für RHYTHM, STRINGS oder BASS: alle Parameter der Engine (MKS-50: 51, JP-6: 69) in den Sektionen des Original-Panels (MKS-50: DCO, VCF, VCA, ENV, LFO, CHORUS, KEY, FX; JP-6: VCO-1, VCO-2, MOD, VCF, VCA, ENV-1, ENV-2, LFO, KEY, FX). SELECT Sektion, ALGORITHM Seite, KNOB 1–4 die Regler der Seite, PRESETS Sound (EDIT: andere Engine). Das Display zeigt Hüllkurve, Filterkurve und LFO-Welle als Grafik, sonst alle Regler der Sektion als Balken. Die Tasten spielen, der Sequencer spielt die Spur weiter. Bereichstaste nochmal (oder HOME, SEQ): zurück. Kostet keine Rechenzeit, nur eine andere Ansicht |
 | ARP halten | Generator für den aktuellen Bereich: KNOB 1 Stil, KNOB 2 Dichte, weiße Taste erzeugt eine neue Spur |
 | ARP antippen | RHYTHM / STRINGS / BASS: Arpeggiator an/aus, die Tasten spielen dann den Arpeggiator. EDIT + ARP: HOLD |
 | SAVE | danach weiße Taste 1–8: laufenden Groove in User-Platz 17–24 und alle Einstellungen speichern. SAVE nochmal: alles speichern ohne Kopie |
