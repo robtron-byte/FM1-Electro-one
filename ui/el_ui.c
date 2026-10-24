@@ -1,40 +1,53 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * Four-area panel.
+ * Four-area panel, laid out after the FM-1's front:
+ *
+ *   MASTER   SELECT              screen         KNOB 1  KNOB 2  KNOB 3  KNOB 4
+ *   PRESETS  ALGORITHM                          FX   SCL  ENV  LFO  EDIT GLO
+ *   OCT -    OCT +                              HOME SAVE ARP  SEQ  PLAY REC
+ *   27 keys, white ones numbered 01-16
+ *
+ * The left column is structure: SELECT the pattern, ALGORITHM tempo (GLO:
+ * pattern length, EDIT: swing / note length / step length), PRESETS the
+ * sound (BEAT: the kit). The four knobs are the sound, each above the area
+ * button it belongs to on the HOME pages. EDIT and GLO are the two shifts.
  *
  * Everywhere
  *   FX / SCL / ENV / LFO  areas BEAT / RHYTHM / STRINGS / BASS; press the
  *                         active one again for the next sound page
  *   GLO + area button     mute / unmute that area
- *   HOME                  overview (white keys pick patterns, OCT -/+ bank 1-16 / 17-24,
- *                         black keys 1-4 mute areas). Slots 1-16 hold a generated
- *                         groove in their style; ARP + white key = new groove for
- *                         that slot (drums, rhythm, strings, bass). New grooves are
- *                         kept in Flash by themselves and survive a restart.
- *   HOME + EDIT           distortion send: E3-E6 send of BEAT / RHYTHM / STRINGS /
- *                         BASS, E1 type (OFF OD DIST RAT TUBE), E2 tone, E7 drive
+ *   HOME                  overview: KNOB 1-4 levels (GLO: delay time, feedback, reverb
+ *                         size, decay), PRESETS reverb (GLO: delay) return, white keys
+ *                         pick patterns, OCT -/+ bank 1-16 / 17-24, black keys 1-4 mute.
+ *                         Slots 1-16 hold a generated groove in their style; ARP +
+ *                         white key = new groove for that slot. New grooves are kept in
+ *                         Flash by themselves and survive a restart.
+ *   HOME + EDIT           distortion: KNOB 1-4 send of BEAT / RHYTHM / STRINGS / BASS,
+ *                         PRESETS type (OFF OD DIST RAT TUBE), ALGORITHM drive, SELECT tone
  *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
- *   ARP held              generator: E3 style, E4 density, white key = new part
+ *   ARP held              generator: KNOB 1 style, KNOB 2 density, white key = new part
  *   ARP tapped            RHYTHM / STRINGS / BASS: arpeggiator on / off (EDIT + ARP: HOLD)
  *   SAVE                  then white key 1-8: copy the playing groove to user slot
  *                         17-24 and store everything in Flash (SAVE again: store only)
- *   E1 pattern (all areas)   E2 tempo (GLO: fine)
+ *   SELECT                pattern (all areas)
+ *   ALGORITHM             tempo; GLO: pattern length; EDIT: see the areas (HOME + GLO: fine tempo)
  *
  * BEAT    black keys pick + play a drum (BD SD LT HT RS CP CB CY OH CH ZP; SEQ:
  *         second layer with PULSE on black key 1), white keys set steps.
  *         EDIT + white accent, GLO + white roll, EDIT + black clear, GLO + black mute.
- *         E3-E6 drum sound, E7 length (GLO swing), GLO + E1 kit.
+ *         KNOB 1-4 drum sound, PRESETS kit, GLO + SELECT instrument (PULSE too),
+ *         EDIT + ALGORITHM swing.
  * RHYTHM / STRINGS / BASS
  *   KEYS  (SEQ off) all keys play the sound, OCT -/+ octave. REC while running
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
  *         STRINGS: GLO + white key 1-14 picks the chord (1 = single notes).
  *   STEP  (SEQ on) white keys switch steps on/off and select them, EDIT + white
- *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32.
- *         E3 note, E4 octave, E5 chord (STRINGS) or accent, E6 inversion
+ *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32, GLO + SELECT step.
+ *         KNOB 1 note, 2 octave, 3 chord (STRINGS) or accent, 4 inversion
  *         (STRINGS) or tie.
- *   E3-E6 sound page, E7 sound (MKS-50 sounds, then JP-6; EDIT + E7 switches
- *   the engine), GLO + E7 length, GLO + E1 note length. After the five sound
- *   pages: ARP (mode, rate, octaves, gate)
- *   (STRINGS: step length 1/16 .. 2 bars for long chord sequences). */
+ *   KNOB 1-4 sound page, PRESETS sound (MKS-50 sounds, then JP-6; EDIT +
+ *   PRESETS switches the engine), EDIT + ALGORITHM note length (STRINGS: step
+ *   length 1/16 .. 2 bars for long chord sequences). After the five sound
+ *   pages: ARP (mode, rate, octaves, gate). */
 #include "el_ui.h"
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +56,10 @@
 enum { BACK = 0x0000, PANEL = 0x18e3, GRID = 0x2945, TEXT = 0xef5d, DIM = 0x738e, FAINT = 0x4208,
        ACCENT = 0x07ff, RED = 0xf9a6, AMBER = 0xfd20, GREEN = 0x37e6 };
 enum { HOLD_EDIT = 1, HOLD_GLO = 2, HOLD_GEN = 4 };
+/* Encoders as FM1 Open numbers them: SELECT right of the MASTER pot,
+ * PRESETS under MASTER, ALGORITHM under SELECT, KNOB 1-4 right of the
+ * screen above the area buttons. */
+enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_PRESETS = 6 };
 /* Synth areas: the sound pages, then the arpeggiator. */
 enum { PAGE_ARP = UI_PAGES, SYNTH_PAGES };
 enum { PARAM_ARP = 0xe0 };
@@ -552,70 +569,89 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         }
     }
 
+    /* Encoders by where they sit: the left column is structure (SELECT
+     * pattern, ALGORITHM tempo and length, PRESETS sound or kit), the four
+     * knobs on the right are the sound. */
     const int16_t *enc = c->encoders;
+    const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM], presets = enc[ENC_PRESETS];
     int dist_page = ui->overview && (hold & HOLD_EDIT);
     if (dist_page) {
-        /* HOME + EDIT: the distortion send. E1 type, E2 tone, E7 drive. */
+        /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone. */
         const uint8_t *fv = e->fx.v;
-        if (enc[0]) el_post(e, EL_CMD_FX, FX_DIST_MODE, (int16_t)el_clampi(fv[FX_DIST_MODE] + (enc[0] > 0 ? 1 : -1), 0, DIST_MODES - 1));
-        if (enc[1]) el_post(e, EL_CMD_FX, FX_DIST_TONE, (int16_t)el_clampi(fv[FX_DIST_TONE] + enc[1] * 2, 0, 127));
-        if (enc[6]) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + enc[6] * 2, 0, 127));
+        if (presets) el_post(e, EL_CMD_FX, FX_DIST_MODE, (int16_t)el_clampi(fv[FX_DIST_MODE] + (presets > 0 ? 1 : -1), 0, DIST_MODES - 1));
+        if (algo) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + algo * 2, 0, 127));
+        if (select) el_post(e, EL_CMD_FX, FX_DIST_TONE, (int16_t)el_clampi(fv[FX_DIST_TONE] + select * 2, 0, 127));
     }
-    if (enc[0] && !dist_page) {
-        if ((hold & HOLD_GLO) && ui->area == EL_AREA_BEAT && !ui->overview)
-            dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + enc[0], 0, DR_KITS - 1), 0, 0, 0);
-        else if ((hold & HOLD_GLO) && synth_area(ui) && ui->area == EL_AREA_STRINGS) {
-            /* Strings: step length 1/16 .. 2 bars, for long chord sequences. */
+    if (select && !dist_page) {
+        if ((hold & HOLD_GLO) && !ui->overview && ui->area == EL_AREA_BEAT) {
+            /* GLO + SELECT: the instrument, PULSE included, without playing it. */
+            ui->part = (uint8_t)el_clampi((int)ui->part + select, 0, DR_PARTS - 1);
+            ui->page[0] = 0;
+            ui->beat_layer = ui->part >= UI_BLACK;
+        } else if ((hold & HOLD_GLO) && synth_area(ui) && ui->step_mode[ui->area]) {
+            /* GLO + SELECT in STEP mode: the step being edited. */
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
-            el_post3(e, EL_CMD_TRACK_RATE, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->rate + (enc[0] > 0 ? 1 : -1), 0, ST_RATES - 1), 0, 0);
-        } else if ((hold & HOLD_GLO) && synth_area(ui)) {
-            const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
-            el_post3(e, EL_CMD_TRACK_GATE, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->gate + enc[0] * 5, 10, 100), 0, 0);
+            ui->cursor[ui->area] = (uint8_t)el_clampi((int)ui->cursor[ui->area] + select, 0, p->length - 1);
+            ui->step_page[ui->area] = (uint8_t)(ui->cursor[ui->area] / 16u);
+            ui->follow = 0;
         } else {
-            dr_post(m, DR_CMD_SELECT, (uint8_t)el_clampi((int)m->next + enc[0], 0, DR_PATTERNS - 1), 0, 0, 0);
+            dr_post(m, DR_CMD_SELECT, (uint8_t)el_clampi((int)m->next + select, 0, DR_PATTERNS - 1), 0, 0, 0);
         }
     }
-    if (enc[1] && !dist_page) {
+    if (algo && !dist_page) {
         int bpm = (int)(e->transport.bpm * 10.0f + 0.5f);
-        el_post(e, EL_CMD_BPM, 0, (int16_t)el_clampi(bpm + enc[1] * ((hold & HOLD_GLO) ? 1 : 10), 300, 3000));
+        if (ui->overview || !(hold & (HOLD_GLO | HOLD_EDIT))) {
+            /* Tempo; in HOME, GLO + ALGORITHM is the fine tempo. */
+            el_post(e, EL_CMD_BPM, 0, (int16_t)el_clampi(bpm + algo * ((hold & HOLD_GLO) ? 1 : 10), 300, 3000));
+        } else if (ui->area == EL_AREA_BEAT) {
+            const dr_pattern_t *p = &m->pattern[m->current];
+            if (hold & HOLD_GLO) dr_post(m, DR_CMD_LENGTH, 0, (uint8_t)el_clampi(p->length + algo, 1, DR_STEPS), 0, 0);
+            else dr_post(m, DR_CMD_SWING, 0, (uint8_t)el_clampi(p->swing + algo, 50, 75), 0, 0);
+        } else {
+            const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
+            uint8_t track = (uint8_t)(ui->area - 1u);
+            if (hold & HOLD_GLO)
+                el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)el_clampi(p->length + algo, 1, ST_STEPS), 0, 0);
+            else if (ui->area == EL_AREA_STRINGS)   /* step length 1/16 .. 2 bars, for long chord sequences */
+                el_post3(e, EL_CMD_TRACK_RATE, track, (uint8_t)el_clampi(p->rate + (algo > 0 ? 1 : -1), 0, ST_RATES - 1), 0, 0);
+            else
+                el_post3(e, EL_CMD_TRACK_GATE, track, (uint8_t)el_clampi(p->gate + algo * 5, 10, 100), 0, 0);
+        }
     }
     if (hold & HOLD_GEN) {
         unsigned a = ui->overview ? 0 : ui->area, styles = a == EL_AREA_BEAT ? DR_STYLES : ST_STYLES;
-        if (enc[2]) ui->gen_style[a] = (uint8_t)el_clampi(ui->gen_style[a] + enc[2], 0, (int)styles - 1);
-        if (enc[3]) ui->gen_density[a] = (uint8_t)el_clampi(ui->gen_density[a] + enc[3] * 4, 0, 127);
-        if (enc[4] && a == EL_AREA_BEAT) ui->gen_keep = enc[4] > 0;
+        if (enc[ENC_KNOB1]) ui->gen_style[a] = (uint8_t)el_clampi(ui->gen_style[a] + enc[ENC_KNOB1], 0, (int)styles - 1);
+        if (enc[ENC_KNOB1 + 1]) ui->gen_density[a] = (uint8_t)el_clampi(ui->gen_density[a] + enc[ENC_KNOB1 + 1] * 4, 0, 127);
+        if (enc[ENC_KNOB1 + 2] && a == EL_AREA_BEAT) ui->gen_keep = enc[ENC_KNOB1 + 2] > 0;
     } else if (synth_area(ui) && ui->step_mode[ui->area]) {
         uint8_t track = (uint8_t)(ui->area - 1u), s = ui->cursor[ui->area];
-        if (enc[2]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, enc[2]);
-        if (enc[3]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, (int16_t)(enc[3] * 12));
-        if (enc[4]) {
+        const int16_t *k = enc + ENC_KNOB1;
+        if (k[0]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, k[0]);
+        if (k[1]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, (int16_t)(k[1] * 12));
+        if (k[2]) {
             if (ui->area == EL_AREA_STRINGS) {
                 const st_step_t *st = &track_of(ui)->pattern[track_of(ui)->current].step[s];
-                el_post3(e, EL_CMD_STEP_CHORD, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_TYPE(st->chord) + enc[4], 0, MKS_CHORDS));
+                el_post3(e, EL_CMD_STEP_CHORD, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_TYPE(st->chord) + k[2], 0, MKS_CHORDS));
             } else el_post3(e, EL_CMD_STEP_FLAG, track, s, ST_ACCENT, 0);
         }
-        if (enc[5]) {
+        if (k[3]) {
             if (ui->area == EL_AREA_STRINGS) {
                 const st_step_t *st = &track_of(ui)->pattern[track_of(ui)->current].step[s];
-                el_post3(e, EL_CMD_STEP_INV, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_INV(st->chord) + (enc[5] > 0 ? 1 : -1), 0, 2));
+                el_post3(e, EL_CMD_STEP_INV, track, s, 0, (int16_t)el_clampi((int)ST_CHORD_INV(st->chord) + (k[3] > 0 ? 1 : -1), 0, 2));
             } else el_post3(e, EL_CMD_STEP_FLAG, track, s, ST_TIE, 0);
         }
     } else {
-        for (unsigned i = 0; i < 4; ++i) edit_knob(ui, i, enc[2 + i]);
+        for (unsigned i = 0; i < 4; ++i) edit_knob(ui, i, enc[ENC_KNOB1 + i]);
     }
-    if (enc[6] && !dist_page) {
+    if (presets && !dist_page) {
         if (ui->overview) {
             el_post(e, EL_CMD_FX, (hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN,
-                    (int16_t)el_clampi(e->fx.v[(hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN] + enc[6] * 2, 0, 127));
+                    (int16_t)el_clampi(e->fx.v[(hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN] + presets * 2, 0, 127));
         } else if (ui->area == EL_AREA_BEAT) {
-            const dr_pattern_t *p = &m->pattern[m->current];
-            if (hold & HOLD_GLO) dr_post(m, DR_CMD_SWING, 0, (uint8_t)el_clampi(p->swing + enc[6], 50, 75), 0, 0);
-            else dr_post(m, DR_CMD_LENGTH, 0, (uint8_t)el_clampi(p->length + enc[6], 1, DR_STEPS), 0, 0);
-        } else if (hold & HOLD_GLO) {
-            const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
-            el_post3(e, EL_CMD_TRACK_LENGTH, (uint8_t)(ui->area - 1u), (uint8_t)el_clampi(p->length + enc[6], 1, ST_STEPS), 0, 0);
+            /* The beat's "sound" is its kit, as a synth area's is its sound. */
+            dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + (presets > 0 ? 1 : -1), 0, DR_KITS - 1), 0, 0, 0);
         } else {
-            browse_preset(ui, enc[6], (hold & HOLD_EDIT) != 0);
+            browse_preset(ui, presets, (hold & HOLD_EDIT) != 0);
         }
     }
     ui->prev_buttons = c->buttons;
@@ -985,7 +1021,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         static const char *const other[4] = {"NOTE", "OCTAVE", "ACCENT", "TIE"};
         for (unsigned i = 0; i < 4; ++i)
             gfx_text(b, 4 + (int)i * 59, FOOT_Y, ui->area == EL_AREA_STRINGS ? labels[i] : other[i], DIM, 1);
-        gfx_text(b, 4, FOOT_Y + 12, "E3-E6 EDIT THE STEP", area_color[ui->area], 1);
+        gfx_text(b, 4, FOOT_Y + 12, "KNOB 1-4 EDIT THE STEP", area_color[ui->area], 1);
     } else {
         for (unsigned i = 0; i < 4; ++i) {
             knob_t k = knob(ui, i);
@@ -1002,18 +1038,18 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (!hint) {
         if (ui->overview && (ui->hold & HOLD_EDIT)) {
             const uint8_t *fv = ui->engine->fx.v;
-            snprintf(line, sizeof line, "E1 %s  E2 TONE %u  E7 DRIVE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
-                     fv[FX_DIST_TONE], fv[FX_DIST_DRIVE]);
+            snprintf(line, sizeof line, "PRESETS %s ALGO DRV %u SEL TONE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
+                     fv[FX_DIST_DRIVE], fv[FX_DIST_TONE]);
             hint = line;
-        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX   E7 DELAY RETURN" : "LEVELS   E7 REVERB  GLO: FX  EDIT: DIST";
+        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX  PRESETS=DELAY ALGO=FINE BPM" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
             unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;
             snprintf(line, sizeof line, "%s %u/%u KIT %s SW%u L%u%s", dr_part_names[ui->part], ui->page[0] + 1u, pages,
                      dr_kit_names[ui->engine->drums.kit_index], p->swing, p->length,
                      p->length > 16 ? (ui->step_page[0] ? " 2/2" : " 1/2") : "");
-            hint = (ui->hold & HOLD_EDIT) ? "EDIT: KEY=ACCENT  BLACK=CLEAR" :
-                   (ui->hold & HOLD_GLO) ? "GLO: KEY=ROLL BLACK=MUTE E1=KIT" : line;
+            hint = (ui->hold & HOLD_EDIT) ? "EDIT: ACCENT/CLEAR  ALGO=SWING" :
+                   (ui->hold & HOLD_GLO) ? "GLO: ROLL/MUTE SEL=PART ALGO=LENGTH" : line;
         } else {
             unsigned page = ui->page[ui->area];
             const st_track_t *t = track_of(ui);
@@ -1021,10 +1057,10 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                 snprintf(line, sizeof line, "ARP %s%s  TAP ARP  EDIT+ARP=HOLD", t->arp.v[ARP_ON] ? "ON" : "OFF",
                          t->arp.v[ARP_HOLD] ? " HOLD" : "");
             else
-                snprintf(line, sizeof line, "%s %u/%u  E7 SOUND  SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
-            hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE  E7=LENGTH" :
-                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-14 CHORD E1=STEP LEN" : "GLO: E1=GATE  E7=LENGTH") :
-                   (ui->hold & HOLD_EDIT) ? "EDIT: KEY=ACCENT/REST" : line;
+                snprintf(line, sizeof line, "%s %u/%u  PRESETS=SOUND SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
+            hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE SEL=STEP ALGO=LENGTH" :
+                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-14=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
+                   (ui->hold & HOLD_EDIT) ? (ui->area == EL_AREA_STRINGS ? "EDIT: ACC/REST ALGO=STEP LEN" : "EDIT: ACC/REST ALGO=GATE") : line;
         }
     }
     gfx_text(b, 4, GFX_H - 12, hint, hint == ui->notice ? AMBER : DIM, 1);

@@ -27,7 +27,7 @@ html, body { background: var(--ground); color: var(--ink); }
 body { font-family: var(--f-body); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 16px 40px; }
-.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.wrap { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.45rem; letter-spacing: .02em; margin: 0; text-wrap: balance; }
 h1 small { display: block; font-family: var(--f-body); font-weight: 400; font-size: .82rem; color: var(--ink-dim); letter-spacing: 0; }
@@ -38,23 +38,28 @@ h1 small { display: block; font-family: var(--f-body); font-weight: 400; font-si
 
 .device { background: var(--body); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
   box-shadow: 0 1px 0 #2c2f33 inset, 0 18px 40px #0008; }
-.top { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.panel { display: grid; grid-template-columns: 172px minmax(220px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.left { display: flex; flex-direction: column; gap: 12px; }
+.lgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; }
+.right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.knobs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.row6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.octs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lcd { background: #000; border-radius: 6px; padding: 6px; box-shadow: inset 0 0 0 1px var(--edge); }
 .lcd canvas { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; image-rendering: pixelated; }
-.master { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 4px; }
-.master input { writing-mode: vertical-lr; direction: rtl; height: 160px; width: 28px; accent-color: var(--led); }
+.master { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.master input { width: 100%; accent-color: var(--led); }
 .label { font-family: var(--f-display); font-size: .68rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim); }
 
-.encoders { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .enc { display: flex; flex-direction: column; align-items: center; gap: 4px; touch-action: none; user-select: none; -webkit-user-select: none; cursor: ns-resize; background: none; border: 0; color: inherit; padding: 0; }
 .enc .cap { width: 100%; max-width: 46px; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a4f56, #24272b 70%);
   box-shadow: 0 0 0 2px #111, 0 3px 6px #0009; position: relative; }
 .enc .cap::after { content: ""; position: absolute; left: 50%; top: 8%; width: 3px; height: 30%; margin-left: -1.5px; background: var(--ink); border-radius: 2px;
   transform-origin: 50% 140%; transform: rotate(var(--rot, 0deg)); }
 .enc .arrows { display: flex; gap: 2px; }
+.enc .role { font-size: .6rem; color: var(--ink-dim); line-height: 1; min-height: .7rem; text-align: center; }
 .enc .arrows span { font-family: var(--f-mono); font-size: .75rem; color: var(--ink-dim); padding: 0 4px; border-radius: 3px; background: var(--plate); cursor: pointer; }
 
-.buttons { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px 6px; }
 .btn { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; padding: 0; color: inherit; cursor: pointer;
   touch-action: none; user-select: none; -webkit-user-select: none; }
 .btn .face { width: 100%; height: 30px; border-radius: 5px; background: var(--plate); box-shadow: inset 0 0 0 1px var(--edge), 0 2px 0 #0007; transition: background .06s; }
@@ -87,9 +92,15 @@ h1 small { display: block; font-family: var(--f-body); font-weight: 400; font-si
 .notes dd { margin: 0; color: var(--ink-dim); min-width: 0; }
 .notes p { margin: 0; color: var(--ink-dim); font-size: .88rem; max-width: 65ch; }
 kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); border: 1px solid var(--edge); border-radius: 3px; padding: 0 4px; color: var(--ink); }
+/* Narrow screens: display on top, then the right and left sections. */
+@media (max-width: 760px) {
+  .panel { grid-template-columns: minmax(0, 1fr); }
+  .panel .lcd { order: -1; max-width: 360px; width: 100%; justify-self: center; }
+  .panel .left { order: 1; }
+  .lgrid { grid-template-columns: repeat(4, 1fr); }
+}
 @media (max-width: 420px) {
   .device { padding: 10px; gap: 12px; }
-  .master input { height: 120px; }
   .btn .face { height: 26px; }
   .keys { height: 96px; }
   .notes dl { grid-template-columns: 1fr; gap: 2px; }
@@ -105,15 +116,28 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
   </header>
 
   <section class="device" aria-label="FM-1 Bedienfeld">
-    <div class="top">
+    <!-- As on the FM-1: MASTER, SELECT / PRESETS, ALGORITHM and OCT on the
+         left, the display, KNOB 1-4 above two rows of six buttons on the right. -->
+    <div class="panel">
+      <div class="left">
+        <div class="lgrid">
+          <div class="master">
+            <span class="label">Master</span>
+            <input type="range" id="master" min="0" max="1023" value="800" aria-label="Master-Lautstärke">
+          </div>
+          <div id="slot-enc0"></div>
+          <div id="slot-enc6"></div>
+          <div id="slot-enc1"></div>
+        </div>
+        <div class="octs" id="octs"></div>
+      </div>
       <div class="lcd"><canvas id="lcd" width="240" height="240" aria-label="Display"></canvas></div>
-      <div class="master">
-        <span class="label">Master</span>
-        <input type="range" id="master" min="0" max="1023" value="800" aria-label="Master-Lautstärke">
+      <div class="right">
+        <div class="knobs" id="knobs"></div>
+        <div class="row6" id="row1"></div>
+        <div class="row6" id="row2"></div>
       </div>
     </div>
-    <div class="encoders" id="encoders"></div>
-    <div class="buttons" id="buttons"></div>
     <div class="keys" id="keys" aria-label="Tastatur F3 bis G5"></div>
   </section>
 
@@ -128,13 +152,14 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
     <p>Encoder: ziehen nach oben/unten, Mausrad oder die Pfeile darunter. EDIT, GLO und ARP rasten auf Wunsch ein (Häkchen oben), dann tippst du sie an, statt sie zu halten. Am Rechner spielen <kbd>A</kbd>–<kbd>K</kbd> die weißen Tasten ab F3, <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>Z</kbd> <kbd>U</kbd> die schwarzen, <kbd>Leertaste</kbd> ist PLAY.</p>
     <dl>
       <dt>FX SCL ENV LFO</dt><dd>Bereich BEAT, RHYTHM, STRINGS, BASS; nochmal drücken: nächste Klangseite. GLO + Bereich: stumm.</dd>
-      <dt>HOME</dt><dd>Übersicht. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove, EDIT halten: Verzerrungs-Sends.</dd>
-      <dt>BEAT</dt><dd>Schwarze Taste wählt und spielt ein Instrument (SEQ: zweite Ebene mit PULSE), weiße Tasten setzen Steps. GLO + E1: Kit (auch PO-12).</dd>
-      <dt>Synths</dt><dd>Tasten spielen den Sound, SEQ schaltet in den Step-Modus. E7 Sound, EDIT + E7 andere Engine (MKS-50 / JP-6).</dd>
-      <dt>ARP halten</dt><dd>Generator: E3 Stil, E4 Dichte, weiße Taste = neue Spur.</dd>
+      <dt>HOME</dt><dd>Übersicht. Weiße Tasten wählen das Pattern, ARP + weiße Taste erzeugt dort einen neuen Groove. EDIT halten: Verzerrung, KNOB 1–4 Sends, PRESETS Typ, ALGORITHM Drive, SELECT Ton.</dd>
+      <dt>Links: Struktur</dt><dd>SELECT Pattern. ALGORITHM Tempo, GLO + ALGORITHM Pattern-Länge, EDIT + ALGORITHM Swing (BEAT), Notenlänge (RHYTHM, BASS) bzw. Schrittlänge (STRINGS). PRESETS Sound bzw. in BEAT das Kit.</dd>
+      <dt>Rechts: Klang</dt><dd>KNOB 1–4 stellen den Klang ein; in HOME die Pegel der vier Bereiche, deren Tasten direkt darunter liegen.</dd>
+      <dt>BEAT</dt><dd>Schwarze Taste wählt und spielt ein Instrument (SEQ: zweite Ebene mit PULSE), weiße Tasten setzen Steps. GLO + SELECT wählt das Instrument, ohne es zu spielen. PRESETS: Kit (auch PO-12).</dd>
+      <dt>Synths</dt><dd>Tasten spielen den Sound, SEQ schaltet in den Step-Modus (GLO + SELECT wählt den Step). PRESETS Sound, EDIT + PRESETS andere Engine (MKS-50 / JP-6).</dd>
+      <dt>ARP halten</dt><dd>Generator: KNOB 1 Stil, KNOB 2 Dichte, weiße Taste = neue Spur.</dd>
       <dt>ARP antippen</dt><dd>In RHYTHM, STRINGS, BASS: Arpeggiator an/aus (eingerastet: zweimal tippen). EDIT + ARP: Hold. Einstellungen auf der Seite ARP (Bereichstaste weiterdrücken): Modus, Rate, Oktaven, Gate.</dd>
       <dt>SAVE</dt><dd>Dann weiße Taste 1–8: Groove in User-Platz 17–24. Gespeichert wird im Browser.</dd>
-      <dt>E1 / E2</dt><dd>Pattern / Tempo.</dd>
     </dl>
   </section>
 </div>
@@ -172,16 +197,19 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
     const up = () => { buttons &= ~(1 << i); b.classList.remove("down"); };
     b.addEventListener("pointerdown", down);
     b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
-    $("buttons").appendChild(b);
+    $(i < 2 ? "octs" : i < 8 ? "row1" : "row2").appendChild(b);
     return b;
   });
   $("latch").addEventListener("change", () => { latched = 0; btnEls.forEach((b) => b.classList.remove("latched")); });
 
+  /* Encoders in FM1 Open's numbering, with what they do here. */
+  const ENC_NAMES = ["SELECT", "ALGORITHM", "KNOB 1", "KNOB 2", "KNOB 3", "KNOB 4", "PRESETS"];
+  const ENC_ROLES = ["Pattern", "Tempo", "", "", "", "", "Sound"];
   const encEls = [];
   for (let i = 0; i < 7; i++) {
     const w = document.createElement("div");
-    w.className = "enc"; w.tabIndex = 0; w.setAttribute("role", "slider"); w.setAttribute("aria-label", "Encoder E" + (i + 1));
-    w.innerHTML = `<span class="cap"></span><span class="label">E${i + 1}</span><span class="arrows"><span data-d="-1">−</span><span data-d="1">+</span></span>`;
+    w.className = "enc"; w.tabIndex = 0; w.setAttribute("role", "slider"); w.setAttribute("aria-label", ENC_NAMES[i]);
+    w.innerHTML = `<span class="cap"></span><span class="label">${ENC_NAMES[i]}</span><span class="role">${ENC_ROLES[i]}</span><span class="arrows"><span data-d="-1">−</span><span data-d="1">+</span></span>`;
     const turn = (d) => { enc[i] += d; encAngle[i] += d * 18; w.querySelector(".cap").style.setProperty("--rot", encAngle[i] + "deg"); };
     let y0 = null;
     const cap = w.querySelector(".cap");
@@ -192,7 +220,7 @@ kbd { font-family: var(--f-mono); font-size: .8em; background: var(--plate); bor
     w.addEventListener("wheel", (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
     w.querySelectorAll(".arrows span").forEach((s) => s.addEventListener("click", () => turn(+s.dataset.d)));
     w.addEventListener("keydown", (e) => { if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); } if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); } });
-    $("encoders").appendChild(w); encEls.push(w);
+    (i >= 2 && i <= 5 ? $("knobs") : $("slot-enc" + i)).appendChild(w); encEls.push(w);
   }
 
   const keyEls = [];

@@ -108,6 +108,28 @@ int main(int argc, char **argv)
     run(900);
     shot(dir, "02_beat_playing");
 
+    /* BEAT by the panel layout: PRESETS kit, GLO + ALGORITHM length,
+     * EDIT + ALGORITHM swing, GLO + SELECT instrument (PULSE too). */
+    unsigned kit_before = engine.drums.kit_index;
+    turn(6, 1);
+    hold(BTN_GLO, 1);
+    turn(1, -4);
+    turn(0, 20);
+    hold(BTN_GLO, 0);
+    hold(BTN_EDIT, 1);
+    turn(1, 3);
+    hold(BTN_EDIT, 0);
+    run(100);
+    const dr_pattern_t *bp = &engine.drums.pattern[engine.drums.current];
+    int beat_ok = engine.drums.kit_index == kit_before + 1 && bp->length == 12 && bp->swing > 50 && ui.part == DR_PARTS - 1;
+    printf("layout: beat kit %s, length %u, swing %u, part %s %s\n", dr_kit_names[engine.drums.kit_index], bp->length,
+           bp->swing, dr_part_names[ui.part], beat_ok ? "ok" : "FAIL");
+    shot(dir, "02b_beat_pulse");
+    turn(6, -1);
+    hold(BTN_GLO, 1);
+    turn(1, 4);
+    hold(BTN_GLO, 0);
+
     tap_button(BTN_SCL);              /* RHYTHM */
     run(400);
     shot(dir, "03_rhythm");
@@ -151,7 +173,7 @@ int main(int argc, char **argv)
     hold(BTN_EDIT, 1);                /* HOME + EDIT: distortion sends */
     turn(2, 20);                      /* BEAT send */
     turn(5, 30);                      /* BASS send */
-    turn(0, 1);                       /* type: TUBE */
+    turn(6, 1);                       /* PRESETS: type TUBE */
     run(300);
     shot(dir, "08b_home_distortion");
     hold(BTN_EDIT, 0);
@@ -243,5 +265,5 @@ int main(int argc, char **argv)
     int kept = el_store_load(&again) == 0 && again.track[2].arp.v[ARP_HOLD] == 1 &&
                again.track[2].arp.v[ARP_RATE] == bass->arp.v[ARP_RATE] && again.track[2].arp.v[ARP_GATE] == bass->arp.v[ARP_GATE];
     printf("store: arp settings kept over restart %s\n", kept ? "ok" : "FAIL");
-    return same && arp_ok && kept ? 0 : 1;
+    return same && arp_ok && kept && beat_ok ? 0 : 1;
 }
