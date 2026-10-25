@@ -856,7 +856,7 @@ const char *jp6_param_value_name(unsigned param, int value)
     static const char *const key_modes[] = {"POLY", "CHORD", "MONO", "UNISON"};
     static const char *const porta[] = {"OFF", "ON", "AUTO"};
     static const char *const divs[] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T",
-                                       "1/4", "1/4.", "1/2", "1/1", "2/1", "4/1"};
+                                       "1/4", "1/4.", "1/2", "1 BAR", "2 BARS", "4 BARS"};
     static const char *const retrig[] = {"MULTI", "LEGATO"};
     static const char *const chorus_modes[] = {"FREE", "I", "II", "I+II"};
     static const char *const dist_modes[] = {"OFF", "OD", "DIST", "RAT", "TUBE"};

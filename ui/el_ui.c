@@ -154,6 +154,15 @@ static void ed_position(el_ui_t *ui, unsigned *section, unsigned *page)
 
 typedef struct { const char *name; int value, max; const char *text; uint16_t color; } knob_t;
 
+/* LFO SYNC on: the LFO RATE knob sets and shows the note value (LFO DIV),
+ * as in the apps. */
+static unsigned synced_rate(const syn_part_t *part, unsigned param)
+{
+    int jp = part->engine == SYN_JP6;
+    if (param != (jp ? JP_LFO_RATE : MP_LFO_RATE) || !syn_values(part)[jp ? JP_LFO_SYNC : MP_LFO_SYNC]) return param;
+    return jp ? JP_LFO_DIV : MP_LFO_DIV;
+}
+
 static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
 {
     el_engine_t *e = ui->engine;
@@ -175,13 +184,14 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
         unsigned section, page;
         ed_position(ui, &section, &page);
         param = ed_param(part->engine, section, page, slot);
+        if (param != ED_NONE) param = synced_rate(part, param);
         value = param == ED_NONE ? 0 : syn_values(part)[param];
     } else if (ui->page[ui->area] == PAGE_ARP) {
         param = PARAM_ARP + arp_page[slot];
         value = track_of(ui)->arp.v[arp_page[slot]];
     } else {
         const syn_part_t *part = &track_of(ui)->part;
-        param = synth_pages[part->engine][ui->page[ui->area]][slot];
+        param = synced_rate(part, synth_pages[part->engine][ui->page[ui->area]][slot]);
         value = syn_values(part)[param];
     }
     *param_out = param;
@@ -227,6 +237,10 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
     } else {
         unsigned engine = track_of(ui)->part.engine;
         k.name = syn_param_name(engine, param);
+        /* The rate knob in sync mode: called RATE, showing the note value. */
+        int jp = engine == SYN_JP6;
+        if (param == (jp ? JP_LFO_DIV : MP_LFO_DIV) && syn_values(&track_of(ui)->part)[jp ? JP_LFO_SYNC : MP_LFO_SYNC])
+            k.name = syn_param_name(engine, jp ? JP_LFO_RATE : MP_LFO_RATE);
         k.max = syn_param_max(engine, param);
         k.text = syn_param_value_name(engine, param, k.value);
         k.color = area_color[ui->area];
@@ -1097,6 +1111,9 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         for (unsigned i = 0; i < EL_SOUND_NAME; ++i) mix(&sig[1], (uint8_t)ui->sound_name[i]);
         const ed_section_t *sec = ed_section(t->part.engine, section);
         for (unsigned i = 0; i < sec->count; ++i) mix(&sig[1], syn_values(&t->part)[sec->param[i]]);
+        /* The filter picture follows the LFO: repaint in 1/16 steps of it. */
+        if (sec->kind == ED_VCF && ed_vcf_lfo_octaves(&t->part) > 0.0f)
+            mix(&sig[1], (uint32_t)(int)((ed_lfo_value(&t->part) + 1.0f) * 8.0f));
     } else {
         st_track_t *t = track_of(ui);
         const st_pattern_t *p = &t->pattern[t->current];

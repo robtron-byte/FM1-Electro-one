@@ -23,6 +23,9 @@ const ed_section_t *ed_section(unsigned engine, unsigned section);
 static inline unsigned ed_pages(const ed_section_t *s) { return (s->count + 3u) / 4u; }
 /* Parameter on KNOB slot 0-3 of a page, or ED_NONE. */
 unsigned ed_param(unsigned engine, unsigned section, unsigned page, unsigned slot);
+/* VCF LFO depth in octaves and the part's LFO now (-1..1), for the picture. */
+float ed_vcf_lfo_octaves(const syn_part_t *p);
+float ed_lfo_value(const syn_part_t *p);
 /* Section tabs, title and picture between y and y + h. */
 void ed_draw(gfx_band_t *b, const syn_part_t *part, unsigned section, unsigned page, uint16_t color, int y, int h);
 #endif

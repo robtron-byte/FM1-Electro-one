@@ -760,7 +760,7 @@ const char *mks_param_value_name(unsigned param, int value)
     static const char *const porta[] = {"OFF", "ON", "AUTO"};
     static const char *const waves[] = {"TRI", "SINE", "SAW UP", "SAW DN", "SQUARE", "S&H", "RANDOM"};
     static const char *const divs[] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T",
-                                       "1/4", "1/4.", "1/2", "1/1", "2/1", "4/1"};
+                                       "1/4", "1/4.", "1/2", "1 BAR", "2 BARS", "4 BARS"};
     static const char *const retrig[] = {"MULTI", "LEGATO"};
     value = el_clampi(value, 0, mks_param_max(param));
     switch (param) {

@@ -93,15 +93,27 @@ static void draw_env(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s, 
         tm[0] = val(p, MP_T1); tm[1] = val(p, MP_T2); tm[2] = val(p, MP_T3); tm[3] = -1; tm[4] = val(p, MP_T4);
         stages = 5;
     }
+    /* Width proportional to each time: a time of 0 is a straight vertical
+     * edge (an attack of 0 jumps to full level). */
     float total = 0;
-    for (int i = 0; i < stages; ++i) total += tm[i] < 0 ? 0.6f : 0.08f + tm[i];
+    for (int i = 0; i < stages; ++i) total += tm[i] < 0 ? 0.6f : tm[i];
     float px = (float)x, py = (float)(y + h - 1);
     for (int i = 0; i < stages; ++i) {
-        float seg = (tm[i] < 0 ? 0.6f : 0.08f + tm[i]) / total * (float)w;
+        float seg = (tm[i] < 0 ? 0.6f : tm[i]) / total * (float)w;
         float nx = px + seg, ny = (float)(y + h - 1) - lv[i] * (float)(h - 2);
         line(b, (int)px, (int)py, (int)nx, (int)ny, tm[i] < 0 ? DIM : c);
         px = nx; py = ny;
     }
+}
+
+float ed_vcf_lfo_octaves(const syn_part_t *p)
+{
+    return p->engine == SYN_JP6 ? syn_values(p)[JP_VCF_LFO] / 32.0f : syn_values(p)[MP_VCF_LFO] / 48.0f;
+}
+
+float ed_lfo_value(const syn_part_t *p)
+{
+    return p->engine == SYN_JP6 ? p->u.jp6.lfo_value : p->u.mks.lfo_value;
 }
 
 /* Filter response on a 20 Hz .. 20 kHz log axis, -36 .. +18 dB. */
@@ -114,8 +126,17 @@ static void draw_vcf(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int 
     unsigned mks_hpf = jp ? 1u : syn_values(p)[MP_HPF];
     float hp = jp ? (syn_values(p)[JP_HPF] ? 20.0f * dsp_exp2(val(p, JP_HPF) * 7.6f) : 0.0f)
                   : mks_hpf == 2 ? 225.0f : mks_hpf == 3 ? 700.0f : 0.0f;
+    /* VCF LFO: the curve follows the LFO as the engine does (cutoff in
+     * octaves + LFO x depth; the picture spans 10 octaves), the band shows
+     * how far it sweeps. */
+    float depth = ed_vcf_lfo_octaves(p) / 10.0f, base = cut;
+    if (depth > 0.0f) cut = dsp_clamp(cut + ed_lfo_value(p) * depth, 0.0f, 1.0f);
     float fc = 20.0f * dsp_exp2(cut * 10.0f), q = 0.6f + reso * reso * 9.0f;
     int zero = y + h / 3;
+    if (depth > 0.0f) {
+        int lo = x + (int)(dsp_clamp(base - depth, 0.0f, 1.0f) * (float)w), hi = x + (int)(dsp_clamp(base + depth, 0.0f, 1.0f) * (float)w);
+        gfx_fill(b, lo, y, hi - lo + 1, h, 0x18c3);
+    }
     gfx_fill(b, x, zero, w, 1, FAINT);
     int prev = -1;
     for (int i = 0; i < w; i += 2) {
@@ -134,7 +155,7 @@ static void draw_vcf(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int 
         if (prev >= 0) line(b, x + i - 2, prev, x + i, py, c);
         prev = py;
     }
-    int cx = x + (int)(cut * (float)w);
+    int cx = x + (int)(base * (float)w);
     gfx_fill(b, cx, y, 1, h, DIM);
 }
 
