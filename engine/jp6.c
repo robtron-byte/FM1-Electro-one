@@ -291,15 +291,23 @@ static inline float vcf(jp6_voice_t *v, const vcf_t *f, float input)
 
 /* ---- HPF: 12 dB biquad, Q 0.6, shared coefficients ------------------------ */
 
+/* b0 b1 b2 a1 a2 of the high-pass at hz. */
+static void hpf_coefs(float hz, float *c)
+{
+    float w = 2.0f * DSP_PI * hz / EL_SAMPLE_RATE;
+    float cw = dsp_cos(w), alpha = dsp_sin(w) / (2.0f * 0.6f), a0 = 1.0f + alpha;
+    c[0] = (1.0f + cw) * 0.5f / a0;
+    c[1] = -(1.0f + cw) / a0;
+    c[2] = c[0];
+    c[3] = -2.0f * cw / a0;
+    c[4] = (1.0f - alpha) / a0;
+}
+
 static void hpf_configure(jp6_part_t *p, float raw)
 {
-    float w = 2.0f * DSP_PI * hpf_hz(raw) / EL_SAMPLE_RATE;
-    float cw = dsp_cos(w), alpha = dsp_sin(w) / (2.0f * 0.6f), a0 = 1.0f + alpha;
-    p->hpf_b0 = (1.0f + cw) * 0.5f / a0;
-    p->hpf_b1 = -(1.0f + cw) / a0;
-    p->hpf_b2 = p->hpf_b0;
-    p->hpf_a1 = -2.0f * cw / a0;
-    p->hpf_a2 = (1.0f - alpha) / a0;
+    float c[5];
+    hpf_coefs(hpf_hz(raw), c);
+    p->hpf_b0 = c[0]; p->hpf_b1 = c[1]; p->hpf_b2 = c[2]; p->hpf_a1 = c[3]; p->hpf_a2 = c[4];
     p->hpf_coef_at = raw;
 }
 
@@ -728,8 +736,15 @@ static EL_DSP_CODE void render_voice(jp6_part_t *p, jp6_voice_t *v, const derive
     env_settings_t s1, s2;
     env_settings(p, v, 0, pitch, &d->env[0], &s1);
     env_settings(p, v, 1, pitch, &d->env[1], &s2);
-    const float b0 = p->hpf_b0, b1 = p->hpf_b1, b2 = p->hpf_b2, a1 = p->hpf_a1, a2 = p->hpf_a2;
+    float b0 = p->hpf_b0, b1 = p->hpf_b1, b2 = p->hpf_b2, a1 = p->hpf_a1, a2 = p->hpf_a2;
     int hpf_on = p->hpf_on;
+    /* The HPF corner never above the voice's lower VCO, so low notes keep
+     * their bass; notes above the corner use the shared coefficients. */
+    float fc = 0.85f * dsp_min(dt1, dt2) * EL_SAMPLE_RATE;   /* 12 dB, Q 0.6: about -3 dB at f0 */
+    if (hpf_on && fc < hpf_hz(dsp_max(p->hpf_smoothed, 0.5f))) {
+        if (dsp_abs(fc - v->hpf_fc) > 0.005f * fc) { hpf_coefs(fc, v->hpf_c); v->hpf_fc = fc; }
+        b0 = v->hpf_c[0]; b1 = v->hpf_c[1]; b2 = v->hpf_c[2]; a1 = v->hpf_c[3]; a2 = v->hpf_c[4];
+    }
     for (int k = 0; k < n; ++k) {
         env_next(&v->env1, &s1);
         float e = env_next(&v->env2, &s2);

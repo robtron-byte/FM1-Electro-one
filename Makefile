@@ -74,7 +74,7 @@ build/web/fm1-electro-simulator.html: build/web/fm1sim.wasm host/web/index.html 
 test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 	@mkdir -p build/wav build/wav_jp6 build/screens
 	./build/synth_test build/wav > /dev/null
-	./build/jp6_test build/wav_jp6 > /dev/null
+	./build/jp6_test build/wav_jp6 | grep "^strings hpf\|FAILED"
 	./build/render_demo build/wav | grep -E "^(timing|midi clock)"
 	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^arp\|^layout\|^editor\|^sounds"
 	@echo "host tests ok"

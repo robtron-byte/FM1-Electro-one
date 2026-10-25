@@ -22,6 +22,41 @@ typedef struct {
 
 static float wav[SECONDS_FRAMES * 2 * 2];
 
+/* Level (dB) of the strongest of f and 2f in the held part of one note:
+ * the fundamental of a voice (2f covers a 4' range). */
+static float fundamental_db(const float *x, int count, float f)
+{
+    float best = 0;
+    for (int h = 1; h <= 2; ++h) {
+        float w = 2.0f * 3.14159265f * f * (float)h / 44100.0f, c = 2.0f * cosf(w), s1 = 0, s2 = 0;
+        for (int i = 0; i < count; ++i) { float s0 = x[i] + c * s1 - s2; s2 = s1; s1 = s0; }
+        float p = s1 * s1 + s2 * s2 - c * s1 * s2;
+        if (p > best) best = p;
+    }
+    return 10.0f * log10f(best + 1e-20f);
+}
+
+static float hpf_note(int jp, const uint8_t *preset, int hpf, int note)
+{
+    static jp6_part_t j;
+    static mks_part_t m;
+    static float mono[44100];
+    float l[EL_BLOCK], r[EL_BLOCK], d[EL_BLOCK], v[EL_BLOCK];
+    uint8_t p[128];
+    _Static_assert((int)JP_COUNT <= 128 && (int)MP_COUNT <= 128, "parameter copy");
+    memcpy(p, preset, jp ? JP_COUNT : MP_COUNT);
+    if (jp) { p[JP_KEY_MODE] = 0; p[JP_HPF] = (uint8_t)hpf; jp6_part_init(&j, 6, 7); jp6_part_load(&j, p); jp6_note_on(&j, note, 0.8f, 0); }
+    else { p[MP_KEY_MODE] = 0; p[MP_HPF] = (uint8_t)hpf; mks_part_init(&m, 6, 7); mks_part_load(&m, p); mks_note_on(&m, note, 0.8f, 0); }
+    int frames = 0;
+    for (int block = 0; block < 44100 / EL_BLOCK; ++block) {
+        memset(l, 0, sizeof l); memset(r, 0, sizeof r); memset(d, 0, sizeof d); memset(v, 0, sizeof v);
+        if (jp) jp6_render(&j, l, r, d, v, EL_BLOCK, 120); else mks_render(&m, l, r, d, v, EL_BLOCK, 120);
+        for (int i = 0; i < EL_BLOCK; ++i) mono[frames++] = 0.5f * (l[i] + r[i]);
+    }
+    return fundamental_db(mono + 22050, frames - 22050, 440.0f * powf(2.0f, (note - 69) / 12.0f));
+}
+
+
 static void write_wav(const char *path, const float *data, uint32_t frames)
 {
     FILE *f = fopen(path, "wb");
@@ -160,6 +195,23 @@ int main(int argc, char **argv)
         PLAY(mks, &mks, six, 6, (float *)0, &a);
         printf("6 voices MKS %-10s %.1f ns per voice-sample, %.2f%% real time per voice\n", "JX STRINGS",
                a.seconds / a.voice_frames * 1e9, a.seconds / a.voice_frames * 44100 * 100);
+    }
+    /* The strings' HPF never sits above a voice's fundamental: low notes keep
+     * their bass, notes above the corner sound as before. */
+    struct { int jp; const char *name; int hpf, off; } hp[] = {
+        {0, "STRINGS", -1, 1}, {0, "BRIGHT STR", -1, 1}, {1, "STR MACHN", -1, 0}, {1, "HPF AIR", -1, 0}};
+    for (unsigned k = 0; k < sizeof hp / sizeof hp[0]; ++k) {
+        const uint8_t *pv = 0;
+        if (hp[k].jp) { for (unsigned n = 0; n < jp6_preset_count; ++n) if (!strcmp(jp6_presets[n].name, hp[k].name)) pv = jp6_presets[n].v; }
+        else for (unsigned n = 0; n < mks_preset_count; ++n) if (!strcmp(mks_presets[n].name, hp[k].name)) pv = mks_presets[n].v;
+        if (!pv) { printf("strings hpf: missing %s\n", hp[k].name); failed = 1; continue; }
+        int on = hp[k].jp ? pv[JP_HPF] : pv[MP_HPF];
+        float low = hpf_note(hp[k].jp, pv, on, 36) - hpf_note(hp[k].jp, pv, hp[k].off, 36);
+        float high = hpf_note(hp[k].jp, pv, on, 84) - hpf_note(hp[k].jp, pv, hp[k].off, 84);
+        int ok = low >= -3.5f;
+        printf("strings hpf: %-10s fundamental C2 %+.1f dB, C6 %+.1f dB against HPF off %s\n", hp[k].name, low, high,
+               ok ? "ok" : "FAIL");
+        failed |= !ok;
     }
     printf(failed ? "jp6 test FAILED\n" : "jp6 test ok\n");
     return failed;

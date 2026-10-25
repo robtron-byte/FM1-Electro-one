@@ -64,6 +64,7 @@ typedef struct {
     float phase, pulse_phase, last_main;
     float s1, s2, s3, s4, g, G, k;  /* ladder */
     float hz1, hz2;                 /* HPF state */
+    float hpf_fc, hpf_b0, hpf_a1;   /* HPF modes 2, 3: corner at most the voice's fundamental */
     mks_env_t env;
 } mks_voice_t;
 

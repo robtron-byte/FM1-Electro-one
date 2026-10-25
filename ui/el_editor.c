@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "el_editor.h"
+#include <string.h>
 #include "dsp_math.h"
 #include <stdio.h>
 
@@ -163,6 +164,18 @@ static void draw_lfo(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int 
     }
 }
 
+/* Knob name for the list, at most 9 characters: a first word that only
+ * repeats the section ("VCO1 SAW" under VC1, "LFO RATE" under LFO) is
+ * left out. */
+static void short_name(char out[10], const char *name, const char *tab)
+{
+    const char *space = strchr(name, ' ');
+    if (space && space[1] && name[0] == tab[0] && name[1] == tab[1]) name = space + 1;
+    unsigned n = 0;
+    while (n < 9 && name[n]) { out[n] = name[n]; ++n; }
+    out[n] = 0;
+}
+
 /* Every knob of the section as a bar; the shown page bright. */
 static void draw_list(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s, unsigned page, uint16_t c, int x, int y, int w, int h)
 {
@@ -172,12 +185,12 @@ static void draw_list(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s,
         int cx = x + (int)(i % 2u) * col_w, cy = y + (int)(i / 2u) * row_h;
         if (!gfx_touches(b, cy, row_h)) continue;
         int shown = i / 4u == page;
-        char name[8];
-        snprintf(name, sizeof name, "%.6s", syn_param_name(p->engine, s->param[i]));
+        char name[10];
+        short_name(name, syn_param_name(p->engine, s->param[i]), s->tab);
         gfx_text(b, cx, cy + 1, name, shown ? TEXT : DIM, 1);
-        int bw = col_w - 48;
-        gfx_fill(b, cx + 40, cy + 2, bw, 5, GRID);
-        gfx_fill(b, cx + 40, cy + 2, (int)(val(p, s->param[i]) * (float)bw), 5, shown ? c : DIM);
+        int bw = col_w - 60;
+        gfx_fill(b, cx + 56, cy + 2, bw, 5, GRID);
+        gfx_fill(b, cx + 56, cy + 2, (int)(val(p, s->param[i]) * (float)bw), 5, shown ? c : DIM);
     }
 }
 

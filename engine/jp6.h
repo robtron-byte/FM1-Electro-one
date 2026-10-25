@@ -82,6 +82,7 @@ typedef struct {
     float phase1, phase2, last2;    /* VCOs */
     float a1, b1, a2, b2;           /* VCF sections */
     float hz1, hz2;                 /* HPF state */
+    float hpf_fc, hpf_c[5];         /* own HPF corner (b0 b1 b2 a1 a2) below the shared one */
     jp6_env_t env1, env2;
 } jp6_voice_t;
 

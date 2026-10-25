@@ -457,6 +457,7 @@ static void start_voice(mks_part_t *p, mks_voice_t *v, int note, float velocity,
     if (!was_active) {
         v->s1 = v->s2 = v->s3 = v->s4 = 0;
         v->hz1 = v->hz2 = 0;
+        v->hpf_fc = -1;
         v->env.stage = ENV_IDLE;
         v->env.value = 0;
         v->gate_amp = 0;
@@ -667,13 +668,29 @@ static EL_DSP_CODE void render_voice(mks_part_t *p, mks_voice_t *v, const block_
     float pan = unison ? v->unison_spread * 0.85f : 0.0f;
     float gl = amp * dsp_min(1, 1 - pan), gr = amp * dsp_min(1, 1 + pan);
     float gate_target = v->gate ? 1.0f : 0.0f, gate_coef = v->gate ? b->gate_coef : b->gate_release;
+    /* HPF 225 / 700 Hz: the corner never above the voice's own fundamental,
+     * so low notes keep their bass and higher ones sound as before. */
+    int hpf_voice = p->hpf_on && p->hpf_mode >= 2;
+    if (hpf_voice) {
+        float fc = dsp_min(p->hpf_mode == 2 ? 225.0f : 700.0f, dt * EL_SAMPLE_RATE);
+        if (dsp_abs(fc - v->hpf_fc) > 0.005f * fc) {
+            float k = dsp_tan(DSP_PI * fc / EL_SAMPLE_RATE);
+            v->hpf_fc = fc;
+            v->hpf_b0 = 1.0f / (1.0f + k);
+            v->hpf_a1 = (k - 1.0f) * v->hpf_b0;
+        }
+    }
     mks_env_settings_t s;
     env_settings(p, v, pitch, &s);
     for (int k = 0; k < n; ++k) {
         float e = env_next(&v->env, &s);
         v->gate_amp += (gate_target - v->gate_amp) * gate_coef;
         float x = dco_tick(p, v, dt, ratio, b->sync) * 0.5f;
-        if (p->hpf_on) x = biquad(&p->hpf, &v->hz1, &v->hz2, x);
+        if (hpf_voice) {
+            float y = v->hpf_b0 * x + v->hz1;
+            v->hz1 = -v->hpf_b0 * x - v->hpf_a1 * y;
+            x = y;
+        } else if (p->hpf_on) x = biquad(&p->hpf, &v->hz1, &v->hz2, x);
         x = ladder(v, x) * (b->gate_mode ? v->gate_amp : e);
         left[k] += x * gl;
         right[k] += x * gr;
@@ -724,7 +741,7 @@ static const uint8_t max_values[MP_COUNT] = {
 int mks_param_max(unsigned param) { return param < MP_COUNT ? max_values[param] : 0; }
 
 static const char *const names[MP_COUNT] = {
-    "DCO ENV", "VCF ENV", "VCA MODE", "PULSE", "SAW", "SUB", "RANGE", "SUB LVL", "NOISE", "HPF", "CHORUS",
+    "DCO EMODE", "VCF EMODE", "VCA MODE", "PULSE", "SAW", "SUB", "RANGE", "SUB LVL", "NOISE", "HPF", "CHORUS",
     "VIBRATO", "PITCH ENV", "DCO AFT", "PW", "PWM RATE", "CUTOFF", "RESO", "VCF LFO", "VCF ENV", "KEY FLW",
     "VCF AFT", "LEVEL", "VCA AFT", "LFO RATE", "LFO DLY", "ATTACK", "L1", "DECAY", "L2", "T3", "SUSTAIN",
     "RELEASE", "ENV KEY", "CHO RATE", "BEND", "KEY MODE", "GLIDE", "PORTA", "VOLUME", "SHIFT", "DETUNE",
