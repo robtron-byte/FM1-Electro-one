@@ -197,6 +197,14 @@ static void short_name(char out[10], const char *name, const char *tab)
     out[n] = 0;
 }
 
+/* A round dot 5 pixels across, centred on x, y. */
+static void dot5(gfx_band_t *b, int x, int y, uint16_t c)
+{
+    gfx_fill(b, x - 1, y - 2, 3, 1, c);
+    gfx_fill(b, x - 2, y - 1, 5, 3, c);
+    gfx_fill(b, x - 1, y + 2, 3, 1, c);
+}
+
 /* Every knob of the section as a bar; the shown page bright. */
 static void draw_list(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s, unsigned page, uint16_t c, int x, int y, int w, int h)
 {
@@ -213,9 +221,8 @@ static void draw_list(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s,
         if (max >= 1 && max <= 7) {
             /* Few settings (switches, waves, modes): one dot each, the
              * chosen one lit. */
-            int value = syn_values(p)[s->param[i]], gap = bw / (max + 1);
-            for (int k = 0; k <= max; ++k)
-                gfx_fill(b, cx + 56 + k * gap, cy + 1, 5, 6, k == value ? (shown ? c : DIM) : GRID);
+            int value = syn_values(p)[s->param[i]];
+            for (int k = 0; k <= max; ++k) dot5(b, cx + 58 + k * 7, cy + 4, k == value ? (shown ? c : DIM) : GRID);
         } else {
             gfx_fill(b, cx + 56, cy + 2, bw, 5, GRID);
             gfx_fill(b, cx + 56, cy + 2, (int)(val(p, s->param[i]) * (float)bw), 5, shown ? c : DIM);
