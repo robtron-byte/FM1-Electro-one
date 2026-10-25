@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>FM1-Electro – Kurzanleitung</title>
+<style>
+@page { size: A4; margin: 0; }
+:root {
+  --ink: #111113; --muted: #86868b; --line: #e5e5e8; --soft: #f6f6f7;
+  --beat: #ff5a1f; --rhythm: #e9ad00; --strings: #8b6cf6; --bass: #12b0a2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Inter", sans-serif; color: var(--ink); font-size: 9.2pt; line-height: 1.45;
+}
+.page { width: 210mm; height: 297mm; padding: 16mm 18mm 14mm; position: relative; page-break-after: always;
+        display: flex; flex-direction: column; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+.run { display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); letter-spacing: .04em;
+       text-transform: uppercase; margin-bottom: 11mm; }
+.foot { position: absolute; left: 18mm; right: 18mm; bottom: 10mm; display: flex; justify-content: space-between;
+        font-size: 7pt; color: var(--muted); }
+h1 { font-family: "Inter Display", "Inter"; font-weight: 700; font-size: 44pt; letter-spacing: -.035em; line-height: 1; }
+.lede { font-size: 12pt; color: var(--muted); margin-top: 3mm; max-width: 135mm; line-height: 1.4; }
+h2 { font-family: "Inter Display", "Inter"; font-weight: 650; font-size: 19pt; letter-spacing: -.02em; line-height: 1.1;
+     margin-bottom: 1.5mm; }
+h3 { font-weight: 650; font-size: 10pt; letter-spacing: -.005em; margin-bottom: 1.5mm; }
+.eyebrow { font-size: 7pt; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+           margin-bottom: 2.5mm; }
+.intro { color: var(--muted); max-width: 140mm; margin-bottom: 7mm; }
+section { margin-bottom: 9mm; }
+p + p { margin-top: 1.5mm; }
+.muted { color: var(--muted); }
+
+/* key caps */
+kbd { display: inline-block; font-family: "Inter"; font-weight: 600; font-size: 6.6pt; letter-spacing: .05em;
+      text-transform: uppercase; line-height: 1; padding: 1.15mm 1.5mm 1mm; border: .25mm solid #cfcfd4;
+      border-bottom-width: .5mm; border-radius: 1.1mm; background: #fff; color: var(--ink); white-space: nowrap;
+      vertical-align: .2mm; }
+kbd.beat { background: var(--beat); border-color: var(--beat); color: #fff; }
+kbd.rhythm { background: var(--rhythm); border-color: var(--rhythm); color: #fff; }
+kbd.strings { background: var(--strings); border-color: var(--strings); color: #fff; }
+kbd.bass { background: var(--bass); border-color: var(--bass); color: #fff; }
+.plus { color: var(--muted); margin: 0 .8mm; font-size: 7.5pt; }
+.dot { display: inline-block; width: 2.2mm; height: 2.2mm; border-radius: 50%; vertical-align: -.1mm; margin-right: 1.4mm; }
+
+/* panel */
+.panel { margin: 9mm 0 9mm; }
+.panel svg { width: 100%; display: block; }
+
+/* steps */
+.steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5mm; border-top: .3mm solid var(--ink); padding-top: 4mm; }
+.step .n { font-family: "Inter Display"; font-weight: 300; font-size: 26pt; line-height: 1; letter-spacing: -.03em;
+           margin-bottom: 2.5mm; }
+.step h3 { font-size: 9.5pt; }
+.step p { font-size: 8.2pt; color: #3a3a3c; }
+.step p kbd { margin: .4mm 0; }
+
+/* areas */
+.areas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin-bottom: 9mm; }
+.area { border-top: 1.2mm solid; padding-top: 3mm; }
+.area .name { font-weight: 700; font-size: 11pt; letter-spacing: .02em; }
+.area .key { margin: 1.5mm 0 2mm; font-size: 7.5pt; color: var(--muted); }
+.area p { font-size: 8.2pt; color: #3a3a3c; }
+
+.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+.card { background: var(--soft); border-radius: 2.5mm; padding: 4mm 4.5mm; }
+.card h3 { margin-bottom: 2mm; }
+.card .row { display: flex; justify-content: space-between; gap: 3mm; padding: 1.1mm 0; border-top: .2mm solid #e6e6ea; }
+.card .row:first-of-type { border-top: 0; }
+
+/* lists of moves */
+.moves { width: 100%; border-collapse: collapse; }
+.moves td { padding: 1.6mm 0; border-top: .2mm solid var(--line); vertical-align: top; }
+.moves tr:first-child td { border-top: .3mm solid var(--ink); }
+.moves td.what { width: 44%; padding-right: 4mm; }
+.moves td.how { text-align: left; }
+.moves td.how .note { display: block; color: var(--muted); font-size: 7.6pt; margin-top: .8mm; }
+
+/* slots */
+.slots { display: grid; grid-template-columns: 22mm repeat(4, 1fr); gap: 1.5mm; align-items: center; margin: 3mm 0 2mm; }
+.slots .label { font-size: 7.5pt; font-weight: 600; letter-spacing: .04em; }
+.slot { height: 6mm; border-radius: 1.4mm; border: .25mm solid var(--line); display: flex; align-items: center;
+        justify-content: center; font-weight: 600; font-size: 8pt; color: var(--muted); }
+.slot.on { color: #fff; border: 0; }
+.flow { display: flex; align-items: stretch; gap: 3mm; margin-top: 3mm; }
+.flow .box { flex: 1; border: .25mm solid var(--line); border-radius: 2mm; padding: 3mm; font-size: 8.2pt; }
+.flow .box b { display: block; font-size: 8.6pt; margin-bottom: 1mm; }
+.flow .arrow { align-self: center; color: var(--muted); font-size: 12pt; }
+
+.screen { background: #111; color: #f4b740; font-family: "JetBrains Mono", monospace; font-size: 7pt; border-radius: 1.2mm;
+          padding: 1.4mm 2.2mm; display: inline-block; letter-spacing: .02em; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1: Kurzübersicht ============ -->
+<div class="page">
+  <div class="run"><span>FM1-Electro</span><span>Kurzanleitung</span></div>
+  <h1>FM1-Electro</h1>
+  <div class="lede">Eine Electro-Groovebox für das M-VAVE FM-1: 808-Drums und drei Synth-Bereiche, gebaut zum Selberschrauben.</div>
+
+  <div class="panel">
+  <svg viewBox="0 0 174 96" xmlns="http://www.w3.org/2000/svg" font-family="Inter">
+    <defs>
+      <style>
+        .b { fill: #fff; stroke: #111113; stroke-width: .35; }
+        .t { font-size: 2.3px; font-weight: 600; letter-spacing: .12px; text-anchor: middle; fill: #111113; }
+        .tw { font-size: 2.6px; font-weight: 600; letter-spacing: .12px; text-anchor: middle; fill: #fff; }
+        .c { font-size: 2.35px; text-anchor: middle; fill: #86868b; }
+        .cl { font-size: 2.35px; fill: #86868b; }
+      </style>
+    </defs>
+    <rect x=".3" y=".3" width="173.4" height="95.4" rx="4" fill="#f6f6f7" stroke="#e5e5e8" stroke-width=".3"/>
+    <!-- left column -->
+    <circle class="b" cx="14" cy="13" r="5.6"/><text class="t" x="14" y="13.9" style="font-size:1.95px">MASTER</text><text class="c" x="14" y="22.2">Lautstärke</text>
+    <circle class="b" cx="30" cy="13" r="5.6"/><text class="t" x="30" y="13.9" style="font-size:1.95px">SELECT</text><text class="c" x="30" y="22.2">Platz A–D</text>
+    <circle class="b" cx="14" cy="34" r="5.6"/><text class="t" x="14" y="34.9" style="font-size:1.95px">PRESETS</text><text class="c" x="14" y="43.2">Sound · Kit</text>
+    <circle class="b" cx="30" cy="34" r="5.6"/><text class="t" x="30" y="35">ALGO</text><text class="c" x="30" y="43.2">Tempo</text>
+    <rect class="b" x="8.5" y="49" width="11" height="4.6" rx="1.2"/><text class="t" x="14" y="52.2">OCT −</text>
+    <rect class="b" x="24.5" y="49" width="11" height="4.6" rx="1.2"/><text class="t" x="30" y="52.2">OCT +</text>
+    <text class="c" x="22" y="58">Oktave · Steps 1–16 / 17–32</text>
+    <!-- display -->
+    <rect x="43" y="7.5" width="40" height="44" rx="2" fill="#111113"/>
+    <rect x="45" y="10" width="8.4" height=".7" fill="#ff5a1f"/><rect x="54.3" y="10" width="8.4" height=".7" fill="#e9ad00"/>
+    <rect x="63.6" y="10" width="8.4" height=".7" fill="#8b6cf6"/><rect x="72.9" y="10" width="8.4" height=".7" fill="#12b0a2"/>
+    <text x="49.2" y="13.6" font-size="2.1" fill="#ff5a1f" text-anchor="middle" font-family="JetBrains Mono">BEAT A</text>
+    <text x="58.5" y="13.6" font-size="2.1" fill="#e9ad00" text-anchor="middle" font-family="JetBrains Mono">RHYT A</text>
+    <text x="67.8" y="13.6" font-size="2.1" fill="#8b6cf6" text-anchor="middle" font-family="JetBrains Mono">STRG A</text>
+    <text x="77.1" y="13.6" font-size="2.1" fill="#12b0a2" text-anchor="middle" font-family="JetBrains Mono">BASS A</text>
+    <g fill="#2c2c2e"><rect x="46" y="20" width="34" height="2.2" rx=".4"/><rect x="46" y="25" width="34" height="2.2" rx=".4"/>
+    <rect x="46" y="30" width="34" height="2.2" rx=".4"/><rect x="46" y="35" width="34" height="2.2" rx=".4"/></g>
+    <text class="c" x="63" y="56.2">Reiter = Bereich und Platz</text>
+    <!-- knobs -->
+    <g>
+      <circle class="b" cx="97" cy="13" r="5"/><text class="t" x="97" y="14">1</text>
+      <circle class="b" cx="117" cy="13" r="5"/><text class="t" x="117" y="14">2</text>
+      <circle class="b" cx="137" cy="13" r="5"/><text class="t" x="137" y="14">3</text>
+      <circle class="b" cx="157" cy="13" r="5"/><text class="t" x="157" y="14">4</text>
+      <text class="c" x="127" y="22.2">KNOB 1–4 · Klang  ·  in HOME: Pegel der vier Bereiche</text>
+    </g>
+    <!-- buttons row 1 -->
+    <rect x="89" y="28" width="12" height="5" rx="1.2" fill="#ff5a1f"/><text class="tw" x="95" y="31.4">FX</text><text class="c" x="95" y="37.4">BEAT</text>
+    <rect x="103.6" y="28" width="12" height="5" rx="1.2" fill="#e9ad00"/><text class="tw" x="109.6" y="31.4">SEL</text><text class="c" x="109.6" y="37.4">RHYTHM</text>
+    <rect x="118.2" y="28" width="12" height="5" rx="1.2" fill="#8b6cf6"/><text class="tw" x="124.2" y="31.4">ENV</text><text class="c" x="124.2" y="37.4">STRINGS</text>
+    <rect x="132.8" y="28" width="12" height="5" rx="1.2" fill="#12b0a2"/><text class="tw" x="138.8" y="31.4">LFO</text><text class="c" x="138.8" y="37.4">BASS</text>
+    <rect class="b" x="147.4" y="28" width="12" height="5" rx="1.2"/><text class="t" x="153.4" y="31.4">EDIT</text><text class="c" x="153.4" y="37.4">Shift 1</text>
+    <rect class="b" x="161.2" y="28" width="9.6" height="5" rx="1.2"/><text class="t" x="166" y="31.4">GLO</text><text class="c" x="166" y="37.4">Shift 2</text>
+    <!-- buttons row 2 -->
+    <rect class="b" x="89" y="44" width="12" height="5" rx="1.2"/><text class="t" x="95" y="47.4">HOME</text><text class="c" x="95" y="53.4">Mixer</text>
+    <rect class="b" x="103.6" y="44" width="12" height="5" rx="1.2"/><text class="t" x="109.6" y="47.4">SAVE</text><text class="c" x="109.6" y="53.4">Speichern</text>
+    <rect class="b" x="118.2" y="44" width="12" height="5" rx="1.2"/><text class="t" x="124.2" y="47.4">ARP</text><text class="c" x="124.2" y="53.4">Arp</text><text class="c" x="124.2" y="56.2">halten: Generator</text>
+    <rect class="b" x="132.8" y="44" width="12" height="5" rx="1.2"/><text class="t" x="138.8" y="47.4">SEQ</text><text class="c" x="138.8" y="53.4">Step-Modus</text>
+    <rect class="b" x="147.4" y="44" width="12" height="5" rx="1.2"/><text class="t" x="153.4" y="47.4">PLAY</text><text class="c" x="153.4" y="53.4">Start · Stop</text>
+    <rect class="b" x="161.2" y="44" width="9.6" height="5" rx="1.2"/><text class="t" x="166" y="47.4">REC</text><text class="c" x="166" y="53.4">Aufnahme</text>
+    <!-- keyboard: 11 black pills (3-2-3-2-1) above 16 white -->
+    <g id="keys"></g>
+    <text class="cl" x="7" y="66.5">Schwarz: Instrumente (BEAT) · Noten</text>
+    <text class="cl" x="7" y="92">Weiß: Steps · Noten · in HOME die Plätze (1–4 BEAT, 5–8 RHYTHM, 9–12 STRINGS, 13–16 BASS)</text>
+  </svg>
+  </div>
+
+  <div class="eyebrow">In fünf Schritten zum Groove</div>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Abspielen</h3>
+      <p><kbd>Play</kbd> startet. Auf Platz A wartet ein Groove, danach immer dein eigener Stand.</p></div>
+    <div class="step"><div class="n">2</div><h3>Bereich wählen</h3>
+      <p><kbd class="beat">FX</kbd> <kbd class="rhythm">SEL</kbd> <kbd class="strings">ENV</kbd> <kbd class="bass">LFO</kbd> — die Tasten spielen ihn, KNOB 1–4 formen den Klang.</p></div>
+    <div class="step"><div class="n">3</div><h3>Pattern bauen</h3>
+      <p>Weiße Tasten setzen Steps. In den Synths schaltet <kbd>Seq</kbd> auf Step-Eingabe, oder <kbd>Rec</kbd> und live spielen.</p></div>
+    <div class="step"><div class="n">4</div><h3>Variieren</h3>
+      <p><kbd>Arp</kbd> halten + weiße Taste 1: Variation. Taste 2: neu. Zweimal drücken bestätigt.</p></div>
+    <div class="step"><div class="n">5</div><h3>Mischen</h3>
+      <p><kbd>Home</kbd>: KNOB 1–4 sind die Pegel. <kbd>Save</kbd> sichert alles.</p></div>
+  </div>
+  <div class="foot"><span>FM1-Electro</span><span>1</span></div>
+</div>
+
+<!-- ============ 2: Prinzip ============ -->
+<div class="page">
+  <div class="run"><span>FM1-Electro</span><span>Das Prinzip</span></div>
+  <div class="eyebrow">Vier Bereiche</div>
+  <h2>Ein Gerät, vier Instrumente</h2>
+  <p class="intro">Jeder Bereich hat eine Taste, eigene Klänge und einen eigenen Sequencer. Alle laufen zusammen im selben Tempo.</p>
+  <div class="areas">
+    <div class="area" style="border-color: var(--beat)"><div class="name">BEAT</div><div class="key"><kbd class="beat">FX</kbd></div>
+      <p>808-Drums mit 12 Instrumenten und 5 Kits, Akzent, Rolls und Swing.</p></div>
+    <div class="area" style="border-color: var(--rhythm)"><div class="name">RHYTHM</div><div class="key"><kbd class="rhythm">SEL</kbd></div>
+      <p>Stabs, Zaps, Bleeps und Sequenzen. MKS-50 oder JP-6, drei Stimmen.</p></div>
+    <div class="area" style="border-color: var(--strings)"><div class="name">STRINGS</div><div class="key"><kbd class="strings">ENV</kbd></div>
+      <p>Flächen und Akkorde, Schritte bis zwei Takte lang. Vier Stimmen.</p></div>
+    <div class="area" style="border-color: var(--bass)"><div class="name">BASS</div><div class="key"><kbd class="bass">LFO</kbd></div>
+      <p>Robo, Acid, Sub. Mono mit Glide.</p></div>
+  </div>
+
+  <div class="eyebrow">Die Logik der Regler</div>
+  <h2>Links Struktur, rechts Klang</h2>
+  <p class="intro">Wer sich diese Aufteilung merkt, findet fast alles ohne Anleitung.</p>
+  <div class="cols3" style="margin-bottom: 9mm">
+    <div class="card"><h3>Links · Struktur</h3>
+      <div class="row"><kbd>Select</kbd><span>Platz A–D</span></div>
+      <div class="row"><kbd>Algorithm</kbd><span>Tempo</span></div>
+      <div class="row"><kbd>Presets</kbd><span>Sound · Kit</span></div></div>
+    <div class="card"><h3>Rechts · Klang</h3>
+      <div class="row"><kbd>Knob 1–4</kbd><span>Klangseite</span></div>
+      <div class="row"><span class="muted">Bereichstaste nochmal</span><span>nächste Seite</span></div>
+      <div class="row"><span class="muted">in HOME</span><span>Pegel</span></div></div>
+    <div class="card"><h3>Zwei Umschalter</h3>
+      <div class="row"><kbd>Edit</kbd><span>Feinarbeit</span></div>
+      <div class="row"><kbd>Glo</kbd><span>Länge · Mute</span></div>
+      <div class="row"><span class="muted">gedrückt halten</span><span>+ andere Taste</span></div></div>
+  </div>
+
+  <div class="eyebrow">Griffe, die man braucht</div>
+  <div class="cols2">
+    <table class="moves">
+      <tr><td class="what">Bereich stumm</td><td class="how"><kbd>Glo</kbd><span class="plus">+</span>Bereichstaste</td></tr>
+      <tr><td class="what">Synth-Editor</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span>Bereichstaste</td></tr>
+      <tr><td class="what">Arpeggiator an / aus</td><td class="how"><kbd>Arp</kbd> antippen</td></tr>
+      <tr><td class="what">Pattern löschen</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span><kbd>Rec</kbd></td></tr>
+      <tr><td class="what">Alles speichern</td><td class="how"><kbd>Save</kbd></td></tr>
+    </table>
+    <table class="moves">
+      <tr><td class="what">Pattern-Länge</td><td class="how"><kbd>Glo</kbd><span class="plus">+</span><kbd>Algorithm</kbd></td></tr>
+      <tr><td class="what">Swing · Notenlänge</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span><kbd>Algorithm</kbd></td></tr>
+      <tr><td class="what">Andere Engine (MKS / JP)</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span><kbd>Presets</kbd></td></tr>
+      <tr><td class="what">Verzerrung</td><td class="how"><kbd>Home</kbd>, dann <kbd>Edit</kbd> halten</td></tr>
+      <tr><td class="what">Optionen</td><td class="how"><kbd>Home</kbd> halten<span class="plus">+</span><kbd>Save</kbd></td></tr>
+    </table>
+  </div>
+  <div class="foot"><span>FM1-Electro</span><span>2</span></div>
+</div>
+
+<!-- ============ 3: Patterns & Mixer ============ -->
+<div class="page">
+  <div class="run"><span>FM1-Electro</span><span>Patterns · Mixer · Optionen</span></div>
+  <div class="eyebrow">Patterns</div>
+  <h2>Vier Plätze pro Bereich</h2>
+  <p class="intro">Jeder Bereich hat die Plätze A bis D und wechselt für sich, immer zum nächsten Takt. So entstehen Teile eines Tracks: der Beat läuft durch, der Bass springt von A nach B.</p>
+  <div class="slots">
+    <div class="label" style="color: var(--beat)">BEAT</div><div class="slot on" style="background: var(--beat)">A</div><div class="slot">B</div><div class="slot">C</div><div class="slot">D</div>
+    <div class="label" style="color: var(--rhythm)">RHYTHM</div><div class="slot">A</div><div class="slot on" style="background: var(--rhythm)">B</div><div class="slot">C</div><div class="slot">D</div>
+    <div class="label" style="color: var(--strings)">STRINGS</div><div class="slot on" style="background: var(--strings)">A</div><div class="slot">B</div><div class="slot">C</div><div class="slot">D</div>
+    <div class="label" style="color: var(--bass)">BASS</div><div class="slot">A</div><div class="slot">B</div><div class="slot on" style="background: var(--bass)">C</div><div class="slot">D</div>
+  </div>
+  <p class="muted" style="font-size: 8pt; margin-bottom: 6mm">Wechseln: <kbd>Select</kbd> im Bereich. In <kbd>Home</kbd> die weißen Tasten 1–4 · 5–8 · 9–12 · 13–16, oder <kbd>Select</kbd> für alle zugleich.</p>
+
+  <div class="eyebrow">Generator</div>
+  <h2>Variation auf Knopfdruck</h2>
+  <p class="intro">Der Generator verändert das Pattern, das gerade läuft, im Stil des Tracks. Damit nichts aus Versehen verloren geht, fragt er immer zuerst.</p>
+  <div class="flow">
+    <div class="box"><b>Halten</b><kbd>Arp</kbd><br><span class="muted">KNOB 1 Stil · KNOB 2 Stärke</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>Wählen</b>weiße Taste <b style="display:inline">1</b> Variation<br>weiße Taste <b style="display:inline">2</b> neues Pattern</div>
+    <div class="arrow">→</div>
+    <div class="box"><b>Display fragt</b><span class="screen">VARY THIS PATTERN? KEY 1 AGAIN</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>Bestätigen</b>dieselbe Taste nochmal, innerhalb von 3 s. Jede andere Taste bricht ab.</div>
+  </div>
+  <p class="muted" style="font-size: 8pt; margin: 2.5mm 0 6mm">In <kbd>Home</kbd> wirkt der Generator auf alle vier Bereiche zugleich.</p>
+
+  <div class="cols2">
+    <div>
+      <div class="eyebrow">Home</div>
+      <h2>Der Mixer</h2>
+      <table class="moves" style="margin-top: 3mm">
+        <tr><td class="what">Pegel der Bereiche</td><td class="how"><kbd>Knob 1–4</kbd></td></tr>
+        <tr><td class="what">Bereich stumm</td><td class="how">schwarze Taste 1–4</td></tr>
+        <tr><td class="what">Hall · Delay-Anteil</td><td class="how"><kbd>Presets</kbd> · <kbd>Glo</kbd><span class="plus">+</span><kbd>Presets</kbd></td></tr>
+        <tr><td class="what">Delay und Hall formen</td><td class="how"><kbd>Glo</kbd><span class="plus">+</span><kbd>Knob 1–4</kbd></td></tr>
+        <tr><td class="what">Verzerrung</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span><kbd>Knob 1–4</kbd></td></tr>
+        <tr><td class="what">Tempo fein</td><td class="how"><kbd>Glo</kbd><span class="plus">+</span><kbd>Algorithm</kbd></td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="eyebrow">Home halten + Save</div>
+      <h2>Optionen</h2>
+      <table class="moves" style="margin-top: 3mm">
+        <tr><td class="what">MIDI CH</td><td class="how">Kanal je Bereich<span class="note">ab Werk 10 · 1 · 2 · 3</span></td></tr>
+        <tr><td class="what">MIDI CLOCK</td><td class="how">folgen oder ignorieren</td></tr>
+        <tr><td class="what">MASTER FX · COMP</td><td class="how">Master und Kompressor</td></tr>
+        <tr><td class="what">OUTPUT LEVEL</td><td class="how">Gesamtlautstärke</td></tr>
+        <tr><td class="what">POWER-ON</td><td class="how">letzte Plätze oder A</td></tr>
+      </table>
+      <p class="muted" style="font-size: 7.6pt; margin-top: 2mm"><kbd>Select</kbd> Zeile · <kbd>Presets</kbd> Wert · <kbd>Home</kbd> fertig</p>
+    </div>
+  </div>
+  <div class="foot"><span>FM1-Electro</span><span>3</span></div>
+</div>
+
+<!-- ============ 4: Bereiche ============ -->
+<div class="page">
+  <div class="run"><span>FM1-Electro</span><span>Die Bereiche im Detail</span></div>
+  <section>
+    <div class="eyebrow"><span class="dot" style="background: var(--beat)"></span>Beat</div>
+    <h2>Drums programmieren</h2>
+    <table class="moves" style="margin-top: 3mm">
+      <tr><td class="what">Instrument wählen und spielen</td><td class="how">schwarze Taste<span class="note">BD SD LT HT RS CP CB CY OH CH ZAP · <kbd>Seq</kbd> schaltet auf PULSE</span></td></tr>
+      <tr><td class="what">Steps setzen</td><td class="how">weiße Tasten</td></tr>
+      <tr><td class="what">Akzent · 32tel-Roll</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span>weiß · <kbd>Glo</kbd><span class="plus">+</span>weiß</td></tr>
+      <tr><td class="what">Instrument löschen · stumm</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span>schwarz · <kbd>Glo</kbd><span class="plus">+</span>schwarz</td></tr>
+      <tr><td class="what">Klang des Instruments</td><td class="how"><kbd>Knob 1–4</kbd> · <kbd class="beat">FX</kbd> nochmal: nächste Seite</td></tr>
+      <tr><td class="what">Kit</td><td class="how"><kbd>Presets</kbd><span class="note">808 · ELECTRO · MIAMI · KRAFT · PO-12</span></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <div class="eyebrow"><span class="dot" style="background: var(--rhythm)"></span><span class="dot" style="background: var(--strings)"></span><span class="dot" style="background: var(--bass)"></span>Rhythm · Strings · Bass</div>
+    <h2>Spielen oder programmieren</h2>
+    <p class="intro" style="margin-bottom: 4mm"><kbd>Seq</kbd> schaltet zwischen den beiden Modi um.</p>
+    <div class="cols2">
+      <div class="card"><h3>Tasten-Modus</h3>
+        <div class="row"><span>Tasten</span><span>spielen den Sound</span></div>
+        <div class="row"><span><kbd>Oct −</kbd> <kbd>Oct +</kbd></span><span>Oktave</span></div>
+        <div class="row"><span><kbd>Knob 1–4</kbd></span><span>Klang, zuletzt ARP</span></div>
+        <div class="row"><span><kbd>Rec</kbd></span><span>live einspielen</span></div>
+        <div class="row"><span><kbd>Glo</kbd> + weiß 1–9</span><span>Akkord (Strings)</span></div></div>
+      <div class="card"><h3>Step-Modus</h3>
+        <div class="row"><span>weiße Tasten</span><span>Steps an / aus</span></div>
+        <div class="row"><span><kbd>Edit</kbd> · <kbd>Glo</kbd> + weiß</span><span>Akzent · Tie</span></div>
+        <div class="row"><span><kbd>Oct −</kbd> <kbd>Oct +</kbd></span><span>Steps 1–16 / 17–32</span></div>
+        <div class="row"><span><kbd>Knob 1–4</kbd></span><span>Note, Oktave, Akkord</span></div>
+        <div class="row"><span><kbd>Glo</kbd> + <kbd>Select</kbd></span><span>Step wählen</span></div></div>
+    </div>
+    <p class="muted" style="font-size: 7.8pt; margin-top: 3mm">Akkorde: m7 · SUS2 · MIN · 5+8 · SUS4 · 7TH · MAJ · m7b5</p>
+  </section>
+
+  <div class="cols2">
+    <section>
+      <div class="eyebrow">Edit + Bereichstaste</div>
+      <h2>Synth-Editor</h2>
+      <table class="moves" style="margin-top: 3mm">
+        <tr><td class="what">Sektion (DCO, VCF, ENV …)</td><td class="how"><kbd>Select</kbd></td></tr>
+        <tr><td class="what">Seite · Regler</td><td class="how"><kbd>Algorithm</kbd> · <kbd>Knob 1–4</kbd></td></tr>
+        <tr><td class="what">Eigenen Sound sichern</td><td class="how"><kbd>Save</kbd><span class="note">32 Plätze, Name mit Knob 1 und 2</span></td></tr>
+        <tr><td class="what">Zurück</td><td class="how">Bereichstaste nochmal</td></tr>
+      </table>
+    </section>
+    <section>
+      <div class="eyebrow">MIDI</div>
+      <h2>Von außen spielen</h2>
+      <p style="margin-top: 3mm">Jeder Bereich hört auf seinem eigenen Kanal, mit Anschlagstärke. Keyboard und Sequencer steuern die Bereiche getrennt.</p>
+      <p class="muted">Drums nach General MIDI, ZAP Note 67, PULSE Note 75. MIDI-Clock mit Start und Stop wird übernommen.</p>
+    </section>
+  </div>
+  <div class="foot"><span>FM1-Electro</span><span>4</span></div>
+</div>
+
+<script>
+/* Keyboard of the panel: 16 white pills, 11 black ones between them (3-2-3-2-1). */
+const g = document.getElementById('keys'), ns = 'http://www.w3.org/2000/svg';
+const x0 = 7, w = 160 / 16;
+function rect(x, y, wd, h, fill, stroke) {
+  const r = document.createElementNS(ns, 'rect');
+  Object.entries({x, y, width: wd, height: h, rx: h / 2, fill, stroke: stroke || 'none', 'stroke-width': .35})
+    .forEach(([k, v]) => r.setAttribute(k, v));
+  g.appendChild(r);
+}
+for (let i = 0; i < 16; ++i) {
+  rect(x0 + i * w + .5, 79, w - 1, 6, '#fff', '#111113');
+  const t = document.createElementNS(ns, 'text');
+  t.setAttribute('x', x0 + i * w + w / 2); t.setAttribute('y', 82.9); t.setAttribute('class', 'c'); t.textContent = i + 1;
+  g.appendChild(t);
+}
+for (const i of [0, 1, 2, 4, 5, 7, 8, 9, 11, 12, 14]) rect(x0 + (i + 1) * w - w * .38, 70.5, w * .76, 5.2, '#111113');
+</script>
+</body>
+</html>

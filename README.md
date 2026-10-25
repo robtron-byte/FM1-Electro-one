@@ -72,7 +72,7 @@ Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und a
 
 ### Bedienung
 
-Eine Kurzanleitung zum Ausdrucken liegt in `docs/FM1-Electro-Anleitung.pdf` (neu bauen mit `python3 tools/make_manual.py`).
+Eine Kurzanleitung zum Ausdrucken liegt in `docs/FM1-Electro-Anleitung.pdf` (Quelle `docs/manual/manual.html`, neu bauen mit `node tools/make_manual.js`).
 
 Die Belegung folgt dem Bedienfeld des FM-1 (Lage laut der Workbench von FM1 Open, bestätigt durch ein Foto des Geräts):
 
