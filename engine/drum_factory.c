@@ -46,7 +46,7 @@ const dr_style_t dr_styles[DR_STYLES] = {
      * kick (not four on the floor), clap on 2 and 4, 16th hats with gaps. */
     {"ROTHER", 1330, 50, KELECTRO, 16, 2, 0, 1, DR_HARMONY_ROTHER, {
         "x..x..x...x..x..|x..x..x..x...x..|x..x..xx..x..x..|x.x....x.x......|x..x..x...x...x.",
-        "|...x.....x....x|..x........x...x", 0, 0, "|......x.......x.",
+        "|...x.....x.....x|..x........x...x", 0, 0, "|......x.......x.",
         "....x.......x...", 0, 0, "|..x...x...x...x.|.............x..",
         "x..x..x...x..x..|x.xxx.xxx.xxx.xx|x.x.x.x.x.x.x.x.|xx.xxx.xxx.xxx.x", "|..............x.", 0,
         "x.....x...x.....|x...x...x...x..."}},
