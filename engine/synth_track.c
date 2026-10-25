@@ -198,11 +198,13 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
 /* ---- generator (control side), after the iOS app's SequenceGenerator ----- */
 
 static const char *const style_names[2][ST_STYLES] = {
-    {"KRAFT", "ROTHER", "ROBOT", "ACID"}, {"PADS", "SLOW", "PULSE", "STABS"}};
+    {"KRAFT", "ROTHER", "ROBOT", "ACID", "MIAMI"}, {"PADS", "SLOW", "PULSE", "STABS", ""}};
+
+unsigned st_styles(unsigned area) { return area == MKS_AREA_STRINGS ? ST_STRING_STYLES : ST_STYLES; }
 
 const char *st_style_name(unsigned area, unsigned style)
 {
-    return style_names[area == MKS_AREA_STRINGS][style % ST_STYLES];
+    return style_names[area == MKS_AREA_STRINGS][style % st_styles(area)];
 }
 
 static uint32_t rnd(uint32_t *s)
@@ -220,6 +222,78 @@ static void set(st_step_t *s, int root, int offset, int accent, int tie, unsigne
     s->note = (uint8_t)el_clampi(root + offset, 0, 127);
     s->flags = (uint8_t)(ST_ON | (accent ? ST_ACCENT : 0) | (tie ? ST_TIE : 0));
     s->chord = (uint8_t)chord;
+}
+
+/* Phrygian minor, the scale of Rother's lines: a move lands on its
+ * nearest degree. */
+static int phrygian(int n)
+{
+    static const uint8_t degree[12] = {0, 1, 1, 3, 3, 5, 5, 7, 8, 8, 10, 10};
+    int o = n >= 0 ? n / 12 : -((11 - n) / 12), pc = n - 12 * o;
+    return 12 * o + degree[pc];
+}
+
+/* ROTHER, measured on the bass stems of Anthony Rother's DEKATRON: 3-11
+ * notes a bar (most 4-8), almost all single 16ths (ties ~12 %), mostly off
+ * the kick (7-30 % on kick steps: the line interlocks with the electro kick
+ * x..x..x...x..x..), and moving by steps: repeats ~18 %, a semitone
+ * (mostly down) ~20 %, fourths / fifths ~15 %, thirds and tones the rest. */
+static void rother_line(st_step_t *s, unsigned density, uint32_t *r, int root)
+{
+    static const unsigned counts[] = {3, 4, 4, 5, 5, 6, 7};
+    static const int moves[] = {0, 0, -1, -1, -1, -1, 1, 5, -5, 7, -7, 3, -3, 2, -2, 4, -4, 12};
+    static const uint16_t kick = 1u << 3 | 1u << 6 | 1u << 10 | 1u << 13;   /* the kick figure it dodges */
+    unsigned hits = (unsigned)el_clampi((int)counts[rnd(r) % 7] + (int)density / 43 - 1, 3, 11);
+    unsigned rotate = rnd(r) % 16u;
+    uint16_t on = 1;   /* the root on 1 */
+    for (unsigned i = 0; i < 16; ++i)
+        if (euclid(hits, 16, rotate, i)) {
+            unsigned k = i;
+            if ((kick >> k) & 1u && !chance(r, 250)) k = (k + 1) % 16;   /* step off the kick */
+            on |= (uint16_t)(1u << k);
+        }
+    int note = 0;
+    for (unsigned i = 0; i < 16; ++i) {
+        if (!((on >> i) & 1u)) continue;
+        if (i) note = phrygian(el_clampi(note + pick(r, moves, 18), -5, 13));
+        int offbeat = i % 4 == 2 || i % 4 == 3, next = i < 15 && ((on >> (i + 1)) & 1u);
+        set(&s[i], root, note, !i || (offbeat && chance(r, 450)), next && chance(r, 120), 0);
+    }
+    if (chance(r, 600)) {   /* call and response: the second half answers the first */
+        static const int ends[] = {12, -2, 1, 7};
+        for (unsigned i = 0; i < 8; ++i) s[i + 8] = s[i];
+        if (s[14].flags & ST_ON) s[14].note = (uint8_t)el_clampi(root + pick(r, ends, 4), 0, 127);
+    }
+}
+
+/* MIAMI: the 808 bass of The Egyptian Lover's 1986: 2-6 notes a bar on
+ * the kick (35-67 % of them), held for 2-5 steps, the root most of the time
+ * (70-95 %), with fourths, fifths, the minor third, the seventh below and
+ * the octave. */
+static void miami_line(st_step_t *s, unsigned density, uint32_t *r, int root)
+{
+    static const uint16_t figures[] = {
+        1u | 1u << 6 | 1u << 10,                    /* x.....x...x..... */
+        1u | 1u << 4 | 1u << 6 | 1u << 10,          /* x...x.x...x..... */
+        1u | 1u << 6 | 1u << 8 | 1u << 11,          /* x.....x.x..x.... */
+        1u | 1u << 4 | 1u << 6 | 1u << 8 | 1u << 12,
+        1u | 1u << 6 | 1u << 10 | 1u << 13,
+    };
+    static const int others[] = {5, 7, -5, 3, -2, 12, 12};
+    uint16_t on = figures[rnd(r) % 5u];
+    if (density > 80 && chance(r, 500)) on |= (uint16_t)(1u << (14 + rnd(r) % 2u));
+    for (unsigned i = 0; i < 16; ++i) {
+        if (!((on >> i) & 1u)) continue;
+        int note = !i || chance(r, 750) ? 0 : pick(r, others, 7);
+        unsigned next = i + 1;
+        while (next < 16 && !((on >> next) & 1u)) ++next;
+        set(&s[i], root, note, !i || chance(r, 300), 0, 0);
+        /* Long 808 notes: held up to the next one (or 2-5 steps). */
+        if (chance(r, 650)) {
+            unsigned len = 2 + rnd(r) % 4u;
+            for (unsigned k = 1; k < len && i + k < next; ++k) set(&s[i + k], root, note, 0, 0, 0), s[i + k - 1].flags |= ST_TIE;
+        }
+    }
 }
 
 /* 16 steps of a melodic style, relative to root. */
@@ -246,6 +320,8 @@ static void melodic(st_step_t *s, unsigned style, unsigned density, uint32_t *r,
         }
         return;
     }
+    if (style == 1) { rother_line(s, density, r, root); return; }
+    if (style == 4) { miami_line(s, density, r, root); return; }
     static const unsigned hits_rother[] = {7, 9, 10, 11}, hits_robot[] = {4, 5, 6, 7}, hits_acid[] = {11, 12, 13};
     unsigned hits = style == 1 ? hits_rother[rnd(r) % 4] : style == 2 ? hits_robot[rnd(r) % 4] : hits_acid[rnd(r) % 3];
     hits = (unsigned)el_clampi((int)hits + extra - 1, 3, 15);
@@ -394,7 +470,7 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
     out->gate = area == MKS_AREA_STRINGS ? 90 : area == MKS_AREA_BASS ? 55 : 40;
     for (unsigned s = 0; s < ST_STEPS; ++s) out->step[s].note = (uint8_t)root;
     out->rate = ST_RATE_16TH;
-    if (area == MKS_AREA_STRINGS) { strings(out, style % ST_STYLES, density, &r, root, harmony); return; }
+    if (area == MKS_AREA_STRINGS) { strings(out, style % ST_STRING_STYLES, density, &r, root, harmony); return; }
     melodic(out->step, style % ST_STYLES, density, &r, root);
     /* Longer patterns: repeat with a small variation per bar. */
     for (unsigned bar = 16; bar < out->length; bar += 16) {

@@ -79,7 +79,7 @@ const dr_style_t dr_styles[DR_STYLES] = {
      * Demucs): ~126 BPM, kick figures from The Internet, Lose Control, Get
      * Down, Cyborg and Freaky Girl, closed hats in 16ths that leave the clap
      * steps free, or open hats in 8ths. */
-    {"EGYPT", 1260, 50, KMIAMI, 32, 2, 0, 1, DR_HARMONY_ELECTRO, {
+    {"EGYPT", 1260, 50, KMIAMI, 32, 2, 0, 4, DR_HARMONY_ELECTRO, {
         "x.....x...x.....x.....x...x..x..|x...x.x...x.....x...x.x...x.....|x...x.x...x..xx.x...x.x...x..x..|"
         "x.....x.x..x....x.....x.x..x....|x...x.x.x...x...x...x.x.x...x...|x..x..x...x..x..x..x..x...x..x..",
         "....x.......x.......x.......xxxx",
@@ -89,7 +89,7 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "|||x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.",
         "xxxx..xxxxxx..xxxxxx..xxxxxx..xx|xxxxxxxxxxxxxxxxxxxxxxxxxxxx....|..xx....xx.....x..xx....xx.....x",
         "|..............................x.", "..x...x...x...x...x...x...x...x.|..xx..x...xx..x...xx..x...xx.x.x|x..x..x.x..x..x.x..x..x.x..x..x.", "x...x.x...x.x...x...x.x...x.xxxx"}},
-    {"FREAKY", 1280, 50, KELECTRO, 32, 2, 2, 1, DR_HARMONY_ELECTRO, {
+    {"FREAKY", 1280, 50, KELECTRO, 32, 2, 2, 4, DR_HARMONY_ELECTRO, {
         "x.....x...x..x..x.....x...x.x..x", "....x.......x.......x.......x.xx", 0, 0, 0,
         "....x.......x.......x.......xxxx", "x..x..x...x.....x..x..x...x.....|", 0, "..x...x...x...x...x...x...x.....",
         "xx.xxx.xxx.xxx.xxx.xxx.xxx.xxxxx", "|..............x...............x.", "..x...x...x...x...x...x...x...xx|.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x|", "x.x.x.x.x.x.x.x.x.x.x.x.x.x.xxxx"}},

@@ -805,7 +805,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         }
     }
     if (hold & HOLD_GEN) {
-        unsigned a = ui->overview ? 0 : ui->area, styles = a == EL_AREA_BEAT ? DR_STYLES : ST_STYLES;
+        unsigned a = ui->overview ? 0 : ui->area, styles = a == EL_AREA_BEAT ? DR_STYLES : st_styles(a);
         if (enc[ENC_KNOB1]) ui->gen_style[a] = (uint8_t)el_clampi(ui->gen_style[a] + enc[ENC_KNOB1], 0, (int)styles - 1);
         if (enc[ENC_KNOB1 + 1]) ui->gen_density[a] = (uint8_t)el_clampi(ui->gen_density[a] + enc[ENC_KNOB1 + 1] * 4, 0, 127);
         if (enc[ENC_KNOB1 + 2] && a == EL_AREA_BEAT) ui->gen_keep = enc[ENC_KNOB1 + 2] > 0;

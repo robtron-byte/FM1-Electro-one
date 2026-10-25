@@ -65,10 +65,12 @@ unsigned st_chord_notes(int root, unsigned chord, int16_t *out);
 extern const char *const st_rate_names[ST_RATES];
 
 /* Control side: groove generator for an area (writes a pattern).
- * style: 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID; strings: 0 PADS (one chord per
+ * style: 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI; strings: 0 PADS (one chord per
  * bar, 4 bars), 1 SLOW (one chord per 2 bars, 8 bars), 2 PULSE (8th chords,
  * changes every bar), 3 STABS (16th stabs). length is ignored for strings. */
-enum { ST_STYLES = 4 };
+/* Melodic styles (rhythm, bass): 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI. */
+enum { ST_STYLES = 5, ST_STRING_STYLES = 4 };
+unsigned st_styles(unsigned area);
 const char *st_style_name(unsigned area, unsigned style);
 /* harmony: DR_HARMONY_ROTHER / _KRAFT / _ELECTRO (strings chord family). */
 void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
