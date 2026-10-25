@@ -209,9 +209,17 @@ static void draw_list(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s,
         char name[10];
         short_name(name, syn_param_name(p->engine, s->param[i]), s->tab);
         gfx_text(b, cx, cy + 1, name, shown ? TEXT : DIM, 1);
-        int bw = col_w - 60;
-        gfx_fill(b, cx + 56, cy + 2, bw, 5, GRID);
-        gfx_fill(b, cx + 56, cy + 2, (int)(val(p, s->param[i]) * (float)bw), 5, shown ? c : DIM);
+        int bw = col_w - 60, max = syn_param_max(p->engine, s->param[i]);
+        if (max >= 1 && max <= 7) {
+            /* Few settings (switches, waves, modes): one dot each, the
+             * chosen one lit. */
+            int value = syn_values(p)[s->param[i]], gap = bw / (max + 1);
+            for (int k = 0; k <= max; ++k)
+                gfx_fill(b, cx + 56 + k * gap, cy + 1, 5, 6, k == value ? (shown ? c : DIM) : GRID);
+        } else {
+            gfx_fill(b, cx + 56, cy + 2, bw, 5, GRID);
+            gfx_fill(b, cx + 56, cy + 2, (int)(val(p, s->param[i]) * (float)bw), 5, shown ? c : DIM);
+        }
     }
 }
 
