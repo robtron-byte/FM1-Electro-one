@@ -76,7 +76,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 	./build/synth_test build/wav > /dev/null
 	./build/jp6_test build/wav_jp6 | grep "^strings hpf\|FAILED"
 	./build/render_demo build/wav | grep -E "^(timing|midi clock)"
-	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^steprec\|^arp\|^layout\|^editor\|^sounds"
+	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds"
 	@echo "host tests ok"
 
 clean:

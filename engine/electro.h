@@ -22,7 +22,7 @@ enum el_command {
     EL_CMD_MASTER,       /* value = 0..127 */
     EL_CMD_DRUM_HIT,     /* a = part, value = velocity 1..127; records when armed */
     /* Synth areas: a = track 0 rhythm, 1 strings, 2 bass (EL_TRACKS). */
-    EL_CMD_NOTE,         /* b = note, value = velocity (0 = off); records when armed */
+    EL_CMD_NOTE,         /* b = note, value = velocity (0 = off); records when armed, c = 1: never */
     EL_CMD_STEP_TOGGLE,  /* b = step: on/off with the last played note */
     EL_CMD_STEP_FLAG,    /* b = step, c = ST_ACCENT / ST_TIE: toggle (switches the step on) */
     EL_CMD_STEP_NOTE,    /* b = step, value = semitones to add (switches the step on) */
@@ -68,6 +68,7 @@ enum {
     EL_OPT_COMP_ATTACK,     /* index into el_comp_attacks (ms) */
     EL_OPT_COMP_RELEASE,    /* index into el_comp_releases (ms) */
     EL_OPT_COMP_MAKEUP,     /* 0..24: makeup 0 .. +12 dB in half dB */
+    EL_OPT_REC_STEP,        /* bit per synth track: REC records step by step (SH-101), else live */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
 enum { EL_COMP_RATIOS = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };

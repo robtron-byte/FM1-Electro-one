@@ -50,6 +50,7 @@ int el_option_max(unsigned option)
     case EL_OPT_COMP_ATTACK: return EL_COMP_ATTACKS - 1;
     case EL_OPT_COMP_RELEASE: return EL_COMP_RELEASES - 1;
     case EL_OPT_COMP_MAKEUP: return 24;
+    case EL_OPT_REC_STEP: return (1 << EL_TRACKS) - 1;
     default: return 1;
     }
 }
@@ -187,9 +188,13 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     st_pattern_t *p = &t->pattern[t->current];
     st_step_t *s = c->b < ST_STEPS ? &p->step[c->b] : &p->step[0];
     switch (c->type) {
-    case EL_CMD_NOTE:
+    case EL_CMD_NOTE: {
+        uint8_t armed = t->recording;
+        if (c->c) t->recording = 0;   /* step record listens only */
         st_live(t, c->b, el_clampi(c->value, 0, 127) / 127.0f);
+        t->recording = armed;
         break;
+    }
     case EL_CMD_STEP_TOGGLE:
         if (!(s->flags & ST_ON)) { s->note = t->last_note; s->chord = t->chord; }
         s->flags ^= ST_ON;

@@ -614,6 +614,12 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
  * the one before is still held ties the two (legato / slide). EDIT + key
  * writes a rest, GLO + key holds the note before for one more step. The
  * first key after REC starts a new sequence. */
+/* REC mode of the area (GLO + REC): step by step like the SH-101, or live. */
+static int rec_step_mode(const el_ui_t *ui)
+{
+    return synth_area(ui) && (ui->engine->option[EL_OPT_REC_STEP] >> (ui->area - 1u)) & 1u;
+}
+
 static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
 {
     el_engine_t *e = ui->engine;
@@ -631,7 +637,7 @@ static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
     } else {
         if (step > 0 && ui->rec_key != 0xff) el_post3(e, EL_CMD_STEP_TIE, track, (uint8_t)(step - 1u), 1, 0);
         el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)note, (int16_t)(ST_ON | t->chord << 8));
-        if (el_post3(e, EL_CMD_NOTE, track, (uint8_t)note, 0, 100) == 0) {   /* hear it */
+        if (el_post3(e, EL_CMD_NOTE, track, (uint8_t)note, 1, 100) == 0) {   /* hear it, not live-recorded */
             ui->key_note[key] = (uint8_t)note;
             ui->key_track[key] = track;
         }
@@ -674,7 +680,7 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         notice(ui, text);
         return;
     }
-    if (t->recording && !e->transport.running) {
+    if (t->recording && rec_step_mode(ui)) {
         step_record(ui, key, note, hold);
         return;
     }
@@ -847,6 +853,17 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         el_post(e, e->transport.running ? EL_CMD_STOP : EL_CMD_START, 0, 0);
         ui->follow = 1;
     }
+    if ((pressed & BIT(BTN_REC)) && (hold & HOLD_GLO)) {
+        /* GLO + REC: how this area records, kept with the settings. */
+        if (synth_area(ui)) {
+            int bit = 1 << (ui->area - 1u), step = !(e->option[EL_OPT_REC_STEP] & bit);
+            el_post(e, EL_CMD_OPTION, EL_OPT_REC_STEP, (int16_t)(step ? e->option[EL_OPT_REC_STEP] | bit : e->option[EL_OPT_REC_STEP] & ~bit));
+            el_post3(e, EL_CMD_RECORD_AREA, ui->area, 0, 0, 0);   /* a running take ends */
+            notice(ui, step ? "REC MODE: SH-101 STEP" : "REC MODE: LIVE");
+            keep_later(ui);
+        } else notice(ui, "BEAT RECORDS LIVE");
+        pressed &= ~BIT(BTN_REC);
+    }
     if (pressed & BIT(BTN_REC)) {
         if (hold & HOLD_EDIT) {
             if (ui->area == EL_AREA_BEAT) dr_post(m, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
@@ -857,8 +874,9 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             el_post3(e, EL_CMD_RECORD_AREA, ui->area, (uint8_t)!armed, 0, 0);
             ui->cursor[ui->area] = 0;
             ui->rec_key = ui->rec_note = 0xff;
-            ui->rec_fresh = (uint8_t)(!armed && synth_area(ui) && !e->transport.running);
+            ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
             if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
+            else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
     if ((pressed & BIT(BTN_SAVE)) && in_editor(ui) && ui->sound_put) {
@@ -1096,7 +1114,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
                  (uint32_t)ui->options << 20 | (uint32_t)e->option[EL_OPT_HINTS] << 21);
     if (synth_area(ui))
         mix(&sig[2], ui->transpose_mode[ui->area] | (uint32_t)(uint8_t)track_of(ui)->transpose << 8 | (uint32_t)ui->rec_fresh << 16 |
-                     (uint32_t)track_of(ui)->recording << 17 | (uint32_t)e->transport.running << 18);
+                     (uint32_t)track_of(ui)->recording << 17 | (uint32_t)e->transport.running << 18 |
+                     (uint32_t)e->option[EL_OPT_REC_STEP] << 19);
     if (ui->sound_save) mix(&sig[2], (uint8_t)ui->sound_name[ui->name_cursor]);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
@@ -1344,7 +1363,9 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
         snprintf(text, sizeof text, "LEN %u  GATE %u%%", p->length, p->gate);
     }
     gfx_text(b, 4, 176, text, TEXT, 1);
-    if (t->recording) gfx_text(b, 200, 176, e->transport.running ? "LIVE" : "STEP", RED, 1);
+    /* REC mode, red while recording. */
+    int step = rec_step_mode(ui);
+    gfx_text(b, step ? 182 : 194, 176, step ? "REC 101" : "REC LIVE", t->recording ? RED : DIM, 1);
 }
 
 /* OPTIONS: one line per setting, the chosen one highlighted. */
@@ -1505,7 +1526,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
     char line[48];
-    if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && !ui->engine->transport.running) {
+    if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && rec_step_mode(ui)) {
         snprintf(line, sizeof line, "STEP REC %u/32  EDIT=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
         hint = line;
     } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {

@@ -114,7 +114,8 @@ OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
 | Tasten | alle 27 Tasten spielen den Sound, die LEDs zeigen, was die Sequenz gerade spielt | weiße Tasten schalten Steps an/aus und wählen sie aus. EDIT + weiß Akzent, GLO + weiß Tie |
 | OCT − / + | Oktave | Steps 1–16 / 17–32, GLO + SELECT wählt den Step |
 | KNOB 1–4 | Klangseite: FILTER, ENVELOPE, OSC, MOD, FX (je nach Engine), dann ARP (Modus, Rate, Oktaven, Gate) | Note, Oktave, Akkord (STRINGS) bzw. Akzent, Tie des gewählten Steps |
-| REC | läuft: live einspielen (quantisiert, Overdub). Steht: **Step-Record wie SH-101 / KeyStep**: jede Taste schreibt den nächsten Schritt einer neuen Sequenz, die Länge ergibt sich aus den Schritten (bis 32); Taste drücken, während die vorige noch gehalten ist = Legato (Tie/Slide); EDIT + Taste = Pause, GLO + Taste = vorige Note einen Schritt länger; REC beendet | – |
+| REC | Aufnahme im gewählten REC-Modus (unten rechts im Display: REC LIVE oder REC 101). **LIVE** (ab Werk): bei laufendem Sequencer einspielen, quantisiert, Overdub; steht er, startet die Aufnahme mit PLAY. **SH-101**: jede Taste schreibt den nächsten Schritt einer neuen Sequenz, die Länge ergibt sich aus den Schritten (bis 32); Taste drücken, während die vorige noch gehalten ist = Legato (Tie/Slide); EDIT + Taste = Pause, GLO + Taste = vorige Note einen Schritt länger; geht auch, während die Sequenz läuft. REC beendet | – |
+| GLO + REC | REC-Modus des Bereichs umschalten: LIVE oder SH-101 (wird gespeichert) | – |
 | GLO + SEQ | **TRANSPOSE** (wie KeyStep): die Tasten verschieben die laufende Sequenz, C4 = 0, bleibt bis zur nächsten Taste; GLO + SEQ nochmal = aus (zurück auf 0) | – |
 | STRINGS | GLO + weiße Taste 1–9 wählt den Akkord fürs Live-Spiel (1 = Einzelnoten) | KNOB 3 Akkordtyp, KNOB 4 Umkehrung, GLO + weiß: halten/neu anschlagen |
 

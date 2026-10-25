@@ -313,6 +313,10 @@ int main(int argc, char **argv)
     if (engine.transport.running) tap_button(BTN_PLAY);
     tap_button(BTN_SEL);
     if (ui.step_mode[EL_AREA_RHYTHM]) tap_button(BTN_SEQ);
+    int live_default = !(engine.option[EL_OPT_REC_STEP] & 1);
+    hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0);   /* REC mode: SH-101 */
+    run(50);
+    int switched = (engine.option[EL_OPT_REC_STEP] & 1) && !engine.track[0].recording;
     tap_button(BTN_REC);
     panel.keys |= 1u << 4; run(30);           /* A3 ... */
     panel.keys |= 1u << 6; run(30);           /* ... B3 while A3 is held: legato */
@@ -330,7 +334,7 @@ int main(int argc, char **argv)
         int ok = p->length == 5 && st[0].note == 57 && (st[0].flags & (ST_ON | ST_TIE)) == (ST_ON | ST_TIE) &&
                  st[1].note == 59 && (st[1].flags & (ST_ON | ST_TIE)) == (ST_ON | ST_TIE) &&
                  st[2].note == 59 && (st[2].flags & (ST_ON | ST_TIE)) == ST_ON && !(st[3].flags & ST_ON) &&
-                 st[4].note == 60 && (st[4].flags & ST_ON) && !engine.track[0].recording;
+                 st[4].note == 60 && (st[4].flags & ST_ON) && !engine.track[0].recording && live_default && switched;
         /* TRANSPOSE: GLO + SEQ, then D4 moves the sequence up a tone. */
         hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
         tap_key(9);
@@ -339,6 +343,20 @@ int main(int argc, char **argv)
         hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
         run(50);
         moved = moved && !ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 0;
+        /* GLO + REC back to LIVE: running, REC, a key lands in the pattern
+         * and the sequence keeps its length. */
+        hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0);
+        tap_button(BTN_PLAY);
+        run(200);
+        tap_button(BTN_REC);
+        tap_key(11);                  /* E4 = 64 */
+        run(50);
+        tap_button(BTN_REC);
+        tap_button(BTN_PLAY);
+        int live = 0;
+        for (unsigned i = 0; i < p->length; ++i) live |= p->step[i].note == 64 && (p->step[i].flags & ST_ON);
+        live = live && p->length == 5 && !(engine.option[EL_OPT_REC_STEP] & 1);
+        printf("rec modes: GLO + REC switches LIVE / SH-101; live take keeps the length %s\n", live ? "ok" : "FAIL");
         printf("steprec: 5 steps, legato tie, hold, rest, length from the steps; transpose +2 %s\n", ok && moved ? "ok" : "FAIL");
         if (!(ok && moved)) {
             printf("debug len %u:", p->length);
