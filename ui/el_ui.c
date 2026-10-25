@@ -970,19 +970,24 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
                 for (unsigned n = 0; n < EL_PUNCHES; ++n)
                     if ((punch_held & BIT(n)) && el_punch_value_name(n, (unsigned)w)) bits |= BIT(n);
                 if (bits && !(bits & BIT(shown))) while (!(bits & BIT(shown))) shown = (shown + 1u) % EL_PUNCHES;
-                if (bits && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)bits, (uint8_t)w, 0, 0) == 0)
+                if (bits && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)bits, (uint8_t)w, 0, 0) == 0) {
                     punch_notice(ui, shown, (unsigned)w);
+                    /* Repeat only starts with its step chosen. */
+                    if (bits & EL_PUNCH_REPEAT) el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
+                }
             } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
             else if (b >= EL_AREAS && b < EL_AREAS + EL_PUNCHES) {
                 /* Black keys 5-11: punch-in effects while held. */
                 unsigned n = (unsigned)b - EL_AREAS;
-                if (el_post3(e, EL_CMD_PUNCH, BIT(n), 1, 0, 0) == 0) {
+                /* Repeat waits for a white key (its step). */
+                if (BIT(n) == EL_PUNCH_REPEAT || el_post3(e, EL_CMD_PUNCH, BIT(n), 1, 0, 0) == 0) {
                     ui->punch_key[n] = (uint8_t)(key + 1u);
                     punch_held |= BIT(n);
                 }
                 ui->punch_last = (uint8_t)n;
-                punch_notice(ui, n, e->punch_div[n]);
+                if (BIT(n) == EL_PUNCH_REPEAT) notice(ui, "REPEAT: WHITE KEY = STEP");
+                else punch_notice(ui, n, e->punch_div[n]);
             }
         } else if (ui->area == EL_AREA_BEAT) {
             keys_beat(ui, key, hold);
@@ -1217,7 +1222,8 @@ static void update_leds(el_ui_t *ui)
         /* The slot each area plays; the one it switches to blinks. While a
          * punch-in with a value is held: its value instead. */
         unsigned n = ui->punch_last;
-        int value_leds = n < EL_PUNCHES && ui->punch_key[n] && el_punch_value_name(n, 0);
+        int value_leds = n < EL_PUNCHES && ui->punch_key[n] && el_punch_value_name(n, 0) &&
+                         (BIT(n) != EL_PUNCH_REPEAT || (e->punch & EL_PUNCH_REPEAT));
         if (value_leds) leds |= 1ull << (14u + white_keys[e->punch_div[n]]);
         for (unsigned a = 0; a < EL_AREAS && !value_leds; ++a) {
             unsigned now = area_slot(ui, a, 0), next = area_slot(ui, a, 1);

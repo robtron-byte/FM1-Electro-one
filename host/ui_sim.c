@@ -310,7 +310,7 @@ int main(int argc, char **argv)
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
 
     /* HOME: black keys 5 and 6 punch in the stutter and the reverb throw
-     * while held; with black 8 (repeat) held, white key 2 sets 1/8 and
+     * while held; black 8 (repeat) starts with white key 2, step 2, and
      * changes no slot; black 9-11 are delay, bitcrusher, phaser. */
     if (!ui.overview) tap_button(BTN_HOME);
     unsigned slot_before = engine.drums.current;
@@ -321,8 +321,9 @@ int main(int argc, char **argv)
     shot(dir, "11a_punch");
     panel.keys &= ~(1u << 10 | 1u << 13); run(60);
     punched = punched && engine.punch == 0 && !engine.fx.throw_on;
-    panel.keys |= 1u << 17; run(30);          /* black 8: repeat */
-    panel.keys |= 1u << 2; run(30);           /* white 2: 1/8 */
+    panel.keys |= 1u << 17; run(30);          /* black 8: repeat, waiting for its step */
+    punched = punched && engine.punch == 0;
+    panel.keys |= 1u << 2; run(30);           /* white 2: step 2, repeat starts */
     panel.keys &= ~(1u << 2); run(30);
     punched = punched && engine.punch == EL_PUNCH_REPEAT && engine.punch_div[3] == 1 && engine.punch_div[0] == 3;
     panel.keys &= ~(1u << 17); run(60);

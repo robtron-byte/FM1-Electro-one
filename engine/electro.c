@@ -299,9 +299,6 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
             if ((c->a & (1u << n)) && el_punch_value_name(n, c->b)) e->punch_div[n] = c->b;
         break;
     case EL_CMD_PUNCH:
-        /* Repeat starts on the step that comes next. */
-        if (c->b && (c->a & EL_PUNCH_REPEAT) && !(e->punch & EL_PUNCH_REPEAT))
-            e->punch_div[3] = (uint8_t)((e->sync_step + 1u) % EL_REPEAT_STEPS);
         e->punch = (uint8_t)(c->b ? e->punch | c->a : e->punch & ~c->a);
         if (c->a & EL_PUNCH_THROW) {
             e->fx.throw_on = c->b ? 1 : 0;
@@ -680,7 +677,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
             e->sync_step = step;
             if (e->punch & EL_PUNCH_REPEAT) {
                 /* Repeat (held): every 16th the chosen step of the bar (white
-                 * keys 1-16, else the one after the press) plays again in
+                 * keys 1-16; it starts with one) plays again in
                  * every area, the playheads going on underneath. */
                 unsigned target = e->punch_div[3];
                 dr_step_at(&e->drums, step, t->last_length, target);
