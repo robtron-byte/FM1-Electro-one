@@ -214,6 +214,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
     /* Reverb throw: the big hall owns the buffers while it sounds; delay,
      * hall and gated reverb rest. The memory is cleared when it starts and
      * when it has rung out, so both sides begin in silence. */
+    if (fx->borrowed) return;
     if (fx->throw_on && !fx->throw_clear) {
         memset(&fx->mem, 0, sizeof fx->mem);
         hole_init(&fx->hole);
@@ -321,8 +322,19 @@ EL_DSP_CODE void fx_distortion(el_fx_t *fx, float *send, float *left, float *rig
 {
     if (!fx->v[FX_DIST_SEND_BEAT] && !fx->v[FX_DIST_SEND_RHYTHM] && !fx->v[FX_DIST_SEND_STRINGS] && !fx->v[FX_DIST_SEND_BASS])
         return;
-    /* Wet only (the dry signal stays in the mix): parallel distortion. */
-    dist_process(&fx->dist, send, fx->dist_r, frames, fx->v[FX_DIST_MODE], fx->v[FX_DIST_DRIVE], fx->v[FX_DIST_TONE], 64,
-                 fx->v[FX_DIST_MODE] ? 127 : 0, 0);
-    for (int i = 0; i < frames; ++i) { left[i] += send[i]; right[i] += send[i]; }
+    /* Wet only (the dry signal stays in the mix): parallel distortion. With
+     * the type OFF nothing comes back: the distortion's own bypass would
+     * return the send itself, a few samples late, and comb the mix. Switching
+     * OFF fades the last type out in about 10 ms. */
+    int mode = fx->v[FX_DIST_MODE];
+    if (mode) fx->dist_last = (uint8_t)mode;
+    if (!mode && fx->dist_fade <= 0.0f) return;
+    dist_process(&fx->dist, send, fx->dist_r, frames, mode ? mode : (fx->dist_last ? fx->dist_last : 1), fx->v[FX_DIST_DRIVE],
+                 fx->v[FX_DIST_TONE], 64, 127, 0);
+    float target = mode ? 1.0f : 0.0f, step = 1.0f / (0.01f * EL_SAMPLE_RATE);
+    for (int i = 0; i < frames; ++i) {
+        fx->dist_fade = dsp_clamp(fx->dist_fade + (target > fx->dist_fade ? step : -step), 0.0f, 1.0f);
+        left[i] += send[i] * fx->dist_fade;
+        right[i] += send[i] * fx->dist_fade;
+    }
 }

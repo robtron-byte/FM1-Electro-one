@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     turn(2, 6);                       /* -14 -> -20 dB */
     turn(0, 1);                       /* COMP RATIO */
     turn(2, 3);                       /* 1.8:1 -> 4:1 */
-    turn(1, 4);                       /* OUTPUT LEVEL */
+    turn(1, 5);                       /* OUTPUT LEVEL */
     turn(3, -10);                     /* 127 -> 107 */
     turn(0, 2);                       /* HELP LINE */
     run(1500);                        /* the groove plays: the compressor works */
@@ -204,7 +204,7 @@ int main(int argc, char **argv)
     turn(4, -1);                      /* off */
     run(300);
     shot(dir, "08c_options");
-    menu = menu && ui.opt_item == 13 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107 &&
+    menu = menu && ui.opt_item == 14 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107 &&
            engine.mix.master_comp.threshold_db == -20.0f && engine.mix.master_comp.ratio == 4.0f && compressing;
     printf("comp: threshold %.0f dB, ratio %.1f:1, gain reduction %.1f dB %s\n", engine.mix.master_comp.threshold_db,
            engine.mix.master_comp.ratio, engine.mix.gain_reduction_db, menu ? "ok" : "FAIL");

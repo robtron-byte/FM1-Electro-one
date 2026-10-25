@@ -55,9 +55,12 @@ typedef struct {
     /* Reverb throw: a big, long hall while held; on release its return
      * fades out quickly and the lines are cleared. */
     uint8_t throw_on, throw_clear;
+    uint8_t borrowed;      /* tape stop / repeat use the buffers: delay, hall, gate rest */
     float throw_mix;
     fx_hole_t hole;
     el_dist_t dist;
+    uint8_t dist_last;     /* type that sounded last, kept while fading out */
+    float dist_fade;       /* 0 .. 1: the send's return; 0 with the type OFF */
     float dist_r[EL_BLOCK];
 } el_fx_t;
 

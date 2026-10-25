@@ -734,13 +734,14 @@ static void toggle_arp(el_ui_t *ui, int hold)
 /* ---- OPTIONS (HOME + SAVE): settings made once ----------------------------- */
 
 enum { OPT_MIDI_BEAT, OPT_MIDI_BASS = OPT_MIDI_BEAT + 3, OPT_CLOCK, OPT_MASTER, OPT_THRESHOLD, OPT_RATIO, OPT_ATTACK,
-       OPT_RELEASE, OPT_MAKEUP, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
+       OPT_RELEASE, OPT_MAKEUP, OPT_DIST_BD, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
 static const char *const opt_names[OPT_ITEMS] = {"MIDI CH BEAT", "MIDI CH RHYTHM", "MIDI CH STRINGS", "MIDI CH BASS",
                                                  "MIDI CLOCK", "MASTER FX", "  COMP THRESHOLD", "  COMP RATIO", "  COMP ATTACK",
-                                                 "  COMP RELEASE", "  COMP MAKEUP", "OUTPUT LEVEL", "POWER-ON", "HELP LINE"};
+                                                 "  COMP RELEASE", "  COMP MAKEUP", "DIST BASS DRUM", "OUTPUT LEVEL", "POWER-ON",
+                                                 "HELP LINE"};
 /* Engine option behind each menu line (the MIDI lines use midi_channel). */
 static const uint8_t opt_option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_COMP_THRESHOLD, EL_OPT_COMP_RATIO,
-                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_OUT_LEVEL,
+                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_DIST_KICK_TIGHT, EL_OPT_OUT_LEVEL,
                                               EL_OPT_START, EL_OPT_HINTS};
 
 static int opt_value(const el_ui_t *ui, unsigned item, int *max)
@@ -756,6 +757,7 @@ static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
     int max, v = opt_value(ui, item, &max);
     if (item <= OPT_MIDI_BASS) { if (v >= EL_MIDI_OFF) snprintf(out, size, "OFF"); else snprintf(out, size, "%d", v + 1); }
     else if (item == OPT_CLOCK) snprintf(out, size, v ? "FOLLOW" : "IGNORE");
+    else if (item == OPT_DIST_BD) snprintf(out, size, v ? "PEDAL (CUT LOWS)" : "FULL LOWS");
     else if (item == OPT_START) snprintf(out, size, v == EL_START_SLOT_A ? "SLOTS A" : "LAST");
     else if (item == OPT_LEVEL) snprintf(out, size, "%d", v);
     else if (item == OPT_THRESHOLD) snprintf(out, size, "-%d DB", v);
@@ -933,8 +935,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 
     if (ui->rec_key != 0xff && (ui->prev_keys & ~c->keys & BIT(ui->rec_key))) ui->rec_key = 0xff;
     /* Punch-in effects end when their key is let go, wherever the UI is. */
-    for (unsigned i = 0; i < 2; ++i) {
-        static const uint8_t fx[2] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW};
+    for (unsigned i = 0; i < 4; ++i) {
+        static const uint8_t fx[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
         if (ui->punch_key[i] && !(c->keys & BIT(ui->punch_key[i] - 1u)) && el_post3(e, EL_CMD_PUNCH, fx[i], 0, 0, 0) == 0)
             ui->punch_key[i] = 0;
     }
@@ -948,10 +950,10 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             int w = key_white(key), b = key_black(key);
             if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
-            else if (b >= 4 && b <= 5) {
-                /* Black keys 5 and 6: punch-in effects while held. */
-                static const uint8_t fx[2] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW};
-                static const char *const names[2] = {"STUTTER", "REVERB THROW"};
+            else if (b >= 4 && b <= 7) {
+                /* Black keys 5-8: punch-in effects while held. */
+                static const uint8_t fx[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
+                static const char *const names[4] = {"STUTTER", "REVERB THROW", "TAPE STOP", "REPEAT 1/16"};
                 if (el_post3(e, EL_CMD_PUNCH, fx[b - 4], 1, 0, 0) == 0) ui->punch_key[b - 4] = (uint8_t)(key + 1u);
                 notice(ui, names[b - 4]);
             }
@@ -1193,8 +1195,9 @@ static void update_leds(el_ui_t *ui)
         }
         for (unsigned a = 0; a < EL_AREAS; ++a)
             if (!area_muted(ui, a)) leds |= 1ull << (14u + black_keys[a]);
-        if (e->punch & EL_PUNCH_STUTTER) leds |= 1ull << (14u + black_keys[4]);
-        if (e->punch & EL_PUNCH_THROW) leds |= 1ull << (14u + black_keys[5]);
+        static const uint8_t lit[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
+        for (unsigned i = 0; i < 4; ++i)
+            if (e->punch & lit[i]) leds |= 1ull << (14u + black_keys[4 + i]);
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         unsigned page = ui->step_page[0];
@@ -1501,7 +1504,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
             if (on) gfx_fill(b, x + 2, accent ? cy + 2 : cy + 6, 8, accent ? 13 : 9, color);
         }
     }
-    gfx_text(b, 4, 180, "WHITE: SLOTS  BLACK 5 STUTTER  6 HALL", DIM, 1);
+    gfx_text(b, 4, 180, "BLACK 5 STUTTER 6 HALL 7 STOP 8 REPEAT", DIM, 1);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)

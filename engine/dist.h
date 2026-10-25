@@ -25,6 +25,8 @@ typedef struct {
 /* In place. mode DIST_*, drive / tone / level / mix 0..127 (level 64 +-0 dB
  * re the mode's make-up, mix 127 = wet only). stereo 0: left only, copied
  * to right. Start from a zeroed el_dist_t with gain = 1, mono = 1. */
+/* The "tightening" high-pass each type has before its drive (Hz). */
+float dist_tight_hz(int mode);
 EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frames, int mode, int drive, int tone,
                               int level, int mix, int stereo);
 #endif

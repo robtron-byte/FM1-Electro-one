@@ -57,6 +57,12 @@ static inline float dist_oversampled(el_dist_ch_t *c, unsigned ip, unsigned op, 
     return y;
 }
 
+float dist_tight_hz(int mode)
+{
+    static const float hz[5] = {18, 45, 110, 90, 18};
+    return hz[mode < 1 ? 0 : mode > 4 ? 4 : mode];
+}
+
 EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frames, int mode, int drive_v, int tone_v,
                               int level_v, int mix_v, int stereo)
 {

@@ -51,8 +51,8 @@ enum el_command {
     EL_CMD_OPTION,       /* a = EL_OPT_*, value */
     EL_CMD_PUNCH         /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
 };
-/* Punch-in effects, active while held (HOME, black keys 5 and 6). */
-enum { EL_PUNCH_STUTTER = 1, EL_PUNCH_THROW = 4 };
+/* Punch-in effects, active while held (HOME, black keys 5-8). */
+enum { EL_PUNCH_STUTTER = 1, EL_PUNCH_THROW = 4, EL_PUNCH_TAPE = 8, EL_PUNCH_REPEAT = 16 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
 /* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
@@ -72,6 +72,7 @@ enum {
     EL_OPT_COMP_RELEASE,    /* index into el_comp_releases (ms) */
     EL_OPT_COMP_MAKEUP,     /* 0..24: makeup 0 .. +12 dB in half dB */
     EL_OPT_REC_STEP,        /* bit per synth track: REC records step by step (SH-101), else live */
+    EL_OPT_DIST_KICK_TIGHT, /* 1: the bass drum is cut low before the distortion like the rest (pedal) */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
 enum { EL_COMP_RATIOS = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };
@@ -99,7 +100,12 @@ typedef struct {
     /* Punch-in: held effects, stutter phase (16ths, reset on every step),
      * dry level and how long the reverb throw has been fed. */
     volatile uint8_t punch;
-    float stutter_phase, stutter_gain, dry_gain, throw_fed, throw_lp;
+    float stutter_phase, stutter_gain, dry_gain, throw_fed, throw_lp, kick_low;
+    /* Tape stop and 16th repeat: the finished mix through a buffer in the
+     * FX memory (borrowed while one of them sounds). */
+    uint8_t buf_mode, buf_state;
+    float buf_mix, buf_rp, buf_rate, buf_t;
+    uint32_t buf_wp, buf_len;
     int stutter_sync;
     volatile uint32_t blocks;
 } el_engine_t;

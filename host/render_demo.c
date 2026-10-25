@@ -204,12 +204,88 @@ static int punch_test(const char *dir)
     return ok ? 0 : 1;
 }
 
+/* Distortion send: OFF returns nothing (no comb with the dry mix); the
+ * 808 bass drum reaches the drive with its lows (FULL) or cut like the
+ * rest (PEDAL). */
+static double render_energy(int mode, int send, int pedal, int kick_only)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 2 * 2];
+    el_init(&e);
+    el_post(&e, EL_CMD_FX, FX_DIST_MODE, (int16_t)mode);
+    el_post(&e, EL_CMD_FX, FX_DIST_DRIVE, 90);
+    el_post(&e, EL_CMD_FX, FX_DIST_SEND_BEAT, (int16_t)send);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_DIST_KICK_TIGHT, (int16_t)pedal);
+    el_post(&e, EL_CMD_MIX, 0, 0);
+    if (kick_only) {
+        for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);
+        for (unsigned p = 1; p < DR_PARTS; ++p) dr_post(&e.drums, DR_CMD_MUTE, (uint8_t)p, 1, 0, 0);
+    }
+    el_post(&e, EL_CMD_START, 0, 0);
+    unsigned total = FM1_SAMPLE_RATE * 2 / EL_BLOCK * EL_BLOCK;
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    double sum = 0;
+    for (unsigned i = 0; i < total * 2u; ++i) sum += out[i] * out[i];
+    return sum;
+}
+
+/* Tape stop: silent a beat after the press; repeat: the same 16th over and
+ * over (consecutive 16ths alike), live again after release. */
+static int buffer_test(const char *dir)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 8 * 2];
+    const unsigned total = FM1_SAMPLE_RATE * 8 / EL_BLOCK * EL_BLOCK, sr = FM1_SAMPLE_RATE;
+    el_init(&e);
+    el_post(&e, EL_CMD_BPM, 0, 1200);
+    el_post(&e, EL_CMD_START, 0, 0);
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
+        if (pos == 2u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
+        if (pos == 3u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 0, 0, 0);
+        if (pos == 5u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
+        if (pos == 7u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 0, 0, 0);
+        el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    }
+    char path[512];
+    snprintf(path, sizeof path, "%s/punch_tape_repeat.wav", dir);
+    write_wav(path, out, total);
+    double groove = 0, stopped = 0;
+    for (unsigned i = 0; i < 2u * sr; ++i) groove += out[2 * i] * out[2 * i];
+    for (unsigned i = (unsigned)(2.55 * sr); i < (unsigned)(2.95 * sr); ++i) stopped += out[2 * i] * out[2 * i];
+    double stop_db = 10 * log10(stopped / (0.4 * sr) / (groove / (2.0 * sr)) + 1e-30);
+    /* Repeat: compare 16ths between 5.5 and 6.9 s with the one before. */
+    unsigned six = (unsigned)(sr * 15 / 120), start = (unsigned)(5.5 * sr);
+    double diff = 0, energy = 0;
+    for (unsigned i = start; i < (unsigned)(6.9 * sr); ++i) {
+        double a = out[2 * i], b = out[2 * (i - six)];
+        diff += (a - b) * (a - b);
+        energy += a * a;
+    }
+    double repeat_db = 10 * log10(diff / energy + 1e-30);
+    int ok = stop_db < -40 && repeat_db < -20 && !e.fx.borrowed;
+    printf("tape/repeat: stopped %.1f dB under the groove, repeated 16ths differ by %.1f dB, FX memory back: %s\n", stop_db,
+           repeat_db, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+static int dist_test(void)
+{
+    double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
+    double off_db = 10 * log10(off / plain);
+    double dry = render_energy(2, 0, 0, 1), full = render_energy(2, 127, 0, 1) - dry, pedal = render_energy(2, 127, 1, 1) - dry;
+    double gain_db = 10 * log10(full / pedal);
+    int ok = fabs(off_db) < 0.01 && gain_db > 2;
+    printf("dist send: OFF with send up %+.3f dB against no send; 808 kick into DIST, FULL lows %+.1f dB over PEDAL: %s\n",
+           off_db, gain_db, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir);
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir);
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {
