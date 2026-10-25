@@ -310,8 +310,10 @@ int main(int argc, char **argv)
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
 
     /* HOME: black keys 5 and 6 punch in the stutter and the reverb throw
-     * while held. */
+     * while held; with black 8 (repeat) held, white key 2 sets 1/8 and
+     * changes no slot; black 9-11 are delay, bitcrusher, phaser. */
     if (!ui.overview) tap_button(BTN_HOME);
+    unsigned slot_before = engine.drums.current;
     panel.keys |= 1u << 10; run(30);          /* black 5 */
     int punched = engine.punch == EL_PUNCH_STUTTER;
     panel.keys |= 1u << 13; run(30);          /* black 6 as well */
@@ -319,6 +321,15 @@ int main(int argc, char **argv)
     shot(dir, "11a_punch");
     panel.keys &= ~(1u << 10 | 1u << 13); run(60);
     punched = punched && engine.punch == 0 && !engine.fx.throw_on;
+    panel.keys |= 1u << 17; run(30);          /* black 8: repeat */
+    panel.keys |= 1u << 2; run(30);           /* white 2: 1/8 */
+    panel.keys &= ~(1u << 2); run(30);
+    punched = punched && engine.punch == EL_PUNCH_REPEAT && engine.punch_div[3] == 1 && engine.punch_div[0] == 3;
+    panel.keys &= ~(1u << 17); run(60);
+    panel.keys |= 1u << 20 | 1u << 22 | 1u << 25; run(30);   /* black 9-11 */
+    punched = punched && engine.punch == (EL_PUNCH_DELAY | EL_PUNCH_CRUSH | EL_PUNCH_PHASER);
+    panel.keys &= ~(1u << 20 | 1u << 22 | 1u << 25); run(60);
+    punched = punched && engine.punch == 0 && engine.drums.current == slot_before;
     printf("punch keys: held on, let go off %s\n", punched ? "ok" : "FAIL");
 
     /* Step record in RHYTHM (SH-101 / KeyStep): stopped, REC, keys. */

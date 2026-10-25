@@ -268,13 +268,16 @@ static int buffer_test(const char *dir)
     return ok ? 0 : 1;
 }
 
-/* All punch-ins at once: throw, stutter at 1/8, repeat at 1/8, tape stop;
+/* All punch-ins at once: throw, stutter at 1/8, repeat at 1/8, delay,
+ * bitcrusher, phaser, tape stop;
  * afterwards the FX get their buffers back and the mix is as before. */
 static int combo_test(const char *dir)
 {
     static el_engine_t e;
-    static float out[FM1_SAMPLE_RATE * 8 * 2];
-    const unsigned total = FM1_SAMPLE_RATE * 8 / EL_BLOCK * EL_BLOCK, sr = FM1_SAMPLE_RATE;
+    static float out[FM1_SAMPLE_RATE * 14 * 2];
+    const unsigned total = FM1_SAMPLE_RATE * 14 / EL_BLOCK * EL_BLOCK, sr = FM1_SAMPLE_RATE;
+    const unsigned every = EL_PUNCH_THROW | EL_PUNCH_REPEAT | EL_PUNCH_STUTTER | EL_PUNCH_TAPE | EL_PUNCH_DELAY |
+                           EL_PUNCH_CRUSH | EL_PUNCH_PHASER;
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1200);
     el_post(&e, EL_CMD_START, 0, 0);
@@ -285,10 +288,11 @@ static int combo_test(const char *dir)
         if (b == 2 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 1, 0, 0);
         if (b == 2 * s + s / 2) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
         if (b == 3 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_STUTTER, 1, 0, 0);
+        if (b == 3 * s + s / 2) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_DELAY | EL_PUNCH_CRUSH | EL_PUNCH_PHASER, 1, 0, 0);
         if (b == 4 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
-        if (b == 4 * s + s / 2) all = e.fx.users == (FX_USE_HALL | FX_USE_TAPE | FX_USE_REPEAT);
+        if (b == 4 * s + s / 2) all = e.fx.users == (FX_USE_HALL | FX_USE_TAPE | FX_USE_REPEAT | FX_USE_DELAY) && e.punch == every;
         if (b == 5 * s) {
-            el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW | EL_PUNCH_REPEAT | EL_PUNCH_STUTTER | EL_PUNCH_TAPE, 0, 0, 0);
+            el_post3(&e, EL_CMD_PUNCH, (uint8_t)every, 0, 0, 0);
         }
         el_render_float(&e, out + pos * 2u, EL_BLOCK);
     }
@@ -299,11 +303,51 @@ static int combo_test(const char *dir)
     int finite = 1;
     for (unsigned i = 0; i < total * 2u; ++i) finite &= isfinite(out[i]);
     for (unsigned i = 0; i < 2u * sr; ++i) before += out[2 * i] * out[2 * i];
-    for (unsigned i = (unsigned)(6.5 * sr); i < (unsigned)(7.9 * sr); ++i) after += out[2 * i] * out[2 * i];
+    for (unsigned i = (unsigned)(12.5 * sr); i < (unsigned)(13.9 * sr); ++i) after += out[2 * i] * out[2 * i];
     double back_db = 10 * log10((after / 1.4) / (before / 2.0));
     int ok = all && finite && !e.fx.users && fabs(back_db) < 3;
-    printf("punch together: hall + repeat + stutter + tape at once %s, level after %+.1f dB: %s\n", all ? "yes" : "no", back_db,
+    printf("punch together: all seven at once %s, level after %+.1f dB: %s\n", all ? "yes" : "no", back_db,
            ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+/* Delay, bitcrusher, phaser held for a second against the same groove
+ * without: each changes the sound; the delay's echoes go on after it is let
+ * go. */
+static int colour_test(void)
+{
+    static el_engine_t a, b;
+    const unsigned sr = FM1_SAMPLE_RATE, total = sr * 3 / EL_BLOCK * EL_BLOCK;
+    static const uint8_t fx[3] = {EL_PUNCH_DELAY, EL_PUNCH_CRUSH, EL_PUNCH_PHASER};
+    static const char *const names[3] = {"delay", "bitcrusher", "phaser"};
+    double held_db[3], after_db[3];
+    float la[2 * EL_BLOCK], lb[2 * EL_BLOCK];
+    for (unsigned k = 0; k < 3; ++k) {
+        el_init(&a);
+        el_init(&b);
+        el_post(&a, EL_CMD_BPM, 0, 1200); el_post(&b, EL_CMD_BPM, 0, 1200);
+        el_post(&a, EL_CMD_START, 0, 0); el_post(&b, EL_CMD_START, 0, 0);
+        double sig[2] = {0, 0}, diff[2] = {0, 0};
+        for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
+            if (pos == sr / EL_BLOCK * EL_BLOCK) el_post3(&b, EL_CMD_PUNCH, fx[k], 1, 0, 0);
+            if (pos == 2 * sr / EL_BLOCK * EL_BLOCK) el_post3(&b, EL_CMD_PUNCH, fx[k], 0, 0, 0);
+            el_render_float(&a, la, EL_BLOCK);
+            el_render_float(&b, lb, EL_BLOCK);
+            int span = pos >= sr + sr / 10 && pos < 2 * sr ? 0 : pos >= 2 * sr + sr / 20 && pos < 2 * sr + sr / 2 ? 1 : -1;
+            if (span < 0) continue;
+            for (unsigned i = 0; i < 2 * EL_BLOCK; ++i) {
+                sig[span] += la[i] * la[i];
+                diff[span] += (lb[i] - la[i]) * (lb[i] - la[i]);
+            }
+        }
+        held_db[k] = 10 * log10(diff[0] / sig[0] + 1e-20);
+        after_db[k] = 10 * log10(diff[1] / sig[1] + 1e-20);
+    }
+    int ok = held_db[0] > -12 && held_db[1] > -20 && held_db[2] > -12 && after_db[0] > -20 && after_db[1] < -40 &&
+             after_db[2] < -40;
+    printf("punch colour:");
+    for (unsigned k = 0; k < 3; ++k) printf(" %s %+.1f dB held, %+.1f after;", names[k], held_db[k], after_db[k]);
+    printf(" %s\n", ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
 
@@ -324,7 +368,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir);
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

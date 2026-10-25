@@ -345,6 +345,19 @@ static unsigned area_slot(const el_ui_t *ui, unsigned a, int next)
     return next ? e->track[a - 1u].next : e->track[a - 1u].current;
 }
 
+static const char *const punch_names[EL_PUNCHES] = {"STUTTER", "REVERB THROW", "TAPE STOP", "REPEAT",
+                                                    "DELAY", "BITCRUSH", "PHASER"};
+
+/* "REPEAT 1/8": the punch-in and what its white key set. */
+static void punch_notice(el_ui_t *ui, unsigned n, unsigned v)
+{
+    static char text[24];   /* the notice keeps the pointer */
+    const char *value = el_punch_value_name(n, v);
+    if (value) snprintf(text, sizeof text, "%s %s", punch_names[n], value);
+    else snprintf(text, sizeof text, "%s", punch_names[n]);
+    notice(ui, text);
+}
+
 static void select_slot(el_ui_t *ui, unsigned a, unsigned slot)
 {
     if (slot >= DR_PATTERNS) return;
@@ -935,10 +948,11 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 
     if (ui->rec_key != 0xff && (ui->prev_keys & ~c->keys & BIT(ui->rec_key))) ui->rec_key = 0xff;
     /* Punch-in effects end when their key is let go, wherever the UI is. */
-    for (unsigned i = 0; i < 4; ++i) {
-        static const uint8_t fx[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
-        if (ui->punch_key[i] && !(c->keys & BIT(ui->punch_key[i] - 1u)) && el_post3(e, EL_CMD_PUNCH, fx[i], 0, 0, 0) == 0)
+    unsigned punch_held = 0;
+    for (unsigned i = 0; i < EL_PUNCHES; ++i) {
+        if (ui->punch_key[i] && !(c->keys & BIT(ui->punch_key[i] - 1u)) && el_post3(e, EL_CMD_PUNCH, BIT(i), 0, 0, 0) == 0)
             ui->punch_key[i] = 0;
+        if (ui->punch_key[i]) punch_held |= BIT(i);
     }
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
@@ -948,14 +962,22 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         } else if (ui->overview) {
             /* White keys 1-4 BEAT A-D, 5-8 RHYTHM, 9-12 STRINGS, 13-16 BASS. */
             int w = key_white(key), b = key_black(key);
-            if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
+            if (w >= 0 && punch_held) {
+                /* While punch-ins are held, white keys 1-6 set their note
+                 * value (or strength); the others do nothing then. */
+                if (w < EL_PUNCH_DIVS && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)punch_held, (uint8_t)w, 0, 0) == 0)
+                    punch_notice(ui, ui->punch_last, (unsigned)w);
+            } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
-            else if (b >= 4 && b <= 7) {
-                /* Black keys 5-8: punch-in effects while held. */
-                static const uint8_t fx[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
-                static const char *const names[4] = {"STUTTER", "REVERB THROW", "TAPE STOP", "REPEAT 1/16"};
-                if (el_post3(e, EL_CMD_PUNCH, fx[b - 4], 1, 0, 0) == 0) ui->punch_key[b - 4] = (uint8_t)(key + 1u);
-                notice(ui, names[b - 4]);
+            else if (b >= EL_AREAS && b < EL_AREAS + EL_PUNCHES) {
+                /* Black keys 5-11: punch-in effects while held. */
+                unsigned n = (unsigned)b - EL_AREAS;
+                if (el_post3(e, EL_CMD_PUNCH, BIT(n), 1, 0, 0) == 0) {
+                    ui->punch_key[n] = (uint8_t)(key + 1u);
+                    punch_held |= BIT(n);
+                }
+                ui->punch_last = (uint8_t)n;
+                punch_notice(ui, n, e->punch_div[n]);
             }
         } else if (ui->area == EL_AREA_BEAT) {
             keys_beat(ui, key, hold);
@@ -1187,17 +1209,20 @@ static void update_leds(el_ui_t *ui)
     if (in_editor(ui)) leds |= 1ull << BTN_EDIT;
     if (ui->sound_save && (ui->now / 250u) & 1u) leds |= 1ull << BTN_SAVE;
     if (ui->overview) {
-        /* The slot each area plays; the one it switches to blinks. */
-        for (unsigned a = 0; a < EL_AREAS; ++a) {
+        /* The slot each area plays; the one it switches to blinks. While a
+         * punch-in with a value is held: its value instead. */
+        unsigned n = ui->punch_last;
+        int value_leds = n < EL_PUNCHES && ui->punch_key[n] && el_punch_value_name(n, 0);
+        if (value_leds) leds |= 1ull << (14u + white_keys[e->punch_div[n]]);
+        for (unsigned a = 0; a < EL_AREAS && !value_leds; ++a) {
             unsigned now = area_slot(ui, a, 0), next = area_slot(ui, a, 1);
             leds |= 1ull << (14u + white_keys[a * 4u + now]);
             if (next != now && (ui->now / 250u) & 1u) leds |= 1ull << (14u + white_keys[a * 4u + next]);
         }
         for (unsigned a = 0; a < EL_AREAS; ++a)
             if (!area_muted(ui, a)) leds |= 1ull << (14u + black_keys[a]);
-        static const uint8_t lit[4] = {EL_PUNCH_STUTTER, EL_PUNCH_THROW, EL_PUNCH_TAPE, EL_PUNCH_REPEAT};
-        for (unsigned i = 0; i < 4; ++i)
-            if (e->punch & lit[i]) leds |= 1ull << (14u + black_keys[4 + i]);
+        for (unsigned i = 0; i < EL_PUNCHES; ++i)
+            if (e->punch & BIT(i)) leds |= 1ull << (14u + black_keys[EL_AREAS + i]);
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         unsigned page = ui->step_page[0];
@@ -1504,7 +1529,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
             if (on) gfx_fill(b, x + 2, accent ? cy + 2 : cy + 6, 8, accent ? 13 : 9, color);
         }
     }
-    gfx_text(b, 4, 180, "BLACK 5 STUTTER 6 HALL 7 STOP 8 REPEAT", DIM, 1);
+    gfx_text(b, 4, 180, "5 STUT 6 HALL 7 STOP 8 REP 9 DLY 10 BIT 11 PHA", DIM, 1);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)
