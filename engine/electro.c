@@ -377,39 +377,45 @@ static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
     }
 }
 
-/* Reverb throw (held): the dry mix and its sends fade out in 3 ms; for the
- * first eighth note the whole mix goes into the big hall, then only its
- * tail sounds. Let go: the dry mix comes back, the hall fades (fx.c). */
+/* Reverb throw (held), as a swell rather than a cut: the hall starts
+ * empty and the mix (without the kick, which would thump in a big room,
+ * darkened to about 2.5 kHz) feeds it for a beat, rising in 30 ms and
+ * fading over the last half of the beat; meanwhile the dry mix and its
+ * sends fade out over an eighth note. Then only the tail sounds. Let go:
+ * the dry mix comes back in 20 ms, the hall rings out (fx.c). */
 static EL_DSP_CODE void punch_throw(el_engine_t *e, unsigned frames)
 {
     int on = (e->punch & EL_PUNCH_THROW) != 0;
     if (!on && e->dry_gain >= 1.0f) return;
-    float step = 1.0f / (0.003f * EL_SAMPLE_RATE);
-    float feed_len = 30.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE, fade = 0.01f * EL_SAMPLE_RATE;
+    float beat = 60.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
+    float down = 1.0f / (0.5f * beat), up = 1.0f / (0.02f * EL_SAMPLE_RATE), rise = 0.03f * EL_SAMPLE_RATE;
     for (unsigned i = 0; i < frames; ++i) {
-        e->dry_gain = dsp_clamp(e->dry_gain + (on ? -step : step), 0.0f, 1.0f);
-        float g = e->dry_gain, feed = 0.0f;
-        if (on && e->throw_fed < feed_len) {
-            feed = dsp_min(1.0f, (feed_len - e->throw_fed) / fade);
+        e->dry_gain = dsp_clamp(e->dry_gain + (on ? -down : up), 0.0f, 1.0f);
+        /* Equal-power fade of the dry mix. */
+        float g = e->dry_gain * (2.0f - e->dry_gain), feed = 0.0f;
+        if (on && e->throw_fed < beat) {
+            float t = e->throw_fed;
+            feed = dsp_min(1.0f, t / rise) * dsp_min(1.0f, 2.0f * (beat - t) / beat);
             e->throw_fed += 1.0f;
         }
-        float mix = kick[i] + 0.5f * (drum_l[i] + drum_r[i] + bass_l[i] + bass_r[i] + synth_l[i] + synth_r[i] +
-                                     rhythm_l[i] + rhythm_r[i]);
+        float mix = 0.5f * (drum_l[i] + drum_r[i] + 0.5f * (bass_l[i] + bass_r[i]) + synth_l[i] + synth_r[i] +
+                            rhythm_l[i] + rhythm_r[i]);
+        e->throw_lp += (mix - e->throw_lp) * 0.3f;   /* one pole, about 2.5 kHz */
         kick[i] *= g; drum_l[i] *= g; drum_r[i] *= g; bass_l[i] *= g; bass_r[i] *= g;
         synth_l[i] *= g; synth_r[i] *= g; rhythm_l[i] *= g; rhythm_r[i] *= g;
         dly[i] *= g; gate[i] *= g;
-        rev[i] = rev[i] * g + mix * feed * 1.6f;
+        rev[i] = rev[i] * g + e->throw_lp * feed * 2.8f;
     }
 }
 
-/* Stutter (held): the finished mix gated in 16ths (or 32nds), open for the
- * first half of each, with 1.5 ms edges; in time with the steps. */
+/* Stutter (held): the finished mix gated in 16ths, open for the first half
+ * of each, with 1.5 ms edges; in time with the steps. */
 static EL_DSP_CODE void punch_stutter(el_engine_t *e, unsigned frames)
 {
-    unsigned which = e->punch & (EL_PUNCH_STUTTER | EL_PUNCH_STUTTER32);
+    unsigned which = e->punch & EL_PUNCH_STUTTER;
     if (!which && e->stutter_gain >= 1.0f) return;
     float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
-    float rate = (which & EL_PUNCH_STUTTER32 ? 2.0f : 1.0f) / sixteenth, edge = 1.0f / (0.0015f * EL_SAMPLE_RATE);
+    float rate = 1.0f / sixteenth, edge = 1.0f / (0.0015f * EL_SAMPLE_RATE);
     for (unsigned i = 0; i < frames; ++i) {
         if ((int)i == e->stutter_sync) e->stutter_phase = 0.0f;
         e->stutter_phase += rate;

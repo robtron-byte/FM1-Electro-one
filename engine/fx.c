@@ -92,7 +92,8 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         lengths[i] = dsp_min(base_lengths[i] * scale, FX_REVERB_CAP - 24.0f);
         gains[i] = dsp_exp2(-3.0f * 3.321928f * lengths[i] / (t60 * EL_SAMPLE_RATE));
     }
-    float damp_hz = throwing ? 9000.0f : 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
+    /* The throw is dark: its lines lose the highs fast (a warm, big room). */
+    float damp_hz = throwing ? 2200.0f : 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
     float damp = 1.0f - dsp_exp(-2.0f * DSP_PI * damp_hz / EL_SAMPLE_RATE);
     float diffusion = 0.55f + 0.17f * size, mod = 1.5f + 8.0f * size;
     unsigned dsize[2] = {(unsigned)(diff_lengths[0] * (0.5f + size)), (unsigned)(diff_lengths[1] * (0.5f + size))};
@@ -102,6 +103,13 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         memset(fx->lines, 0, sizeof fx->lines);
         memset(fx->diff, 0, sizeof fx->diff);
         fx->throw_clear = 0;
+    }
+    if (fx->throw_on && !fx->throw_clear) {
+        /* A new throw starts in an empty hall: what the normal reverb left in
+         * the lines would smear into the larger room as a rumble. */
+        memset(fx->lines, 0, sizeof fx->lines);
+        memset(fx->diff, 0, sizeof fx->diff);
+        fx->throw_mix = 0.0f;
     }
     if (fx->throw_on) fx->throw_clear = 1;
 
@@ -161,9 +169,9 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             fx->fw = (fx->fw + 1u) & (FX_DIFF_CAP - 1);
             float ret = rret;
             if (throwing) {
-                /* 5 ms in on press, 40 ms out on release. */
-                fx->throw_mix += fx->throw_on ? (1.0f - fx->throw_mix) * 0.0045f : -1.0f / (0.04f * EL_SAMPLE_RATE);
-                if (fx->throw_mix < 0.0f) fx->throw_mix = 0.0f;
+                /* 5 ms in on press; on release it rings out, -60 dB in 1.2 s. */
+                if (fx->throw_on) fx->throw_mix += (1.0f - fx->throw_mix) * 0.0045f;
+                else if ((fx->throw_mix *= 0.99987f) < 0.001f) fx->throw_mix = 0.0f;
                 ret = fx->throw_mix;
             }
             left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * ret;
