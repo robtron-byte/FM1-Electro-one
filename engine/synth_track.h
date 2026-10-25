@@ -37,6 +37,7 @@ typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
     uint8_t area, preset, current, pos, playing, muted, recording, level_value;
     uint8_t next;              /* slot to switch to at the next bar */
+    int8_t transpose;          /* added to the notes of the steps (keys in TRANSPOSE) */
     uint8_t chord;             /* chord for live keys (0 = none) */
     uint8_t last_note;         /* used when a step is switched on */
     int16_t sounding[MKS_CHORD_NOTES];

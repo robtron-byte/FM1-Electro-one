@@ -213,9 +213,17 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         t->tick = 0;
         break;
     case EL_CMD_STEP_SET:
+    case EL_CMD_STEP_WRITE:
         s->note = c->c;
         s->flags = (uint8_t)(c->value & 0xff);
         s->chord = (uint8_t)((c->value >> 8) & 0x3f);
+        if (c->type == EL_CMD_STEP_WRITE) p->length = (uint8_t)el_clampi(c->b + 1, 1, ST_STEPS);
+        break;
+    case EL_CMD_STEP_TIE:
+        s->flags = (uint8_t)(c->c ? s->flags | ST_TIE : s->flags & ~ST_TIE);
+        break;
+    case EL_CMD_TRACK_TRANSPOSE:
+        t->transpose = (int8_t)el_clampi(c->value, -36, 36);
         break;
     case EL_CMD_TRACK_LENGTH:
         p->length = (uint8_t)el_clampi(c->b, 1, ST_STEPS);

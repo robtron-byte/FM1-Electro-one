@@ -28,6 +28,9 @@ enum el_command {
     EL_CMD_STEP_NOTE,    /* b = step, value = semitones to add (switches the step on) */
     EL_CMD_STEP_CHORD,   /* b = step, value = chord 0..8 */
     EL_CMD_STEP_SET,     /* b = step, c = note, value = flags | chord << 8 */
+    EL_CMD_STEP_WRITE,   /* step record: as STEP_SET, and the pattern ends after b */
+    EL_CMD_STEP_TIE,     /* b = step, c = 1: tie it into the next step, 0: no tie */
+    EL_CMD_TRACK_TRANSPOSE, /* value = semitones added to every step on playback */
     EL_CMD_TRACK_LENGTH, /* b = 1..32 */
     EL_CMD_TRACK_GATE,   /* b = 10..100 */
     EL_CMD_TRACK_PARAM,  /* b = mks parameter, value */

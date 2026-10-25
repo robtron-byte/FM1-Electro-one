@@ -122,7 +122,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     int on = (s->flags & ST_ON) && !t->muted;
     if (!on) { release_all(t); return; }
     int16_t notes[MKS_CHORD_NOTES];
-    unsigned count = chord_notes(s->note, s->chord, notes);
+    unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);
     float velocity = (s->flags & ST_ACCENT) ? 1.0f : 0.7f;
     if (t->tied && t->sounding_count) {
         /* Tie from the previous step: glide/legato into the new notes and let

@@ -34,6 +34,9 @@ typedef struct {
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];
     uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];
     int8_t octave[EL_AREAS];
+    /* Step record (REC while stopped): new sequence pending, key and note of
+     * the last step (legato), TRANSPOSE mode per area (GLO + SEQ). */
+    uint8_t rec_fresh, rec_key, rec_note, transpose_mode[EL_AREAS];
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
      * then the three synth parts), one staging buffer at a time, each into

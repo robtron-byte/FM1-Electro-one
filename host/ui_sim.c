@@ -309,6 +309,44 @@ int main(int argc, char **argv)
     }
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
 
+    /* Step record in RHYTHM (SH-101 / KeyStep): stopped, REC, keys. */
+    if (engine.transport.running) tap_button(BTN_PLAY);
+    tap_button(BTN_SEL);
+    if (ui.step_mode[EL_AREA_RHYTHM]) tap_button(BTN_SEQ);
+    tap_button(BTN_REC);
+    panel.keys |= 1u << 4; run(30);           /* A3 ... */
+    panel.keys |= 1u << 6; run(30);           /* ... B3 while A3 is held: legato */
+    panel.keys &= ~(1u << 4 | 1u << 6); run(30);
+    hold(BTN_GLO, 1); tap_key(9); hold(BTN_GLO, 0);    /* B3 one more step */
+    hold(BTN_EDIT, 1); tap_key(9); hold(BTN_EDIT, 0);  /* rest */
+    tap_key(7);                                         /* C4 */
+    run(100);
+    shot(dir, "11b_step_rec");
+    tap_button(BTN_REC);
+    run(100);
+    {
+        const st_pattern_t *p = &engine.track[0].pattern[engine.track[0].current];
+        const st_step_t *st = p->step;
+        int ok = p->length == 5 && st[0].note == 57 && (st[0].flags & (ST_ON | ST_TIE)) == (ST_ON | ST_TIE) &&
+                 st[1].note == 59 && (st[1].flags & (ST_ON | ST_TIE)) == (ST_ON | ST_TIE) &&
+                 st[2].note == 59 && (st[2].flags & (ST_ON | ST_TIE)) == ST_ON && !(st[3].flags & ST_ON) &&
+                 st[4].note == 60 && (st[4].flags & ST_ON) && !engine.track[0].recording;
+        /* TRANSPOSE: GLO + SEQ, then D4 moves the sequence up a tone. */
+        hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
+        tap_key(9);
+        run(50);
+        int moved = ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 2 && p->step[0].note == 57;
+        hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
+        run(50);
+        moved = moved && !ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 0;
+        printf("steprec: 5 steps, legato tie, hold, rest, length from the steps; transpose +2 %s\n", ok && moved ? "ok" : "FAIL");
+        if (!(ok && moved)) {
+            printf("debug len %u:", p->length);
+            for (unsigned i = 0; i < 6; ++i) printf(" %u/%x", st[i].note, st[i].flags);
+            printf(" transpose %d\n", engine.track[0].transpose);
+        }
+    }
+
     /* Arpeggiator in BASS: tap ARP, hold two keys. */
     if (!engine.transport.running) tap_button(BTN_PLAY);
     tap_button(BTN_LFO);

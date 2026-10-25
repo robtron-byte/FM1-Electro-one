@@ -122,6 +122,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     memset(ui, 0, sizeof *ui);
     ui->engine = engine;
     ui->follow = 1;
+    ui->rec_key = ui->rec_note = 0xff;
     ui->octave[EL_AREA_STRINGS] = -1;
     ui->octave[EL_AREA_BASS] = -2;
     for (unsigned a = 0; a < EL_AREAS; ++a) ui->gen_density[a] = 64;
@@ -608,6 +609,39 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     else dr_post(m, DR_CMD_TOGGLE, ui->part, (uint8_t)s, 0, 0);
 }
 
+/* Step record while stopped, as on the SH-101 and the KeyStep: every key
+ * writes the next step and the sequence ends after it; a key pressed while
+ * the one before is still held ties the two (legato / slide). EDIT + key
+ * writes a rest, GLO + key holds the note before for one more step. The
+ * first key after REC starts a new sequence. */
+static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
+{
+    el_engine_t *e = ui->engine;
+    st_track_t *t = track_of(ui);
+    uint8_t track = (uint8_t)(ui->area - 1u);
+    unsigned step = ui->rec_fresh ? 0u : ui->cursor[ui->area];
+    if (step >= ST_STEPS) { notice(ui, "32 STEPS: REC TO FINISH"); return; }
+    if (ui->rec_fresh) { el_post3(e, EL_CMD_TRACK_CLEAR, track, 0, 0, 0); ui->rec_fresh = 0; }
+    if (hold & HOLD_EDIT) {
+        el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)note, 0);
+        ui->rec_key = ui->rec_note = 0xff;   /* a rest: nothing to tie to */
+    } else if ((hold & HOLD_GLO) && step > 0 && ui->rec_note != 0xff) {
+        el_post3(e, EL_CMD_STEP_TIE, track, (uint8_t)(step - 1u), 1, 0);
+        el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, ui->rec_note, (int16_t)(ST_ON | t->chord << 8));
+    } else {
+        if (step > 0 && ui->rec_key != 0xff) el_post3(e, EL_CMD_STEP_TIE, track, (uint8_t)(step - 1u), 1, 0);
+        el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)note, (int16_t)(ST_ON | t->chord << 8));
+        if (el_post3(e, EL_CMD_NOTE, track, (uint8_t)note, 0, 100) == 0) {   /* hear it */
+            ui->key_note[key] = (uint8_t)note;
+            ui->key_track[key] = track;
+        }
+        ui->rec_key = (uint8_t)key;
+        ui->rec_note = (uint8_t)note;
+    }
+    ui->cursor[ui->area] = (uint8_t)(step + 1u);
+    ui->step_page[ui->area] = (uint8_t)(step / 16u);
+}
+
 static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
 {
     el_engine_t *e = ui->engine;
@@ -631,19 +665,23 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         return;
     }
     int note = el_clampi(53 + (int)key + 12 * ui->octave[ui->area], 0, 127);
-    int stopped_entry = t->recording && !e->transport.running;
-    if (stopped_entry && (hold & HOLD_EDIT)) {
-        el_post3(e, EL_CMD_STEP_SET, track, ui->cursor[ui->area], (uint8_t)note, 0);
-        ui->cursor[ui->area] = (uint8_t)((ui->cursor[ui->area] + 1u) % p->length);
+    if (ui->transpose_mode[ui->area]) {
+        /* TRANSPOSE (KeyStep): the key moves the whole sequence, C4 = 0. */
+        int shift = note - 60;
+        el_post3(e, EL_CMD_TRACK_TRANSPOSE, track, 0, 0, (int16_t)shift);
+        static char text[20];
+        snprintf(text, sizeof text, "TRANSPOSE %+d", shift);
+        notice(ui, text);
         return;
     }
+    if (t->recording && !e->transport.running) {
+        step_record(ui, key, note, hold);
+        return;
+    }
+    (void)p;
     if (el_post3(e, EL_CMD_NOTE, track, (uint8_t)note, 0, 100) == 0) {
         ui->key_note[key] = (uint8_t)note;
         ui->key_track[key] = track;
-    }
-    if (stopped_entry) {
-        el_post3(e, EL_CMD_STEP_SET, track, ui->cursor[ui->area], (uint8_t)note, (int16_t)(ST_ON | t->chord << 8));
-        ui->cursor[ui->area] = (uint8_t)((ui->cursor[ui->area] + 1u) % p->length);
     }
 }
 
@@ -818,6 +856,9 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             int armed = ui->area == EL_AREA_BEAT ? m->recording : track_of(ui)->recording;
             el_post3(e, EL_CMD_RECORD_AREA, ui->area, (uint8_t)!armed, 0, 0);
             ui->cursor[ui->area] = 0;
+            ui->rec_key = ui->rec_note = 0xff;
+            ui->rec_fresh = (uint8_t)(!armed && synth_area(ui) && !e->transport.running);
+            if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
         }
     }
     if ((pressed & BIT(BTN_SAVE)) && in_editor(ui) && ui->sound_put) {
@@ -829,6 +870,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     if ((pressed & BIT(BTN_SEQ)) && !ui->overview && ui->area == EL_AREA_BEAT) {
         ui->beat_layer = !ui->beat_layer;
         notice(ui, ui->beat_layer ? "BLACK KEY 1: PULSE" : "BLACK KEYS: BD .. ZAP");
+    }
+    if ((pressed & BIT(BTN_SEQ)) && synth_area(ui) && (hold & HOLD_GLO)) {
+        /* GLO + SEQ: TRANSPOSE, the keys move the sequence (KeyStep). */
+        release_keys(ui, ~0u);
+        ui->transpose_mode[ui->area] = (uint8_t)!ui->transpose_mode[ui->area];
+        if (!ui->transpose_mode[ui->area]) el_post3(e, EL_CMD_TRACK_TRANSPOSE, (uint8_t)(ui->area - 1u), 0, 0, 0);
+        notice(ui, ui->transpose_mode[ui->area] ? "TRANSPOSE ON: KEYS MOVE THE SEQUENCE" : "TRANSPOSE OFF");
+        pressed &= ~BIT(BTN_SEQ);
     }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
         release_keys(ui, ~0u);
@@ -850,6 +899,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         }
     }
 
+    if (ui->rec_key != 0xff && (ui->prev_keys & ~c->keys & BIT(ui->rec_key))) ui->rec_key = 0xff;
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
@@ -1044,6 +1094,9 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
                  (uint32_t)ui->editor << 24 | (uint32_t)ui->ed_section[ui->area] << 25);
     mix(&sig[2], ui->ed_page[ui->area] | (uint32_t)ui->sound_save << 8 | (uint32_t)ui->name_cursor << 9 |
                  (uint32_t)ui->options << 20 | (uint32_t)e->option[EL_OPT_HINTS] << 21);
+    if (synth_area(ui))
+        mix(&sig[2], ui->transpose_mode[ui->area] | (uint32_t)(uint8_t)track_of(ui)->transpose << 8 | (uint32_t)ui->rec_fresh << 16 |
+                     (uint32_t)track_of(ui)->recording << 17 | (uint32_t)e->transport.running << 18);
     if (ui->sound_save) mix(&sig[2], (uint8_t)ui->sound_name[ui->name_cursor]);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
@@ -1452,6 +1505,13 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
     char line[48];
+    if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && !ui->engine->transport.running) {
+        snprintf(line, sizeof line, "STEP REC %u/32  EDIT=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
+        hint = line;
+    } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {
+        snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);
+        hint = line;
+    }
     if (!hint) {
         if (ui->overview && (ui->hold & HOLD_EDIT)) {
             const uint8_t *fv = ui->engine->fx.v;

@@ -28,7 +28,7 @@ h3 { font-weight: 650; font-size: 10pt; letter-spacing: -.005em; margin-bottom: 
 .eyebrow { font-size: 7pt; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
            margin-bottom: 2.5mm; }
 .intro { color: var(--muted); max-width: 140mm; margin-bottom: 7mm; }
-section { margin-bottom: 9mm; }
+section { margin-bottom: 7mm; }
 p + p { margin-top: 1.5mm; }
 .muted { color: var(--muted); }
 
@@ -296,25 +296,24 @@ kbd.bass { background: var(--bass); border-color: var(--bass); color: #fff; }
     <div class="eyebrow"><span class="dot" style="background: var(--beat)"></span>Beat</div>
     <h2>Drums programmieren</h2>
     <table class="moves" style="margin-top: 3mm">
-      <tr><td class="what">Instrument wählen und spielen</td><td class="how">schwarze Taste<span class="note">BD SD LT HT RS CP CB CY OH CH ZAP · <kbd>Seq</kbd> schaltet auf PULSE</span></td></tr>
-      <tr><td class="what">Steps setzen</td><td class="how">weiße Tasten</td></tr>
+      <tr><td class="what">Instrument wählen · Steps setzen</td><td class="how">schwarze Taste · weiße Tasten<span class="note">BD SD LT HT RS CP CB CY OH CH ZAP · <kbd>Seq</kbd> schaltet auf PULSE</span></td></tr>
       <tr><td class="what">Akzent · 32tel-Roll</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span>weiß · <kbd>Glo</kbd><span class="plus">+</span>weiß</td></tr>
       <tr><td class="what">Instrument löschen · stumm</td><td class="how"><kbd>Edit</kbd><span class="plus">+</span>schwarz · <kbd>Glo</kbd><span class="plus">+</span>schwarz</td></tr>
-      <tr><td class="what">Klang des Instruments</td><td class="how"><kbd>Knob 1–4</kbd> · <kbd class="beat">FX</kbd> nochmal: nächste Seite</td></tr>
-      <tr><td class="what">Kit</td><td class="how"><kbd>Presets</kbd><span class="note">808 · ELECTRO · MIAMI · KRAFT · PO-12</span></td></tr>
+      <tr><td class="what">Klang · Kit</td><td class="how"><kbd>Knob 1–4</kbd> · <kbd>Presets</kbd><span class="note">Kits: 808 · ELECTRO · MIAMI · KRAFT · PO-12</span></td></tr>
     </table>
   </section>
 
   <section>
     <div class="eyebrow"><span class="dot" style="background: var(--rhythm)"></span><span class="dot" style="background: var(--strings)"></span><span class="dot" style="background: var(--bass)"></span>Rhythm · Strings · Bass</div>
     <h2>Spielen oder programmieren</h2>
-    <p class="intro" style="margin-bottom: 4mm"><kbd>Seq</kbd> schaltet zwischen den beiden Modi um.</p>
+    <p class="intro" style="margin-bottom: 3mm"><kbd>Seq</kbd> schaltet zwischen den beiden Modi um.</p>
     <div class="cols2">
       <div class="card"><h3>Tasten-Modus</h3>
         <div class="row"><span>Tasten</span><span>spielen den Sound</span></div>
         <div class="row"><span><kbd>Oct −</kbd> <kbd>Oct +</kbd></span><span>Oktave</span></div>
         <div class="row"><span><kbd>Knob 1–4</kbd></span><span>Klang, zuletzt ARP</span></div>
-        <div class="row"><span><kbd>Rec</kbd></span><span>live einspielen</span></div>
+        <div class="row"><span><kbd>Rec</kbd> läuft</span><span>live einspielen</span></div>
+        <div class="row"><span><kbd>Glo</kbd> + <kbd>Seq</kbd></span><span>Transpose</span></div>
         <div class="row"><span><kbd>Glo</kbd> + weiß 1–9</span><span>Akkord (Strings)</span></div></div>
       <div class="card"><h3>Step-Modus</h3>
         <div class="row"><span>weiße Tasten</span><span>Steps an / aus</span></div>
@@ -323,7 +322,16 @@ kbd.bass { background: var(--bass); border-color: var(--bass); color: #fff; }
         <div class="row"><span><kbd>Knob 1–4</kbd></span><span>Note, Oktave, Akkord</span></div>
         <div class="row"><span><kbd>Glo</kbd> + <kbd>Select</kbd></span><span>Step wählen</span></div></div>
     </div>
-    <p class="muted" style="font-size: 7.8pt; margin-top: 3mm">Akkorde: m7 · SUS2 · MIN · 5+8 · SUS4 · 7TH · MAJ · m7b5</p>
+    <div class="card" style="margin-top: 4mm"><h3>Sequenz einspielen wie am SH-101</h3>
+      <div class="cols2" style="gap: 6mm">
+        <div><div class="row"><span>Stopp, dann <kbd>Rec</kbd></span><span>neue Sequenz</span></div>
+          <div class="row"><span>Taste</span><span>nächster Schritt</span></div>
+          <div class="row"><span>vorige Taste noch gehalten</span><span>Legato</span></div></div>
+        <div><div class="row"><span><kbd>Edit</kbd> + Taste</span><span>Pause</span></div>
+          <div class="row"><span><kbd>Glo</kbd> + Taste</span><span>Note länger</span></div>
+          <div class="row"><span><kbd>Rec</kbd></span><span>fertig, Länge = Schritte</span></div></div>
+      </div></div>
+    <p class="muted" style="font-size: 7.8pt; margin-top: 3mm">Akkorde: m7 · SUS2 · MIN · 5+8 · SUS4 · 7TH · MAJ · m7b5 · Transpose: die Tasten verschieben die laufende Sequenz, C4 = 0.</p>
   </section>
 
   <div class="cols2">
@@ -331,9 +339,8 @@ kbd.bass { background: var(--bass); border-color: var(--bass); color: #fff; }
       <div class="eyebrow">Edit + Bereichstaste</div>
       <h2>Synth-Editor</h2>
       <table class="moves" style="margin-top: 3mm">
-        <tr><td class="what">Sektion (DCO, VCF, ENV …)</td><td class="how"><kbd>Select</kbd></td></tr>
-        <tr><td class="what">Seite · Regler</td><td class="how"><kbd>Algorithm</kbd> · <kbd>Knob 1–4</kbd></td></tr>
-        <tr><td class="what">Eigenen Sound sichern</td><td class="how"><kbd>Save</kbd><span class="note">32 Plätze, Name mit Knob 1 und 2</span></td></tr>
+        <tr><td class="what">Sektion · Seite</td><td class="how"><kbd>Select</kbd> · <kbd>Algorithm</kbd></td></tr>
+        <tr><td class="what">Sound sichern</td><td class="how"><kbd>Save</kbd><span class="note">32 Plätze, Name mit Knob 1 und 2</span></td></tr>
         <tr><td class="what">Zurück</td><td class="how">Bereichstaste nochmal</td></tr>
       </table>
     </section>
