@@ -49,10 +49,13 @@ enum el_command {
     EL_CMD_TRACK_SELECT, /* a = track, b = slot A-D; c = 1 switches now, else at the next bar */
     EL_CMD_MIDI_CHANNEL, /* a = area, value = channel 0..15 or EL_MIDI_OFF */
     EL_CMD_OPTION,       /* a = EL_OPT_*, value */
-    EL_CMD_PUNCH         /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
+    EL_CMD_PUNCH,        /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
+    EL_CMD_PUNCH_RATE    /* a = EL_PUNCH_* bits, b = note value (el_punch_div_names) */
 };
 /* Punch-in effects, active while held (HOME, black keys 5-8). */
 enum { EL_PUNCH_STUTTER = 1, EL_PUNCH_THROW = 4, EL_PUNCH_TAPE = 8, EL_PUNCH_REPEAT = 16 };
+enum { EL_PUNCH_DIVS = 6 };
+extern const char *const el_punch_div_names[EL_PUNCH_DIVS];
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
 /* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
@@ -101,11 +104,14 @@ typedef struct {
      * dry level and how long the reverb throw has been fed. */
     volatile uint8_t punch;
     float stutter_phase, stutter_gain, dry_gain, throw_fed, throw_lp, kick_low;
-    /* Tape stop and 16th repeat: the finished mix through a buffer in the
-     * FX memory (borrowed while one of them sounds). */
-    uint8_t buf_mode, buf_state;
-    float buf_mix, buf_rp, buf_rate, buf_t;
-    uint32_t buf_wp, buf_len;
+    /* Note value per punch-in: stutter, repeat, tape stop (EL_PUNCH_DIVS). */
+    uint8_t punch_div[3];
+    uint32_t sync_step;
+    /* Repeat and tape stop: the finished mix through their buffer regions
+     * in the FX memory (borrowed while they sound). */
+    uint8_t rep_state, rep_div;
+    float rep_mix, tape_mix, tape_rp, tape_rate, tape_t;
+    uint32_t rep_len, rep_pos, tape_wp;
     int stutter_sync;
     volatile uint32_t blocks;
 } el_engine_t;

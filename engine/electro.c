@@ -23,6 +23,8 @@ void el_init(el_engine_t *e)
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
     e->dry_gain = e->stutter_gain = 1.0f;
+    e->punch_div[0] = e->punch_div[1] = 3;   /* stutter and repeat 1/16 */
+    e->punch_div[2] = 1;                     /* tape stop over an 8th */
     static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
     for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
     e->option[EL_OPT_MIDI_CLOCK] = 1;
@@ -290,6 +292,13 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_MIDI_CHANNEL:
         if (c->a < EL_AREAS) e->midi_channel[c->a] = (uint8_t)el_clampi(c->value, 0, EL_MIDI_OFF);
         break;
+    case EL_CMD_PUNCH_RATE:
+        if (c->b < EL_PUNCH_DIVS) {
+            if (c->a & EL_PUNCH_STUTTER) e->punch_div[0] = c->b;
+            if (c->a & EL_PUNCH_REPEAT) e->punch_div[1] = c->b;
+            if (c->a & EL_PUNCH_TAPE) e->punch_div[2] = c->b;
+        }
+        break;
     case EL_CMD_PUNCH:
         e->punch = (uint8_t)(c->b ? e->punch | c->a : e->punch & ~c->a);
         if (c->a & EL_PUNCH_THROW) {
@@ -378,49 +387,53 @@ static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
     }
 }
 
-/* Reverb throw (held), as a swell rather than a cut: the hall starts
- * empty and the mix (without the kick, which would thump in a big room,
- * darkened to about 2.5 kHz) feeds it for a beat, rising in 30 ms and
- * fading over the last half of the beat; meanwhile the dry mix fades down
- * to -12 dB over an eighth note (it stays faintly under the hall) and its
- * own sends close. Then the tail rings over the quiet groove. Let go:
- * the dry mix comes back in 20 ms, the hall rings out (fx.c). */
+/* Note values of the punch-ins (white keys while one is held): length in
+ * 16ths, and every how many steps their pattern starts again. */
+const char *const el_punch_div_names[EL_PUNCH_DIVS] = {"1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"};
+static const float div_16ths[EL_PUNCH_DIVS] = {4.0f, 2.0f, 4.0f / 3.0f, 1.0f, 2.0f / 3.0f, 0.5f};
+static const uint8_t div_reset[EL_PUNCH_DIVS] = {4, 2, 4, 1, 2, 1};
+
+/* A step fired in this block at frame stutter_sync: the 16th grid. */
+static EL_DSP_CODE int on_grid(const el_engine_t *e, unsigned i, unsigned div)
+{
+    return (int)i == e->stutter_sync && e->sync_step % div_reset[div] == 0;
+}
+
+/* Reverb throw (held): the dry mix (and its sends) fades out slowly, over
+ * two beats, and while it fades it feeds the big hall (without the kick,
+ * which would thump in a big room; darkened to about 2.5 kHz). Then only
+ * the hall stays. Let go: the dry mix is back in 20 ms, the hall rings out
+ * (fx.c). */
 static EL_DSP_CODE void punch_throw(el_engine_t *e, unsigned frames)
 {
-    int on = (e->punch & EL_PUNCH_THROW) && !e->fx.borrowed;
+    int on = (e->punch & EL_PUNCH_THROW) != 0;
     if (!on && e->dry_gain >= 1.0f) return;
     float beat = 60.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
-    float down = 1.0f / (0.5f * beat), up = 1.0f / (0.02f * EL_SAMPLE_RATE), rise = 0.03f * EL_SAMPLE_RATE;
+    float down = 1.0f / (2.0f * beat), up = 1.0f / (0.02f * EL_SAMPLE_RATE);
     for (unsigned i = 0; i < frames; ++i) {
         e->dry_gain = dsp_clamp(e->dry_gain + (on ? -down : up), 0.0f, 1.0f);
-        /* Equal-power fade of the dry mix, down to a quarter (-12 dB); the
-         * sends close fully (the hall owns the buffers now). */
-        float fade = e->dry_gain * (2.0f - e->dry_gain), g = 0.25f + 0.75f * fade, feed = 0.0f;
-        if (on && e->throw_fed < beat) {
-            float t = e->throw_fed;
-            feed = dsp_min(1.0f, t / rise) * dsp_min(1.0f, 2.0f * (beat - t) / beat);
-            e->throw_fed += 1.0f;
-        }
+        float g = e->dry_gain * e->dry_gain;   /* slow at first, then away */
         float mix = 0.5f * (drum_l[i] + drum_r[i] + 0.5f * (bass_l[i] + bass_r[i]) + synth_l[i] + synth_r[i] +
                             rhythm_l[i] + rhythm_r[i]);
         e->throw_lp += (mix - e->throw_lp) * 0.3f;   /* one pole, about 2.5 kHz */
         kick[i] *= g; drum_l[i] *= g; drum_r[i] *= g; bass_l[i] *= g; bass_r[i] *= g;
         synth_l[i] *= g; synth_r[i] *= g; rhythm_l[i] *= g; rhythm_r[i] *= g;
-        dly[i] *= fade; gate[i] *= fade;
-        rev[i] = rev[i] * fade + e->throw_lp * feed * 2.8f;
+        dly[i] *= g; gate[i] *= g;
+        rev[i] = rev[i] * g + (on ? e->throw_lp * e->dry_gain * 1.8f : 0.0f);
     }
 }
 
-/* Stutter (held): the finished mix gated in 16ths, open for the first half
- * of each, with 1.5 ms edges; in time with the steps. */
+/* Stutter (held): the finished mix gated at the chosen note value (1/16
+ * unless a white key chose another), open for the first half of each, with
+ * 1.5 ms edges, on the grid of the steps. */
 static EL_DSP_CODE void punch_stutter(el_engine_t *e, unsigned frames)
 {
-    unsigned which = e->punch & EL_PUNCH_STUTTER;
+    unsigned which = e->punch & EL_PUNCH_STUTTER, div = e->punch_div[0];
     if (!which && e->stutter_gain >= 1.0f) return;
     float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
-    float rate = 1.0f / sixteenth, edge = 1.0f / (0.0015f * EL_SAMPLE_RATE);
+    float rate = 1.0f / (sixteenth * div_16ths[div]), edge = 1.0f / (0.0015f * EL_SAMPLE_RATE);
     for (unsigned i = 0; i < frames; ++i) {
-        if ((int)i == e->stutter_sync) e->stutter_phase = 0.0f;
+        if (on_grid(e, i, div)) e->stutter_phase = 0.0f;
         e->stutter_phase += rate;
         if (e->stutter_phase >= 1.0f) e->stutter_phase -= 1.0f;
         float target = !which || e->stutter_phase < 0.5f ? 1.0f : 0.0f;
@@ -430,89 +443,94 @@ static EL_DSP_CODE void punch_stutter(el_engine_t *e, unsigned frames)
     }
 }
 
-/* Tape stop and 16th repeat, on the finished mix. Both keep it in 16-bit
- * stereo in the FX memory (0.6 s), which is cleared before and after.
- * Tape stop: the mix plays from the buffer at a speed falling from 1 to 0
- * over a beat (pitch and tempo drop together, like a deck losing power).
- * Repeat: from the next step on, one 16th is taken and then played again
- * and again (2 ms fades at its ends). Let go: the live mix is back in
- * 10 ms; the sequencer kept running. */
-enum { BUF_TAPE = 1, BUF_REPEAT = 2 };
-#define BUF_FRAMES ((uint32_t)(FX_HOLE_CAP / 2))
+static EL_DSP_CODE void put(int16_t *m, uint32_t i, float x) { m[i] = (int16_t)(dsp_clamp(x, -1.0f, 1.0f) * 32767.0f); }
 
-static EL_DSP_CODE float buf_read(const int16_t *m, float pos, int ch)
-{
-    uint32_t i = (uint32_t)pos, j = i + 1u < BUF_FRAMES ? i + 1u : 0u;
-    float f = pos - (float)i, a = m[2u * i + (uint32_t)ch], b = m[2u * j + (uint32_t)ch];
-    return (a + (b - a) * f) * (1.0f / 32767.0f);
-}
-
-static EL_DSP_CODE void punch_buffer(el_engine_t *e, unsigned frames)
+/* Repeat (held): from the next grid point on, one note value (1/16 unless a
+ * white key chose another) of the mix is taken (mono, in its buffer region)
+ * and then played again and again, 2 ms fades at its ends. Let go: live
+ * again in 10 ms. */
+static EL_DSP_CODE void punch_repeat(el_engine_t *e, unsigned frames)
 {
     el_fx_t *fx = &e->fx;
-    int16_t *m = fx->mem.hole;
-    unsigned want = e->punch & (EL_PUNCH_TAPE | EL_PUNCH_REPEAT);
-    if (!e->buf_mode) {
-        if (!want || fx->throw_clear || fx->throw_on) return;
-        memset(&fx->mem, 0, sizeof fx->mem);
-        fx->borrowed = 1;
-        e->buf_mode = (want & EL_PUNCH_TAPE) ? BUF_TAPE : BUF_REPEAT;
-        e->buf_state = 0;
-        e->buf_mix = 0;
-        e->buf_wp = 0;
-        e->buf_rp = 0;
-        e->buf_t = 0;
-        e->buf_rate = 1;
+    int held = (e->punch & EL_PUNCH_REPEAT) != 0;
+    unsigned div = e->punch_div[1];
+    if (!held && !(fx->users & FX_USE_REPEAT)) return;
+    if (held && !(fx->users & FX_USE_REPEAT)) {
+        fx_borrow(fx, FX_USE_REPEAT);
+        e->rep_state = 0;
+        e->rep_mix = 0;
     }
-    int held = e->buf_mode == BUF_TAPE ? (e->punch & EL_PUNCH_TAPE) != 0 : (e->punch & EL_PUNCH_REPEAT) != 0;
-    float beat = 60.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
-    float stop_len = dsp_clamp(beat, 0.25f * EL_SAMPLE_RATE, 0.8f * EL_SAMPLE_RATE), xf = 1.0f / (0.01f * EL_SAMPLE_RATE);
+    int16_t *m = fx_region(fx, FX_USE_REPEAT);
+    float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE, xf = 1.0f / (0.01f * EL_SAMPLE_RATE);
     const float edge = 0.002f * EL_SAMPLE_RATE;
     for (unsigned i = 0; i < frames; ++i) {
-        float l = left[i], r = right[i], bl = l, br = r;
-        if (e->buf_mode == BUF_TAPE) {
-            m[2u * e->buf_wp] = (int16_t)(dsp_clamp(l, -1, 1) * 32767.0f);
-            m[2u * e->buf_wp + 1u] = (int16_t)(dsp_clamp(r, -1, 1) * 32767.0f);
-            e->buf_wp = e->buf_wp + 1u < BUF_FRAMES ? e->buf_wp + 1u : 0u;
-            if (held) {
-                e->buf_t += 1.0f;
-                e->buf_rate = dsp_max(0.0f, 1.0f - e->buf_t / stop_len);
-                e->buf_mix = dsp_min(1.0f, e->buf_mix + xf);
-            }
-            float g = dsp_min(1.0f, e->buf_rate * 6.0f);   /* the last moments fade, no click at standstill */
-            bl = buf_read(m, e->buf_rp, 0) * g;
-            br = buf_read(m, e->buf_rp, 1) * g;
-            e->buf_rp += e->buf_rate;
-            if (e->buf_rp >= (float)BUF_FRAMES) e->buf_rp -= (float)BUF_FRAMES;
-        } else {
-            if (e->buf_state == 0 && (int)i == e->stutter_sync && held) {
-                e->buf_state = 1;   /* a step starts: take one 16th */
-                e->buf_len = (uint32_t)dsp_clamp(beat * 0.25f, 64.0f, (float)BUF_FRAMES);
-                e->buf_wp = 0;
-            }
-            if (e->buf_state == 1) {
-                m[2u * e->buf_wp] = (int16_t)(dsp_clamp(l, -1, 1) * 32767.0f);
-                m[2u * e->buf_wp + 1u] = (int16_t)(dsp_clamp(r, -1, 1) * 32767.0f);
-                if (++e->buf_wp >= e->buf_len) { e->buf_state = 2; e->buf_rp = 0; }
-            } else if (e->buf_state == 2) {
-                uint32_t p = (uint32_t)e->buf_rp;
-                float g = dsp_min(1.0f, dsp_min((float)p / edge, (float)(e->buf_len - 1u - p) / edge));
-                bl = m[2u * p] * (1.0f / 32767.0f) * g;
-                br = m[2u * p + 1u] * (1.0f / 32767.0f) * g;
-                if ((e->buf_rp += 1.0f) >= (float)e->buf_len) e->buf_rp = 0;
-                if (held) e->buf_mix = dsp_min(1.0f, e->buf_mix + xf);
-            }
+        float l = left[i], r = right[i];
+        if (held && e->rep_state != 1 && on_grid(e, i, div) && (e->rep_state == 0 || e->rep_div != div)) {
+            /* Take a new piece: at the start, and when the note value changes. */
+            e->rep_state = 1;
+            e->rep_div = (uint8_t)div;
+            e->rep_len = (uint32_t)dsp_clamp(sixteenth * div_16ths[div], 64.0f, (float)FX_REPEAT_REGION);
+            e->rep_pos = 0;
         }
-        if (!held) e->buf_mix = dsp_max(0.0f, e->buf_mix - xf);
-        left[i] = l + (bl - l) * e->buf_mix;
-        right[i] = r + (br - r) * e->buf_mix;
+        if (e->rep_state == 1) {
+            put(m, e->rep_pos, 0.5f * (l + r));
+            if (++e->rep_pos >= e->rep_len) { e->rep_state = 2; e->rep_pos = 0; }
+        } else if (e->rep_state == 2) {
+            uint32_t p = e->rep_pos;
+            float g = dsp_min(1.0f, dsp_min((float)p / edge, (float)(e->rep_len - 1u - p) / edge));
+            float y = m[p] * (1.0f / 32767.0f) * g;
+            if (++e->rep_pos >= e->rep_len) e->rep_pos = 0;
+            if (held) e->rep_mix = dsp_min(1.0f, e->rep_mix + xf);
+            l += (y - l) * e->rep_mix;
+            r += (y - r) * e->rep_mix;
+        }
+        if (!held) e->rep_mix = dsp_max(0.0f, e->rep_mix - xf);
+        left[i] = l;
+        right[i] = r;
     }
-    if (!held && e->buf_mix <= 0.0f) {
-        /* Over: the FX get their memory back, empty. */
-        memset(&fx->mem, 0, sizeof fx->mem);
-        fx->borrowed = 0;
-        e->buf_mode = 0;
+    if (!held && e->rep_mix <= 0.0f) fx_release(fx, FX_USE_REPEAT);
+}
+
+/* Tape stop (held): the mix (mono, in its buffer region) plays at a speed
+ * falling from 1 to 0 over the chosen note value (1/8 unless a white key
+ * chose another; at most half a second), pitch and tempo dropping together.
+ * It takes whatever comes before it, stutter and repeat included. Let go:
+ * live again in 10 ms. */
+static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
+{
+    el_fx_t *fx = &e->fx;
+    int held = (e->punch & EL_PUNCH_TAPE) != 0;
+    if (!held && !(fx->users & FX_USE_TAPE)) return;
+    if (held && !(fx->users & FX_USE_TAPE)) {
+        fx_borrow(fx, FX_USE_TAPE);
+        e->tape_mix = 0;
+        e->tape_wp = 0;
+        e->tape_rp = 0;
+        e->tape_t = 0;
+        e->tape_rate = 1;
     }
+    int16_t *m = fx_region(fx, FX_USE_TAPE);
+    const uint32_t cap = FX_TAPE_REGION;
+    float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE, xf = 1.0f / (0.01f * EL_SAMPLE_RATE);
+    float stop_len = dsp_clamp(sixteenth * div_16ths[e->punch_div[2]], 0.04f * EL_SAMPLE_RATE, 0.5f * EL_SAMPLE_RATE);
+    for (unsigned i = 0; i < frames; ++i) {
+        float l = left[i], r = right[i];
+        put(m, e->tape_wp, 0.5f * (l + r));
+        e->tape_wp = e->tape_wp + 1u < cap ? e->tape_wp + 1u : 0u;
+        if (held) {
+            e->tape_t += 1.0f;
+            e->tape_rate = dsp_max(0.0f, 1.0f - e->tape_t / stop_len);
+            e->tape_mix = dsp_min(1.0f, e->tape_mix + xf);
+        } else e->tape_mix = dsp_max(0.0f, e->tape_mix - xf);
+        uint32_t k = (uint32_t)e->tape_rp, k1 = k + 1u < cap ? k + 1u : 0u;
+        float f = e->tape_rp - (float)k, y = (m[k] + (m[k1] - m[k]) * f) * (1.0f / 32767.0f);
+        y *= dsp_min(1.0f, e->tape_rate * 6.0f);   /* the last moments fade: no click at standstill */
+        e->tape_rp += e->tape_rate;
+        if (e->tape_rp >= (float)cap) e->tape_rp -= (float)cap;
+        left[i] = l + (y - l) * e->tape_mix;
+        right[i] = r + (y - r) * e->tape_mix;
+    }
+    if (!held && e->tape_mix <= 0.0f) fx_release(fx, FX_USE_TAPE);
 }
 
 static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
@@ -536,7 +554,8 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         render_sources(e, (int)pos, n);
         uint32_t step;
         if (el_transport_advance(t, n, &step)) {
-            e->stutter_sync = (int)(pos + (unsigned)n);   /* the stutter's 16ths start on the steps */
+            e->stutter_sync = (int)(pos + (unsigned)n);   /* the punch-ins' grid starts on the steps */
+            e->sync_step = step;
             dr_step(&e->drums, step, t->last_length);
             for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], step, t->last_length);
         }
@@ -569,7 +588,8 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
     mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, left, right, (int)frames);
     punch_stutter(e, frames);
-    punch_buffer(e, frames);
+    punch_repeat(e, frames);
+    punch_tape(e, frames);
     ++e->blocks;
 }
 

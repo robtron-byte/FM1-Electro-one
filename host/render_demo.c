@@ -262,9 +262,48 @@ static int buffer_test(const char *dir)
         energy += a * a;
     }
     double repeat_db = 10 * log10(diff / energy + 1e-30);
-    int ok = stop_db < -40 && repeat_db < -20 && !e.fx.borrowed;
+    int ok = stop_db < -40 && repeat_db < -20 && !e.fx.users;
     printf("tape/repeat: stopped %.1f dB under the groove, repeated 16ths differ by %.1f dB, FX memory back: %s\n", stop_db,
            repeat_db, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+/* All punch-ins at once: throw, stutter at 1/8, repeat at 1/8, tape stop;
+ * afterwards the FX get their buffers back and the mix is as before. */
+static int combo_test(const char *dir)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 8 * 2];
+    const unsigned total = FM1_SAMPLE_RATE * 8 / EL_BLOCK * EL_BLOCK, sr = FM1_SAMPLE_RATE;
+    el_init(&e);
+    el_post(&e, EL_CMD_BPM, 0, 1200);
+    el_post(&e, EL_CMD_START, 0, 0);
+    el_post3(&e, EL_CMD_PUNCH_RATE, EL_PUNCH_STUTTER | EL_PUNCH_REPEAT, 1, 0, 0);
+    int all = 0;
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
+        unsigned b = pos / EL_BLOCK, s = (unsigned)(sr / EL_BLOCK);
+        if (b == 2 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 1, 0, 0);
+        if (b == 2 * s + s / 2) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
+        if (b == 3 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_STUTTER, 1, 0, 0);
+        if (b == 4 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
+        if (b == 4 * s + s / 2) all = e.fx.users == (FX_USE_HALL | FX_USE_TAPE | FX_USE_REPEAT);
+        if (b == 5 * s) {
+            el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW | EL_PUNCH_REPEAT | EL_PUNCH_STUTTER | EL_PUNCH_TAPE, 0, 0, 0);
+        }
+        el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    }
+    char path[512];
+    snprintf(path, sizeof path, "%s/punch_all_together.wav", dir);
+    write_wav(path, out, total);
+    double before = 0, after = 0;
+    int finite = 1;
+    for (unsigned i = 0; i < total * 2u; ++i) finite &= isfinite(out[i]);
+    for (unsigned i = 0; i < 2u * sr; ++i) before += out[2 * i] * out[2 * i];
+    for (unsigned i = (unsigned)(6.5 * sr); i < (unsigned)(7.9 * sr); ++i) after += out[2 * i] * out[2 * i];
+    double back_db = 10 * log10((after / 1.4) / (before / 2.0));
+    int ok = all && finite && !e.fx.users && fabs(back_db) < 3;
+    printf("punch together: hall + repeat + stutter + tape at once %s, level after %+.1f dB: %s\n", all ? "yes" : "no", back_db,
+           ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
 
@@ -285,7 +324,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir);
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir);
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

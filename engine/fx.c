@@ -70,12 +70,37 @@ static inline float gate_read(const int16_t *line, unsigned write, unsigned back
     return line[(write + FX_GATE_CAP - back) % FX_GATE_CAP] * (1.0f / 32767.0f);
 }
 
+/* ---- punch-ins borrowing the buffers --------------------------------------- */
+
+static const struct { uint32_t off, len; } regions[3] = {
+    {0, FX_HALL_REGION}, {FX_HALL_REGION, FX_TAPE_REGION}, {FX_HALL_REGION + FX_TAPE_REGION, FX_REPEAT_REGION}};
+
+static unsigned region_of(unsigned use) { return use == FX_USE_HALL ? 0u : use == FX_USE_TAPE ? 1u : 2u; }
+
+int16_t *fx_region(el_fx_t *fx, unsigned use) { return fx->mem.hole + regions[region_of(use)].off; }
+
+/* The first user stops delay, hall and gate and clears everything; each
+ * user starts with its own region empty. */
+void fx_borrow(el_fx_t *fx, unsigned use)
+{
+    if (!fx->users) memset(&fx->mem, 0, sizeof fx->mem);
+    else memset(fx_region(fx, use), 0, regions[region_of(use)].len * sizeof(int16_t));
+    fx->users |= (uint8_t)use;
+}
+
+/* The last user gives the buffers back, empty: delay and hall start clean. */
+void fx_release(el_fx_t *fx, unsigned use)
+{
+    fx->users &= (uint8_t)~use;
+    if (!fx->users) memset(&fx->mem, 0, sizeof fx->mem);
+}
+
 /* ---- the big hall of the reverb throw ------------------------------------ */
 
 /* Dattorro's tank lengths (at 29761 Hz), scaled to the half rate and made
- * twice as large: each half of the tank loops in about 0.7 s, a room with
- * no walls in sight. */
-#define HOLE_SCALE (0.5f * EL_SAMPLE_RATE / 29761.0f * 2.0f)
+ * 1.4 times larger: each half of the tank loops in about half a second.
+ * (It shares the buffers with the tape stop and the repeat.) */
+#define HOLE_SCALE (0.5f * EL_SAMPLE_RATE / 29761.0f * 1.4f)
 enum { HOLE_EXCURSION = 24 };   /* modulation of the first tank allpasses, samples */
 static const uint16_t hole_in_len[4] = {142, 107, 379, 277};
 static const uint16_t hole_tank[2][4] = {{672, 4453, 1800, 3720}, {908, 4217, 2656, 3163}};
@@ -104,7 +129,7 @@ void hole_init(fx_hole_t *h)
         hole_line(&h->ap2[t], &off, hole_tank[t][2] * HOLE_SCALE);
         hole_line(&h->dl2[t], &off, hole_tank[t][3] * HOLE_SCALE);
     }
-    if (off > FX_HOLE_CAP) memset(h, 0, sizeof *h);   /* never: the lines fit the buffers */
+    if (off > FX_HALL_REGION) memset(h, 0, sizeof *h);   /* never: the lines fit their region */
 }
 
 /* 16-bit lines at a quarter of full scale: room for the tank's peaks. */
@@ -139,7 +164,7 @@ static inline float hole_tap(const int16_t *m, const fx_hole_t *h, int t, int li
 EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *right, int frames)
 {
     fx_hole_t *h = &fx->hole;
-    int16_t *m = fx->mem.hole;
+    int16_t *m = fx_region(fx, FX_USE_HALL);
     /* RT60 about 22 s (the tank low-pass shortens it to around 12): per
      * half-loop gain from the tank's loop time. */
     float loop = 0;
@@ -214,20 +239,17 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
     /* Reverb throw: the big hall owns the buffers while it sounds; delay,
      * hall and gated reverb rest. The memory is cleared when it starts and
      * when it has rung out, so both sides begin in silence. */
-    if (fx->borrowed) return;
-    if (fx->throw_on && !fx->throw_clear) {
-        memset(&fx->mem, 0, sizeof fx->mem);
+    if (fx->throw_on && !(fx->users & FX_USE_HALL)) {
+        fx_borrow(fx, FX_USE_HALL);
         hole_init(&fx->hole);
         fx->throw_mix = 0.0f;
-        fx->throw_clear = 1;
     }
-    if (fx->throw_clear) {
-        if (fx->throw_on || fx->throw_mix > 0.0f) {
+    if (fx->users) {
+        if (fx->users & FX_USE_HALL) {
             hole_render(fx, rev, left, right, frames);
-            return;
+            if (!fx->throw_on && fx->throw_mix <= 0.0f) fx_release(fx, FX_USE_HALL);
         }
-        memset(&fx->mem, 0, sizeof fx->mem);
-        fx->throw_clear = 0;
+        return;
     }
 
     for (int n = 0; n < frames; ++n) {

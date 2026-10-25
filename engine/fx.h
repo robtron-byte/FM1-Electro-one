@@ -31,6 +31,11 @@ typedef struct {
     int16_t gate[FX_GATE_CAP];
 } fx_buffers_t;
 enum { FX_HOLE_CAP = sizeof(fx_buffers_t) / sizeof(int16_t) };
+/* While a punch-in effect sounds, the buffers are split so all of them can
+ * run together: the big hall, then the tape stop (mono, 0.5 s), then the
+ * repeat (mono, the rest: about 0.42 s). */
+enum { FX_HALL_REGION = 23552, FX_TAPE_REGION = 11008, FX_REPEAT_REGION = FX_HOLE_CAP - FX_HALL_REGION - FX_TAPE_REGION };
+enum { FX_USE_HALL = 1, FX_USE_TAPE = 2, FX_USE_REPEAT = 4 };
 typedef union { fx_buffers_t b; int16_t hole[FX_HOLE_CAP]; } fx_memory_t;
 
 /* The big hall of the reverb throw: Dattorro's figure-eight tank, made
@@ -54,8 +59,8 @@ typedef struct {
     uint8_t gate_half;
     /* Reverb throw: a big, long hall while held; on release its return
      * fades out quickly and the lines are cleared. */
-    uint8_t throw_on, throw_clear;
-    uint8_t borrowed;      /* tape stop / repeat use the buffers: delay, hall, gate rest */
+    uint8_t throw_on;
+    uint8_t users;         /* FX_USE_*: punch-ins holding the buffers; delay, hall, gate rest */
     float throw_mix;
     fx_hole_t hole;
     el_dist_t dist;
@@ -74,6 +79,11 @@ const char *fx_dist_mode_name(int value);
 /* The distortion send: send (mono, frames <= EL_BLOCK) is distorted in
  * place and added to left/right. Skipped while all sends are at 0. */
 EL_DSP_CODE void fx_distortion(el_fx_t *fx, float *send, float *left, float *right, int frames);
+/* Punch-ins borrowing the buffers (FX_USE_*): borrow clears the user's
+ * region (all of it for the first user), release gives them back. */
+void fx_borrow(el_fx_t *fx, unsigned use);
+void fx_release(el_fx_t *fx, unsigned use);
+int16_t *fx_region(el_fx_t *fx, unsigned use);
 /* The big hall of the reverb throw (fx_render calls it while it sounds). */
 void hole_init(fx_hole_t *h);
 EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *right, int frames);
