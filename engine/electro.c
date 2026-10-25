@@ -57,13 +57,10 @@ void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL
 
 void el_generate_all(el_engine_t *e, uint32_t seed)
 {
-    for (unsigned slot = 0; slot < DR_STYLE_SLOTS; ++slot) {
-        uint32_t s = mix_seed(seed + 0x632be5abu * (slot + 1u));
-        dr_generate(&e->drums.pattern[slot], slot, 24, s, NULL);
-        st_pattern_t parts[EL_TRACKS];
-        el_generate_parts(&e->drums.pattern[slot], s ^ 0x5bd1e995u, parts);
-        for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].pattern[slot] = parts[i];
-    }
+    /* Slot A of every area from the drums' style; B-D stay empty. */
+    st_pattern_t parts[EL_TRACKS];
+    el_generate_parts(&e->drums.pattern[0], mix_seed(seed + 0x632be5abu) ^ 0x5bd1e995u, parts);
+    for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].pattern[0] = parts[i];
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
         int s = syn_sound_find(SYN_MKS, default_sounds[i]);
@@ -294,17 +291,13 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_MIX:
         e->mix.enabled = c->a ? 1 : 0;
         break;
-    case EL_CMD_SLOT_COPY:
-        if (c->a < DR_PATTERNS && c->b < DR_PATTERNS && c->a != c->b) {
-            char name[DR_NAME + 1];
-            memcpy(name, e->drums.pattern[c->b].name, sizeof name);
-            e->drums.pattern[c->b] = e->drums.pattern[c->a];
-            if (c->c) memcpy(e->drums.pattern[c->b].name, name, sizeof name); /* user slot keeps its name */
-            for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].pattern[c->b] = e->track[i].pattern[c->a];
-            ++e->drums.revision;
+    case EL_CMD_TRACK_SELECT:
+        if (c->a < EL_TRACKS && c->b < ST_PATTERNS) {
+            st_track_t *tr = &e->track[c->a];
+            tr->next = c->b;
+            if (c->c || !t->running) { tr->current = c->b; tr->playing = 0; }
+            ++tr->revision;
         }
-        EL_FENCE();
-        ++e->slot_copies;
         break;
     default:
         break;
@@ -350,7 +343,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         uint32_t step;
         if (el_transport_advance(t, n, &step)) {
             dr_step(&e->drums, step, t->last_length);
-            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], e->drums.current, step, t->last_length);
+            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], step, t->last_length);
         }
         pos += (unsigned)n;
     }

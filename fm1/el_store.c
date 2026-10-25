@@ -4,33 +4,52 @@
 #include <stddef.h>
 #include <string.h>
 
-/* All 24 slots (generated style slots and user slots) and the settings are
- * stored, so the last grooves come back after a restart. Version 14 appends
- * the arpeggiator settings. Older records still load: version 12 is the same
- * without them, version 13 also carried note loops (the looper now lives on
- * the branch "looper"), of which only the arpeggiator settings are taken.
- * Version 15 has the layout of 14; the toms' knobs were reordered (see
- * old_tom_params). Version 16 has the layout of 14 too; up to 15 there were
- * 13 chord types instead of 8 (see st_chord_v15). Version 17 appends the
- * MIDI channel of each area, version 18 the OPTIONS settings. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
+/* The four slots (A-D) of every area and the settings are stored, so the
+ * grooves come back after a restart. Records of earlier versions (24 slots
+ * shared by all areas) still load: slot A takes the groove that played
+ * last, B-D the user slots 17-19.
+ * Version history: 12 base layout; 13 note loops (the looper now lives on
+ * the branch "looper"; only its arpeggiator settings are taken); 14 the
+ * arpeggiator settings; 15 toms' knobs reordered (old_tom_params); 16 eight
+ * chord types instead of 13 (st_chord_v15); 17 MIDI channel per area; 18
+ * OPTIONS; 19 four slots per area, each area with its own current slot. */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+       VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
     uint8_t v[SYN_VALUES];
-    uint8_t engine, preset, level, muted, chord;
+    uint8_t engine, preset, level, muted, chord, current;
 } track_payload_t;
 
-/* Fields of version 12; the later versions append to them. Each version is
- * its own struct, so the sizes include the compiler's padding exactly as
- * that version wrote them. */
+typedef struct {
+    dr_pattern_t pattern[DR_PATTERNS];
+    uint8_t params[DR_PARTS][PARAMS];
+    uint8_t kit_params[KIT_PARAMS];
+    uint8_t kit, level, current, muted;
+    uint16_t bpm_x10, reserved;
+    track_payload_t track[EL_TRACKS];
+    uint8_t fx[FX_PARAMS];
+    uint8_t arp[EL_TRACKS][ARP_PARAMS];
+    uint8_t midi_channel[EL_AREAS];
+    uint8_t option[EL_OPTIONS];
+} payload_t;
+
+/* Versions 12-18: 24 slots. Fields of version 12; the later versions append
+ * to them. Each version is its own struct, so the sizes include the
+ * compiler's padding exactly as that version wrote them. */
+typedef struct {
+    st_pattern_t pattern[OLD_SLOTS];
+    uint8_t v[SYN_VALUES];
+    uint8_t engine, preset, level, muted, chord;
+} old_track_t;
 #define FIELDS_V12                         \
-    dr_pattern_t pattern[DR_PATTERNS];     \
+    dr_pattern_t pattern[OLD_SLOTS];       \
     uint8_t params[DR_PARTS][PARAMS];      \
     uint8_t kit_params[KIT_PARAMS];        \
     uint8_t kit, level, current, muted;    \
     uint16_t bpm_x10, reserved;            \
-    track_payload_t track[EL_TRACKS];      \
+    old_track_t track[EL_TRACKS];          \
     uint8_t fx[FX_PARAMS];
 
 typedef struct { FIELDS_V12 } payload_v12_t;
@@ -40,7 +59,7 @@ typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
 typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_v16_t;   /* versions 14-16 */
 #define FIELDS_V17 FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; uint8_t midi_channel[EL_AREAS];
 typedef struct { FIELDS_V17 } payload_v17_t;
-typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS]; } payload_t;
+typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS]; } payload_v18_t;
 /* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
  * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
  * of each old knob in the new order: */
@@ -49,6 +68,7 @@ static const uint8_t old_tom_params[7] = {4, 0, 2, 5, 6, 7, 8};
 #define V13_BYTES sizeof(payload_v13_t)
 #define V16_BYTES sizeof(payload_v16_t)
 #define V17_BYTES sizeof(payload_v17_t)
+#define V18_BYTES sizeof(payload_v18_t)
 
 typedef struct {
     uint32_t magic, sequence;
@@ -58,13 +78,11 @@ typedef struct {
 } record_t;
 /* Each copy spans SECTORS sectors; two copies alternate. FM1 Open's own data
  * ends at 536576 bytes (GROOVE_FLASH_BYTES); without room after it, the
- * copies use the last FM1 Open project slots (sectors 15 - 2 * SECTORS .. 14). */
-enum { SECTORS = (sizeof(record_t) + FM1_FLASH_SECTOR_BYTES - 1) / FM1_FLASH_SECTOR_BYTES,
-       FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
-_Static_assert(SECTORS == 3, "three sectors per copy, as in every version so far");
+ * copies use the last FM1 Open project slots (sectors 15 - 2 * SECTORS .. 14).
+ * Three sectors, as in every version so far: the places stay where they were. */
+enum { SECTORS = 3, FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
+_Static_assert(sizeof(record_t) <= SECTORS * FM1_FLASH_SECTOR_BYTES, "record fits its sectors");
 
-/* Static: too large for the control task stack. Room for the larger
- * version 13 record when an old one is read. */
 /* User sound bank: one sector per copy. */
 enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 2, BANK_VERSION_1 = 1 };   /* 1: 13 chords */
 typedef struct { char name[EL_SOUND_NAME]; uint8_t engine, used; uint8_t v[SYN_VALUES]; } sound_slot_t;
@@ -76,13 +94,17 @@ typedef struct {
 } bank_t;
 _Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one sector");
 
+/* Static: too large for the control task stack. Room for the larger
+ * records of earlier versions when one is read. */
 static union {
     record_t r;
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
+    uint8_t v18[offsetof(record_t, data) + V18_BYTES];
     bank_t bank;
 } buffer;
-_Static_assert(sizeof buffer <= 3 * FM1_FLASH_SECTOR_BYTES, "version 13 record fits three sectors");
+_Static_assert(sizeof buffer <= SECTORS * FM1_FLASH_SECTOR_BYTES, "every record fits three sectors");
 #define record buffer.r
+static payload_t upgraded;   /* an older record in today's layout */
 
 static uint32_t crc32(const void *data, size_t bytes)
 {
@@ -116,6 +138,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     if (!(record.version == VERSION && record.bytes == sizeof(payload_t)) &&
+        !(record.version == VERSION_18 && record.bytes == V18_BYTES) &&
         !(record.version == VERSION_17 && record.bytes == V17_BYTES) &&
         !(record.version >= VERSION_14 && record.version <= VERSION_16 && record.bytes == V16_BYTES) &&
         !(record.version == VERSION_13 && record.bytes == V13_BYTES) &&
@@ -124,14 +147,44 @@ static uint32_t read_valid(unsigned which)
     return record.sequence;
 }
 
-/* Arpeggiator settings (version 13 and later). */
-static void load_areas(el_engine_t *e, const payload_t *d, unsigned version)
+/* An older record (24 slots shared by all areas) in today's layout: slot A
+ * from the groove that played last, B-D from the user slots 17-19. */
+static const payload_t *upgrade(void)
 {
-    for (unsigned i = 0; i < EL_TRACKS; ++i) {
-        const uint8_t *arp = version == VERSION_13 ? ((const payload_v13_t *)(const void *)d)->area[i].arp : d->arp[i];
-        for (unsigned p = 0; p < ARP_PARAMS; ++p)
-            e->track[i].arp.v[p] = (uint8_t)el_clampi(arp[p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
+    unsigned version = record.version;
+    if (version == VERSION) return &record.data;
+    const payload_v12_t *o = (const payload_v12_t *)(const void *)&record.data;
+    payload_t *d = &upgraded;
+    memset(d, 0, sizeof *d);
+    unsigned map[DR_PATTERNS], n = 0;
+    map[n++] = o->current % OLD_SLOTS;
+    for (unsigned k = OLD_USER; k < OLD_SLOTS && n < DR_PATTERNS; ++k) if (k != map[0]) map[n++] = k;
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        d->pattern[i] = o->pattern[map[i]];
+        for (unsigned t = 0; t < EL_TRACKS; ++t) d->track[t].pattern[i] = o->track[t].pattern[map[i]];
     }
+    memcpy(d->params, o->params, sizeof d->params);
+    memcpy(d->kit_params, o->kit_params, sizeof d->kit_params);
+    d->kit = o->kit;
+    d->level = o->level;
+    d->muted = o->muted;
+    d->bpm_x10 = o->bpm_x10;
+    for (unsigned t = 0; t < EL_TRACKS; ++t) {
+        memcpy(d->track[t].v, o->track[t].v, sizeof d->track[t].v);
+        d->track[t].engine = o->track[t].engine;
+        d->track[t].preset = o->track[t].preset;
+        d->track[t].level = o->track[t].level;
+        d->track[t].muted = o->track[t].muted;
+        d->track[t].chord = o->track[t].chord;
+    }
+    memcpy(d->fx, o->fx, sizeof d->fx);
+    for (unsigned t = 0; t < EL_TRACKS; ++t) {
+        if (version == VERSION_13) memcpy(d->arp[t], ((const payload_v13_t *)(const void *)o)->area[t].arp, ARP_PARAMS);
+        else if (version >= VERSION_14) memcpy(d->arp[t], ((const payload_v16_t *)(const void *)o)->arp[t], ARP_PARAMS);
+    }
+    if (version >= VERSION_17) memcpy(d->midi_channel, ((const payload_v17_t *)(const void *)o)->midi_channel, EL_AREAS);
+    if (version >= VERSION_18) memcpy(d->option, ((const payload_v18_t *)(const void *)o)->option, EL_OPTIONS);
+    return d;
 }
 
 int el_store_load(el_engine_t *e)
@@ -140,9 +193,10 @@ int el_store_load(el_engine_t *e)
     uint32_t a = read_valid(0), b = read_valid(1);
     if (!a && !b) return 1;
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
+    unsigned version = record.version;
+    const payload_t *d = upgrade();
     dr_machine_t *m = &e->drums;
-    const payload_t *d = &record.data;
-    int old_chords = record.version < VERSION;
+    int old_chords = version < VERSION_16;
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         dr_pattern_t p = d->pattern[i];
         p.name[DR_NAME] = 0;
@@ -158,20 +212,21 @@ int el_store_load(el_engine_t *e)
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
     for (unsigned part = 0; part < DR_PARTS; ++part) {
-        int tom = (part == D8_LT || part == D8_HT) && record.version < VERSION_15;
+        int tom = (part == D8_LT || part == D8_HT) && version < VERSION_15;
         for (int p = 0; p < (tom ? 7 : tr808_nparams((int)part)) && p < PARAMS; ++p)
             tr808_set(&m->kit, (int)part, tom ? old_tom_params[p] : p, d->params[part][p]);
     }
     for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
-    if (record.version >= VERSION) {   /* older records keep el_init's options */
+    if (version >= VERSION_18) {   /* older records keep el_init's options */
         for (unsigned i = 0; i < EL_OPTIONS; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, 127);
         e->mix.enabled = e->option[EL_OPT_MASTER] ? 1 : 0;
         e->master = e->option[EL_OPT_OUT_LEVEL] / 127.0f;
     }
-    /* OPTIONS START: the first user slot instead of the last groove. */
-    m->current = m->next = (uint8_t)(e->option[EL_OPT_START] == EL_START_USER ? DR_STYLE_SLOTS : d->current % DR_PATTERNS);
+    /* OPTIONS POWER-ON: every area on slot A instead of where it was. */
+    int slot_a = e->option[EL_OPT_START] == EL_START_SLOT_A;
+    m->current = m->next = (uint8_t)(slot_a ? 0u : d->current % DR_PATTERNS);
     e->transport.swing = m->pattern[m->current].swing;
     m->muted = d->muted ? 1 : 0;
     el_transport_set_bpm(&e->transport, el_clampi(d->bpm_x10, 300, 3000) * 0.1f);
@@ -201,10 +256,14 @@ int el_store_load(el_engine_t *e)
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
         t->chord = (uint8_t)el_clampi(old_chords && s->chord < 14u ? st_chord_v15[s->chord] : s->chord, 0, MKS_CHORDS);
+        t->current = t->next = (uint8_t)(slot_a ? 0u : s->current % ST_PATTERNS);
     }
     for (unsigned p = 0; p < FX_PARAMS; ++p) e->fx.v[p] = (uint8_t)el_clampi(d->fx[p], 0, fx_param_max(p));
-    if (record.version >= VERSION_13) load_areas(e, d, record.version);
-    if (record.version >= VERSION_17)   /* older records keep el_init's channels */
+    if (version >= VERSION_13)
+        for (unsigned i = 0; i < EL_TRACKS; ++i)
+            for (unsigned p = 0; p < ARP_PARAMS; ++p)
+                e->track[i].arp.v[p] = (uint8_t)el_clampi(d->arp[i][p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
+    if (version >= VERSION_17)   /* older records keep el_init's channels */
         for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = (uint8_t)el_clampi(d->midi_channel[a], 0, EL_MIDI_OFF);
     return 0;
 }
@@ -225,7 +284,7 @@ int el_store_save(el_engine_t *e)
     for (int p = 0; p < KIT_PARAMS; ++p) d->kit_params[p] = (uint8_t)tr808_get(&m->kit, D8_KIT, p);
     d->kit = m->kit_index;
     d->level = m->level_value;
-    d->current = m->current;
+    d->current = m->next;
     d->muted = m->muted;
     d->bpm_x10 = (uint16_t)(e->transport.bpm * 10.0f + 0.5f);
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
@@ -238,6 +297,7 @@ int el_store_save(el_engine_t *e)
         s->level = t->level_value;
         s->muted = t->muted;
         s->chord = t->chord;
+        s->current = t->next;
     }
     memcpy(d->fx, e->fx.v, sizeof d->fx);
     for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);

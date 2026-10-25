@@ -75,12 +75,13 @@ void dr_init(dr_machine_t *m)
 {
     memset(m, 0, sizeof *m);
     el_queue_init(&m->queue);
-    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
-        if (i < DR_STYLE_SLOTS) dr_generate(&m->pattern[i], i, 0, 0x2545f491u + i, NULL);
-        else {
-            static const char *const names[DR_USER_SLOTS] = {"USER 1", "USER 2", "USER 3", "USER 4", "USER 5", "USER 6", "USER 7", "USER 8"};
-            dr_empty_pattern(&m->pattern[i], names[i - DR_STYLE_SLOTS]);
-        }
+    /* Slot A a groove to start from, B-D empty in its kit and swing. */
+    dr_generate(&m->pattern[0], 6 /* ROTHER */, 0, 0x2545f491u, NULL);
+    for (unsigned i = 1; i < DR_PATTERNS; ++i) {
+        dr_empty_pattern(&m->pattern[i], m->pattern[0].name);
+        m->pattern[i].kit = m->pattern[0].kit;
+        m->pattern[i].swing = m->pattern[0].swing;
+        m->pattern[i].style = m->pattern[0].style;
     }
     m->level_value = 100;
     m->level = 100 / 127.0f;

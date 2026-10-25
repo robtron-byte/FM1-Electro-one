@@ -10,7 +10,7 @@
 #include "synth.h"
 #include "arp.h"
 
-enum { ST_STEPS = 32, ST_PATTERNS = 24, ST_NO_CHORD = 0 };
+enum { ST_STEPS = 32, ST_PATTERNS = 4, ST_NO_CHORD = 0 };   /* slots A-D */
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
 /* Step lengths: 1/16, 1/8, 1/4, 1/2, 1 bar, 2 bars (in 16ths: 1..32). */
 enum { ST_RATE_16TH, ST_RATE_8TH, ST_RATE_QUARTER, ST_RATE_HALF, ST_RATE_BAR, ST_RATE_2BARS, ST_RATES };
@@ -36,6 +36,7 @@ typedef struct {
     syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */
     st_pattern_t pattern[ST_PATTERNS];
     uint8_t area, preset, current, pos, playing, muted, recording, level_value;
+    uint8_t next;              /* slot to switch to at the next bar */
     uint8_t chord;             /* chord for live keys (0 = none) */
     uint8_t last_note;         /* used when a step is switched on */
     int16_t sounding[MKS_CHORD_NOTES];
@@ -49,8 +50,9 @@ typedef struct {
 void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed);
 
 /* Audio side. */
-/* Every transport 16th: step is its absolute number since Start. */
-EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, uint32_t step, float sixteenth_frames);
+/* Every transport 16th: step is its absolute number since Start. A slot
+ * chosen with next starts on the next bar. */
+EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames);
 EL_DSP_CODE void st_rewind(st_track_t *t);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);
@@ -68,6 +70,11 @@ extern const char *const st_rate_names[ST_RATES];
  * style: 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI; strings: 0 PADS (one chord per
  * bar, 4 bars), 1 SLOW (one chord per 2 bars, 8 bars), 2 PULSE (8th chords,
  * changes every bar), 3 STABS (16th stabs). length is ignored for strings. */
+/* Variation of a pattern: amount 0..127 changes notes (to ones the
+ * pattern already uses or octaves), moves notes by a step, flips ties and
+ * accents; strings change inversions and swap chord types. The first note
+ * stays. */
+void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed);
 /* Melodic styles (rhythm, bass): 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI. */
 enum { ST_STYLES = 5, ST_STRING_STYLES = 4 };
 unsigned st_styles(unsigned area);

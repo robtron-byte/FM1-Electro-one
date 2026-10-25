@@ -101,12 +101,12 @@ EL_DSP_CODE void st_mute(st_track_t *t, int on)
 }
 
 /* Called on every 16th; a step lasts rate_ticks 16ths. */
-EL_DSP_CODE void st_step(st_track_t *t, unsigned pattern, uint32_t step, float sixteenth_frames)
+EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
 {
     t->arp.chord = t->chord;
     arp_play(t, arp_sync(&t->arp, step, sixteenth_frames));
-    if (pattern >= ST_PATTERNS) pattern = 0;
-    if (pattern != t->current) { t->current = (uint8_t)pattern; t->playing = 0; }
+    if (t->next >= ST_PATTERNS) t->next = 0;
+    if (t->next != t->current && (step % 16u == 0 || !t->playing)) { t->current = t->next; t->playing = 0; }
     const st_pattern_t *p = &t->pattern[t->current];
     unsigned ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0];
     if (t->playing && ++t->tick < ticks) return;
@@ -497,6 +497,58 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
         if (i < ST_STEPS && (out->step[i].flags & ST_ON) && area != MKS_AREA_STRINGS) {
             static const int shift[] = {12, -12, 7, 3, -2};
             out->step[i].note = (uint8_t)el_clampi(out->step[i].note + pick(&r, shift, 5), 0, 127);
+        }
+    }
+}
+
+void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed)
+{
+    uint32_t r = seed ? seed : 0x1234567u;
+    unsigned per_mille = (amount > 127 ? 127 : amount) * 3u, length = p->length ? p->length : 16;
+    if (length > ST_STEPS) length = ST_STEPS;
+    /* Notes and chords the pattern already uses: a variation stays in them. */
+    uint8_t notes[ST_STEPS], chords[ST_STEPS];
+    unsigned count = 0, first = length;
+    for (unsigned i = 0; i < length; ++i)
+        if (p->step[i].flags & ST_ON) {
+            if (first == length) first = i;
+            notes[count] = p->step[i].note;
+            chords[count++] = p->step[i].chord;
+        }
+    if (!count) return;
+    int strings = area == MKS_AREA_STRINGS;
+    for (unsigned i = 0; i < length; ++i) {
+        st_step_t *s = &p->step[i];
+        if (!(s->flags & ST_ON) || i == first || !chance(&r, per_mille)) continue;
+        switch (rnd(&r) % (strings ? 2u : 4u)) {
+        case 0:   /* another note of the pattern, or the same an octave away */
+            if (count > 1 && chance(&r, 700)) s->note = notes[rnd(&r) % count];
+            else s->note = (uint8_t)el_clampi(s->note + (s->note >= 48 && chance(&r, 500) ? -12 : 12), 24, 96);
+            break;
+        case 1:   /* strings: inversion or a chord type of the pattern; else tie / accent */
+            if (strings) {
+                unsigned type = chance(&r, 400) ? ST_CHORD_TYPE(chords[rnd(&r) % count]) : ST_CHORD_TYPE(s->chord);
+                s->chord = (uint8_t)(type | (rnd(&r) % 3u) << 4);
+            } else s->flags ^= chance(&r, 500) ? ST_TIE : ST_ACCENT;
+            break;
+        default: { /* moved by one step where that one is free */
+            unsigned to = rnd(&r) & 1u ? (i + 1u) % length : (i + length - 1u) % length;
+            if (to != first && !(p->step[to].flags & ST_ON)) {
+                p->step[to] = *s;
+                s->flags = 0;
+                if (to == i + 1u) ++i;   /* not moved twice */
+            }
+            break;
+        }
+        }
+    }
+    /* Rhythm and bass: now and then one more note of the pattern. */
+    if (!strings && chance(&r, per_mille)) {
+        unsigned i = rnd(&r) % length;
+        if (!(p->step[i].flags & ST_ON)) {
+            p->step[i].note = notes[rnd(&r) % count];
+            p->step[i].chord = chords[0];
+            p->step[i].flags = ST_ON;
         }
     }
 }

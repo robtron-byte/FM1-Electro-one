@@ -140,6 +140,48 @@ void dr_empty_pattern(dr_pattern_t *out, const char *name)
     out->swing = 50;
 }
 
+/* Hits that hold a groove together: kick on the downbeats, snare and clap
+ * on the backbeat. */
+static int anchor(unsigned part, unsigned step)
+{
+    if (part == D8_BD) return step % 16u == 0;
+    if (part == D8_SD || part == D8_CP) return step % 8u == 4;
+    return 0;
+}
+
+void dr_vary(dr_pattern_t *p, unsigned amount, uint32_t seed)
+{
+    uint32_t rng = seed ? seed : 0x1234567u;
+    unsigned chance = (amount > 127 ? 127 : amount) * 3u;   /* per mille, up to ~38 % */
+    unsigned length = p->length ? p->length : 16;
+    uint32_t mask = length >= 32 ? 0xffffffffu : (1u << length) - 1u;
+    for (unsigned part = 0; part < DR_PARTS; ++part) {
+        uint32_t hits = p->hit[part], out = 0;
+        if (!hits) continue;
+        for (unsigned s = 0; s < length; ++s) {
+            if (!((hits >> s) & 1u)) continue;
+            if (anchor(part, s) || next_random(&rng) % 1000u >= chance) { out |= 1u << s; continue; }
+            unsigned r = next_random(&rng) % 3u;
+            if (r == 0) continue;                                   /* dropped */
+            unsigned to = r == 1 ? (s + 1u) % length : (s + length - 1u) % length;
+            if ((hits | out) & (1u << to)) out |= 1u << s;          /* no room: stays */
+            else { out |= 1u << to; if ((p->roll[part] >> s) & 1u) p->roll[part] = (p->roll[part] & ~(1u << s)) | 1u << to; }
+        }
+        /* Now and then one more hit where the part has none. */
+        if (part != D8_PU && next_random(&rng) % 1000u < chance) {
+            unsigned s = next_random(&rng) % length;
+            if (part == D8_BD) s |= 1u;                              /* kicks: off-16th pickups */
+            if (s < length && !((out >> s) & 1u) && !(part == D8_BD && (out & ((s ? 1u << (s - 1u) : 0u) | 1u << ((s + 1u) % length)))))
+                out |= 1u << s;
+        }
+        p->hit[part] = out & mask;
+        p->roll[part] &= p->hit[part];
+    }
+    if (next_random(&rng) % 1000u < chance) p->accent ^= 1u << (next_random(&rng) % length);
+    p->accent &= mask;
+    p->hit[D8_CH] &= ~p->hit[D8_OH];
+}
+
 void dr_generate(dr_pattern_t *out, unsigned style, unsigned variation, uint32_t seed,
                  const dr_pattern_t *keep)
 {

@@ -28,21 +28,22 @@ typedef struct {
     /* SAVE in the editor: slot and name of the sound being stored. */
     uint8_t sound_save, sound_slot, name_cursor;
     char sound_name[EL_SOUND_NAME + 1];
-    uint8_t area, overview, follow, part, bank, beat_layer, arp_tap;
+    uint8_t area, overview, follow, part, beat_layer, arp_tap;
     uint8_t options, opt_item;          /* OPTIONS menu (HOME + SAVE) */
     /* Synth editor (EDIT + area button): section and page per area. */
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];
     uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];
     int8_t octave[EL_AREAS];
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
-    /* New groove for a whole slot: posted piece by piece (drums, then the
-     * three synth parts), one staging buffer at a time. */
-    uint8_t job_slot, job_stage;        /* stage 0 = idle */
+    /* New or varied groove for all areas: posted piece by piece (drums,
+     * then the three synth parts), one staging buffer at a time, each into
+     * the slot its area plays. */
+    uint8_t job_slot[EL_AREAS], job_stage, job_fresh;   /* stage 0 = idle */
     dr_pattern_t job_drums;
     st_pattern_t job_parts[EL_TRACKS];
-    /* SAVE: pick a user slot with a white key, wait for the copy, store. */
-    uint8_t save_pick, save_pending;
-    uint32_t save_copies;
+    /* Generator keys ask first: what, for which area (4 = all), until when. */
+    uint8_t ask, ask_area;
+    uint32_t ask_until;
     /* New grooves are kept in Flash on their own, shortly after the last
      * generator key press (they survive a restart). */
     uint8_t autosave;

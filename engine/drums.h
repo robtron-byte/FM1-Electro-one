@@ -15,11 +15,9 @@
 enum {
     DR_PARTS = D8_NUM,      /* BD SD LT HT RS CP CB CY OH CH ZP PU */
     DR_STEPS = 32,
-    DR_PATTERNS = 24,       /* two banks: 1-16 and 17-24 */
+    DR_PATTERNS = 4,        /* slots A-D (each synth area has its own four too) */
     DR_KITS = 5,
     DR_STYLES = 16,
-    DR_STYLE_SLOTS = 16,    /* slots 1-16: generated in their style */
-    DR_USER_SLOTS = 8,      /* slots 17-24: the user's saved grooves */
     DR_NAME = 10
 };
 
@@ -110,6 +108,9 @@ void dr_empty_pattern(dr_pattern_t *out, const char *name);
  * bass drum and length are kept. */
 void dr_generate(dr_pattern_t *out, unsigned style, unsigned density, uint32_t seed,
                  const dr_pattern_t *keep);
+/* Variation of a pattern: amount 0..127 moves, drops and adds hits and
+ * accents; the downbeat kick and the backbeat stay. */
+void dr_vary(dr_pattern_t *p, unsigned amount, uint32_t seed);
 
 /* Audio side. Apply queued edits once per block. */
 EL_DSP_CODE void dr_process_commands(dr_machine_t *m);

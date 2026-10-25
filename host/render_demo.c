@@ -120,10 +120,25 @@ static unsigned groove_steps(const el_engine_t *e, unsigned slot)
     return bars * 16u;
 }
 
-static int render_slot(el_engine_t *e, unsigned slot, const char *dir, const char *prefix, int drums_only,
+/* A groove in a style in slot A of every area (the engine is idle). */
+static void style_groove(el_engine_t *e, unsigned style, uint32_t seed)
+{
+    st_pattern_t parts[EL_TRACKS];
+    dr_generate(&e->drums.pattern[0], style, 24, seed, NULL);
+    el_generate_parts(&e->drums.pattern[0], seed ^ 0x5bd1e995u, parts);
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        e->track[i].pattern[0] = parts[i];
+        e->track[i].current = e->track[i].next = 0;
+    }
+    dr_post(&e->drums, DR_CMD_SELECT, 0, 1, 0, 0);
+}
+
+/* Renders slot A; number only names the file (the style it came from). */
+static int render_slot(el_engine_t *e, unsigned number, const char *dir, const char *prefix, int drums_only,
                        int strings_only)
 {
     char path[512], name[32];
+    const unsigned slot = 0;
     float bpm = dr_styles[e->drums.pattern[slot].style].bpm_x10 / 10.0f;
     el_post(e, EL_CMD_BPM, 0, (int16_t)(bpm * 10.0f + 0.5f));
     dr_post(&e->drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
@@ -134,7 +149,7 @@ static int render_slot(el_engine_t *e, unsigned slot, const char *dir, const cha
     float *audio = render(e, bpm, drums_only ? e->drums.pattern[slot].length * (e->drums.pattern[slot].length > 16 ? 2u : 4u)
                                               : groove_steps(e, slot), &frames, &peak);
     slug(name, e->drums.pattern[slot].name);
-    snprintf(path, sizeof path, "%s/%s%02u_%s.wav", dir, prefix, slot + 1, name);
+    snprintf(path, sizeof path, "%s/%s%02u_%s.wav", dir, prefix, number + 1, name);
     write_wav(path, audio, frames);
     const st_pattern_t *sp = &e->track[1].pattern[slot];
     printf("%-5s %-10s kit %-8s %5.1f BPM  strings %2u x %-5s %4.1f s  peak %.2f -> %s\n", prefix, e->drums.pattern[slot].name,
@@ -157,7 +172,7 @@ int main(int argc, char **argv)
         el_init(&e);
         el_post(&e, EL_CMD_MIX, (uint8_t)processed, 0);
         el_post(&e, EL_CMD_BPM, 0, 1280);
-        dr_post(&e.drums, DR_CMD_SELECT, 6, 1, 0, 0);
+        style_groove(&e, 6, 0x2545f497u);
         size_t frames; float peak;
         float *audio = render(&e, 128.0f, 64, &frames, &peak);
         snprintf(path, sizeof path, "%s/ab_rother_%s.wav", dir, processed ? "mixed" : "raw");
@@ -166,11 +181,13 @@ int main(int argc, char **argv)
         free(audio);
     }
 
-    /* Every style slot as generated at power-up: full groove and beat only. */
-    for (unsigned i = 0; i < DR_STYLE_SLOTS; ++i) {
+    /* Every style: full groove and beat only. */
+    for (unsigned i = 0; i < DR_STYLES; ++i) {
         el_init(&e);
+        style_groove(&e, i, 0x2545f491u + i);
         failed |= render_slot(&e, i, dir, "full_", 0, 0);
         el_init(&e);
+        style_groove(&e, i, 0x2545f491u + i);
         failed |= render_slot(&e, i, dir, "beat_", 1, 0);
     }
     /* Other power-ups: new seeds give new grooves in the same styles. */
@@ -179,7 +196,7 @@ int main(int argc, char **argv)
         for (unsigned k = 0; k < sizeof styles / sizeof styles[0]; ++k) {
             char prefix[16];
             el_init(&e);
-            el_generate_all(&e, 0x1000193u * seed + 77u);
+            style_groove(&e, styles[k], 0x1000193u * seed + 77u + styles[k]);
             snprintf(prefix, sizeof prefix, "var%u_", seed);
             failed |= render_slot(&e, styles[k], dir, prefix, 0, 0);
         }
@@ -187,7 +204,7 @@ int main(int argc, char **argv)
     static const unsigned chord_styles[] = {6, 0, 10, 2, 5, 15, 7};
     for (unsigned k = 0; k < sizeof chord_styles / sizeof chord_styles[0]; ++k) {
         el_init(&e);
-        el_generate_all(&e, 0xabcdefu + k);
+        style_groove(&e, chord_styles[k], 0xabcdefu + k);
         failed |= render_slot(&e, chord_styles[k], dir, "chords_", 0, 1);
     }
 
@@ -199,6 +216,7 @@ int main(int argc, char **argv)
     };
     for (unsigned k = 0; k < sizeof mixed / sizeof mixed[0]; ++k) {
         el_init(&e);
+        style_groove(&e, mixed[k].slot, 0x2545f491u + mixed[k].slot);
         for (unsigned t = 0; t < EL_TRACKS; ++t) {
             int s = syn_sound_find(SYN_JP6, mixed[k].sound[t]);
             if (s < 0) s = syn_sound_find(SYN_MKS, mixed[k].sound[t]);
@@ -224,6 +242,7 @@ int main(int argc, char **argv)
         el_post(&e, EL_CMD_FX, FX_DIST_SEND_STRINGS, dist[k].strings);
         el_post(&e, EL_CMD_FX, FX_DIST_SEND_BASS, dist[k].bass);
         snprintf(prefix, sizeof prefix, "dist_%s_", dist[k].name);
+        style_groove(&e, 6, 0x2545f497u);
         failed |= render_slot(&e, 6, dir, prefix, 0, 0);
     }
 
@@ -234,7 +253,7 @@ int main(int argc, char **argv)
         char prefix[16];
         el_init(&e);
         unsigned slot = arps[k].slot;
-        dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
+        style_groove(&e, slot, 0x2545f491u + slot);
         float buf[EL_BLOCK * 2];
         el_render_float(&e, buf, EL_BLOCK);
         el_post3(&e, EL_CMD_TRACK_CLEAR, 0, 0, 0, 0);
@@ -244,7 +263,7 @@ int main(int argc, char **argv)
         el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_HOLD, 0, 1);
         el_post3(&e, EL_CMD_TRACK_ARP, 0, ARP_ON, 0, 1);
         int root = 48;
-        const st_pattern_t *bp = &e.track[2].pattern[slot];
+        const st_pattern_t *bp = &e.track[2].pattern[0];
         for (unsigned i = 0; i < bp->length; ++i)
             if (bp->step[i].flags & ST_ON) { root = 48 + bp->step[i].note % 12; break; }
         static const int chord[3] = {0, 3, 7};
@@ -262,7 +281,7 @@ int main(int argc, char **argv)
         for (int full = 0; full < 2; ++full) {
             unsigned slot = po_slots[k];
             el_init(&e);
-            dr_post(&e.drums, DR_CMD_SELECT, (uint8_t)slot, 1, 0, 0);
+            style_groove(&e, slot, 0x2545f491u + slot);
             float buf[EL_BLOCK * 2];
             el_render_float(&e, buf, EL_BLOCK);
             dr_post(&e.drums, DR_CMD_KIT, 4, 0, 0, 0);    /* PO-12 */
@@ -272,7 +291,7 @@ int main(int argc, char **argv)
     /* Cost: a busy groove with all four areas for 60 seconds. */
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);
-    dr_post(&e.drums, DR_CMD_SELECT, 7, 1, 0, 0);
+    style_groove(&e, 7, 0x2545f498u);
     el_post(&e, EL_CMD_START, 0, 0);
     float buf[EL_BLOCK * 2];
     unsigned blocks = 60u * FM1_SAMPLE_RATE / EL_BLOCK;
@@ -284,7 +303,7 @@ int main(int argc, char **argv)
     el_init(&e);
     el_post(&e, EL_CMD_BPM, 0, 1400);
     for (unsigned p = FX_DIST_SEND_BEAT; p <= FX_DIST_SEND_BASS; ++p) el_post(&e, EL_CMD_FX, (uint8_t)p, 80);
-    dr_post(&e.drums, DR_CMD_SELECT, 7, 1, 0, 0);
+    style_groove(&e, 7, 0x2545f498u);
     el_post(&e, EL_CMD_START, 0, 0);
     start = clock();
     for (unsigned b = 0; b < blocks; ++b) el_render_float(&e, buf, EL_BLOCK);

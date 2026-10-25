@@ -226,34 +226,61 @@ int main(int argc, char **argv)
         run(50);
     }
 
-    hold(BTN_ARP, 1);                 /* HOME + ARP + white key 3: new groove in slot 3 */
-    tap_key(4);
+    /* HOME: white keys pick the slot per area (5-8 RHYTHM, 9-12 STRINGS). */
+    static const unsigned white[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
+    tap_key(white[5]);                /* RHYTHM B */
+    tap_key(white[10]);               /* STRINGS C */
+    run(4000);                        /* switched at the next bar */
+    int slots = engine.drums.current == 0 && engine.track[0].current == 1 && engine.track[1].current == 2 &&
+                engine.track[2].current == 0;
+    /* ARP + white key 2: new groove in every area, only on the second press. */
+    dr_pattern_t groove = engine.drums.pattern[0];
+    hold(BTN_ARP, 1);
+    tap_key(white[1]);
+    run(300);
+    shot(dir, "09_ask_new_groove");
+    int asked = !memcmp(&groove, &engine.drums.pattern[0], sizeof groove) && ui.ask;
+    tap_key(white[1]);
     hold(BTN_ARP, 0);
     run(300);
     shot(dir, "09_new_groove");
-    /* The new groove is kept in Flash by itself and comes back after a restart. */
+    int fresh = asked && memcmp(&groove, &engine.drums.pattern[0], sizeof groove) != 0;
+    /* ARP + key 1 in STRINGS: a variation of slot C, again only when asked twice. */
+    tap_button(BTN_ENV);
+    st_pattern_t strings = engine.track[1].pattern[2];
+    hold(BTN_ARP, 1);
+    tap_key(white[0]);
+    int still = !memcmp(&strings, &engine.track[1].pattern[2], sizeof strings);
+    tap_button(BTN_OCT_UP);           /* another button: the question is gone */
+    tap_key(white[0]);
+    still = still && !memcmp(&strings, &engine.track[1].pattern[2], sizeof strings);
+    tap_key(white[0]);
+    hold(BTN_ARP, 0);
+    run(300);
+    int varied = still && memcmp(&strings, &engine.track[1].pattern[2], sizeof strings) != 0 &&
+                 !memcmp(&engine.track[1].pattern[0], &engine.track[1].pattern[0], sizeof strings);
+    printf("slots: per area A-D, new groove and variation after a second press %s\n", slots && fresh && varied ? "ok" : "FAIL");
+    if (!(slots && fresh && varied)) printf("debug slots %d (%u %u %u %u) asked %d fresh %d still %d varied %d\n", slots, engine.drums.current, engine.track[0].current, engine.track[1].current, engine.track[2].current, asked, fresh, still, varied);
+    tap_button(BTN_HOME);
+    /* Generated parts are kept in Flash by themselves and come back after a restart. */
     run(2500);
-    int fresh = engine.drums.current == 2 && engine.drums.pattern[2].style == 2;
     static el_engine_t restarted;
     el_init(&restarted);
     int lr = el_store_load(&restarted);
     fresh = fresh && lr == 0 &&
-            !memcmp(&restarted.drums.pattern[2], &engine.drums.pattern[2], sizeof(dr_pattern_t)) &&
-            !memcmp(&restarted.track[1].pattern[2], &engine.track[1].pattern[2], sizeof(st_pattern_t));
-    printf("store: new groove kept over restart %s\n", fresh ? "ok" : "FAIL");
+            !memcmp(&restarted.drums.pattern[0], &engine.drums.pattern[0], sizeof(dr_pattern_t)) &&
+            !memcmp(&restarted.track[1].pattern[2], &engine.track[1].pattern[2], sizeof(st_pattern_t)) &&
+            restarted.track[0].current == 1 && restarted.track[1].current == 2;
+    printf("store: new groove and slots kept over restart %s\n", fresh ? "ok" : "FAIL");
 
     tap_button(BTN_PLAY);
-    tap_button(BTN_SAVE);             /* SAVE, then white key 1: user slot 17 */
-    shot(dir, "10_save_pick");
-    tap_key(0);
+    tap_button(BTN_SAVE);             /* SAVE: everything */
     run(100);
     shot(dir, "11_saved");
-    const unsigned user = DR_STYLE_SLOTS;
-    fresh = fresh && !memcmp(engine.drums.pattern[user].hit, engine.drums.pattern[2].hit, sizeof engine.drums.pattern[2].hit);
     static el_engine_t loaded;
     el_init(&loaded);
     int r = el_store_load(&loaded);
-    int same = fresh && r == 0 && !memcmp(loaded.drums.pattern, engine.drums.pattern, sizeof loaded.drums.pattern);
+    int same = r == 0 && !memcmp(loaded.drums.pattern, engine.drums.pattern, sizeof loaded.drums.pattern);
     for (unsigned t = 0; t < EL_TRACKS; ++t)
         same = same && !memcmp(loaded.track[t].pattern, engine.track[t].pattern, sizeof loaded.track[t].pattern) &&
                loaded.track[t].part.engine == engine.track[t].part.engine && !memcmp(syn_values(&loaded.track[t].part), syn_values(&engine.track[t].part), syn_value_count(engine.track[t].part.engine)) &&
