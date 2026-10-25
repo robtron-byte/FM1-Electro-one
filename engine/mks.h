@@ -27,7 +27,7 @@ enum mks_param {
     MP_COUNT
 };
 
-enum { MKS_MAX_VOICES = 6, MKS_CHORDS = 13, MKS_CHORD_NOTES = 5, MKS_CHORUS_SIZE = 1024 };
+enum { MKS_MAX_VOICES = 6, MKS_CHORDS = 8, MKS_CHORD_NOTES = 5, MKS_CHORUS_SIZE = 1024 };
 enum { MKS_AREA_RHYTHM = 1, MKS_AREA_STRINGS = 2, MKS_AREA_BASS = 3 };
 
 typedef struct {
@@ -40,6 +40,10 @@ extern const mks_preset_t mks_presets[];
 extern const unsigned mks_preset_count;
 extern const char *const mks_chord_names[MKS_CHORDS];
 extern const int8_t mks_chords[MKS_CHORDS][MKS_CHORD_NOTES]; /* offsets, -128 ends */
+/* Chord type (1-based, 0 = none) of records up to version 15, when there
+ * were 13 (m7 m9 MIN 5+8 4THS 7SUS4 MAJ7 m7b5 MAJ SUS2 ADD9 MAJ9 7), to
+ * the nearest of today's eight. */
+extern const uint8_t st_chord_v15[14];
 
 typedef struct { float ramp, m0, w0, m1, w1, m2, w2; } mks_chop_t;
 typedef struct { float t1, l1, t2, l2, t3, l3, t4; } mks_env_settings_t;

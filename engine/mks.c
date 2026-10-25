@@ -15,14 +15,14 @@
 enum { CONTROL = 16 };
 enum { ENV_IDLE, ENV_T1, ENV_T2, ENV_T3, ENV_SUSTAIN, ENV_RELEASE };
 
-/* The MKS-50 app's eight chords, then the triads and colours that
- * Kraftwerk and Rother progressions need. */
-const char *const mks_chord_names[MKS_CHORDS] = {"m7", "m9", "MIN", "5+8", "4THS", "7SUS4", "MAJ7", "m7b5",
-                                                 "MAJ", "SUS2", "ADD9", "MAJ9", "7"};
+/* The MKS-50 app's eight chords: the types measured in Rother's and
+ * The Egyptian Lover's pads. */
+const char *const mks_chord_names[MKS_CHORDS] = {"m7", "SUS2", "MIN", "5+8", "SUS4", "7TH", "MAJ", "m7b5"};
 const int8_t mks_chords[MKS_CHORDS][MKS_CHORD_NOTES] EL_DSP_DATA = {
-    {0, 3, 7, 10, -128}, {0, 3, 7, 10, 14}, {0, 3, 7, -128, 0}, {0, 7, 12, -128, 0},
-    {0, 5, 10, 15, -128}, {0, 5, 7, 10, -128}, {0, 4, 7, 11, -128}, {0, 3, 6, 10, -128},
-    {0, 4, 7, -128, 0}, {0, 2, 7, -128, 0}, {0, 4, 7, 14, -128}, {0, 4, 7, 11, 14}, {0, 4, 7, 10, -128}};
+    {0, 3, 7, 10, -128}, {0, 2, 7, -128, 0}, {0, 3, 7, -128, 0}, {0, 7, 12, -128, 0},
+    {0, 5, 7, -128, 0}, {0, 4, 7, 10, -128}, {0, 4, 7, -128, 0}, {0, 3, 6, 10, -128}};
+
+const uint8_t st_chord_v15[14] = {0, 1, 1, 3, 4, 5, 5, 7, 8, 7, 2, 7, 7, 6};
 
 /* ---- math ---------------------------------------------------------------- */
 

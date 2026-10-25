@@ -10,8 +10,9 @@
  * without them, version 13 also carried note loops (the looper now lives on
  * the branch "looper"), of which only the arpeggiator settings are taken.
  * Version 15 has the layout of 14; the toms' knobs were reordered (see
- * old_tom_params). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
+ * old_tom_params). Version 16 has the layout of 14 too; up to 15 there were
+ * 13 chord types instead of 8 (see st_chord_v15). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 16, VERSION_15 = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -35,7 +36,7 @@ typedef struct { FIELDS_V12 } payload_v12_t;
 /* Version 13 per area: arpeggiator, loop bars, muted, count, 192 events. */
 typedef struct { uint8_t arp[ARP_PARAMS], bars, muted; uint16_t count; uint8_t loop[192][3]; } area_v13_t;
 typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
-typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_t;   /* versions 14, 15 */
+typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_t;   /* versions 14-16 */
 /* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
  * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
  * of each old knob in the new order: */
@@ -59,7 +60,7 @@ _Static_assert(SECTORS == 3, "three sectors per copy, as in every version so far
 /* Static: too large for the control task stack. Room for the larger
  * version 13 record when an old one is read. */
 /* User sound bank: one sector per copy. */
-enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 1 };
+enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 2, BANK_VERSION_1 = 1 };   /* 1: 13 chords */
 typedef struct { char name[EL_SOUND_NAME]; uint8_t engine, used; uint8_t v[SYN_VALUES]; } sound_slot_t;
 typedef struct {
     uint32_t magic, sequence;
@@ -95,12 +96,20 @@ uint32_t el_store_address(unsigned which)
     return (FALLBACK_SECTOR + which * SECTORS) * FM1_FLASH_SECTOR_BYTES;
 }
 
+/* A sound's chord memory (0-based) from the 13 chords of version 15 and
+ * user sound bank 1 to today's eight. */
+static void old_chord_memory(unsigned engine, uint8_t *v)
+{
+    unsigned p = engine == SYN_JP6 ? JP_CHORD : MP_CHORD;
+    v[p] = v[p] < 13u ? (uint8_t)(st_chord_v15[v[p] + 1u] - 1u) : 0u;
+}
+
 /* Reads one sector into record; returns its sequence, or 0 when invalid. */
 static uint32_t read_valid(unsigned which)
 {
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
-    if (!((record.version == VERSION || record.version == VERSION_14) && record.bytes == sizeof(payload_t)) &&
+    if (!(record.version >= VERSION_14 && record.version <= VERSION && record.bytes == sizeof(payload_t)) &&
         !(record.version == VERSION_13 && record.bytes == V13_BYTES) &&
         !(record.version == VERSION_12 && record.bytes == V12_BYTES)) return 0;
     if (crc32(&record.data, record.bytes) != record.crc) return 0;
@@ -125,6 +134,7 @@ int el_store_load(el_engine_t *e)
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
     dr_machine_t *m = &e->drums;
     const payload_t *d = &record.data;
+    int old_chords = record.version < VERSION;
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         dr_pattern_t p = d->pattern[i];
         p.name[DR_NAME] = 0;
@@ -140,7 +150,7 @@ int el_store_load(el_engine_t *e)
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
     for (unsigned part = 0; part < DR_PARTS; ++part) {
-        int tom = (part == D8_LT || part == D8_HT) && record.version < VERSION;
+        int tom = (part == D8_LT || part == D8_HT) && record.version < VERSION_15;
         for (int p = 0; p < (tom ? 7 : tr808_nparams((int)part)) && p < PARAMS; ++p)
             tr808_set(&m->kit, (int)part, tom ? old_tom_params[p] : p, d->params[part][p]);
     }
@@ -162,18 +172,21 @@ int el_store_load(el_engine_t *e)
             for (unsigned k = 0; k < ST_STEPS; ++k)
             {
                 unsigned chord = t->pattern[p].step[k].chord, type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
+                if (old_chords) type = type < 14u ? st_chord_v15[type] : 0u;
                 t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4);
             }
         }
         uint8_t v[SYN_VALUES];
         unsigned engine = s->engine < SYN_ENGINES ? s->engine : SYN_MKS;
-        for (unsigned p = 0; p < syn_value_count(engine); ++p) v[p] = (uint8_t)el_clampi(s->v[p], 0, syn_param_max(engine, p));
+        memcpy(v, s->v, sizeof v);
+        if (old_chords) old_chord_memory(engine, v);
+        for (unsigned p = 0; p < syn_value_count(engine); ++p) v[p] = (uint8_t)el_clampi(v[p], 0, syn_param_max(engine, p));
         syn_load(&t->part, engine, v);
         int user = s->preset >= EL_USER_SOUND && s->preset < EL_USER_SOUND + EL_USER_SOUNDS;
         t->preset = (uint8_t)(s->preset < syn_sound_count() || user ? s->preset : 0);
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
-        t->chord = (uint8_t)el_clampi(s->chord, 0, MKS_CHORDS);
+        t->chord = (uint8_t)el_clampi(old_chords && s->chord < 14u ? st_chord_v15[s->chord] : s->chord, 0, MKS_CHORDS);
     }
     for (unsigned p = 0; p < FX_PARAMS; ++p) e->fx.v[p] = (uint8_t)el_clampi(d->fx[p], 0, fx_param_max(p));
     if (record.version >= VERSION_13) load_areas(e, d, record.version);
@@ -239,7 +252,7 @@ static uint32_t bank_valid(unsigned which)
 {
     bank_t *k = &buffer.bank;
     if (fm1_flash_read(el_sound_address(which), k, sizeof *k) != FM1_FLASH_OK) return 0;
-    if (k->magic != BANK_MAGIC || k->version != BANK_VERSION || k->count != EL_USER_SOUNDS) return 0;
+    if (k->magic != BANK_MAGIC || (k->version != BANK_VERSION && k->version != BANK_VERSION_1) || k->count != EL_USER_SOUNDS) return 0;
     if (crc32(k->slot, sizeof k->slot) != k->crc) return 0;
     return k->sequence;
 }
@@ -252,6 +265,12 @@ static int bank_read(void)
     unsigned newest = (int32_t)(a - b) > 0 || !b ? 0u : 1u;
     if (newest == 1u) bank_valid(1);   /* the buffer still holds copy 1 when b is valid */
     else bank_valid(0);
+    bank_t *k = &buffer.bank;
+    if (k->version == BANK_VERSION_1) {   /* in the buffer only; the next put writes version 2 */
+        for (unsigned i = 0; i < EL_USER_SOUNDS; ++i)
+            if (k->slot[i].used && k->slot[i].engine < SYN_ENGINES) old_chord_memory(k->slot[i].engine, k->slot[i].v);
+        k->version = BANK_VERSION;
+    }
     return (int)newest;
 }
 

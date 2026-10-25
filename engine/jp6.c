@@ -20,7 +20,7 @@ enum { ENV_IDLE, ENV_ATTACK, ENV_DECAY, ENV_SUSTAIN, ENV_RELEASE };
 enum { W_TRI = 1, W_SAW = 2, W_PULSE = 4, W_SQUARE = 8, W_NOISE = 16, W_WAVES = 15 };
 
 /* ChordMemory.swift defaults (the same chords as mks_chords[0..7]). */
-const char *const jp6_chord_names[JP6_CHORDS] = {"m7", "m9", "MIN", "5+8", "4THS", "7SUS4", "MAJ7", "m7b5"};
+const char *const jp6_chord_names[JP6_CHORDS] = {"m7", "SUS2", "MIN", "5+8", "SUS4", "7TH", "MAJ", "m7b5"};
 
 /* ---- math ---------------------------------------------------------------- */
 

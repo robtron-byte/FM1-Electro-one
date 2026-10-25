@@ -346,8 +346,8 @@ static void melodic(st_step_t *s, unsigned style, unsigned density, uint32_t *r,
 }
 
 /* Strings harmony: four-chord loops per family, as (semitones above the
- * tonic, chord slot + 1, bars). Chord slots: 1 m7, 2 m9, 3 MIN, 4 5+8,
- * 5 4THS, 6 7SUS4, 7 MAJ7, 8 m7b5, 9 MAJ, 10 SUS2, 11 ADD9, 12 MAJ9, 13 7.
+ * tonic, chord slot + 1, bars). Chord slots: 1 m7, 2 SUS2, 3 MIN, 4 5+8,
+ * 5 SUS4, 6 7TH, 7 MAJ, 8 m7b5.
  * ROTHER: dark minor, long chords over the tonic, phrygian bII, sus and
  *   quartal colours. KRAFT: plain triads, two-chord swings (The Model:
  *   i - v), sus2 over the tonic and a maj7 interlude (Computer Love), minor
@@ -359,34 +359,34 @@ static const int8_t progressions[DR_HARMONIES][8][4][3] = {
        * three close voices (minor triads, some m7, sus, fifths, a diminished
        * colour), a new chord about every bar, roots moving by tone, major
        * third, semitone and fourth. */
-        {{0, 3, 1}, {0, 3, 1}, {1, 9, 1}, {0, 1, 1}},     /* phrygian drone: i i bII i7 */
-        {{0, 3, 1}, {8, 9, 1}, {3, 9, 1}, {10, 6, 1}},    /* i bVI bIII bVII7sus4 */
+        {{0, 3, 1}, {0, 3, 1}, {1, 7, 1}, {0, 1, 1}},     /* phrygian drone: i i bII i7 */
+        {{0, 3, 1}, {8, 7, 1}, {3, 7, 1}, {10, 5, 1}},    /* i bVI bIII bVIIsus4 */
         {{0, 4, 1}, {0, 4, 1}, {1, 4, 1}, {10, 4, 1}},    /* power-fifth stab drone */
         {{0, 3, 2}, {5, 3, 1}, {0, 3, 2}, {7, 1, 1}},     /* i - iv - i - v7 */
-        {{0, 5, 1}, {10, 5, 1}, {8, 5, 1}, {7, 5, 1}},    /* parallel 4ths falling */
-        {{0, 3, 1}, {3, 9, 1}, {8, 9, 1}, {1, 9, 1}},
-        {{0, 10, 1}, {0, 3, 1}, {8, 9, 1}, {10, 10, 1}},  /* sus2 colour */
-        {{0, 3, 2}, {9, 8, 1}, {8, 9, 1}, {7, 6, 2}},     /* m7b5 shadow, as on Meta Me */
+        {{0, 5, 1}, {10, 5, 1}, {8, 5, 1}, {7, 5, 1}},    /* parallel sus4 falling */
+        {{0, 3, 1}, {3, 7, 1}, {8, 7, 1}, {1, 7, 1}},
+        {{0, 2, 1}, {0, 3, 1}, {8, 7, 1}, {10, 2, 1}},   /* sus2 colour */
+        {{0, 3, 2}, {9, 8, 1}, {8, 7, 1}, {7, 5, 2}},     /* m7b5 shadow, as on Meta Me */
     },
     { /* KRAFT */
         {{0, 3, 1}, {7, 3, 1}, {0, 3, 1}, {7, 3, 1}},     /* The Model: i - v */
-        {{0, 3, 2}, {5, 10, 2}, {0, 3, 2}, {5, 10, 2}},   /* Computer Love verse */
-        {{8, 7, 1}, {8, 9, 1}, {3, 9, 1}, {10, 9, 1}},    /* Computer Love interlude */
-        {{0, 3, 2}, {8, 3, 2}, {5, 3, 2}, {7, 9, 2}},     /* The Robots colours */
-        {{0, 3, 2}, {8, 9, 2}, {5, 3, 2}, {3, 9, 2}},     /* Radioactivity colours */
-        {{0, 3, 1}, {3, 9, 1}, {5, 9, 1}, {10, 9, 1}},    /* Tour de France colours */
-        {{0, 3, 2}, {4, 9, 2}, {8, 9, 2}, {4, 9, 2}},     /* Europe Endless mediants */
-        {{0, 3, 2}, {10, 9, 2}, {8, 9, 2}, {10, 9, 2}},   /* parallel triads */
+        {{0, 3, 2}, {5, 2, 2}, {0, 3, 2}, {5, 2, 2}},     /* Computer Love verse */
+        {{8, 7, 1}, {8, 7, 1}, {3, 7, 1}, {10, 7, 1}},    /* Computer Love interlude */
+        {{0, 3, 2}, {8, 3, 2}, {5, 3, 2}, {7, 7, 2}},     /* The Robots colours */
+        {{0, 3, 2}, {8, 7, 2}, {5, 3, 2}, {3, 7, 2}},     /* Radioactivity colours */
+        {{0, 3, 1}, {3, 7, 1}, {5, 7, 1}, {10, 7, 1}},    /* Tour de France colours */
+        {{0, 3, 2}, {4, 7, 2}, {8, 7, 2}, {4, 7, 2}},     /* Europe Endless mediants */
+        {{0, 3, 2}, {10, 7, 2}, {8, 7, 2}, {10, 7, 2}},   /* parallel triads */
     },
     { /* ELECTRO */
-        {{0, 2, 1}, {-4, 7, 1}, {-2, 6, 1}, {5, 1, 1}},
+        {{0, 1, 1}, {-4, 7, 1}, {-2, 5, 1}, {5, 1, 1}},
         {{0, 1, 1}, {5, 1, 1}, {-4, 7, 1}, {-5, 1, 1}},
-        {{0, 2, 1}, {-2, 4, 1}, {-4, 7, 1}, {-2, 6, 1}},
-        {{0, 1, 1}, {3, 7, 1}, {-2, 6, 1}, {-4, 7, 1}},
-        {{0, 2, 1}, {0, 6, 1}, {-4, 7, 1}, {-5, 2, 1}},
+        {{0, 1, 1}, {-2, 4, 1}, {-4, 7, 1}, {-2, 5, 1}},
+        {{0, 1, 1}, {3, 7, 1}, {-2, 5, 1}, {-4, 7, 1}},
+        {{0, 1, 1}, {0, 5, 1}, {-4, 7, 1}, {-5, 1, 1}},
         {{0, 1, 1}, {-2, 5, 1}, {-4, 5, 1}, {-2, 5, 1}},
-        {{0, 2, 1}, {-4, 2, 1}, {3, 7, 1}, {-2, 6, 1}},
-        {{0, 1, 1}, {0, 2, 1}, {5, 2, 1}, {-2, 6, 1}},
+        {{0, 1, 1}, {-4, 1, 1}, {3, 7, 1}, {-2, 5, 1}},
+        {{0, 1, 1}, {0, 1, 1}, {5, 1, 1}, {-2, 5, 1}},
     },
     { /* EGYPT: measured on the pad stems of The Egyptian Lover's 1986:
        * fifth-octave power voicings, major, dominant 7th and minor chords,
@@ -394,12 +394,12 @@ static const int8_t progressions[DR_HARMONIES][8][4][3] = {
        * tritone. Low register (C2 C3 G3). */
         {{0, 4, 1}, {0, 4, 1}, {3, 4, 1}, {5, 4, 1}},     /* power: i i bIII iv */
         {{0, 4, 1}, {5, 4, 1}, {0, 4, 1}, {-5, 4, 1}},    /* fourths */
-        {{0, 3, 1}, {3, 9, 1}, {5, 13, 1}, {0, 3, 1}},    /* i bIII IV7 i */
-        {{0, 9, 1}, {-6, 4, 1}, {0, 9, 1}, {3, 4, 1}},    /* tritone swing */
-        {{0, 13, 1}, {3, 13, 1}, {5, 13, 1}, {3, 13, 1}}, /* dominant 7ths */
-        {{0, 4, 1}, {3, 4, 1}, {-2, 4, 1}, {0, 13, 1}},
-        {{0, 3, 1}, {0, 4, 1}, {-2, 9, 1}, {-4, 9, 1}},
-        {{0, 4, 2}, {3, 4, 1}, {5, 13, 1}, {-3, 4, 1}},
+        {{0, 3, 1}, {3, 7, 1}, {5, 6, 1}, {0, 3, 1}},     /* i bIII IV7 i */
+        {{0, 7, 1}, {-6, 4, 1}, {0, 7, 1}, {3, 4, 1}},    /* tritone swing */
+        {{0, 6, 1}, {3, 6, 1}, {5, 6, 1}, {3, 6, 1}},     /* dominant 7ths */
+        {{0, 4, 1}, {3, 4, 1}, {-2, 4, 1}, {0, 6, 1}},
+        {{0, 3, 1}, {0, 4, 1}, {-2, 7, 1}, {-4, 7, 1}},
+        {{0, 4, 2}, {3, 4, 1}, {5, 6, 1}, {-3, 4, 1}},
     },
 };
 
