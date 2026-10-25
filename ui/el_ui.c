@@ -157,10 +157,7 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
     el_engine_t *e = ui->engine;
     unsigned param;
     int value;
-    if (ui->overview && (ui->hold & HOLD_EDIT) && (ui->hold & HOLD_GLO)) {
-        param = 400u + slot;                     /* MIDI channel per area */
-        value = e->midi_channel[slot];
-    } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
+    if (ui->overview && (ui->hold & HOLD_EDIT)) {
         param = 300u + slot;                     /* distortion sends per area */
         value = e->fx.v[FX_DIST_SEND_BEAT + slot];
     } else if (ui->overview) {
@@ -196,15 +193,7 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
     knob_t k = {0, 0, 0, 0, TEXT};
     unsigned param;
     k.value = raw_value(ui, slot, &param);
-    if (param >= 400u && ui->overview) {
-        static const char *const midi_names[4] = {"MIDI BEAT", "MIDI RHYT", "MIDI STRG", "MIDI BASS"};
-        static const char *const channels[EL_MIDI_OFF + 1] = {"CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "CH 7", "CH 8", "CH 9",
-                                                              "CH 10", "CH 11", "CH 12", "CH 13", "CH 14", "CH 15", "CH 16", "OFF"};
-        k.name = midi_names[slot];
-        k.max = EL_MIDI_OFF;
-        k.text = channels[el_clampi(k.value, 0, EL_MIDI_OFF)];
-        k.color = area_color[slot];
-    } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
+    if (ui->overview && (ui->hold & HOLD_EDIT)) {
         static const char *const send_names[4] = {"DST BEAT", "DST RHYT", "DST STRG", "DST BASS"};
         k.name = send_names[slot];
         k.max = 127;
@@ -253,9 +242,7 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
     int step = k.max > 16 ? delta * (delta > 1 || delta < -1 ? 2 : 1) : delta;
     int value = raw_value(ui, slot, &param) + step, r;
     value = el_clampi(value, param == PARAM_ARP + ARP_GATE ? 5 : 0, k.max);
-    if (ui->overview && param >= 400u) {
-        r = el_post(e, EL_CMD_MIDI_CHANNEL, (uint8_t)slot, (int16_t)value);
-    } else if (ui->overview && param >= 300u) {
+    if (ui->overview && param >= 300u) {
         r = el_post(e, EL_CMD_FX, (uint8_t)(FX_DIST_SEND_BEAT + slot), (int16_t)value);
     } else if (ui->overview) {
         if (param >= 200u)
@@ -625,6 +612,53 @@ static void toggle_arp(el_ui_t *ui, int hold)
     }
 }
 
+/* ---- OPTIONS (HOME + SAVE): settings made once ----------------------------- */
+
+enum { OPT_MIDI_BEAT, OPT_MIDI_BASS = OPT_MIDI_BEAT + 3, OPT_CLOCK, OPT_MASTER, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
+static const char *const opt_names[OPT_ITEMS] = {"MIDI CH BEAT", "MIDI CH RHYTHM", "MIDI CH STRINGS", "MIDI CH BASS",
+                                                 "MIDI CLOCK", "MASTER FX", "OUTPUT LEVEL", "POWER-ON", "HELP LINE"};
+
+static int opt_value(const el_ui_t *ui, unsigned item, int *max)
+{
+    const el_engine_t *e = ui->engine;
+    static const uint8_t option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_OUT_LEVEL, EL_OPT_START, EL_OPT_HINTS};
+    if (item <= OPT_MIDI_BASS) { *max = EL_MIDI_OFF; return e->midi_channel[item - OPT_MIDI_BEAT]; }
+    *max = item == OPT_LEVEL ? 127 : 1;
+    return e->option[option[item]];
+}
+
+static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
+{
+    int max, v = opt_value(ui, item, &max);
+    if (item <= OPT_MIDI_BASS) { if (v >= EL_MIDI_OFF) snprintf(out, size, "OFF"); else snprintf(out, size, "%d", v + 1); }
+    else if (item == OPT_CLOCK) snprintf(out, size, v ? "FOLLOW" : "IGNORE");
+    else if (item == OPT_START) snprintf(out, size, v == EL_START_USER ? "USER 17" : "LAST");
+    else if (item == OPT_LEVEL) snprintf(out, size, "%d", v);
+    else snprintf(out, size, v ? "ON" : "OFF");
+}
+
+static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pressed)
+{
+    el_engine_t *e = ui->engine;
+    const int16_t *enc = c->encoders;
+    if (pressed & (BIT(BTN_HOME) | BIT(BTN_SAVE))) {
+        ui->options = 0;
+        notice(ui, ui->save && ui->save(e) == 0 ? "OPTIONS SAVED" : "OPTIONS SET");
+        return;
+    }
+    int move = enc[ENC_SELECT] + enc[ENC_ALGORITHM];
+    if (move) ui->opt_item = (uint8_t)el_clampi((int)ui->opt_item + move, 0, OPT_ITEMS - 1);
+    int turn = enc[ENC_PRESETS];
+    for (unsigned k = 0; k < 4; ++k) turn += enc[ENC_KNOB1 + k];
+    if (!turn) return;
+    unsigned item = ui->opt_item;
+    int max, v = opt_value(ui, item, &max);
+    v = el_clampi(v + (max > 16 ? turn * 2 : turn), 0, max);
+    static const uint8_t option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_OUT_LEVEL, EL_OPT_START, EL_OPT_HINTS};
+    if (item <= OPT_MIDI_BASS) el_post(e, EL_CMD_MIDI_CHANNEL, (uint8_t)(item - OPT_MIDI_BEAT), (int16_t)v);
+    else el_post(e, EL_CMD_OPTION, option[item], (int16_t)v);
+}
+
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 {
     el_engine_t *e = ui->engine;
@@ -632,6 +666,24 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     uint32_t pressed = c->buttons & ~ui->prev_buttons, keys_down = c->keys & ~ui->prev_keys;
     unsigned hold = hold_mask(c->buttons);
     ui->hold = hold;
+    if (ui->options) {
+        options_input(ui, c, pressed);
+        ui->prev_buttons = c->buttons;
+        ui->prev_keys = c->keys;
+        return;
+    }
+    if ((pressed & BIT(BTN_SAVE)) && (c->buttons & BIT(BTN_HOME))) {
+        /* HOME held + SAVE: OPTIONS. HOME's own press switched the overview;
+         * undo that so the menu returns where it was opened. */
+        if (!(pressed & BIT(BTN_HOME))) ui->overview = !ui->overview;
+        release_keys(ui, ~0u);
+        ui->options = 1;
+        ui->opt_item = 0;
+        ui->save_pick = 0;
+        ui->prev_buttons = c->buttons;
+        ui->prev_keys = c->keys;
+        return;
+    }
     if (ui->sound_save && !in_editor(ui)) ui->sound_save = 0;
     if (ui->sound_save && (pressed & ~BIT(BTN_SAVE))) {
         ui->sound_save = 0;
@@ -764,9 +816,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     const int16_t *enc = c->encoders;
     const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM], presets = enc[ENC_PRESETS];
     int dist_page = ui->overview && (hold & HOLD_EDIT);
-    if (dist_page && !(hold & HOLD_GLO)) {
-        /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone.
-         * HOME + EDIT + GLO: KNOB 1-4 MIDI channel per area, the other encoders rest. */
+    if (dist_page) {
+        /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone. */
         const uint8_t *fv = e->fx.v;
         if (presets) el_post(e, EL_CMD_FX, FX_DIST_MODE, (int16_t)el_clampi(fv[FX_DIST_MODE] + (presets > 0 ? 1 : -1), 0, DIST_MODES - 1));
         if (algo) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + algo * 2, 0, 127));
@@ -883,6 +934,11 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     for (unsigned a = 0; a < EL_AREAS; ++a)
         mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1);
     mix(&sig[1], ui->area | ui->overview << 3 | (uint32_t)playing << 4 | (uint32_t)ui->part << 8);
+    mix(&sig[1], ui->options | (uint32_t)ui->opt_item << 1);
+    if (ui->options) {
+        for (unsigned i = 0; i < EL_AREAS; ++i) mix(&sig[1], e->midi_channel[i]);
+        for (unsigned i = 0; i < EL_OPTIONS; ++i) mix(&sig[1], e->option[i] | i << 8);
+    }
     mix(&sig[1], (uint32_t)(playing ? m->pos : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
         mix(&sig[1], m->revision | m->mute << 8 | (uint32_t)ui->bank << 24);
@@ -917,7 +973,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     }
     mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16 |
                  (uint32_t)ui->editor << 24 | (uint32_t)ui->ed_section[ui->area] << 25);
-    mix(&sig[2], ui->ed_page[ui->area] | (uint32_t)ui->sound_save << 8 | (uint32_t)ui->name_cursor << 9);
+    mix(&sig[2], ui->ed_page[ui->area] | (uint32_t)ui->sound_save << 8 | (uint32_t)ui->name_cursor << 9 |
+                 (uint32_t)ui->options << 20 | (uint32_t)e->option[EL_OPT_HINTS] << 21);
     if (ui->sound_save) mix(&sig[2], (uint8_t)ui->sound_name[ui->name_cursor]);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->save_pick << 31);
@@ -1169,6 +1226,23 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     if (t->recording) gfx_text(b, 200, 176, e->transport.running ? "LIVE" : "STEP", RED, 1);
 }
 
+/* OPTIONS: one line per setting, the chosen one highlighted. */
+static void draw_options(el_ui_t *ui, gfx_band_t *b)
+{
+    if (gfx_touches(b, 36, 10)) gfx_text(b, 4, 36, "OPTIONS", AMBER, 1);
+    for (unsigned i = 0; i < OPT_ITEMS; ++i) {
+        int y = 50 + (int)i * 15;
+        if (!gfx_touches(b, y - 2, 14)) continue;
+        int on = i == ui->opt_item;
+        char value[16];
+        opt_text(ui, i, value, sizeof value);
+        if (on) gfx_fill(b, 0, y - 2, GFX_W, 13, PANEL);
+        uint16_t c = i <= OPT_MIDI_BASS ? area_color[i] : TEXT;
+        gfx_text(b, 6, y, opt_names[i], on ? c : DIM, 1);
+        gfx_text(b, 150, y, value, on ? ACCENT : TEXT, 1);
+    }
+}
+
 /* Synth editor: sound and engine, then the section tabs and picture. */
 static void draw_editor(el_ui_t *ui, gfx_band_t *b)
 {
@@ -1249,6 +1323,12 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
 {
     char value[24];
     gfx_fill(b, 0, FOOT_Y - 4, GFX_W, GFX_H - FOOT_Y + 4, PANEL);
+    if (ui->options) {
+        gfx_text(b, 4, FOOT_Y, "SELECT / ALGO: SETTING", DIM, 1);
+        gfx_text(b, 4, FOOT_Y + 12, "PRESETS / KNOBS: VALUE", DIM, 1);
+        gfx_text(b, 4, GFX_H - 12, "HOME OR SAVE: DONE", AMBER, 1);
+        return;
+    }
     unsigned a = ui->overview ? 0 : ui->area;
     if (ui->hold & HOLD_GEN) {
         int beat = a == EL_AREA_BEAT;
@@ -1294,14 +1374,12 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8 OR SAVE AGAIN";
     char line[48];
     if (!hint) {
-        if (ui->overview && (ui->hold & HOLD_EDIT) && (ui->hold & HOLD_GLO)) {
-            hint = "MIDI CHANNEL PER AREA: KNOB 1-4";
-        } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
+        if (ui->overview && (ui->hold & HOLD_EDIT)) {
             const uint8_t *fv = ui->engine->fx.v;
             snprintf(line, sizeof line, "PRESETS %s ALGO DRV %u SEL TONE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
                      fv[FX_DIST_DRIVE], fv[FX_DIST_TONE]);
             hint = line;
-        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX PRESETS=DLY ALGO=BPM EDIT=MIDI" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
+        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX  PRESETS=DELAY ALGO=FINE BPM" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
             unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;
@@ -1323,11 +1401,11 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             else
                 snprintf(line, sizeof line, "%s %u/%u  PRESETS=SOUND SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE SEL=STEP ALGO=LENGTH" :
-                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-14=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
+                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
                    (ui->hold & HOLD_EDIT) ? (ui->area == EL_AREA_STRINGS ? "EDIT: ACC/REST ALGO=STEP LEN" : "EDIT: ACC/REST ALGO=GATE") : line;
         }
     }
-    gfx_text(b, 4, GFX_H - 12, hint, hint == ui->notice ? AMBER : DIM, 1);
+    if (hint == ui->notice || ui->engine->option[EL_OPT_HINTS]) gfx_text(b, 4, GFX_H - 12, hint, hint == ui->notice ? AMBER : DIM, 1);
 }
 
 void el_ui_draw_band(el_ui_t *ui, unsigned band)
@@ -1336,7 +1414,8 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
     gfx_begin(b, band, BACK);
     if (gfx_touches(b, 0, HEADER_H)) draw_header(ui, b);
     if (gfx_touches(b, HEADER_H, FOOT_Y - 4 - HEADER_H)) {
-        if (ui->overview) draw_overview(ui, b);
+        if (ui->options) draw_options(ui, b);
+        else if (ui->overview) draw_overview(ui, b);
         else if (ui->area == EL_AREA_BEAT) draw_beat(ui, b);
         else if (in_editor(ui)) draw_editor(ui, b);
         else draw_synth(ui, b);

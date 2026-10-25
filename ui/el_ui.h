@@ -29,6 +29,7 @@ typedef struct {
     uint8_t sound_save, sound_slot, name_cursor;
     char sound_name[EL_SOUND_NAME + 1];
     uint8_t area, overview, follow, part, bank, beat_layer, arp_tap;
+    uint8_t options, opt_item;          /* OPTIONS menu (HOME + SAVE) */
     /* Synth editor (EDIT + area button): section and page per area. */
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];
     uint8_t page[EL_AREAS], step_page[EL_AREAS], step_mode[EL_AREAS], cursor[EL_AREAS];

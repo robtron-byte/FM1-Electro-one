@@ -45,13 +45,24 @@ enum el_command {
     EL_CMD_MIX,          /* a = 1: mix and master processing on, 0: off (A/B) */
     EL_CMD_SLOT_COPY,    /* a = source slot, b = destination: drums and all synth
                           * parts; c = 1 keeps the destination's name */
-    EL_CMD_MIDI_CHANNEL  /* a = area, value = channel 0..15 or EL_MIDI_OFF */
+    EL_CMD_MIDI_CHANNEL, /* a = area, value = channel 0..15 or EL_MIDI_OFF */
+    EL_CMD_OPTION        /* a = EL_OPT_*, value */
 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
 /* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
  * Two areas on one channel both play. */
 enum { EL_MIDI_OFF = 16 };
+/* Settings made once in the OPTIONS menu (HOME + SAVE), kept in Flash. */
+enum {
+    EL_OPT_MIDI_CLOCK,  /* 1: follow MIDI clock and Start/Stop, 0: ignore them */
+    EL_OPT_MASTER,      /* 1: mix bus and master processing on, 0: off */
+    EL_OPT_OUT_LEVEL,   /* 0..127 output level (127 = full) */
+    EL_OPT_START,       /* EL_START_* : groove at power-on */
+    EL_OPT_HINTS,       /* 1: help line at the bottom of the screen */
+    EL_OPTIONS = 12     /* stored size, room for more */
+};
+enum { EL_START_LAST, EL_START_USER };
 enum { EL_AREA_BEAT, EL_AREA_RHYTHM, EL_AREA_STRINGS, EL_AREA_BASS };
 
 typedef struct {
@@ -67,6 +78,7 @@ typedef struct {
     el_queue_t midi_queue;  /* from the MIDI routing task */
     float master;
     volatile uint8_t midi_channel[EL_AREAS];   /* read by the MIDI routing task */
+    volatile uint8_t option[EL_OPTIONS];
     volatile uint32_t blocks;
     volatile uint32_t slot_copies;       /* bumps after every EL_CMD_SLOT_COPY */
 } el_engine_t;

@@ -23,6 +23,11 @@ void el_init(el_engine_t *e)
     e->master = 1.0f;
     static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
     for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
+    e->option[EL_OPT_MIDI_CLOCK] = 1;
+    e->option[EL_OPT_MASTER] = 1;
+    e->option[EL_OPT_OUT_LEVEL] = 127;
+    e->option[EL_OPT_START] = EL_START_LAST;
+    e->option[EL_OPT_HINTS] = 1;
 }
 
 /* Default sounds per area. */
@@ -115,6 +120,7 @@ int el_midi_input(el_engine_t *e, const uint8_t *m, size_t n)
 {
     el_cmd_t cmd = {0, 0, 0, 0, 0};
     if (!m || !n) return 0;
+    if (m[0] >= 0xf8u && m[0] <= 0xfcu && !e->option[EL_OPT_MIDI_CLOCK]) return 0;   /* OPTIONS: clock ignored */
     switch (m[0]) {
     case 0xf8: cmd.type = EL_CMD_MIDI_TICK; break;
     case 0xfa: cmd.type = EL_CMD_START; cmd.c = 1; break;
@@ -238,6 +244,13 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_MIDI_CHANNEL:
         if (c->a < EL_AREAS) e->midi_channel[c->a] = (uint8_t)el_clampi(c->value, 0, EL_MIDI_OFF);
+        break;
+    case EL_CMD_OPTION:
+        if (c->a >= EL_OPTIONS) break;
+        e->option[c->a] = (uint8_t)el_clampi(c->value, 0, 127);
+        if (c->a == EL_OPT_MASTER) e->mix.enabled = e->option[c->a] ? 1 : 0;
+        if (c->a == EL_OPT_OUT_LEVEL) e->master = e->option[c->a] / 127.0f;
+        if (c->a == EL_OPT_MIDI_CLOCK && !e->option[c->a]) t->source = EL_CLOCK_INTERNAL;
         break;
     case EL_CMD_RECORD_AREA:
         e->drums.recording = c->a == EL_AREA_BEAT && c->b;

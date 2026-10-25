@@ -184,14 +184,23 @@ int main(int argc, char **argv)
            fx_dist_mode_name(engine.fx.v[FX_DIST_MODE]),
            engine.fx.v[FX_DIST_SEND_BEAT] > 0 && engine.fx.v[FX_DIST_SEND_BASS] > 0 && engine.fx.v[FX_DIST_MODE] == DIST_TUBE ? "ok" : "FAIL");
 
-    hold(BTN_EDIT, 1);                /* HOME + EDIT + GLO: MIDI channel per area */
-    hold(BTN_GLO, 1);
-    turn(4, 3);                       /* STRINGS: CH 2 -> CH 5 */
-    turn(2, 20);                      /* BEAT: CH 10 -> OFF */
+    hold(BTN_HOME, 1);                /* HOME held + SAVE: OPTIONS */
+    tap_button(BTN_SAVE);
+    hold(BTN_HOME, 0);
+    int menu = ui.options && ui.overview;
+    turn(0, 2);                       /* SELECT: MIDI CH STRINGS */
+    turn(2, 3);                       /* CH 2 -> CH 5 */
+    turn(0, -2);                      /* MIDI CH BEAT */
+    turn(6, 20);                      /* PRESETS: CH 10 -> OFF */
+    turn(1, 6);                       /* ALGORITHM: OUTPUT LEVEL */
+    turn(3, -10);                     /* 127 -> 107 */
+    turn(0, 2);                       /* HELP LINE */
+    turn(4, -1);                      /* off */
     run(300);
-    shot(dir, "08c_home_midi");
-    hold(BTN_GLO, 0);
-    hold(BTN_EDIT, 0);
+    shot(dir, "08c_options");
+    menu = menu && ui.opt_item == 8 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107;
+    tap_button(BTN_HOME);             /* done: stored */
+    menu = menu && !ui.options && ui.overview;
     {
         const uint8_t on_new[3] = {0x94, 77, 100}, off_new[3] = {0x84, 77, 0}, on_old[3] = {0x91, 78, 100};
         int routed = engine.midi_channel[EL_AREA_STRINGS] == 4 && engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF;
@@ -204,13 +213,16 @@ int main(int argc, char **argv)
         routed = routed && engine.track[1].last_note == 77;
         static el_engine_t kept;
         el_init(&kept);
-        routed = routed && el_store_save(&engine) == 0 && el_store_load(&kept) == 0 &&
+        routed = routed && el_store_load(&kept) == 0 && kept.option[EL_OPT_OUT_LEVEL] == 107 && !kept.option[EL_OPT_HINTS] &&
                  kept.midi_channel[EL_AREA_STRINGS] == 4 && kept.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF &&
                  kept.midi_channel[EL_AREA_RHYTHM] == 0 && kept.midi_channel[EL_AREA_BASS] == 2;
-        printf("midi: STRINGS on CH %u, BEAT %s, routed and kept over restart %s\n", engine.midi_channel[EL_AREA_STRINGS] + 1u,
-               engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF ? "OFF" : "on", routed ? "ok" : "FAIL");
+        printf("options: menu, STRINGS on CH %u, BEAT %s, level %u, help off, routed and kept over restart %s\n",
+               engine.midi_channel[EL_AREA_STRINGS] + 1u, engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF ? "OFF" : "on",
+               engine.option[EL_OPT_OUT_LEVEL], menu && routed ? "ok" : "FAIL");
         el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_STRINGS, 1);   /* back to the defaults */
         el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_BEAT, 9);
+        el_post(&engine, EL_CMD_OPTION, EL_OPT_OUT_LEVEL, 127);
+        el_post(&engine, EL_CMD_OPTION, EL_OPT_HINTS, 1);
         run(50);
     }
 

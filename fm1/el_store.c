@@ -12,8 +12,8 @@
  * Version 15 has the layout of 14; the toms' knobs were reordered (see
  * old_tom_params). Version 16 has the layout of 14 too; up to 15 there were
  * 13 chord types instead of 8 (see st_chord_v15). Version 17 appends the
- * MIDI channel of each area. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 17, VERSION_16 = 16, VERSION_15 = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
+ * MIDI channel of each area, version 18 the OPTIONS settings. */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15, VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4 };
 
 typedef struct {
     st_pattern_t pattern[ST_PATTERNS];
@@ -38,7 +38,9 @@ typedef struct { FIELDS_V12 } payload_v12_t;
 typedef struct { uint8_t arp[ARP_PARAMS], bars, muted; uint16_t count; uint8_t loop[192][3]; } area_v13_t;
 typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
 typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_v16_t;   /* versions 14-16 */
-typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; uint8_t midi_channel[EL_AREAS]; } payload_t;
+#define FIELDS_V17 FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; uint8_t midi_channel[EL_AREAS];
+typedef struct { FIELDS_V17 } payload_v17_t;
+typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS]; } payload_t;
 /* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
  * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
  * of each old knob in the new order: */
@@ -46,6 +48,7 @@ static const uint8_t old_tom_params[7] = {4, 0, 2, 5, 6, 7, 8};
 #define V12_BYTES sizeof(payload_v12_t)
 #define V13_BYTES sizeof(payload_v13_t)
 #define V16_BYTES sizeof(payload_v16_t)
+#define V17_BYTES sizeof(payload_v17_t)
 
 typedef struct {
     uint32_t magic, sequence;
@@ -113,6 +116,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     if (!(record.version == VERSION && record.bytes == sizeof(payload_t)) &&
+        !(record.version == VERSION_17 && record.bytes == V17_BYTES) &&
         !(record.version >= VERSION_14 && record.version <= VERSION_16 && record.bytes == V16_BYTES) &&
         !(record.version == VERSION_13 && record.bytes == V13_BYTES) &&
         !(record.version == VERSION_12 && record.bytes == V12_BYTES)) return 0;
@@ -161,7 +165,13 @@ int el_store_load(el_engine_t *e)
     for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
-    m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
+    if (record.version >= VERSION) {   /* older records keep el_init's options */
+        for (unsigned i = 0; i < EL_OPTIONS; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, 127);
+        e->mix.enabled = e->option[EL_OPT_MASTER] ? 1 : 0;
+        e->master = e->option[EL_OPT_OUT_LEVEL] / 127.0f;
+    }
+    /* OPTIONS START: the first user slot instead of the last groove. */
+    m->current = m->next = (uint8_t)(e->option[EL_OPT_START] == EL_START_USER ? DR_STYLE_SLOTS : d->current % DR_PATTERNS);
     e->transport.swing = m->pattern[m->current].swing;
     m->muted = d->muted ? 1 : 0;
     el_transport_set_bpm(&e->transport, el_clampi(d->bpm_x10, 300, 3000) * 0.1f);
@@ -194,7 +204,7 @@ int el_store_load(el_engine_t *e)
     }
     for (unsigned p = 0; p < FX_PARAMS; ++p) e->fx.v[p] = (uint8_t)el_clampi(d->fx[p], 0, fx_param_max(p));
     if (record.version >= VERSION_13) load_areas(e, d, record.version);
-    if (record.version >= VERSION)   /* older records keep el_init's channels */
+    if (record.version >= VERSION_17)   /* older records keep el_init's channels */
         for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = (uint8_t)el_clampi(d->midi_channel[a], 0, EL_MIDI_OFF);
     return 0;
 }
@@ -232,6 +242,7 @@ int el_store_save(el_engine_t *e)
     memcpy(d->fx, e->fx.v, sizeof d->fx);
     for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);
     for (unsigned a = 0; a < EL_AREAS; ++a) d->midi_channel[a] = e->midi_channel[a];
+    for (unsigned i = 0; i < EL_OPTIONS; ++i) d->option[i] = e->option[i];
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
