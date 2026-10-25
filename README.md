@@ -38,11 +38,11 @@ Auf diesem Branch steckt die Arbeit am Sound:
 
 ## Variante „Vier Bereiche“ (Branch `bedienung-vier-bereiche`)
 
-Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer Clock laufen und gemeinsam das Pattern wechseln:
+Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer Clock laufen; jeder hat vier Pattern-Plätze A–D:
 
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
-| **BEAT** | FX | 808-Drum-Machine (10 Instrumente + ZAP + PULSE, 5 Kits inkl. PO-12; Toms/Congas tief und hoch) | 16 Patterns, bis 32 Steps, Akzent, Rolls, Swing |
+| **BEAT** | FX | 808-Drum-Machine (10 Instrumente + ZAP + PULSE, 5 Kits inkl. PO-12; Toms/Congas tief und hoch) | 4 Plätze (A–D), bis 32 Steps, Akzent, Rolls, Swing |
 | **RHYTHM** | SEL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds) | Noten-Steps mit Akzent und Tie |
 | **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 2 Takte (Standard 1 Takt), gehaltene Akkorde, pro Step Akkordtyp (m7, SUS2, MIN, 5+8, SUS4, 7TH, MAJ, m7b5 — dieselben acht wie in den Apps) und Umkehrung |
 | **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds) | Noten-Steps mit Akzent und Slide (Tie) |
@@ -71,6 +71,8 @@ Ein Noten-Looper (wie der Loop-Recorder der Apps, aber mit Noten statt Audio) is
 Grooves und Akkordfolgen sind Rekonstruktionen aus den typischen Merkmalen und aus Akkord-Sheets der Community, keine Transkriptionen der Platten. Der Bass bleibt als Ostinato auf dem Grundton, die Akkorde bewegen sich darüber. Dahinter liegen ein gemeinsames Delay (tempo-synchron, Ping-Pong) und ein Hall. Jeder Sound bringt seine eigenen Delay- und Hall-Anteile mit.
 
 ### Bedienung
+
+Eine Kurzanleitung zum Ausdrucken liegt in `docs/FM1-Electro-Anleitung.pdf` (neu bauen mit `python3 tools/make_manual.py`).
 
 Die Belegung folgt dem Bedienfeld des FM-1 (Lage laut der Workbench von FM1 Open, bestätigt durch ein Foto des Geräts):
 
