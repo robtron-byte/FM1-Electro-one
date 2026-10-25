@@ -322,12 +322,21 @@ static inline float biquad(const mks_biquad_t *c, float *z1, float *z2, float x)
 
 /* ---- chorus (MN3009 BBD, Chorus.swift) ----------------------------------- */
 
-static EL_DSP_CODE void chorus(mks_chorus_t *c, float *left, float *right, int frames, int enabled, float rate)
+/* CHORUS: OFF, FREE (CHO RATE, as on the MKS-50), and the Juno-60's
+ * buttons I, II and I+II with their fixed rates and depths. mode 0 = FREE. */
+static EL_DSP_CODE void chorus(mks_chorus_t *c, float *left, float *right, int frames, int enabled, int mode, float rate)
 {
     const float lp = 0.6802f; /* 1 - exp(-2 pi 8000 / 44100) */
-    float target = enabled ? 1.0f : 0.0f, inc = rate / EL_SAMPLE_RATE;
+    float hz, depth_seconds;
+    switch (mode) {
+    case 1: hz = 0.513f; depth_seconds = 0.00185f; break;
+    case 2: hz = 0.863f; depth_seconds = 0.00185f; break;
+    case 3: hz = 9.75f; depth_seconds = 0.0002f; break;
+    default: hz = rate; depth_seconds = 0.0019f - (rate < 8 ? rate : 8) * 0.0001f; break;
+    }
+    float target = enabled ? 1.0f : 0.0f, inc = hz / EL_SAMPLE_RATE;
     float center = 0.0035f * EL_SAMPLE_RATE;
-    float depth_target = (0.0019f - (rate < 8 ? rate : 8) * 0.0001f) * EL_SAMPLE_RATE;
+    float depth_target = depth_seconds * EL_SAMPLE_RATE;
     if (!enabled && c->mix < 0.0001f) return;
     for (int n = 0; n < frames; ++n) {
         float xl = left[n], xr = right[n];
@@ -717,7 +726,8 @@ EL_DSP_CODE void mks_render(mks_part_t *p, float *left, float *right, float *dly
     }
     float g = p->volume_smoothed * 0.5f * p->level;
     for (int i = 0; i < frames; ++i) { l[i] *= g; r[i] *= g; }
-    chorus(&p->chorus, l, r, frames, p->v[MP_CHORUS], curve_exp(curve_chorus, p->v[MP_CHORUS_RATE]));
+    chorus(&p->chorus, l, r, frames, p->v[MP_CHORUS] > 0, p->v[MP_CHORUS] > 0 ? p->v[MP_CHORUS] - 1 : 0,
+           curve_exp(curve_chorus, p->v[MP_CHORUS_RATE]));
     float ds = powf_fast(p->v[MP_DELAY_SEND] / 127.0f, 1.5f), rs = powf_fast(p->v[MP_REVERB_SEND] / 127.0f, 1.5f);
     float peak = 0;
     for (int i = 0; i < frames; ++i) {
@@ -734,7 +744,7 @@ EL_DSP_CODE void mks_render(mks_part_t *p, float *left, float *right, float *dly
 /* ---- display helpers ------------------------------------------------------- */
 
 static const uint8_t max_values[MP_COUNT] = {
-    3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 1, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    3, 3, 3, 3, 5, 5, 3, 3, 3, 3, 4, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
     127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 12,
     3, 127, 2, 127, 24, 127, 1, 127, 127, 127, 6, 1, 13, 1, 1, 127, 127, MKS_CHORDS - 1};
 
@@ -756,6 +766,7 @@ const char *mks_param_value_name(unsigned param, int value)
     static const char *const vca_modes[] = {"ENV", "GATE", "ENV-D", "GATE-D"};
     static const char *const ranges[] = {"4'", "8'", "16'", "32'"};
     static const char *const off_on[] = {"OFF", "ON"};
+    static const char *const chorus_modes[] = {"OFF", "FREE", "I", "II", "I+II"};
     static const char *const key_modes[] = {"POLY", "CHORD", "MONO", "UNISON"};
     static const char *const porta[] = {"OFF", "ON", "AUTO"};
     static const char *const waves[] = {"TRI", "SINE", "SAW UP", "SAW DN", "SQUARE", "S&H", "RANDOM"};
@@ -767,7 +778,8 @@ const char *mks_param_value_name(unsigned param, int value)
     case MP_DCO_ENV_MODE: case MP_VCF_ENV_MODE: return env_modes[value];
     case MP_VCA_ENV_MODE: return vca_modes[value];
     case MP_RANGE: return ranges[value];
-    case MP_CHORUS: case MP_PULSE_SYNC: case MP_LFO_SYNC: case MP_LFO_KEYSYNC: return off_on[value];
+    case MP_CHORUS: return chorus_modes[value];
+    case MP_PULSE_SYNC: case MP_LFO_SYNC: case MP_LFO_KEYSYNC: return off_on[value];
     case MP_KEY_MODE: return key_modes[value];
     case MP_PORTA: return porta[value];
     case MP_LFO_WAVE: return waves[value];

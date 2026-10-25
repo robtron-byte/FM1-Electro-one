@@ -70,6 +70,123 @@ static inline float gate_read(const int16_t *line, unsigned write, unsigned back
     return line[(write + FX_GATE_CAP - back) % FX_GATE_CAP] * (1.0f / 32767.0f);
 }
 
+/* ---- the big hall of the reverb throw ------------------------------------ */
+
+/* Dattorro's tank lengths (at 29761 Hz), scaled to the half rate and made
+ * twice as large: each half of the tank loops in about 0.7 s, a room with
+ * no walls in sight. */
+#define HOLE_SCALE (0.5f * EL_SAMPLE_RATE / 29761.0f * 2.0f)
+enum { HOLE_EXCURSION = 24 };   /* modulation of the first tank allpasses, samples */
+static const uint16_t hole_in_len[4] = {142, 107, 379, 277};
+static const uint16_t hole_tank[2][4] = {{672, 4453, 1800, 3720}, {908, 4217, 2656, 3163}};
+/* Output taps (Dattorro's table): tank, line (0 first delay, 1 second
+ * allpass, 2 second delay), samples back, sign; left then right. */
+static const int16_t hole_taps[2][7][4] = {
+    {{1, 0, 266, 1}, {1, 0, 2974, 1}, {1, 1, 1913, -1}, {1, 2, 1996, 1}, {0, 0, 1990, -1}, {0, 1, 187, -1}, {0, 2, 1066, -1}},
+    {{0, 0, 353, 1}, {0, 0, 3627, 1}, {0, 1, 1228, -1}, {0, 2, 2673, 1}, {1, 0, 2111, -1}, {1, 1, 335, -1}, {1, 2, 121, -1}}};
+
+static void hole_line(fx_line_t *l, uint32_t *off, float len)
+{
+    l->off = *off;
+    l->len = (uint32_t)len + 2u;
+    l->pos = 0;
+    *off += l->len;
+}
+
+void hole_init(fx_hole_t *h)
+{
+    memset(h, 0, sizeof *h);
+    uint32_t off = 0;
+    for (int i = 0; i < 4; ++i) hole_line(&h->in[i], &off, hole_in_len[i] * HOLE_SCALE);
+    for (int t = 0; t < 2; ++t) {
+        hole_line(&h->ap1[t], &off, hole_tank[t][0] * HOLE_SCALE + HOLE_EXCURSION + 2);
+        hole_line(&h->dl1[t], &off, hole_tank[t][1] * HOLE_SCALE);
+        hole_line(&h->ap2[t], &off, hole_tank[t][2] * HOLE_SCALE);
+        hole_line(&h->dl2[t], &off, hole_tank[t][3] * HOLE_SCALE);
+    }
+    if (off > FX_HOLE_CAP) memset(h, 0, sizeof *h);   /* never: the lines fit the buffers */
+}
+
+/* 16-bit lines at a quarter of full scale: room for the tank's peaks. */
+static inline float hole_get(const int16_t *m, const fx_line_t *l, float back)
+{
+    float p = (float)l->pos - back;
+    while (p < 0.0f) p += (float)l->len;
+    unsigned i = (unsigned)p;
+    float f = p - (float)i, a = m[l->off + i % l->len], b = m[l->off + (i + 1u) % l->len];
+    return (a + (b - a) * f) * (4.0f / 32767.0f);
+}
+
+static inline void hole_put(int16_t *m, fx_line_t *l, float x)
+{
+    m[l->off + l->pos] = (int16_t)(dsp_clamp(x * 0.25f, -1.0f, 1.0f) * 32767.0f);
+    l->pos = l->pos + 1u < l->len ? l->pos + 1u : 0u;
+}
+
+static inline float hole_allpass(int16_t *m, fx_line_t *l, float x, float g, float back)
+{
+    float d = hole_get(m, l, back), w = x + g * d;
+    hole_put(m, l, w);
+    return d - g * w;
+}
+
+static inline float hole_tap(const int16_t *m, const fx_hole_t *h, int t, int line, int back)
+{
+    const fx_line_t *l = line == 0 ? &h->dl1[t] : line == 1 ? &h->ap2[t] : &h->dl2[t];
+    return hole_get(m, l, (float)back * HOLE_SCALE);
+}
+
+EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *right, int frames)
+{
+    fx_hole_t *h = &fx->hole;
+    int16_t *m = fx->mem.hole;
+    /* RT60 about 22 s (the tank low-pass shortens it to around 12): per
+     * half-loop gain from the tank's loop time. */
+    float loop = 0;
+    for (int t = 0; t < 2; ++t) for (int k = 0; k < 4; ++k) loop += hole_tank[t][k] * HOLE_SCALE;
+    const float decay = dsp_exp2(-3.0f * 3.321928f * (loop / 2.0f) / (22.0f * 0.5f * EL_SAMPLE_RATE));
+    const float damp = 0.26f;   /* tank low-pass at the half rate: about 1.1 kHz, dark and warm */
+    for (int n = 0; n < frames; ++n) {
+        if (fx->throw_on) fx->throw_mix += (1.0f - fx->throw_mix) * 0.0045f;   /* 5 ms in */
+        else if ((fx->throw_mix *= 0.99987f) < 0.001f) fx->throw_mix = 0.0f;   /* let go: -60 dB in 1.2 s */
+        h->acc += fx->throw_on ? in[n] : 0.0f;
+        h->half ^= 1u;
+        if (!h->half) {
+            /* One step of the tank at half rate. */
+            float x = h->acc * 0.5f;
+            h->acc = 0;
+            static const float ig[4] = {0.75f, 0.75f, 0.625f, 0.625f};
+            for (int i = 0; i < 4; ++i) x = hole_allpass(m, &h->in[i], x, ig[i], (float)(h->in[i].len - 2u));
+            h->phase += 0.6f / (0.5f * EL_SAMPLE_RATE);
+            if (h->phase >= 1.0f) h->phase -= 1.0f;
+            for (int t = 0; t < 2; ++t) {
+                float lfo = dsp_sin(2.0f * DSP_PI * (h->phase + 0.25f * (float)t));
+                float a = x + h->feedback[1 - t] * decay;
+                float back = (float)(h->ap1[t].len - 2u) - HOLE_EXCURSION * (0.5f + 0.5f * lfo) - 1.0f;
+                a = hole_allpass(m, &h->ap1[t], a, -0.7f, back);
+                hole_put(m, &h->dl1[t], a);
+                float d = hole_get(m, &h->dl1[t], (float)(h->dl1[t].len - 2u));
+                h->lp[t] += (d - h->lp[t]) * damp;
+                d = hole_allpass(m, &h->ap2[t], h->lp[t] * decay, 0.5f, (float)(h->ap2[t].len - 2u));
+                hole_put(m, &h->dl2[t], d);
+                h->feedback[t] = hole_get(m, &h->dl2[t], (float)(h->dl2[t].len - 2u));
+            }
+            for (int s = 0; s < 2; ++s) {
+                float y = 0;
+                for (int k = 0; k < 7; ++k)
+                    y += hole_tap(m, h, hole_taps[s][k][0], hole_taps[s][k][1], hole_taps[s][k][2]) * (float)hole_taps[s][k][3];
+                h->prev[s] = h->out[s];
+                h->out[s] = y * 0.6f;
+            }
+        }
+        /* Back to the full rate: halfway between the last two outputs. */
+        float l = h->half ? 0.5f * (h->prev[0] + h->out[0]) : h->out[0];
+        float r = h->half ? 0.5f * (h->prev[1] + h->out[1]) : h->out[1];
+        left[n] += l * fx->throw_mix;
+        right[n] += r * fx->throw_mix;
+    }
+}
+
 EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, const float *gate,
                            float *left, float *right, int frames, float bpm)
 {
@@ -85,38 +202,37 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
     float size = v[FX_REVERB_SIZE] / 127.0f, scale = 0.35f + 0.95f * size;
     float t60 = 0.3f * dsp_exp2(5.32f * v[FX_REVERB_DECAY] / 127.0f);
     float rret = v[FX_REVERB_RETURN] / 127.0f, lengths[4], gains[4];
-    /* Reverb throw: the largest room, a 12 s tail, full return. */
-    int throwing = fx->throw_on || fx->throw_mix > 0.0f;
-    if (throwing) { size = 1.0f; scale = 1.3f; t60 = 12.0f; rret = 1.0f; }
     for (int i = 0; i < 4; ++i) {
         lengths[i] = dsp_min(base_lengths[i] * scale, FX_REVERB_CAP - 24.0f);
         gains[i] = dsp_exp2(-3.0f * 3.321928f * lengths[i] / (t60 * EL_SAMPLE_RATE));
     }
-    /* The throw is dark: its lines lose the highs fast (a warm, big room). */
-    float damp_hz = throwing ? 2200.0f : 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
+    float damp_hz = 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
     float damp = 1.0f - dsp_exp(-2.0f * DSP_PI * damp_hz / EL_SAMPLE_RATE);
     float diffusion = 0.55f + 0.17f * size, mod = 1.5f + 8.0f * size;
     unsigned dsize[2] = {(unsigned)(diff_lengths[0] * (0.5f + size)), (unsigned)(diff_lengths[1] * (0.5f + size))};
     int delay_on = dret > 0.0f, reverb_on = rret > 0.0f;
-    if (!fx->throw_on && fx->throw_mix <= 0.0f && fx->throw_clear) {
-        /* The throw is over: its tail goes, the normal hall starts clean. */
-        memset(fx->lines, 0, sizeof fx->lines);
-        memset(fx->diff, 0, sizeof fx->diff);
+    /* Reverb throw: the big hall owns the buffers while it sounds; delay,
+     * hall and gated reverb rest. The memory is cleared when it starts and
+     * when it has rung out, so both sides begin in silence. */
+    if (fx->throw_on && !fx->throw_clear) {
+        memset(&fx->mem, 0, sizeof fx->mem);
+        hole_init(&fx->hole);
+        fx->throw_mix = 0.0f;
+        fx->throw_clear = 1;
+    }
+    if (fx->throw_clear) {
+        if (fx->throw_on || fx->throw_mix > 0.0f) {
+            hole_render(fx, rev, left, right, frames);
+            return;
+        }
+        memset(&fx->mem, 0, sizeof fx->mem);
         fx->throw_clear = 0;
     }
-    if (fx->throw_on && !fx->throw_clear) {
-        /* A new throw starts in an empty hall: what the normal reverb left in
-         * the lines would smear into the larger room as a rumble. */
-        memset(fx->lines, 0, sizeof fx->lines);
-        memset(fx->diff, 0, sizeof fx->diff);
-        fx->throw_mix = 0.0f;
-    }
-    if (fx->throw_on) fx->throw_clear = 1;
 
     for (int n = 0; n < frames; ++n) {
         if (delay_on) {
             fx->time += (target - fx->time) * 0.0002f;
-            float yl = delay_read(fx->delay[0], fx->dw, fx->time), yr = delay_read(fx->delay[1], fx->dw, fx->time);
+            float yl = delay_read(fx->mem.b.delay[0], fx->dw, fx->time), yr = delay_read(fx->mem.b.delay[1], fx->dw, fx->time);
             /* Ping-pong: the input enters left, each side feeds the other.
              * The send is high-passed (about 200 Hz) to keep the echoes off
              * the kick and bass. */
@@ -129,8 +245,8 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             fx->acc[1] += fx->lp[1];
             fx->half ^= 1u;
             if (!fx->half) { /* every second frame: store the averaged pair */
-                fx->delay[0][fx->dw] = (int16_t)(dsp_clamp(fx->acc[0] * 0.5f, -1, 1) * 32767.0f);
-                fx->delay[1][fx->dw] = (int16_t)(dsp_clamp(fx->acc[1] * 0.5f, -1, 1) * 32767.0f);
+                fx->mem.b.delay[0][fx->dw] = (int16_t)(dsp_clamp(fx->acc[0] * 0.5f, -1, 1) * 32767.0f);
+                fx->mem.b.delay[1][fx->dw] = (int16_t)(dsp_clamp(fx->acc[1] * 0.5f, -1, 1) * 32767.0f);
                 fx->acc[0] = fx->acc[1] = 0;
                 fx->dw = (fx->dw + 1u) % FX_DELAY_CAP;
             }
@@ -142,9 +258,9 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             fx->rev_hp[0] += (rev[n] - fx->rev_hp[0]) * 0.0418f;
             float x = rev[n] - fx->rev_hp[0];
             for (int d = 0; d < 2; ++d) {
-                float delayed = fx->diff[d][(fx->fw - dsize[d]) & (FX_DIFF_CAP - 1)];
+                float delayed = fx->mem.b.diff[d][(fx->fw - dsize[d]) & (FX_DIFF_CAP - 1)];
                 float w = x + diffusion * delayed;
-                fx->diff[d][fx->fw & (FX_DIFF_CAP - 1)] = w;
+                fx->mem.b.diff[d][fx->fw & (FX_DIFF_CAP - 1)] = w;
                 x = delayed - diffusion * w;
             }
             float y[4], sum = 0;
@@ -156,26 +272,19 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 int k = (int)pos;
                 if ((float)k > pos) --k;
                 float frac = pos - (float)k;
-                float a = fx->lines[i][(unsigned)k & (FX_REVERB_CAP - 1)];
-                float b = fx->lines[i][(unsigned)(k + 1) & (FX_REVERB_CAP - 1)];
+                float a = fx->mem.b.lines[i][(unsigned)k & (FX_REVERB_CAP - 1)];
+                float b = fx->mem.b.lines[i][(unsigned)(k + 1) & (FX_REVERB_CAP - 1)];
                 fx->damp[i] += (a + (b - a) * frac - fx->damp[i]) * damp;
                 y[i] = fx->damp[i];
                 sum += y[i] * gains[i];
             }
             sum *= 0.5f; /* Householder: 2 / N */
             for (int i = 0; i < 4; ++i)
-                fx->lines[i][fx->rw & (FX_REVERB_CAP - 1)] = y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f);
+                fx->mem.b.lines[i][fx->rw & (FX_REVERB_CAP - 1)] = y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f);
             fx->rw = (fx->rw + 1u) & (FX_REVERB_CAP - 1);
             fx->fw = (fx->fw + 1u) & (FX_DIFF_CAP - 1);
-            float ret = rret;
-            if (throwing) {
-                /* 5 ms in on press; on release it rings out, -60 dB in 1.2 s. */
-                if (fx->throw_on) fx->throw_mix += (1.0f - fx->throw_mix) * 0.0045f;
-                else if ((fx->throw_mix *= 0.99987f) < 0.001f) fx->throw_mix = 0.0f;
-                ret = fx->throw_mix;
-            }
-            left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * ret;
-            right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * ret;
+            left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * rret;
+            right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * rret;
         }
         /* Gated reverb: diffused input at half rate, flat tap cluster. */
         fx->gate_hp[0] += (gate[n] - fx->gate_hp[0]) * 0.0418f;
@@ -192,10 +301,10 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 x = delayed - 0.6f * w;
             }
             fx->gfw = (fx->gfw + 1u) & 255u;
-            fx->gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
+            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
             float gl = 0, gr = 0;
             for (int t = 0; t < 15; ++t) {
-                float s = gate_read(fx->gate, fx->gw, gate_taps[t]) * gate_gains[t];
+                float s = gate_read(fx->mem.b.gate, fx->gw, gate_taps[t]) * gate_gains[t];
                 if (t & 1) gr += s; else gl += s;
             }
             fx->gw = (fx->gw + 1u) % FX_GATE_CAP;

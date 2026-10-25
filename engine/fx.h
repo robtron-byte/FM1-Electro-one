@@ -21,11 +21,29 @@ enum fx_param { FX_DELAY_DIV, FX_DELAY_FB, FX_DELAY_TONE, FX_DELAY_RETURN,
                 FX_DIST_MODE, FX_DIST_DRIVE, FX_DIST_TONE,
                 FX_DIST_SEND_BEAT, FX_DIST_SEND_RHYTHM, FX_DIST_SEND_STRINGS, FX_DIST_SEND_BASS, FX_PARAMS };
 
+/* The buffers of delay, hall and gated reverb. During a reverb throw
+ * (the punch-in) the whole area is the big hall's memory: all three are
+ * silent then, and it is cleared before and after. */
 typedef struct {
     int16_t delay[2][FX_DELAY_CAP];
     float lines[4][FX_REVERB_CAP];
     float diff[2][FX_DIFF_CAP];
     int16_t gate[FX_GATE_CAP];
+} fx_buffers_t;
+enum { FX_HOLE_CAP = sizeof(fx_buffers_t) / sizeof(int16_t) };
+typedef union { fx_buffers_t b; int16_t hole[FX_HOLE_CAP]; } fx_memory_t;
+
+/* The big hall of the reverb throw: Dattorro's figure-eight tank, made
+ * about 1.6 times larger, at half rate in 16 bit, slowly modulated. */
+typedef struct { uint32_t off, len, pos; } fx_line_t;
+typedef struct {
+    fx_line_t in[4], ap1[2], dl1[2], ap2[2], dl2[2];
+    float lp[2], feedback[2], phase, acc, prev[2], out[2];
+    uint8_t half;
+} fx_hole_t;
+
+typedef struct {
+    fx_memory_t mem;
     float gate_diff[2][256];
     uint8_t v[FX_PARAMS];
     unsigned dw, rw, fw;
@@ -38,6 +56,7 @@ typedef struct {
      * fades out quickly and the lines are cleared. */
     uint8_t throw_on, throw_clear;
     float throw_mix;
+    fx_hole_t hole;
     el_dist_t dist;
     float dist_r[EL_BLOCK];
 } el_fx_t;
@@ -52,6 +71,9 @@ const char *fx_dist_mode_name(int value);
 /* The distortion send: send (mono, frames <= EL_BLOCK) is distorted in
  * place and added to left/right. Skipped while all sends are at 0. */
 EL_DSP_CODE void fx_distortion(el_fx_t *fx, float *send, float *left, float *right, int frames);
+/* The big hall of the reverb throw (fx_render calls it while it sounds). */
+void hole_init(fx_hole_t *h);
+EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *right, int frames);
 EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, const float *gate,
                            float *left, float *right, int frames, float bpm);
 #endif
