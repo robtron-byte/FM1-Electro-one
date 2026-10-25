@@ -21,6 +21,8 @@ void el_init(el_engine_t *e)
     for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
+    static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
+    for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
 }
 
 /* Default sounds per area. */
@@ -118,20 +120,28 @@ int el_midi_input(el_engine_t *e, const uint8_t *m, size_t n)
     case 0xfa: cmd.type = EL_CMD_START; cmd.c = 1; break;
     case 0xfb: cmd.type = EL_CMD_CONTINUE; cmd.c = 1; break;
     case 0xfc: cmd.type = EL_CMD_STOP; break;
-    default:
-        if (n >= 3 && (m[0] & 0xf0u) == 0x90u && (m[0] & 15u) == 9u && m[2]) {
+    default: {
+        /* Multitimbral: each area on its own channel (EL_CMD_MIDI_CHANNEL). */
+        unsigned status = m[0] & 0xf0u, channel = m[0] & 15u;
+        if (n < 3 || (status != 0x90u && status != 0x80u)) return 0;
+        int pushed = 0, failed = 0;
+        if (status == 0x90u && m[2] && e->midi_channel[EL_AREA_BEAT] == channel) {
             int part = dr_note_part(m[1]);
-            if (part < 0) return 0;
-            cmd.type = EL_CMD_DRUM_HIT;
-            cmd.a = (uint8_t)part;
-            cmd.value = m[2];
-        } else if (n >= 3 && ((m[0] & 0xf0u) == 0x90u || (m[0] & 0xf0u) == 0x80u) && (m[0] & 15u) < EL_TRACKS) {
-            /* Multitimbral: channel 1 RHYTHM, 2 STRINGS, 3 BASS. */
-            cmd.type = EL_CMD_NOTE;
-            cmd.a = (uint8_t)(m[0] & 15u);
-            cmd.b = (uint8_t)(m[1] & 127u);
-            cmd.value = (m[0] & 0xf0u) == 0x90u ? (int16_t)(m[2] & 127u) : 0;
-        } else return 0;
+            if (part >= 0) {
+                el_cmd_t hit = {EL_CMD_DRUM_HIT, (uint8_t)part, 0, 0, m[2]};
+                failed |= el_queue_push(&e->midi_queue, hit) != 0;
+                pushed = 1;
+            }
+        }
+        for (unsigned t = 0; t < EL_TRACKS; ++t) {
+            if (e->midi_channel[t + 1u] != channel) continue;
+            el_cmd_t note = {EL_CMD_NOTE, (uint8_t)t, (uint8_t)(m[1] & 127u), 0,
+                             status == 0x90u ? (int16_t)(m[2] & 127u) : 0};
+            failed |= el_queue_push(&e->midi_queue, note) != 0;
+            pushed = 1;
+        }
+        return pushed && !failed;
+    }
     }
     return el_queue_push(&e->midi_queue, cmd) == 0;
 }
@@ -225,6 +235,9 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     switch (c->type) {
     case EL_CMD_FX:
         if (c->a < FX_PARAMS) e->fx.v[c->a] = (uint8_t)el_clampi(c->value, 0, fx_param_max(c->a));
+        break;
+    case EL_CMD_MIDI_CHANNEL:
+        if (c->a < EL_AREAS) e->midi_channel[c->a] = (uint8_t)el_clampi(c->value, 0, EL_MIDI_OFF);
         break;
     case EL_CMD_RECORD_AREA:
         e->drums.recording = c->a == EL_AREA_BEAT && c->b;

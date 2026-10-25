@@ -157,7 +157,10 @@ static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
     el_engine_t *e = ui->engine;
     unsigned param;
     int value;
-    if (ui->overview && (ui->hold & HOLD_EDIT)) {
+    if (ui->overview && (ui->hold & HOLD_EDIT) && (ui->hold & HOLD_GLO)) {
+        param = 400u + slot;                     /* MIDI channel per area */
+        value = e->midi_channel[slot];
+    } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
         param = 300u + slot;                     /* distortion sends per area */
         value = e->fx.v[FX_DIST_SEND_BEAT + slot];
     } else if (ui->overview) {
@@ -193,7 +196,15 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
     knob_t k = {0, 0, 0, 0, TEXT};
     unsigned param;
     k.value = raw_value(ui, slot, &param);
-    if (ui->overview && (ui->hold & HOLD_EDIT)) {
+    if (param >= 400u && ui->overview) {
+        static const char *const midi_names[4] = {"MIDI BEAT", "MIDI RHYT", "MIDI STRG", "MIDI BASS"};
+        static const char *const channels[EL_MIDI_OFF + 1] = {"CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "CH 7", "CH 8", "CH 9",
+                                                              "CH 10", "CH 11", "CH 12", "CH 13", "CH 14", "CH 15", "CH 16", "OFF"};
+        k.name = midi_names[slot];
+        k.max = EL_MIDI_OFF;
+        k.text = channels[el_clampi(k.value, 0, EL_MIDI_OFF)];
+        k.color = area_color[slot];
+    } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
         static const char *const send_names[4] = {"DST BEAT", "DST RHYT", "DST STRG", "DST BASS"};
         k.name = send_names[slot];
         k.max = 127;
@@ -242,7 +253,9 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
     int step = k.max > 16 ? delta * (delta > 1 || delta < -1 ? 2 : 1) : delta;
     int value = raw_value(ui, slot, &param) + step, r;
     value = el_clampi(value, param == PARAM_ARP + ARP_GATE ? 5 : 0, k.max);
-    if (ui->overview && param >= 300u) {
+    if (ui->overview && param >= 400u) {
+        r = el_post(e, EL_CMD_MIDI_CHANNEL, (uint8_t)slot, (int16_t)value);
+    } else if (ui->overview && param >= 300u) {
         r = el_post(e, EL_CMD_FX, (uint8_t)(FX_DIST_SEND_BEAT + slot), (int16_t)value);
     } else if (ui->overview) {
         if (param >= 200u)
@@ -751,8 +764,9 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     const int16_t *enc = c->encoders;
     const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM], presets = enc[ENC_PRESETS];
     int dist_page = ui->overview && (hold & HOLD_EDIT);
-    if (dist_page) {
-        /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone. */
+    if (dist_page && !(hold & HOLD_GLO)) {
+        /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone.
+         * HOME + EDIT + GLO: KNOB 1-4 MIDI channel per area, the other encoders rest. */
         const uint8_t *fv = e->fx.v;
         if (presets) el_post(e, EL_CMD_FX, FX_DIST_MODE, (int16_t)el_clampi(fv[FX_DIST_MODE] + (presets > 0 ? 1 : -1), 0, DIST_MODES - 1));
         if (algo) el_post(e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)el_clampi(fv[FX_DIST_DRIVE] + algo * 2, 0, 127));
@@ -1280,12 +1294,14 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (ui->save_pick && !hint) hint = ui->notice = "SAVE: KEY 1-8 OR SAVE AGAIN";
     char line[48];
     if (!hint) {
-        if (ui->overview && (ui->hold & HOLD_EDIT)) {
+        if (ui->overview && (ui->hold & HOLD_EDIT) && (ui->hold & HOLD_GLO)) {
+            hint = "MIDI CHANNEL PER AREA: KNOB 1-4";
+        } else if (ui->overview && (ui->hold & HOLD_EDIT)) {
             const uint8_t *fv = ui->engine->fx.v;
             snprintf(line, sizeof line, "PRESETS %s ALGO DRV %u SEL TONE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
                      fv[FX_DIST_DRIVE], fv[FX_DIST_TONE]);
             hint = line;
-        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX  PRESETS=DELAY ALGO=FINE BPM" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
+        } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX PRESETS=DLY ALGO=BPM EDIT=MIDI" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
             unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;

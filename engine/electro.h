@@ -43,11 +43,15 @@ enum el_command {
     EL_CMD_RECORD_AREA,  /* a = area 0 beat .. 3 bass, b = on; other areas disarm */
     EL_CMD_FX,           /* a = fx parameter, value */
     EL_CMD_MIX,          /* a = 1: mix and master processing on, 0: off (A/B) */
-    EL_CMD_SLOT_COPY     /* a = source slot, b = destination: drums and all synth
+    EL_CMD_SLOT_COPY,    /* a = source slot, b = destination: drums and all synth
                           * parts; c = 1 keeps the destination's name */
+    EL_CMD_MIDI_CHANNEL  /* a = area, value = channel 0..15 or EL_MIDI_OFF */
 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
+/* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
+ * Two areas on one channel both play. */
+enum { EL_MIDI_OFF = 16 };
 enum { EL_AREA_BEAT, EL_AREA_RHYTHM, EL_AREA_STRINGS, EL_AREA_BASS };
 
 typedef struct {
@@ -62,6 +66,7 @@ typedef struct {
     el_queue_t queue;       /* from the control task */
     el_queue_t midi_queue;  /* from the MIDI routing task */
     float master;
+    volatile uint8_t midi_channel[EL_AREAS];   /* read by the MIDI routing task */
     volatile uint32_t blocks;
     volatile uint32_t slot_copies;       /* bumps after every EL_CMD_SLOT_COPY */
 } el_engine_t;
@@ -93,7 +98,8 @@ typedef struct {
 } el_sound_t;
 int el_load_pattern(el_engine_t *e, unsigned track, unsigned slot, const st_pattern_t *p);
 /* MIDI routing task: its own queue, so the two tasks never share a producer
- * side. Handles clock, Start/Continue/Stop and drum notes on channel 10. */
+ * side. Handles clock, Start/Continue/Stop and the notes of each area on
+ * its channel (midi_channel; default drums 10, RHYTHM 1, STRINGS 2, BASS 3). */
 int el_midi_input(el_engine_t *e, const uint8_t *message, size_t bytes);
 /* Audio interrupt: fill frames of interleaved stereo signed Q23. */
 EL_DSP_CODE void el_render(el_engine_t *e, int32_t *output, unsigned frames);

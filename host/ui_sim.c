@@ -184,6 +184,36 @@ int main(int argc, char **argv)
            fx_dist_mode_name(engine.fx.v[FX_DIST_MODE]),
            engine.fx.v[FX_DIST_SEND_BEAT] > 0 && engine.fx.v[FX_DIST_SEND_BASS] > 0 && engine.fx.v[FX_DIST_MODE] == DIST_TUBE ? "ok" : "FAIL");
 
+    hold(BTN_EDIT, 1);                /* HOME + EDIT + GLO: MIDI channel per area */
+    hold(BTN_GLO, 1);
+    turn(4, 3);                       /* STRINGS: CH 2 -> CH 5 */
+    turn(2, 20);                      /* BEAT: CH 10 -> OFF */
+    run(300);
+    shot(dir, "08c_home_midi");
+    hold(BTN_GLO, 0);
+    hold(BTN_EDIT, 0);
+    {
+        const uint8_t on_new[3] = {0x94, 77, 100}, off_new[3] = {0x84, 77, 0}, on_old[3] = {0x91, 78, 100};
+        int routed = engine.midi_channel[EL_AREA_STRINGS] == 4 && engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF;
+        routed = routed && el_midi_input(&engine, on_new, 3) == 1;
+        run(50);
+        routed = routed && engine.track[1].last_note == 77;
+        routed = routed && el_midi_input(&engine, on_old, 3) == 0;   /* channel 2 now plays nothing */
+        el_midi_input(&engine, off_new, 3);
+        run(50);
+        routed = routed && engine.track[1].last_note == 77;
+        static el_engine_t kept;
+        el_init(&kept);
+        routed = routed && el_store_save(&engine) == 0 && el_store_load(&kept) == 0 &&
+                 kept.midi_channel[EL_AREA_STRINGS] == 4 && kept.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF &&
+                 kept.midi_channel[EL_AREA_RHYTHM] == 0 && kept.midi_channel[EL_AREA_BASS] == 2;
+        printf("midi: STRINGS on CH %u, BEAT %s, routed and kept over restart %s\n", engine.midi_channel[EL_AREA_STRINGS] + 1u,
+               engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF ? "OFF" : "on", routed ? "ok" : "FAIL");
+        el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_STRINGS, 1);   /* back to the defaults */
+        el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_BEAT, 9);
+        run(50);
+    }
+
     hold(BTN_ARP, 1);                 /* HOME + ARP + white key 3: new groove in slot 3 */
     tap_key(4);
     hold(BTN_ARP, 0);
