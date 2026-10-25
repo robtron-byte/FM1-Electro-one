@@ -355,15 +355,18 @@ static void melodic(st_step_t *s, unsigned style, unsigned density, uint32_t *r,
  *   song are approximations from community chord sheets; the rest follow
  *   the described harmonic language. ELECTRO: Detroit / Miami minor loops. */
 static const int8_t progressions[DR_HARMONIES][8][4][3] = {
-    { /* ROTHER */
-        {{0, 2, 2}, {0, 2, 2}, {1, 7, 2}, {0, 1, 2}},     /* phrygian drone */
-        {{0, 1, 2}, {8, 7, 2}, {3, 12, 2}, {10, 6, 2}},
+    { /* ROTHER: measured on the string / pad stems of DEKATRON: mostly
+       * three close voices (minor triads, some m7, sus, fifths, a diminished
+       * colour), a new chord about every bar, roots moving by tone, major
+       * third, semitone and fourth. */
+        {{0, 3, 1}, {0, 3, 1}, {1, 9, 1}, {0, 1, 1}},     /* phrygian drone: i i bII i7 */
+        {{0, 3, 1}, {8, 9, 1}, {3, 9, 1}, {10, 6, 1}},    /* i bVI bIII bVII7sus4 */
         {{0, 4, 1}, {0, 4, 1}, {1, 4, 1}, {10, 4, 1}},    /* power-fifth stab drone */
-        {{0, 2, 2}, {5, 2, 2}, {0, 2, 2}, {7, 1, 2}},     /* i - iv - i - v */
+        {{0, 3, 2}, {5, 3, 1}, {0, 3, 2}, {7, 1, 1}},     /* i - iv - i - v7 */
         {{0, 5, 1}, {10, 5, 1}, {8, 5, 1}, {7, 5, 1}},    /* parallel 4ths falling */
-        {{0, 1, 2}, {3, 7, 2}, {8, 7, 2}, {1, 9, 2}},
-        {{0, 10, 2}, {0, 1, 2}, {8, 11, 2}, {10, 10, 2}},
-        {{0, 2, 2}, {9, 8, 2}, {8, 7, 2}, {7, 6, 2}},
+        {{0, 3, 1}, {3, 9, 1}, {8, 9, 1}, {1, 9, 1}},
+        {{0, 10, 1}, {0, 3, 1}, {8, 9, 1}, {10, 10, 1}},  /* sus2 colour */
+        {{0, 3, 2}, {9, 8, 1}, {8, 9, 1}, {7, 6, 2}},     /* m7b5 shadow, as on Meta Me */
     },
     { /* KRAFT */
         {{0, 3, 1}, {7, 3, 1}, {0, 3, 1}, {7, 3, 1}},     /* The Model: i - v */
@@ -384,6 +387,19 @@ static const int8_t progressions[DR_HARMONIES][8][4][3] = {
         {{0, 1, 1}, {-2, 5, 1}, {-4, 5, 1}, {-2, 5, 1}},
         {{0, 2, 1}, {-4, 2, 1}, {3, 7, 1}, {-2, 6, 1}},
         {{0, 1, 1}, {0, 2, 1}, {5, 2, 1}, {-2, 6, 1}},
+    },
+    { /* EGYPT: measured on the pad stems of The Egyptian Lover's 1986:
+       * fifth-octave power voicings, major, dominant 7th and minor chords,
+       * a new chord every bar, roots moving by minor third, fourth and the
+       * tritone. Low register (C2 C3 G3). */
+        {{0, 4, 1}, {0, 4, 1}, {3, 4, 1}, {5, 4, 1}},     /* power: i i bIII iv */
+        {{0, 4, 1}, {5, 4, 1}, {0, 4, 1}, {-5, 4, 1}},    /* fourths */
+        {{0, 3, 1}, {3, 9, 1}, {5, 13, 1}, {0, 3, 1}},    /* i bIII IV7 i */
+        {{0, 9, 1}, {-6, 4, 1}, {0, 9, 1}, {3, 4, 1}},    /* tritone swing */
+        {{0, 13, 1}, {3, 13, 1}, {5, 13, 1}, {3, 13, 1}}, /* dominant 7ths */
+        {{0, 4, 1}, {3, 4, 1}, {-2, 4, 1}, {0, 13, 1}},
+        {{0, 3, 1}, {0, 4, 1}, {-2, 9, 1}, {-4, 9, 1}},
+        {{0, 4, 2}, {3, 4, 1}, {5, 13, 1}, {-3, 4, 1}},
     },
 };
 
@@ -464,7 +480,9 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
                  unsigned harmony)
 {
     uint32_t r = seed ? seed : 0x2545f491u;
-    int root = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : (style == 2 ? 72 : 60);
+    /* Strings: Rother's pads sit about a fifth higher (lowest note E3-C4). */
+    int strings_root = harmony == DR_HARMONY_ROTHER ? 57 : 48;
+    int root = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? strings_root : (style == 2 ? 72 : 60);
     memset(out, 0, sizeof *out);
     out->length = (uint8_t)el_clampi((int)length, 1, ST_STEPS);
     out->gate = area == MKS_AREA_STRINGS ? 90 : area == MKS_AREA_BASS ? 55 : 40;

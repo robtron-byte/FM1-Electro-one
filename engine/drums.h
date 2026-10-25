@@ -56,7 +56,7 @@ enum dr_command {
 };
 
 /* Harmony family of a style: chord progressions for the strings. */
-enum { DR_HARMONY_ROTHER, DR_HARMONY_KRAFT, DR_HARMONY_ELECTRO, DR_HARMONIES };
+enum { DR_HARMONY_ROTHER, DR_HARMONY_KRAFT, DR_HARMONY_ELECTRO, DR_HARMONY_EGYPT, DR_HARMONIES };
 
 typedef struct {
     const char *name;

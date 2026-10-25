@@ -72,7 +72,7 @@ extern const char *const st_rate_names[ST_RATES];
 enum { ST_STYLES = 5, ST_STRING_STYLES = 4 };
 unsigned st_styles(unsigned area);
 const char *st_style_name(unsigned area, unsigned style);
-/* harmony: DR_HARMONY_ROTHER / _KRAFT / _ELECTRO (strings chord family). */
+/* harmony: DR_HARMONY_ROTHER / _KRAFT / _ELECTRO / _EGYPT (strings chord family). */
 void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
                  unsigned harmony);
 #endif
