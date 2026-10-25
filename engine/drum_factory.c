@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Style-based groove generation. Nothing here is a fixed pattern: every
  * style lists typical alternatives per instrument (classic electro,
- * Kraftwerk, Miami bass, Egyptian Lover and Anthony Rother idioms) and the
- * generator picks and varies them, so each run gives a new groove that
- * stays in the style. The song styles are reconstructions from tempos and
+ * Kraftwerk, Miami bass, Egyptian Lover, DJ Reckless and Anthony Rother
+ * idioms) and the generator picks and varies them, so each run gives a new
+ * groove that stays in the style. The song styles are reconstructions from tempos and
  * descriptions, not transcriptions. Control task only: tables in Flash.
  * Tempos from published analyses (Tunebat, Beatsource, GetSongBPM; 2009
  * remasters): Numbers ~130, Computer World 129, Computer Love 125,
@@ -54,11 +54,18 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "x.....x...x.....|x......x..x.....", 0, 0, 0, "....x.......x...|",
         "....x.......x...", 0, 0, "..x...........x.",
         "x..xx.xxx.xxx..x", 0, "|..x...x...x...x.", "x...x.......x..."}},
-    {"MIAMI 2", 1250, 50, KMIAMI, 32, 2, 0, 1, DR_HARMONY_ELECTRO, {
-        "x.....x.x.....x.x.....x...x.x...|x.....x.x.....x.x.....x.x...x...",
-        "....x.......x.......x.......x..x", 0, 0, 0,
-        "....x.......x.......x.......x...", "...x.....x.....x...x.....x......|", 0, 0,
-        "x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.", 0, "|...x.......x.......x.......x....", "x.......x.......x..............."}},
+    /* RECKLESS: measured on DJ Reckless' Reckless & der Bassklan (stems
+     * separated with Demucs): German Miami bass at ~124 BPM, straight; kick
+     * on 1 and 7 with pushes on 11-15, clap on the backbeat with snare
+     * fills, closed 16ths that leave the backbeat free, 808 bass mostly on
+     * the root, octave and fifth stabs. */
+    {"RECKLESS", 1245, 50, KMIAMI, 32, 2, 0, 4, DR_HARMONY_EGYPT, {
+        "x.....x...x...x.x.....x...x..xx.|x...x.x...x.x.x.x...x.x...x.xx..|x.....x.x.......x.....x...x.x.x.|"
+        "x......x..xx..x.x.....xx.....x..|x.x...x...x.xxx.x.....x...x...x.|x.......x...x...x.......x...x.x.",
+        "....x.......x.......x.......x...|....x.......x.......x.....x.x.xx|....x.x.....x.......x.x.....x..x", 0, 0, 0,
+        "....x.......x.......x.......x...", "...x.....x.....x...x.....x......|", 0, "|..............x...............x.",
+        "xxxx..xxxxxx..xxxxxx..xxxxxx..xx|xxxx.xxxxxxx.xxxxxxx.xxxxxxx.xxx|x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.", 0,
+        "|...x.......x.......x.......x....", "x...x.......x...x...x.......x..."}},
     {"BOOM BASS", 1360, 50, KMIAMI, 16, 2, 1, 1, DR_HARMONY_ELECTRO, {
         "x......x..x.....|x.........x.....", 0, 0, 0, 0,
         "....x.......x...", 0, 0, "..x...x...x...x.",
