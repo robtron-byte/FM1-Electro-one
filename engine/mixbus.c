@@ -42,6 +42,15 @@ static inline float comp_gain(mb_comp_t *c, float level)
     return dsp_exp2(-reduce / 6.0206f) * c->makeup;
 }
 
+void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db)
+{
+    mb_comp_t *c = &mb->master_comp;
+    float env = c->env_db, gain = c->gain_db;
+    comp_set(c, threshold_db, ratio < 1.0f ? 1.0f : ratio, attack_ms, release_ms, c->knee_db, makeup_db);
+    c->env_db = env;
+    c->gain_db = gain;
+}
+
 static void bq_shelf(mb_biquad_t *b, float hz, float gain_db, int high)
 {
     float a = dsp_exp2(gain_db / 40.0f * 3.321928f), w = 2 * DSP_PI * hz / EL_SAMPLE_RATE;

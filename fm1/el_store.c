@@ -12,8 +12,10 @@
  * the branch "looper"; only its arpeggiator settings are taken); 14 the
  * arpeggiator settings; 15 toms' knobs reordered (old_tom_params); 16 eight
  * chord types instead of 13 (st_chord_v15); 17 MIDI channel per area; 18
- * OPTIONS; 19 four slots per area, each area with its own current slot. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * OPTIONS; 19 four slots per area, each area with its own current slot; 20
+ * the master compressor settings in OPTIONS (the same layout as 19, which
+ * left those bytes zero). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -137,7 +139,7 @@ static uint32_t read_valid(unsigned which)
 {
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
-    if (!(record.version == VERSION && record.bytes == sizeof(payload_t)) &&
+    if (!(record.version >= VERSION_19 && record.version <= VERSION && record.bytes == sizeof(payload_t)) &&
         !(record.version == VERSION_18 && record.bytes == V18_BYTES) &&
         !(record.version == VERSION_17 && record.bytes == V17_BYTES) &&
         !(record.version >= VERSION_14 && record.version <= VERSION_16 && record.bytes == V16_BYTES) &&
@@ -152,7 +154,7 @@ static uint32_t read_valid(unsigned which)
 static const payload_t *upgrade(void)
 {
     unsigned version = record.version;
-    if (version == VERSION) return &record.data;
+    if (version >= VERSION_19) return &record.data;
     const payload_v12_t *o = (const payload_v12_t *)(const void *)&record.data;
     payload_t *d = &upgraded;
     memset(d, 0, sizeof *d);
@@ -220,7 +222,11 @@ int el_store_load(el_engine_t *e)
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
     if (version >= VERSION_18) {   /* older records keep el_init's options */
-        for (unsigned i = 0; i < EL_OPTIONS; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, 127);
+        /* Before version 20 only the first options existed; the compressor
+         * keeps el_init's settings. */
+        unsigned count = version >= VERSION ? EL_OPTIONS : EL_OPT_COMP_THRESHOLD;
+        for (unsigned i = 0; i < count; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, el_option_max(i));
+        el_apply_comp(e);
         e->mix.enabled = e->option[EL_OPT_MASTER] ? 1 : 0;
         e->master = e->option[EL_OPT_OUT_LEVEL] / 127.0f;
     }

@@ -28,6 +28,38 @@ void el_init(el_engine_t *e)
     e->option[EL_OPT_OUT_LEVEL] = 127;
     e->option[EL_OPT_START] = EL_START_LAST;
     e->option[EL_OPT_HINTS] = 1;
+    /* The master compressor as it always was: -14 dB, 1.8:1, 25 / 220 ms, +4.5 dB. */
+    e->option[EL_OPT_COMP_THRESHOLD] = 14;
+    e->option[EL_OPT_COMP_RATIO] = 2;
+    e->option[EL_OPT_COMP_ATTACK] = 4;
+    e->option[EL_OPT_COMP_RELEASE] = 3;
+    e->option[EL_OPT_COMP_MAKEUP] = 9;
+    el_apply_comp(e);
+}
+
+const float el_comp_ratios[EL_COMP_RATIOS] = {1.0f, 1.4f, 1.8f, 2.0f, 3.0f, 4.0f, 6.0f, 10.0f};
+const uint16_t el_comp_attacks[EL_COMP_ATTACKS] = {1, 3, 5, 10, 25, 50, 80, 120};
+const uint16_t el_comp_releases[EL_COMP_RELEASES] = {50, 100, 150, 220, 300, 500, 800, 1200};
+
+int el_option_max(unsigned option)
+{
+    switch (option) {
+    case EL_OPT_OUT_LEVEL: return 127;
+    case EL_OPT_COMP_THRESHOLD: return 30;
+    case EL_OPT_COMP_RATIO: return EL_COMP_RATIOS - 1;
+    case EL_OPT_COMP_ATTACK: return EL_COMP_ATTACKS - 1;
+    case EL_OPT_COMP_RELEASE: return EL_COMP_RELEASES - 1;
+    case EL_OPT_COMP_MAKEUP: return 24;
+    default: return 1;
+    }
+}
+
+void el_apply_comp(el_engine_t *e)
+{
+    const volatile uint8_t *o = e->option;
+    mb_master_comp(&e->mix, -(float)o[EL_OPT_COMP_THRESHOLD], el_comp_ratios[o[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS],
+                   el_comp_attacks[o[EL_OPT_COMP_ATTACK] % EL_COMP_ATTACKS], el_comp_releases[o[EL_OPT_COMP_RELEASE] % EL_COMP_RELEASES],
+                   0.5f * o[EL_OPT_COMP_MAKEUP]);
 }
 
 /* Default sounds per area. */
@@ -244,7 +276,8 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_OPTION:
         if (c->a >= EL_OPTIONS) break;
-        e->option[c->a] = (uint8_t)el_clampi(c->value, 0, 127);
+        e->option[c->a] = (uint8_t)el_clampi(c->value, 0, el_option_max(c->a));
+        if (c->a >= EL_OPT_COMP_THRESHOLD && c->a <= EL_OPT_COMP_MAKEUP) el_apply_comp(e);
         if (c->a == EL_OPT_MASTER) e->mix.enabled = e->option[c->a] ? 1 : 0;
         if (c->a == EL_OPT_OUT_LEVEL) e->master = e->option[c->a] / 127.0f;
         if (c->a == EL_OPT_MIDI_CLOCK && !e->option[c->a]) t->source = EL_CLOCK_INTERNAL;

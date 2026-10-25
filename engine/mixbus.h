@@ -36,6 +36,8 @@ typedef struct {
 } el_mixbus_t;
 
 void mb_init(el_mixbus_t *mb);
+/* Master compressor settings (the detector keeps running). ratio 1 = off. */
+void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db);
 /* kick: mono kick signal (sidechain). drums / bass / synth: stereo buses.
  * Writes the finished stereo mix to out_l/out_r (fx returns already added
  * by the caller into synth). */

@@ -192,13 +192,22 @@ int main(int argc, char **argv)
     turn(2, 3);                       /* CH 2 -> CH 5 */
     turn(0, -2);                      /* MIDI CH BEAT */
     turn(6, 20);                      /* PRESETS: CH 10 -> OFF */
-    turn(1, 6);                       /* ALGORITHM: OUTPUT LEVEL */
+    turn(1, 6);                       /* ALGORITHM: COMP THRESHOLD */
+    turn(2, 6);                       /* -14 -> -20 dB */
+    turn(0, 1);                       /* COMP RATIO */
+    turn(2, 3);                       /* 1.8:1 -> 4:1 */
+    turn(1, 4);                       /* OUTPUT LEVEL */
     turn(3, -10);                     /* 127 -> 107 */
     turn(0, 2);                       /* HELP LINE */
+    run(1500);                        /* the groove plays: the compressor works */
+    int compressing = engine.mix.gain_reduction_db < 0.0f;
     turn(4, -1);                      /* off */
     run(300);
     shot(dir, "08c_options");
-    menu = menu && ui.opt_item == 8 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107;
+    menu = menu && ui.opt_item == 13 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107 &&
+           engine.mix.master_comp.threshold_db == -20.0f && engine.mix.master_comp.ratio == 4.0f && compressing;
+    printf("comp: threshold %.0f dB, ratio %.1f:1, gain reduction %.1f dB %s\n", engine.mix.master_comp.threshold_db,
+           engine.mix.master_comp.ratio, engine.mix.gain_reduction_db, menu ? "ok" : "FAIL");
     tap_button(BTN_HOME);             /* done: stored */
     menu = menu && !ui.options && ui.overview;
     {
@@ -214,6 +223,7 @@ int main(int argc, char **argv)
         static el_engine_t kept;
         el_init(&kept);
         routed = routed && el_store_load(&kept) == 0 && kept.option[EL_OPT_OUT_LEVEL] == 107 && !kept.option[EL_OPT_HINTS] &&
+                 kept.mix.master_comp.threshold_db == -20.0f && kept.mix.master_comp.ratio == 4.0f &&
                  kept.midi_channel[EL_AREA_STRINGS] == 4 && kept.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF &&
                  kept.midi_channel[EL_AREA_RHYTHM] == 0 && kept.midi_channel[EL_AREA_BASS] == 2;
         printf("options: menu, STRINGS on CH %u, BEAT %s, level %u, help off, routed and kept over restart %s\n",
@@ -223,6 +233,8 @@ int main(int argc, char **argv)
         el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_BEAT, 9);
         el_post(&engine, EL_CMD_OPTION, EL_OPT_OUT_LEVEL, 127);
         el_post(&engine, EL_CMD_OPTION, EL_OPT_HINTS, 1);
+        el_post(&engine, EL_CMD_OPTION, EL_OPT_COMP_THRESHOLD, 14);
+        el_post(&engine, EL_CMD_OPTION, EL_OPT_COMP_RATIO, 2);
         run(50);
     }
 

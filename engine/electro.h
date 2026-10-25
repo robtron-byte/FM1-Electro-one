@@ -59,8 +59,19 @@ enum {
     EL_OPT_OUT_LEVEL,   /* 0..127 output level (127 = full) */
     EL_OPT_START,       /* EL_START_*: slots at power-on (where they were, or A) */
     EL_OPT_HINTS,       /* 1: help line at the bottom of the screen */
+    /* Master compressor (in the MASTER FX chain, before saturation and limiter). */
+    EL_OPT_COMP_THRESHOLD,  /* 0..30: threshold -0 .. -30 dB */
+    EL_OPT_COMP_RATIO,      /* index into el_comp_ratios */
+    EL_OPT_COMP_ATTACK,     /* index into el_comp_attacks (ms) */
+    EL_OPT_COMP_RELEASE,    /* index into el_comp_releases (ms) */
+    EL_OPT_COMP_MAKEUP,     /* 0..24: makeup 0 .. +12 dB in half dB */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
+enum { EL_COMP_RATIOS = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };
+extern const float el_comp_ratios[EL_COMP_RATIOS];
+extern const uint16_t el_comp_attacks[EL_COMP_ATTACKS], el_comp_releases[EL_COMP_RELEASES];
+/* Largest value of an option. */
+int el_option_max(unsigned option);
 enum { EL_START_LAST, EL_START_SLOT_A };
 enum { EL_AREA_BEAT, EL_AREA_RHYTHM, EL_AREA_STRINGS, EL_AREA_BASS };
 
@@ -83,6 +94,8 @@ typedef struct {
 
 /* Control task, before audio starts. */
 void el_init(el_engine_t *e);
+/* Audio side or before audio starts: the master compressor from the options. */
+void el_apply_comp(el_engine_t *e);
 /* Control task, before audio starts: generate every style slot (drums and
  * the three synth parts, in the style's harmony) and load the default
  * sounds. User slots are left alone. */

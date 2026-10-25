@@ -55,6 +55,7 @@
  *   (or HOME, SEQ) leaves it. */
 #include "el_ui.h"
 #include "el_editor.h"
+#include "dsp_math.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -674,17 +675,22 @@ static void toggle_arp(el_ui_t *ui, int hold)
 
 /* ---- OPTIONS (HOME + SAVE): settings made once ----------------------------- */
 
-enum { OPT_MIDI_BEAT, OPT_MIDI_BASS = OPT_MIDI_BEAT + 3, OPT_CLOCK, OPT_MASTER, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
+enum { OPT_MIDI_BEAT, OPT_MIDI_BASS = OPT_MIDI_BEAT + 3, OPT_CLOCK, OPT_MASTER, OPT_THRESHOLD, OPT_RATIO, OPT_ATTACK,
+       OPT_RELEASE, OPT_MAKEUP, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
 static const char *const opt_names[OPT_ITEMS] = {"MIDI CH BEAT", "MIDI CH RHYTHM", "MIDI CH STRINGS", "MIDI CH BASS",
-                                                 "MIDI CLOCK", "MASTER FX", "OUTPUT LEVEL", "POWER-ON", "HELP LINE"};
+                                                 "MIDI CLOCK", "MASTER FX", "  COMP THRESHOLD", "  COMP RATIO", "  COMP ATTACK",
+                                                 "  COMP RELEASE", "  COMP MAKEUP", "OUTPUT LEVEL", "POWER-ON", "HELP LINE"};
+/* Engine option behind each menu line (the MIDI lines use midi_channel). */
+static const uint8_t opt_option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_COMP_THRESHOLD, EL_OPT_COMP_RATIO,
+                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_OUT_LEVEL,
+                                              EL_OPT_START, EL_OPT_HINTS};
 
 static int opt_value(const el_ui_t *ui, unsigned item, int *max)
 {
     const el_engine_t *e = ui->engine;
-    static const uint8_t option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_OUT_LEVEL, EL_OPT_START, EL_OPT_HINTS};
     if (item <= OPT_MIDI_BASS) { *max = EL_MIDI_OFF; return e->midi_channel[item - OPT_MIDI_BEAT]; }
-    *max = item == OPT_LEVEL ? 127 : 1;
-    return e->option[option[item]];
+    *max = el_option_max(opt_option[item]);
+    return e->option[opt_option[item]];
 }
 
 static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
@@ -694,6 +700,16 @@ static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
     else if (item == OPT_CLOCK) snprintf(out, size, v ? "FOLLOW" : "IGNORE");
     else if (item == OPT_START) snprintf(out, size, v == EL_START_SLOT_A ? "SLOTS A" : "LAST");
     else if (item == OPT_LEVEL) snprintf(out, size, "%d", v);
+    else if (item == OPT_THRESHOLD) snprintf(out, size, "-%d DB", v);
+    else if (item == OPT_RATIO) {
+        int r10 = (int)(el_comp_ratios[v % EL_COMP_RATIOS] * 10.0f + 0.5f);
+        if (r10 == 10) snprintf(out, size, "OFF (1:1)");
+        else if (r10 % 10) snprintf(out, size, "%d.%d:1", r10 / 10, r10 % 10);
+        else snprintf(out, size, "%d:1", r10 / 10);
+    }
+    else if (item == OPT_ATTACK) snprintf(out, size, "%u MS", el_comp_attacks[v % EL_COMP_ATTACKS]);
+    else if (item == OPT_RELEASE) snprintf(out, size, "%u MS", el_comp_releases[v % EL_COMP_RELEASES]);
+    else if (item == OPT_MAKEUP) snprintf(out, size, "+%d.%d DB", v / 2, v % 2 ? 5 : 0);
     else snprintf(out, size, v ? "ON" : "OFF");
 }
 
@@ -713,10 +729,9 @@ static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pr
     if (!turn) return;
     unsigned item = ui->opt_item;
     int max, v = opt_value(ui, item, &max);
-    v = el_clampi(v + (max > 16 ? turn * 2 : turn), 0, max);
-    static const uint8_t option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_OUT_LEVEL, EL_OPT_START, EL_OPT_HINTS};
+    v = el_clampi(v + (max > 32 ? turn * 2 : turn), 0, max);
     if (item <= OPT_MIDI_BASS) el_post(e, EL_CMD_MIDI_CHANNEL, (uint8_t)(item - OPT_MIDI_BEAT), (int16_t)v);
-    else el_post(e, EL_CMD_OPTION, option[item], (int16_t)v);
+    else el_post(e, EL_CMD_OPTION, opt_option[item], (int16_t)v);
 }
 
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
@@ -990,6 +1005,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     if (ui->options) {
         for (unsigned i = 0; i < EL_AREAS; ++i) mix(&sig[1], e->midi_channel[i]);
         for (unsigned i = 0; i < EL_OPTIONS; ++i) mix(&sig[1], e->option[i] | i << 8);
+        mix(&sig[1], (uint32_t)(int)(-e->mix.gain_reduction_db * 6.0f));
     }
     mix(&sig[1], (uint32_t)(playing ? m->pos : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
@@ -1281,14 +1297,22 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
 /* OPTIONS: one line per setting, the chosen one highlighted. */
 static void draw_options(el_ui_t *ui, gfx_band_t *b)
 {
-    if (gfx_touches(b, 36, 10)) gfx_text(b, 4, 36, "OPTIONS", AMBER, 1);
+    if (gfx_touches(b, 34, 10)) {
+        gfx_text(b, 4, 34, "OPTIONS", AMBER, 1);
+        /* Master compressor gain reduction, 0 .. -12 dB. */
+        float gr = ui->engine->mix.enabled ? -ui->engine->mix.gain_reduction_db : 0.0f;
+        int w = (int)(dsp_min(gr, 12.0f) * 6.0f);
+        gfx_text(b, 100, 34, "COMP GR", DIM, 1);
+        gfx_fill(b, 150, 35, 72, 6, GRID);
+        if (w > 0) gfx_fill(b, 222 - w, 35, w, 6, AMBER);
+    }
     for (unsigned i = 0; i < OPT_ITEMS; ++i) {
-        int y = 50 + (int)i * 15;
-        if (!gfx_touches(b, y - 2, 14)) continue;
+        int y = 46 + (int)i * 10;
+        if (!gfx_touches(b, y - 1, 10)) continue;
         int on = i == ui->opt_item;
         char value[16];
         opt_text(ui, i, value, sizeof value);
-        if (on) gfx_fill(b, 0, y - 2, GFX_W, 13, PANEL);
+        if (on) gfx_fill(b, 0, y - 1, GFX_W, 10, PANEL);
         uint16_t c = i <= OPT_MIDI_BASS ? area_color[i] : TEXT;
         gfx_text(b, 6, y, opt_names[i], on ? c : DIM, 1);
         gfx_text(b, 150, y, value, on ? ACCENT : TEXT, 1);
