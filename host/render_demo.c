@@ -160,12 +160,56 @@ static int render_slot(el_engine_t *e, unsigned number, const char *dir, const c
     return 0;
 }
 
+/* Punch-in effects: stutter gates the mix in 16ths; the reverb throw
+ * mutes the dry mix and leaves a long hall tail that goes on release. */
+static int punch_test(const char *dir)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 12 * 2];
+    const unsigned total = FM1_SAMPLE_RATE * 12 / EL_BLOCK * EL_BLOCK;
+    el_init(&e);
+    el_post(&e, EL_CMD_BPM, 0, 1200);   /* a 16th = 5512.5 frames */
+    el_post(&e, EL_CMD_START, 0, 0);
+    /* 0-2 s plain, 2-4 s stutter, 4-6 s plain, 6-9 s throw, 9-12 s plain. */
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
+        double t = (double)pos / FM1_SAMPLE_RATE;
+        if (pos == 2u * FM1_SAMPLE_RATE / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_STUTTER, 1, 0, 0);
+        if (pos == 4u * FM1_SAMPLE_RATE / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_STUTTER, 0, 0, 0);
+        if (pos == 6u * FM1_SAMPLE_RATE / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 1, 0, 0);
+        if (pos == 9u * FM1_SAMPLE_RATE / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 0, 0, 0);
+        (void)t;
+        el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    }
+    char path[512];
+    snprintf(path, sizeof path, "%s/punch_stutter_throw.wav", dir);
+    write_wav(path, out, total);
+    /* Stutter: second halves of the 16ths (from 2.2 s on) near silent. */
+    double open = 0, shut = 0, sixteenth = FM1_SAMPLE_RATE * 15.0 / 120.0;
+    for (unsigned i = (unsigned)(2.2 * FM1_SAMPLE_RATE); i < 4u * FM1_SAMPLE_RATE; ++i) {
+        double ph = fmod((double)i, sixteenth) / sixteenth, x = out[2 * i] * out[2 * i];
+        if (ph > 0.05 && ph < 0.45) open += x; else if (ph > 0.55 && ph < 0.95) shut += x;
+    }
+    double gate_db = 10 * log10((shut + 1e-12) / (open + 1e-12));
+    /* Throw: level 1-3 s after the press (only the hall) against the groove
+     * before, and 0.3-1 s after release back to normal. */
+    double before = 0, tail = 0, after = 0, normal = 0;
+    for (unsigned i = 4u * FM1_SAMPLE_RATE; i < 6u * FM1_SAMPLE_RATE; ++i) before += out[2 * i] * out[2 * i];
+    for (unsigned i = 7u * FM1_SAMPLE_RATE; i < 9u * FM1_SAMPLE_RATE; ++i) tail += out[2 * i] * out[2 * i];
+    for (unsigned i = (unsigned)(9.3 * FM1_SAMPLE_RATE); i < (unsigned)(11.3 * FM1_SAMPLE_RATE); ++i) after += out[2 * i] * out[2 * i];
+    for (unsigned i = 0; i < 2u * FM1_SAMPLE_RATE; ++i) normal += out[2 * i] * out[2 * i];
+    double tail_db = 10 * log10((tail + 1e-12) / (before + 1e-12)), back_db = 10 * log10((after + 1e-12) / (normal + 1e-12));
+    int ok = gate_db < -25 && tail_db > -30 && tail_db < -3 && fabs(back_db) < 3;
+    printf("punch: stutter closed halves %.1f dB, throw tail %.1f dB, after release %+.1f dB: %s\n", gate_db, tail_db, back_db,
+           ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test();
+    int failed = timing_test() | midi_clock_test() | punch_test(dir);
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

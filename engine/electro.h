@@ -48,8 +48,11 @@ enum el_command {
     EL_CMD_MIX,          /* a = 1: mix and master processing on, 0: off (A/B) */
     EL_CMD_TRACK_SELECT, /* a = track, b = slot A-D; c = 1 switches now, else at the next bar */
     EL_CMD_MIDI_CHANNEL, /* a = area, value = channel 0..15 or EL_MIDI_OFF */
-    EL_CMD_OPTION        /* a = EL_OPT_*, value */
+    EL_CMD_OPTION,       /* a = EL_OPT_*, value */
+    EL_CMD_PUNCH         /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
 };
+/* Punch-in effects, active while held (HOME, black keys 5-7). */
+enum { EL_PUNCH_STUTTER = 1, EL_PUNCH_STUTTER32 = 2, EL_PUNCH_THROW = 4 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
 /* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
@@ -93,6 +96,11 @@ typedef struct {
     float master;
     volatile uint8_t midi_channel[EL_AREAS];   /* read by the MIDI routing task */
     volatile uint8_t option[EL_OPTIONS];
+    /* Punch-in: held effects, stutter phase (16ths, reset on every step),
+     * dry level and how long the reverb throw has been fed. */
+    volatile uint8_t punch;
+    float stutter_phase, stutter_gain, dry_gain, throw_fed;
+    int stutter_sync;
     volatile uint32_t blocks;
 } el_engine_t;
 

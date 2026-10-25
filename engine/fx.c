@@ -85,15 +85,25 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
     float size = v[FX_REVERB_SIZE] / 127.0f, scale = 0.35f + 0.95f * size;
     float t60 = 0.3f * dsp_exp2(5.32f * v[FX_REVERB_DECAY] / 127.0f);
     float rret = v[FX_REVERB_RETURN] / 127.0f, lengths[4], gains[4];
+    /* Reverb throw: the largest room, a 12 s tail, full return. */
+    int throwing = fx->throw_on || fx->throw_mix > 0.0f;
+    if (throwing) { size = 1.0f; scale = 1.3f; t60 = 12.0f; rret = 1.0f; }
     for (int i = 0; i < 4; ++i) {
         lengths[i] = dsp_min(base_lengths[i] * scale, FX_REVERB_CAP - 24.0f);
         gains[i] = dsp_exp2(-3.0f * 3.321928f * lengths[i] / (t60 * EL_SAMPLE_RATE));
     }
-    float damp_hz = 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
+    float damp_hz = throwing ? 9000.0f : 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
     float damp = 1.0f - dsp_exp(-2.0f * DSP_PI * damp_hz / EL_SAMPLE_RATE);
     float diffusion = 0.55f + 0.17f * size, mod = 1.5f + 8.0f * size;
     unsigned dsize[2] = {(unsigned)(diff_lengths[0] * (0.5f + size)), (unsigned)(diff_lengths[1] * (0.5f + size))};
     int delay_on = dret > 0.0f, reverb_on = rret > 0.0f;
+    if (!fx->throw_on && fx->throw_mix <= 0.0f && fx->throw_clear) {
+        /* The throw is over: its tail goes, the normal hall starts clean. */
+        memset(fx->lines, 0, sizeof fx->lines);
+        memset(fx->diff, 0, sizeof fx->diff);
+        fx->throw_clear = 0;
+    }
+    if (fx->throw_on) fx->throw_clear = 1;
 
     for (int n = 0; n < frames; ++n) {
         if (delay_on) {
@@ -149,8 +159,15 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 fx->lines[i][fx->rw & (FX_REVERB_CAP - 1)] = y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f);
             fx->rw = (fx->rw + 1u) & (FX_REVERB_CAP - 1);
             fx->fw = (fx->fw + 1u) & (FX_DIFF_CAP - 1);
-            left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * rret;
-            right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * rret;
+            float ret = rret;
+            if (throwing) {
+                /* 5 ms in on press, 40 ms out on release. */
+                fx->throw_mix += fx->throw_on ? (1.0f - fx->throw_mix) * 0.0045f : -1.0f / (0.04f * EL_SAMPLE_RATE);
+                if (fx->throw_mix < 0.0f) fx->throw_mix = 0.0f;
+                ret = fx->throw_mix;
+            }
+            left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * ret;
+            right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * ret;
         }
         /* Gated reverb: diffused input at half rate, flat tap cluster. */
         fx->gate_hp[0] += (gate[n] - fx->gate_hp[0]) * 0.0418f;

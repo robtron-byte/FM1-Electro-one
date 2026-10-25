@@ -34,6 +34,10 @@ typedef struct {
     float rev_hp[2], dly_hp[2], gate_hp[2], gate_acc, gate_lp[2];
     unsigned gw, gfw;
     uint8_t gate_half;
+    /* Reverb throw: a big, long hall while held; on release its return
+     * fades out quickly and the lines are cleared. */
+    uint8_t throw_on, throw_clear;
+    float throw_mix;
     el_dist_t dist;
     float dist_r[EL_BLOCK];
 } el_fx_t;

@@ -932,6 +932,12 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
 
     if (ui->rec_key != 0xff && (ui->prev_keys & ~c->keys & BIT(ui->rec_key))) ui->rec_key = 0xff;
+    /* Punch-in effects end when their key is let go, wherever the UI is. */
+    for (unsigned i = 0; i < 3; ++i) {
+        static const uint8_t fx[3] = {EL_PUNCH_STUTTER, EL_PUNCH_STUTTER32, EL_PUNCH_THROW};
+        if (ui->punch_key[i] && !(c->keys & BIT(ui->punch_key[i] - 1u)) && el_post3(e, EL_CMD_PUNCH, fx[i], 0, 0, 0) == 0)
+            ui->punch_key[i] = 0;
+    }
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
@@ -942,6 +948,13 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             int w = key_white(key), b = key_black(key);
             if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
+            else if (b >= 4 && b <= 6) {
+                /* Black keys 5-7: punch-in effects while held. */
+                static const uint8_t fx[3] = {EL_PUNCH_STUTTER, EL_PUNCH_STUTTER32, EL_PUNCH_THROW};
+                static const char *const names[3] = {"STUTTER 1/16", "STUTTER 1/32", "REVERB THROW"};
+                if (el_post3(e, EL_CMD_PUNCH, fx[b - 4], 1, 0, 0) == 0) ui->punch_key[b - 4] = (uint8_t)(key + 1u);
+                notice(ui, names[b - 4]);
+            }
         } else if (ui->area == EL_AREA_BEAT) {
             keys_beat(ui, key, hold);
         } else {
@@ -1180,6 +1193,8 @@ static void update_leds(el_ui_t *ui)
         }
         for (unsigned a = 0; a < EL_AREAS; ++a)
             if (!area_muted(ui, a)) leds |= 1ull << (14u + black_keys[a]);
+        for (unsigned i = 0; i < 3; ++i)
+            if (e->punch & (1u << i)) leds |= 1ull << (14u + black_keys[4 + i]);
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         unsigned page = ui->step_page[0];
@@ -1486,7 +1501,7 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
             if (on) gfx_fill(b, x + 2, accent ? cy + 2 : cy + 6, 8, accent ? 13 : 9, color);
         }
     }
-    gfx_text(b, 4, 180, "KEYS: SLOTS A-D PER AREA  ARP: VAR/NEW", DIM, 1);
+    gfx_text(b, 4, 180, "WHITE: SLOTS  BLACK 5 STUT 6 1/32 7 HALL", DIM, 1);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)

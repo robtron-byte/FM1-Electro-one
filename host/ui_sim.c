@@ -309,6 +309,18 @@ int main(int argc, char **argv)
     }
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
 
+    /* HOME: black keys 5-7 punch in stutter, stutter 1/32 and the reverb
+     * throw while held. */
+    if (!ui.overview) tap_button(BTN_HOME);
+    panel.keys |= 1u << 10; run(30);          /* black 5 */
+    int punched = engine.punch == EL_PUNCH_STUTTER;
+    panel.keys |= 1u << 15; run(30);          /* black 7 as well */
+    punched = punched && engine.punch == (EL_PUNCH_STUTTER | EL_PUNCH_THROW) && engine.fx.throw_on;
+    shot(dir, "11a_punch");
+    panel.keys &= ~(1u << 10 | 1u << 15); run(60);
+    punched = punched && engine.punch == 0 && !engine.fx.throw_on;
+    printf("punch keys: held on, let go off %s\n", punched ? "ok" : "FAIL");
+
     /* Step record in RHYTHM (SH-101 / KeyStep): stopped, REC, keys. */
     if (engine.transport.running) tap_button(BTN_PLAY);
     tap_button(BTN_SEL);
