@@ -552,3 +552,23 @@ void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed)
         }
     }
 }
+
+EL_DSP_CODE void st_step_at(st_track_t *t, uint32_t step, float sixteenth_frames, unsigned target)
+{
+    if (t->next >= ST_PATTERNS) t->next = 0;
+    const st_pattern_t *p = &t->pattern[t->current];
+    unsigned ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0], len = p->length ? p->length : 1u;
+    /* Where the playhead would be after this 16th. */
+    unsigned tick = 0, pos = 0;
+    if (t->playing && t->tick + 1u < ticks) { tick = t->tick + 1u; pos = t->pos; }
+    else if (t->playing) pos = t->pos + 1u < len ? t->pos + 1u : 0u;
+    uint8_t next = t->next;
+    t->next = t->current;
+    t->playing = 1;
+    t->tick = (uint8_t)(ticks - 1u);
+    t->pos = (uint8_t)((target / ticks % len + len - 1u) % len);
+    st_step(t, step, sixteenth_frames);
+    t->next = next;
+    t->tick = (uint8_t)tick;
+    t->pos = (uint8_t)pos;
+}

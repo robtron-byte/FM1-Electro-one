@@ -116,6 +116,9 @@ void dr_vary(dr_pattern_t *p, unsigned amount, uint32_t seed);
 EL_DSP_CODE void dr_process_commands(dr_machine_t *m);
 /* A transport step fired; step_frames is its length (for rolls). */
 EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames);
+/* Repeat punch-in: play step target (wrapped to the length) instead, the
+ * playhead going on as if not; no slot change meanwhile. */
+EL_DSP_CODE void dr_step_at(dr_machine_t *m, uint32_t step, float step_frames, unsigned target);
 /* Transport stopped or restarted: rewind to the pattern start. */
 EL_DSP_CODE void dr_rewind(dr_machine_t *m);
 /* Frames until the next internal event (rolls), or limit. */

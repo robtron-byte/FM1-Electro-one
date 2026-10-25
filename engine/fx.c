@@ -72,14 +72,10 @@ static inline float gate_read(const int16_t *line, unsigned write, unsigned back
 
 /* ---- punch-ins borrowing the buffers --------------------------------------- */
 
-static const struct { uint32_t off, len; } regions[4] = {
-    {0, FX_HALL_REGION}, {FX_HALL_REGION, FX_TAPE_REGION}, {FX_HALL_REGION + FX_TAPE_REGION, FX_REPEAT_REGION},
-    {FX_HALL_REGION + FX_TAPE_REGION + FX_REPEAT_REGION, FX_DELAY_REGION}};
+static const struct { uint32_t off, len; } regions[3] = {
+    {0, FX_HALL_REGION}, {FX_HALL_REGION, FX_TAPE_REGION}, {FX_HALL_REGION + FX_TAPE_REGION, FX_DELAY_REGION}};
 
-static unsigned region_of(unsigned use)
-{
-    return use == FX_USE_HALL ? 0u : use == FX_USE_TAPE ? 1u : use == FX_USE_REPEAT ? 2u : 3u;
-}
+static unsigned region_of(unsigned use) { return use == FX_USE_HALL ? 0u : use == FX_USE_TAPE ? 1u : 2u; }
 
 int16_t *fx_region(el_fx_t *fx, unsigned use) { return fx->mem.hole + regions[region_of(use)].off; }
 

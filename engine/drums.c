@@ -314,3 +314,16 @@ EL_DSP_CODE void dr_process_commands(dr_machine_t *m)
     el_cmd_t c;
     while (el_queue_pop(&m->queue, &c)) apply(m, &c);
 }
+
+EL_DSP_CODE void dr_step_at(dr_machine_t *m, uint32_t step, float step_frames, unsigned target)
+{
+    unsigned len = m->pattern[m->current].length ? m->pattern[m->current].length : 1u;
+    unsigned real = !m->playing ? 0u : m->pos + 1u < len ? m->pos + 1u : 0u;
+    uint8_t next = m->next;
+    m->next = m->current;
+    m->playing = 1;
+    m->pos = (uint8_t)((target % len + len - 1u) % len);
+    dr_step(m, step, step_frames);
+    m->next = next;
+    m->pos = (uint8_t)real;
+}

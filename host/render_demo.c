@@ -233,18 +233,24 @@ static double render_energy(int mode, int send, int pedal, int kick_only)
  * over (consecutive 16ths alike), live again after release. */
 static int buffer_test(const char *dir)
 {
-    static el_engine_t e;
-    static float out[FM1_SAMPLE_RATE * 8 * 2];
+    static el_engine_t e, ref;
+    static float out[FM1_SAMPLE_RATE * 8 * 2], ref_out[2 * EL_BLOCK];
     const unsigned total = FM1_SAMPLE_RATE * 8 / EL_BLOCK * EL_BLOCK, sr = FM1_SAMPLE_RATE;
     el_init(&e);
-    el_post(&e, EL_CMD_BPM, 0, 1200);
-    el_post(&e, EL_CMD_START, 0, 0);
+    el_init(&ref);
+    el_post(&e, EL_CMD_BPM, 0, 1200); el_post(&ref, EL_CMD_BPM, 0, 1200);
+    el_post(&e, EL_CMD_START, 0, 0); el_post(&ref, EL_CMD_START, 0, 0);
+    int in_sync = 1;
     for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
         if (pos == 2u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
         if (pos == 3u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 0, 0, 0);
         if (pos == 5u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
+        if (pos == 5u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH_RATE, EL_PUNCH_REPEAT, 0, 0, 0);
         if (pos == 7u * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 0, 0, 0);
         el_render_float(&e, out + pos * 2u, EL_BLOCK);
+        el_render_float(&ref, ref_out, EL_BLOCK);
+        if (pos > 7u * sr)
+            in_sync &= e.drums.pos == ref.drums.pos && e.track[0].pos == ref.track[0].pos && e.track[2].pos == ref.track[2].pos;
     }
     char path[512];
     snprintf(path, sizeof path, "%s/punch_tape_repeat.wav", dir);
@@ -253,7 +259,7 @@ static int buffer_test(const char *dir)
     for (unsigned i = 0; i < 2u * sr; ++i) groove += out[2 * i] * out[2 * i];
     for (unsigned i = (unsigned)(2.55 * sr); i < (unsigned)(2.95 * sr); ++i) stopped += out[2 * i] * out[2 * i];
     double stop_db = 10 * log10(stopped / (0.4 * sr) / (groove / (2.0 * sr)) + 1e-30);
-    /* Repeat: compare 16ths between 5.5 and 6.9 s with the one before. */
+    /* Repeat of step 1: compare 16ths between 5.5 and 6.9 s with the one before. */
     unsigned six = (unsigned)(sr * 15 / 120), start = (unsigned)(5.5 * sr);
     double diff = 0, energy = 0;
     for (unsigned i = start; i < (unsigned)(6.9 * sr); ++i) {
@@ -262,9 +268,9 @@ static int buffer_test(const char *dir)
         energy += a * a;
     }
     double repeat_db = 10 * log10(diff / energy + 1e-30);
-    int ok = stop_db < -40 && repeat_db < -20 && !e.fx.users;
-    printf("tape/repeat: stopped %.1f dB under the groove, repeated 16ths differ by %.1f dB, FX memory back: %s\n", stop_db,
-           repeat_db, ok ? "ok" : "FAIL");
+    int ok = stop_db < -40 && repeat_db < -6 && in_sync && !e.fx.users;
+    printf("tape/repeat: stopped %.1f dB under the groove, repeated 16ths differ by %.1f dB, playheads in time after: %s\n",
+           stop_db, repeat_db, ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
 
@@ -290,7 +296,7 @@ static int combo_test(const char *dir)
         if (b == 3 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_STUTTER, 1, 0, 0);
         if (b == 3 * s + s / 2) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_DELAY | EL_PUNCH_CRUSH | EL_PUNCH_PHASER, 1, 0, 0);
         if (b == 4 * s) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
-        if (b == 4 * s + s / 2) all = e.fx.users == (FX_USE_HALL | FX_USE_TAPE | FX_USE_REPEAT | FX_USE_DELAY) && e.punch == every;
+        if (b == 4 * s + s / 2) all = e.fx.users == (FX_USE_HALL | FX_USE_TAPE | FX_USE_DELAY) && e.punch == every;
         if (b == 5 * s) {
             el_post3(&e, EL_CMD_PUNCH, (uint8_t)every, 0, 0, 0);
         }
@@ -351,6 +357,35 @@ static int colour_test(void)
     return ok ? 0 : 1;
 }
 
+/* A long tape stop (1/2 bar at 60 BPM, 2 s): it still sounds a second in,
+ * long past the real stop the region allows, and is silent at standstill. */
+static int tape_long_test(const char *dir)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 8 * 2];
+    const unsigned sr = FM1_SAMPLE_RATE, total = sr * 8 / EL_BLOCK * EL_BLOCK;
+    el_init(&e);
+    el_post(&e, EL_CMD_BPM, 0, 600);
+    el_post(&e, EL_CMD_START, 0, 0);
+    el_post3(&e, EL_CMD_PUNCH_RATE, EL_PUNCH_TAPE, 5, 0, 0);
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) {
+        if (pos == sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 1, 0, 0);
+        if (pos == 6 * sr / EL_BLOCK * EL_BLOCK) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_TAPE, 0, 0, 0);
+        el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    }
+    char path[512];
+    snprintf(path, sizeof path, "%s/punch_tape_half_bar.wav", dir);
+    write_wav(path, out, total);
+    double groove = 0, mid = 0, end = 0;
+    for (unsigned i = 0; i < sr; ++i) groove += out[2 * i] * out[2 * i];
+    for (unsigned i = 2 * sr; i < 2 * sr + sr / 2; ++i) mid += 2 * out[2 * i] * out[2 * i];
+    for (unsigned i = 3 * sr + sr / 10; i < 6 * sr; ++i) end += out[2 * i] * out[2 * i] / 2.9;
+    double mid_db = 10 * log10(mid / groove + 1e-20), end_db = 10 * log10(end / groove + 1e-20);
+    int ok = mid_db > -12 && end_db < -60 && !e.fx.users;
+    printf("tape long: 1/2 bar at 60 BPM, a second in %+.1f dB, at standstill %.1f dB: %s\n", mid_db, end_db, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static int dist_test(void)
 {
     double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
@@ -368,7 +403,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test();
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir);
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

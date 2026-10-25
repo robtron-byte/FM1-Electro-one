@@ -50,7 +50,7 @@ enum el_command {
     EL_CMD_MIDI_CHANNEL, /* a = area, value = channel 0..15 or EL_MIDI_OFF */
     EL_CMD_OPTION,       /* a = EL_OPT_*, value */
     EL_CMD_PUNCH,        /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
-    EL_CMD_PUNCH_RATE    /* a = EL_PUNCH_* bits, b = white key 0..5 (el_punch_value_name) */
+    EL_CMD_PUNCH_RATE    /* a = EL_PUNCH_* bits, b = white key 0..5 (repeat 0..15; el_punch_value_name) */
 };
 /* Punch-in effects, active while held (HOME, black keys 5-11, in this
  * order). The bit of effect n is 1 << n. */
@@ -61,6 +61,8 @@ extern const char *const el_punch_div_names[EL_PUNCH_DIVS];
 /* What white key v (0..EL_PUNCH_DIVS-1) sets for punch-in n, or NULL when
  * it has nothing to set (the reverb throw). */
 const char *el_punch_value_name(unsigned n, unsigned v);
+/* Repeat takes a step of the bar: white keys 1-16. */
+enum { EL_REPEAT_STEPS = 16 };
 
 enum { EL_TRACKS = 3, EL_AREAS = 4 };
 /* MIDI channel per area (0-based); EL_MIDI_OFF ignores the area's notes.
@@ -112,11 +114,11 @@ typedef struct {
     /* White key value per punch-in (el_punch_value_name). */
     uint8_t punch_div[EL_PUNCHES];
     uint32_t sync_step;
-    /* Repeat and tape stop: the finished mix through their buffer regions
-     * in the FX memory (borrowed while they sound). */
-    uint8_t rep_state, rep_div, rep_stride, tape_half;
-    float rep_mix, rep_prev, tape_mix, tape_rp, tape_rate, tape_t, tape_acc;
-    uint32_t rep_len, rep_pos, tape_wp;
+    /* Tape stop: the finished mix through its buffer region in the FX
+     * memory (borrowed while it sounds). */
+    uint8_t tape_half;
+    float tape_mix, tape_rp, tape_rp2, tape_xf, tape_rate, tape_t, tape_acc;
+    uint32_t tape_wp;
     /* Delay (its own region, half rate, mono), bitcrusher, phaser. */
     uint8_t dl_half, crush_n;
     float dl_in, dl_time, dl_acc, dl_lp, dl_hp, dl_hpx, dl_env;

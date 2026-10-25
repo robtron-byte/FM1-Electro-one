@@ -54,6 +54,9 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed);
 /* Every transport 16th: step is its absolute number since Start. A slot
  * chosen with next starts on the next bar. */
 EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames);
+/* Repeat punch-in: play the step at 16th target (wrapped to the length)
+ * instead, the playhead going on as if not; no slot change meanwhile. */
+EL_DSP_CODE void st_step_at(st_track_t *t, uint32_t step, float sixteenth_frames, unsigned target);
 EL_DSP_CODE void st_rewind(st_track_t *t);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);

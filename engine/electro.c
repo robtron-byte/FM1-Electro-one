@@ -23,9 +23,9 @@ void el_init(el_engine_t *e)
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
     e->dry_gain = e->stutter_gain = 1.0f;
-    /* Stutter and repeat 1/16, tape stop over an 8th, delay 1/8, crusher
+    /* Stutter 1/16, tape stop over an 8th, delay 1/8, crusher
      * 8 bit, phaser once a bar. */
-    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 1, 3, 1, 2, 2};
+    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 1, 0, 1, 2, 2};
     memcpy(e->punch_div, punch_init, sizeof punch_init);
     static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
     for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
@@ -295,11 +295,13 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         if (c->a < EL_AREAS) e->midi_channel[c->a] = (uint8_t)el_clampi(c->value, 0, EL_MIDI_OFF);
         break;
     case EL_CMD_PUNCH_RATE:
-        if (c->b < EL_PUNCH_DIVS)
-            for (unsigned n = 0; n < EL_PUNCHES; ++n)
-                if (c->a & (1u << n)) e->punch_div[n] = c->b;
+        for (unsigned n = 0; n < EL_PUNCHES; ++n)
+            if ((c->a & (1u << n)) && el_punch_value_name(n, c->b)) e->punch_div[n] = c->b;
         break;
     case EL_CMD_PUNCH:
+        /* Repeat starts on the step that comes next. */
+        if (c->b && (c->a & EL_PUNCH_REPEAT) && !(e->punch & EL_PUNCH_REPEAT))
+            e->punch_div[3] = (uint8_t)((e->sync_step + 1u) % EL_REPEAT_STEPS);
         e->punch = (uint8_t)(c->b ? e->punch | c->a : e->punch & ~c->a);
         if (c->a & EL_PUNCH_THROW) {
             e->fx.throw_on = c->b ? 1 : 0;
@@ -394,12 +396,19 @@ static const float div_16ths[EL_PUNCH_DIVS] = {4.0f, 2.0f, 4.0f / 3.0f, 1.0f, 2.
 static const uint8_t div_reset[EL_PUNCH_DIVS] = {4, 2, 4, 1, 2, 1};
 static const char *const crush_names[EL_PUNCH_DIVS] = {"12 BIT", "10 BIT", "8 BIT", "6 BIT", "5 BIT", "4 BIT"};
 static const char *const phaser_names[EL_PUNCH_DIVS] = {"1/4", "1/2", "1 BAR", "2 BARS", "4 BARS", "8 BARS"};
+static const char *const tape_names[EL_PUNCH_DIVS] = {"1/16", "1/8", "3/16", "1/4", "3/8", "1/2"};
+static const float tape_16ths[EL_PUNCH_DIVS] = {1.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
+static const char *const step_names[EL_REPEAT_STEPS] = {"STEP 1", "STEP 2", "STEP 3", "STEP 4", "STEP 5", "STEP 6",
+    "STEP 7", "STEP 8", "STEP 9", "STEP 10", "STEP 11", "STEP 12", "STEP 13", "STEP 14", "STEP 15", "STEP 16"};
 
 const char *el_punch_value_name(unsigned n, unsigned v)
 {
-    if (v >= EL_PUNCH_DIVS || n >= EL_PUNCHES || (1u << n) == EL_PUNCH_THROW) return NULL;
+    if (n >= EL_PUNCHES || (1u << n) == EL_PUNCH_THROW) return NULL;
+    if ((1u << n) == EL_PUNCH_REPEAT) return v < EL_REPEAT_STEPS ? step_names[v] : NULL;
+    if (v >= EL_PUNCH_DIVS) return NULL;
     if ((1u << n) == EL_PUNCH_CRUSH) return crush_names[v];
     if ((1u << n) == EL_PUNCH_PHASER) return phaser_names[v];
+    if ((1u << n) == EL_PUNCH_TAPE) return tape_names[v];
     return el_punch_div_names[v];
 }
 
@@ -455,68 +464,20 @@ static EL_DSP_CODE void punch_stutter(el_engine_t *e, unsigned frames)
 
 static EL_DSP_CODE void put(int16_t *m, uint32_t i, float x) { m[i] = (int16_t)(dsp_clamp(x, -1.0f, 1.0f) * 32767.0f); }
 
-/* Repeat (held): from the next grid point on, one note value (1/16 unless a
- * white key chose another) of the mix is taken (mono, in its buffer region)
- * and then played again and again, 2 ms fades at its ends. A white key
- * while held takes a new piece of that length at its next grid point.
- * Pieces longer than the region are kept at half rate. Let go: live again
- * in 10 ms. */
-static EL_DSP_CODE void punch_repeat(el_engine_t *e, unsigned frames)
+/* Tape stop (held): the mix (mono, at half rate in its buffer region) plays
+ * at a speed falling from 1 to 0 over the chosen length (white keys: 1/8 ..
+ * 4 bars, an 8th unless chosen), pitch and tempo dropping together. The
+ * region holds a quarter of a second of lag, enough for a real stop up to
+ * about half a second; on longer stops, once the lag is that far behind, the
+ * playback slips forward half the region in a 25 ms cross-fade, the pitch
+ * still falling. It takes whatever comes before it, the other punch-ins
+ * included. Let go: live again in 10 ms. */
+static EL_DSP_CODE float tape_read(const int16_t *m, float rp, uint32_t cap)
 {
-    el_fx_t *fx = &e->fx;
-    int held = (e->punch & EL_PUNCH_REPEAT) != 0;
-    unsigned div = e->punch_div[3];
-    if (!held && !(fx->users & FX_USE_REPEAT)) return;
-    if (held && !(fx->users & FX_USE_REPEAT)) {
-        fx_borrow(fx, FX_USE_REPEAT);
-        e->rep_state = 0;
-        e->rep_mix = 0;
-    }
-    int16_t *m = fx_region(fx, FX_USE_REPEAT);
-    float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE, xf = 1.0f / (0.01f * EL_SAMPLE_RATE);
-    const float edge = 0.002f * EL_SAMPLE_RATE;
-    for (unsigned i = 0; i < frames; ++i) {
-        float l = left[i], r = right[i], x = 0.5f * (l + r);
-        if (held && e->rep_state != 1 && on_grid(e, i, div) && (e->rep_state == 0 || e->rep_div != div)) {
-            /* Take a new piece: at the start, and when the note value changes. */
-            e->rep_state = 1;
-            e->rep_div = (uint8_t)div;
-            e->rep_len = (uint32_t)dsp_clamp(sixteenth * div_16ths[div], 64.0f, 2.0f * (FX_REPEAT_REGION - 1));
-            e->rep_stride = e->rep_len > FX_REPEAT_REGION ? 2 : 1;
-            e->rep_pos = 0;
-        }
-        if (e->rep_state == 1) {
-            if (e->rep_stride == 1) put(m, e->rep_pos, x);
-            else if (e->rep_pos & 1u) put(m, e->rep_pos >> 1, 0.5f * (x + e->rep_prev));
-            e->rep_prev = x;
-            if (++e->rep_pos >= e->rep_len) { e->rep_state = 2; e->rep_pos = 0; }
-        } else if (e->rep_state == 2) {
-            uint32_t p = e->rep_pos;
-            float g = dsp_min(1.0f, dsp_min((float)p / edge, (float)(e->rep_len - 1u - p) / edge));
-            float y;
-            if (e->rep_stride == 1) y = m[p];
-            else {
-                uint32_t k = p >> 1, k1 = k + 1u < (e->rep_len >> 1) ? k + 1u : k;
-                y = (p & 1u) ? 0.5f * (m[k] + m[k1]) : m[k];
-            }
-            y *= (1.0f / 32767.0f) * g;
-            if (++e->rep_pos >= e->rep_len) e->rep_pos = 0;
-            if (held) e->rep_mix = dsp_min(1.0f, e->rep_mix + xf);
-            l += (y - l) * e->rep_mix;
-            r += (y - r) * e->rep_mix;
-        }
-        if (!held) e->rep_mix = dsp_max(0.0f, e->rep_mix - xf);
-        left[i] = l;
-        right[i] = r;
-    }
-    if (!held && e->rep_mix <= 0.0f) fx_release(fx, FX_USE_REPEAT);
+    uint32_t k = (uint32_t)rp, k1 = k + 1u < cap ? k + 1u : 0u;
+    return (m[k] + (m[k1] - m[k]) * (rp - (float)k)) * (1.0f / 32767.0f);
 }
 
-/* Tape stop (held): the mix (mono, at half rate in its buffer region) plays
- * at a speed falling from 1 to 0 over the chosen note value (1/8 unless a
- * white key chose another; at most half a second), pitch and tempo dropping
- * together. It takes whatever comes before it, the other punch-ins
- * included. Let go: live again in 10 ms. */
 static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
 {
     el_fx_t *fx = &e->fx;
@@ -529,12 +490,14 @@ static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
         e->tape_wp = 0;
         e->tape_half = 0;
         e->tape_rp = (float)cap - 1.5f;   /* just behind what is written */
+        e->tape_xf = -1.0f;
         e->tape_t = 0;
         e->tape_rate = 1;
     }
     int16_t *m = fx_region(fx, FX_USE_TAPE);
     float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE, xf = 1.0f / (0.01f * EL_SAMPLE_RATE);
-    float stop_len = dsp_clamp(sixteenth * div_16ths[e->punch_div[2]], 0.04f * EL_SAMPLE_RATE, 0.5f * EL_SAMPLE_RATE);
+    float stop_len = dsp_clamp(sixteenth * tape_16ths[e->punch_div[2]], 0.04f * EL_SAMPLE_RATE, 20.0f * EL_SAMPLE_RATE);
+    const float slip_at = (float)cap - 800.0f, slip_xf = 1.0f / (0.025f * EL_SAMPLE_RATE);
     for (unsigned i = 0; i < frames; ++i) {
         float l = left[i], r = right[i];
         e->tape_acc += 0.5f * (l + r);
@@ -549,11 +512,26 @@ static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
             e->tape_rate = dsp_max(0.0f, 1.0f - e->tape_t / stop_len);
             e->tape_mix = dsp_min(1.0f, e->tape_mix + xf);
         } else e->tape_mix = dsp_max(0.0f, e->tape_mix - xf);
-        uint32_t k = (uint32_t)e->tape_rp, k1 = k + 1u < cap ? k + 1u : 0u;
-        float f = e->tape_rp - (float)k, y = (m[k] + (m[k1] - m[k]) * f) * (1.0f / 32767.0f);
-        y *= dsp_min(1.0f, e->tape_rate * 6.0f);   /* the last moments fade: no click at standstill */
-        e->tape_rp += 0.5f * e->tape_rate;
+        float lag = (float)e->tape_wp + 0.5f * e->tape_half - e->tape_rp;
+        if (lag < 0.0f) lag += (float)cap;
+        if (e->tape_xf < 0.0f && lag > slip_at) {
+            /* A second head half the region further on takes over. */
+            e->tape_rp2 = e->tape_rp + 0.5f * (float)cap;
+            if (e->tape_rp2 >= (float)cap) e->tape_rp2 -= (float)cap;
+            e->tape_xf = 0.0f;
+        }
+        float y = tape_read(m, e->tape_rp, cap), step = 0.5f * e->tape_rate;
+        e->tape_rp += step;
         if (e->tape_rp >= (float)cap) e->tape_rp -= (float)cap;
+        if (e->tape_xf >= 0.0f) {
+            float g = e->tape_xf;
+            y = y * dsp_sqrt(1.0f - g) + tape_read(m, e->tape_rp2, cap) * dsp_sqrt(g);
+            e->tape_rp2 += step;
+            if (e->tape_rp2 >= (float)cap) e->tape_rp2 -= (float)cap;
+            e->tape_xf += slip_xf;
+            if (e->tape_xf >= 1.0f) { e->tape_rp = e->tape_rp2; e->tape_xf = -1.0f; }
+        }
+        y *= dsp_min(1.0f, e->tape_rate * 6.0f);   /* the last moments fade: no click at standstill */
         left[i] = l + (y - l) * e->tape_mix;
         right[i] = r + (y - r) * e->tape_mix;
     }
@@ -700,8 +678,17 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         if (el_transport_advance(t, n, &step)) {
             e->stutter_sync = (int)(pos + (unsigned)n);   /* the punch-ins' grid starts on the steps */
             e->sync_step = step;
-            dr_step(&e->drums, step, t->last_length);
-            for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], step, t->last_length);
+            if (e->punch & EL_PUNCH_REPEAT) {
+                /* Repeat (held): every 16th the chosen step of the bar (white
+                 * keys 1-16, else the one after the press) plays again in
+                 * every area, the playheads going on underneath. */
+                unsigned target = e->punch_div[3];
+                dr_step_at(&e->drums, step, t->last_length, target);
+                for (unsigned i = 0; i < EL_TRACKS; ++i) st_step_at(&e->track[i], step, t->last_length, target);
+            } else {
+                dr_step(&e->drums, step, t->last_length);
+                for (unsigned i = 0; i < EL_TRACKS; ++i) st_step(&e->track[i], step, t->last_length);
+            }
         }
         pos += (unsigned)n;
     }
@@ -735,7 +722,6 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     punch_crush(e, frames);
     punch_phaser(e, frames);
     punch_stutter(e, frames);
-    punch_repeat(e, frames);
     punch_tape(e, frames);
     ++e->blocks;
 }

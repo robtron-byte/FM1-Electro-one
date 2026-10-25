@@ -964,9 +964,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             int w = key_white(key), b = key_black(key);
             if (w >= 0 && punch_held) {
                 /* While punch-ins are held, white keys 1-6 set their note
-                 * value (or strength); the others do nothing then. */
-                if (w < EL_PUNCH_DIVS && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)punch_held, (uint8_t)w, 0, 0) == 0)
-                    punch_notice(ui, ui->punch_last, (unsigned)w);
+                 * value (or strength), 1-16 the step repeat plays; the
+                 * slots stay. */
+                unsigned bits = 0, shown = ui->punch_last;
+                for (unsigned n = 0; n < EL_PUNCHES; ++n)
+                    if ((punch_held & BIT(n)) && el_punch_value_name(n, (unsigned)w)) bits |= BIT(n);
+                if (bits && !(bits & BIT(shown))) while (!(bits & BIT(shown))) shown = (shown + 1u) % EL_PUNCHES;
+                if (bits && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)bits, (uint8_t)w, 0, 0) == 0)
+                    punch_notice(ui, shown, (unsigned)w);
             } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
             else if (b >= EL_AREAS && b < EL_AREAS + EL_PUNCHES) {

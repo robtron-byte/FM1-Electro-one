@@ -32,12 +32,11 @@ typedef struct {
 } fx_buffers_t;
 enum { FX_HOLE_CAP = sizeof(fx_buffers_t) / sizeof(int16_t) };
 /* While a punch-in effect sounds, the buffers are split so all of them can
- * run together: the big hall, the delay (mono, half rate: 0.5 s), the tape
- * stop (mono, half rate: 0.25 s behind) and the repeat (mono, the rest:
- * 0.3 s, or 0.59 s at half rate for longer pieces). */
-enum { FX_HALL_REGION = 23552, FX_DELAY_REGION = 11008, FX_TAPE_REGION = 5632,
-       FX_REPEAT_REGION = FX_HOLE_CAP - FX_HALL_REGION - FX_DELAY_REGION - FX_TAPE_REGION };
-enum { FX_USE_HALL = 1, FX_USE_TAPE = 2, FX_USE_REPEAT = 4, FX_USE_DELAY = 8 };
+ * run together: the big hall, the delay (mono, half rate: 0.5 s) and the
+ * tape stop (mono, half rate, the rest: 0.85 s behind). */
+enum { FX_HALL_REGION = 23552, FX_DELAY_REGION = 11008,
+       FX_TAPE_REGION = FX_HOLE_CAP - FX_HALL_REGION - FX_DELAY_REGION };
+enum { FX_USE_HALL = 1, FX_USE_TAPE = 2, FX_USE_DELAY = 8 };
 typedef union { fx_buffers_t b; int16_t hole[FX_HOLE_CAP]; } fx_memory_t;
 
 /* The big hall of the reverb throw: Dattorro's figure-eight tank, made
