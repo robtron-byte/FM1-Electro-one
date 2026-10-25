@@ -215,7 +215,7 @@ static double render_energy(int mode, int send, int pedal, int kick_only)
     el_post(&e, EL_CMD_FX, FX_DIST_MODE, (int16_t)mode);
     el_post(&e, EL_CMD_FX, FX_DIST_DRIVE, 90);
     el_post(&e, EL_CMD_FX, FX_DIST_SEND_BEAT, (int16_t)send);
-    el_post(&e, EL_CMD_OPTION, EL_OPT_DIST_KICK_TIGHT, (int16_t)pedal);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_DIST_KICK_FULL, (int16_t)!pedal);
     el_post(&e, EL_CMD_MIX, 0, 0);
     if (kick_only) {
         for (unsigned t = 0; t < EL_TRACKS; ++t) el_post3(&e, EL_CMD_TRACK_MUTE, (uint8_t)t, 1, 0, 0);

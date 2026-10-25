@@ -53,7 +53,7 @@ int el_option_max(unsigned option)
     case EL_OPT_COMP_RELEASE: return EL_COMP_RELEASES - 1;
     case EL_OPT_COMP_MAKEUP: return 24;
     case EL_OPT_REC_STEP: return (1 << EL_TRACKS) - 1;
-    case EL_OPT_DIST_KICK_TIGHT: return 1;
+    case EL_OPT_DIST_KICK_FULL: return 1;
     default: return 1;
     }
 }
@@ -549,12 +549,12 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     float sb = fv[FX_DIST_SEND_BEAT] / 127.0f, sr = fv[FX_DIST_SEND_RHYTHM] / 127.0f;
     float ss = fv[FX_DIST_SEND_STRINGS] / 127.0f, sa = fv[FX_DIST_SEND_BASS] / 127.0f;
     sb *= sb; sr *= sr; ss *= ss; sa *= sa;
-    /* The bass drum keeps its lows in the distortion: each type cuts below
-     * f_t (one pole) before its drive, which leaves little of an 808 kick
-     * (a sine around 50 Hz). The kick's send gets 1 + (f_t / 25 Hz - 1) x
-     * its 25 Hz low-pass, so after the type's cut it reaches the drive as
-     * if cut only below 25 Hz. OPTIONS DIST BD: PEDAL keeps the plain send. */
-    float ft = dist_tight_hz(fv[FX_DIST_MODE]), kick_boost = e->option[EL_OPT_DIST_KICK_TIGHT] ? 0.0f : ft / 25.0f - 1.0f;
+    /* OPTIONS DIST BASS DRUM: FULL LOWS. Each type cuts below f_t (one
+     * pole) before its drive, which leaves little of an 808 kick (a sine
+     * around 50 Hz). With FULL LOWS the kick's send gets 1 + (f_t / 25 Hz
+     * - 1) x its 25 Hz low-pass, so it reaches the drive as if cut only
+     * below 25 Hz. By default (PEDAL) it goes in like the rest. */
+    float ft = dist_tight_hz(fv[FX_DIST_MODE]), kick_boost = e->option[EL_OPT_DIST_KICK_FULL] ? ft / 25.0f - 1.0f : 0.0f;
     const float kick_lp = 1.0f - 0.99644f;   /* 25 Hz one pole */
     for (unsigned i = 0; i < frames; ++i) {
         e->kick_low += (kick[i] - e->kick_low) * kick_lp;

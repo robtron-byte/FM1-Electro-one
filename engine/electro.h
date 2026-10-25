@@ -72,7 +72,7 @@ enum {
     EL_OPT_COMP_RELEASE,    /* index into el_comp_releases (ms) */
     EL_OPT_COMP_MAKEUP,     /* 0..24: makeup 0 .. +12 dB in half dB */
     EL_OPT_REC_STEP,        /* bit per synth track: REC records step by step (SH-101), else live */
-    EL_OPT_DIST_KICK_TIGHT, /* 1: the bass drum is cut low before the distortion like the rest (pedal) */
+    EL_OPT_DIST_KICK_FULL,  /* 1: the bass drum keeps its lows into the distortion; 0 (default): cut like the rest */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
 enum { EL_COMP_RATIOS = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };

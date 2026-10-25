@@ -741,7 +741,7 @@ static const char *const opt_names[OPT_ITEMS] = {"MIDI CH BEAT", "MIDI CH RHYTHM
                                                  "HELP LINE"};
 /* Engine option behind each menu line (the MIDI lines use midi_channel). */
 static const uint8_t opt_option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_COMP_THRESHOLD, EL_OPT_COMP_RATIO,
-                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_DIST_KICK_TIGHT, EL_OPT_OUT_LEVEL,
+                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_DIST_KICK_FULL, EL_OPT_OUT_LEVEL,
                                               EL_OPT_START, EL_OPT_HINTS};
 
 static int opt_value(const el_ui_t *ui, unsigned item, int *max)
@@ -757,7 +757,7 @@ static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
     int max, v = opt_value(ui, item, &max);
     if (item <= OPT_MIDI_BASS) { if (v >= EL_MIDI_OFF) snprintf(out, size, "OFF"); else snprintf(out, size, "%d", v + 1); }
     else if (item == OPT_CLOCK) snprintf(out, size, v ? "FOLLOW" : "IGNORE");
-    else if (item == OPT_DIST_BD) snprintf(out, size, v ? "PEDAL (CUT LOWS)" : "FULL LOWS");
+    else if (item == OPT_DIST_BD) snprintf(out, size, v ? "FULL LOWS" : "PEDAL");
     else if (item == OPT_START) snprintf(out, size, v == EL_START_SLOT_A ? "SLOTS A" : "LAST");
     else if (item == OPT_LEVEL) snprintf(out, size, "%d", v);
     else if (item == OPT_THRESHOLD) snprintf(out, size, "-%d DB", v);
