@@ -41,10 +41,15 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "x..x..x.x.......|x..x..x...x.....", "....x.......x...", 0, 0, 0,
         0, 0, 0, 0,
         "x.xxx.xxx.xxx.xx|xxxxxxxxxxxxxxxx", 0, 0, "x.......x......."}},
-    {"ROTHER", 1300, 50, KELECTRO, 16, 2, 0, 1, DR_HARMONY_ROTHER, {
-        "x...x...x...x...|x...x...x...x.x.|x...x...x..x.x..", 0, 0, 0, "|......x.......x.",
-        "....x.......x...", 0, 0, "..x...x...x...x.",
-        "x...x...x...x...|xx..xx..xx..xx..", "|..............x.", 0, "x...x...x...x..."}},
+    /* ROTHER: measured on the TR-808 tracks of Anthony Rother's DEKATRON
+     * (stems separated with Demucs): 133 BPM, straight, a syncopated electro
+     * kick (not four on the floor), clap on 2 and 4, 16th hats with gaps. */
+    {"ROTHER", 1330, 50, KELECTRO, 16, 2, 0, 1, DR_HARMONY_ROTHER, {
+        "x..x..x...x..x..|x..x..x..x...x..|x..x..xx..x..x..|x.x....x.x......|x..x..x...x...x.",
+        "|...x.....x....x|..x........x...x", 0, 0, "|......x.......x.",
+        "....x.......x...", 0, 0, "|..x...x...x...x.|.............x..",
+        "x..x..x...x..x..|x.xxx.xxx.xxx.xx|x.x.x.x.x.x.x.x.|xx.xxx.xxx.xxx.x", "|..............x.", 0,
+        "x.....x...x.....|x...x...x...x..."}},
     {"MIAMI", 1300, 50, KMIAMI, 16, 2, 0, 1, DR_HARMONY_ELECTRO, {
         "x.....x...x.....|x......x..x.....", 0, 0, 0, "....x.......x...|",
         "....x.......x...", 0, 0, "..x...........x.",
@@ -70,12 +75,20 @@ const dr_style_t dr_styles[DR_STYLES] = {
         "x.....x...x.....", "....x.......x...", 0, 0, 0,
         "....x.......x...", "x..x..x...x.x...|", 0, "..............x.",
         "x.x.x.x.x.x.x...", "|......x.......x.", 0, "x...x.......x..."}},
-    {"EGYPT", 1270, 50, KMIAMI, 32, 2, 0, 1, DR_HARMONY_ELECTRO, {
-        "x..x..x...x..x..x..x..x...x..x..", "....x.......x.......x.......xxxx",
+    /* EGYPT: measured on The Egyptian Lover's 1986 (stems separated with
+     * Demucs): ~126 BPM, kick figures from The Internet, Lose Control, Get
+     * Down, Cyborg and Freaky Girl, closed hats in 16ths that leave the clap
+     * steps free, or open hats in 8ths. */
+    {"EGYPT", 1260, 50, KMIAMI, 32, 2, 0, 1, DR_HARMONY_ELECTRO, {
+        "x.....x...x.....x.....x...x..x..|x...x.x...x.....x...x.x...x.....|x...x.x...x..xx.x...x.x...x..x..|"
+        "x.....x.x..x....x.....x.x..x....|x...x.x.x...x...x...x.x.x...x...|x..x..x...x..x..x..x..x...x..x..",
+        "....x.......x.......x.......xxxx",
         "............................x...|", "..............................x.|",
         "...x......x..x.....x......x.....|",
-        "....x.......x.......x.......xxxx", "..x...x.x.....x...x...x.x.......|", 0, 0,
-        "xxxxxxxxxxxxxxxxxxxxxxxxxxxx....", "|..............................x.", "..x...x...x...x...x...x...x...x.|..xx..x...xx..x...xx..x...xx.x.x|x..x..x.x..x..x.x..x..x.x..x..x.", "x...x.x...x.x...x...x.x...x.xxxx"}},
+        "....x.......x.......x.......xxxx", "..x...x.x.....x...x...x.x.......|", 0,
+        "|||x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.x.",
+        "xxxx..xxxxxx..xxxxxx..xxxxxx..xx|xxxxxxxxxxxxxxxxxxxxxxxxxxxx....|..xx....xx.....x..xx....xx.....x",
+        "|..............................x.", "..x...x...x...x...x...x...x...x.|..xx..x...xx..x...xx..x...xx.x.x|x..x..x.x..x..x.x..x..x.x..x..x.", "x...x.x...x.x...x...x.x...x.xxxx"}},
     {"FREAKY", 1280, 50, KELECTRO, 32, 2, 2, 1, DR_HARMONY_ELECTRO, {
         "x.....x...x..x..x.....x...x.x..x", "....x.......x.......x.......x.xx", 0, 0, 0,
         "....x.......x.......x.......xxxx", "x..x..x...x.....x..x..x...x.....|", 0, "..x...x...x...x...x...x...x.....",
