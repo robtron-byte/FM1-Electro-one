@@ -6,5 +6,11 @@
 |---|---|
 | `FM1.stp` | Modell im STEP-Format (AP203), Einheit mm. Öffnet sich in Fusion, FreeCAD, Onshape, SolidWorks und den meisten Slicern. |
 | `FM1.png`, `FM1-2.png`, `FM1-3.png` | Renderbilder des Modells |
+| [`MASSE.md`](MASSE.md) | Alle Maße von Gehäuse, Tasten, Tastern, Encodern, Display und Anschlüssen, aus dem Modell gemessen |
+| `fm1_dimensions.json` | dieselben Maße maschinenlesbar |
+| `fm1_panel.scad` | OpenSCAD-Bibliothek mit den Maßen, Umriss, Bedienelementen und einer Beispiel-Frontplatte |
+| `fm1_top.png`, `fm1_back.png` | bemaßte Draufsicht und Rückseite |
+
+Für eigene Teile brauchst du das Modell nicht hochzuladen: Die Maße stehen in `MASSE.md`, und mit `fm1_panel.scad` kannst du direkt in OpenSCAD konstruieren.
 
 Das Modell ist ein Scan: Kleine Teile wie Encoder-Achsen und Tastenkanten sind nur so genau wie der Scanner. Für die Passung der Knöpfe gilt weiter: messen und den Passungstest aus `../caps` drucken.

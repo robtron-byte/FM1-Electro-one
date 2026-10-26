@@ -1,0 +1,103 @@
+{
+  "_info": "M-VAVE FM-1, measured from FM1.obj/FM1.stp. Units mm. Origin: front left bottom corner of the housing. x to the right, y to the back (ports at y = 97), z up. Centers are [x, y]. See MASSE.md.",
+  "housing": {
+    "size": [162.0, 97.0],
+    "corner_radius_plan": 10.0,
+    "top_edge_round": 2.0,
+    "z_bottom_shell": 6.0,
+    "z_panel_top": 21.5,
+    "panel_thickness": 2.0,
+    "z_panel_underside": 19.5
+  },
+  "bottom": {
+    "tray": { "x": [1.5, 160.5], "y": [1.5, 95.5], "z": [2.7, 9.0] },
+    "feet": { "diameter": 13.1, "socket_diameter": 14.2, "z": [0.0, 9.0], "centers": [[15.0, 15.0], [15.0, 82.0], [147.0, 82.0], [147.0, 15.0]] },
+    "speaker": { "diameter": 26.5, "center": [24.2, 34.5], "z": [5.0, 9.0] }
+  },
+  "pockets": {
+    "_info": "Recesses in the panel top for the silicone mats and the display, 0.5 deep (floor z = 21.0)",
+    "depth": 0.5,
+    "keys":    { "center": [81.0, 24.25],  "size": [148.6, 35.1], "corner_radius": 5.3 },
+    "options": { "center": [118.15, 58.65], "size": [63.9, 22.5], "corner_radius": 3.3 },
+    "octave":  { "center": [22.6, 51.3],   "size": [25.2, 8.0],  "corner_radius": 1.5 },
+    "screen":  { "center": [61.1, 70.2],   "size": [38.2, 38.2], "corner_radius": 5.0 }
+  },
+  "mats": {
+    "_info": "Silicone mats lying in the pockets, z 21.0 to 21.45 (surface 0.05 below the panel top)",
+    "keys":    { "x": [7.1, 154.9], "y": [7.1, 41.4] },
+    "options": { "x": [86.5, 149.8], "y": [47.7, 69.6] },
+    "octave":  { "x": [10.3, 34.9], "y": [47.6, 55.0] },
+    "z": [21.0, 21.45]
+  },
+  "keys": {
+    "_info": "27 keys, stadium (pill) shape, long side along y, rounded ends. Base at the mat surface, top flat with an LED slot.",
+    "count": 27,
+    "base_size": [7.9, 14.9],
+    "top_size": [5.9, 12.9],
+    "z": [21.5, 23.0],
+    "height_above_panel": 1.5,
+    "pitch": 9.0,
+    "lower_row": { "y": 16.5, "x": [13.4, 22.4, 31.4, 40.4, 49.4, 58.4, 67.4, 76.4, 85.4, 94.4, 103.4, 112.4, 121.4, 130.4, 139.4, 148.4] },
+    "upper_row": { "y": 31.5, "x": [17.9, 26.9, 35.9, 53.9, 62.9, 80.9, 89.9, 98.9, 116.9, 125.9, 143.9] },
+    "led_slot": { "size": [1.2, 8.2], "z": [22.9, 23.0], "at_key_center": true }
+  },
+  "option_buttons": {
+    "_info": "12 square buttons, 6 x 2, right of the display",
+    "count": 12,
+    "base_size": [8.4, 8.4],
+    "top_size": [6.37, 6.37],
+    "z": [21.5, 22.76],
+    "pitch": [10.0, 10.0],
+    "x": [93.15, 103.15, 113.15, 123.15, 133.15, 143.15],
+    "y": [53.65, 63.65]
+  },
+  "octave_buttons": {
+    "_info": "2 rectangular buttons left, under PRESETS/ALGORITHM",
+    "count": 2,
+    "base_size": [10.0, 5.6],
+    "top_size": [8.36, 3.96],
+    "z": [21.5, 23.0],
+    "centers": [[16.4, 51.3], [28.8, 51.3]]
+  },
+  "screen": {
+    "frame": { "x": [42.4, 79.8], "y": [51.5, 88.9], "z": [21.0, 21.5] },
+    "glass": { "x": [46.825, 75.325], "y": [55.9, 84.4], "size": [28.5, 28.5] }
+  },
+  "encoders": {
+    "_info": "Knurled shafts in round holes through the panel. No separate knob in the model.",
+    "panel_hole": { "diameter": 7.9, "diameter_top_chamfer": 8.5 },
+    "collar": { "diameter": 6.0, "z": [19.5, 22.75] },
+    "knurl": { "outer_diameter": 5.88, "root_diameter": 5.08, "teeth": 20, "z": [23.0, 27.75] },
+    "top_chamfer_to_diameter": 5.1,
+    "z_top": 28.2,
+    "height_above_panel": 6.7,
+    "positions": {
+      "SELECT":    [31.0, 81.0],
+      "ALGORITHM": [31.0, 64.0],
+      "PRESETS":   [14.0, 64.0],
+      "KNOB_1":    [91.0, 81.0],
+      "KNOB_2":    [109.0, 81.0],
+      "KNOB_3":    [127.0, 81.0],
+      "KNOB_4":    [145.0, 81.0]
+    }
+  },
+  "master": {
+    "_info": "Volume pot: split knurled shaft with a white pointer insert",
+    "position": [14.0, 81.0],
+    "collar": { "diameter": 6.0, "z": [19.5, 21.9] },
+    "knurl": { "outer_diameter": 5.88, "root_diameter": 5.55, "z": [21.9, 27.75] },
+    "slot_from_z": 25.0,
+    "slot_inner_diameter": 2.4,
+    "z_top": 28.2,
+    "pointer_insert": { "x": [13.55, 14.45], "y": [82.2, 83.5], "z": [24.2, 28.1] }
+  },
+  "back_panel": {
+    "_info": "Port side at y = 97. Coordinates here are [x, z] centers on the back wall.",
+    "recess": { "x": [27.1, 81.5], "z": [8.3, 17.0], "depth": 1.5 },
+    "led":        { "center": [29.85, 12.65], "diameter": 0.9 },
+    "power_switch": { "slot_x": [34.0, 40.2], "slot_z": [10.8, 14.4], "lever": { "x": [34.0, 37.5], "z": [10.84, 14.34] } },
+    "usb_c":      { "center": [50.0, 12.65], "size": [9.0, 3.3] },
+    "jack_1":     { "center": [62.75, 12.55], "diameter": 3.9 },
+    "jack_2":     { "center": [75.05, 12.55], "diameter": 3.9, "boss": { "size": [8.7, 7.0] } }
+  }
+}
