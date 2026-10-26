@@ -26,6 +26,9 @@ extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
 extern float tr808_sd_cal[SD_CAL];   /* snare calibration (see tr808.c) */
 
 typedef struct { float ic1, ic2, g, k, a1, a2, a3; } tr_svf_t;
+/* A coefficient remembered with its argument: transcendental functions run
+ * only when a knob (or the age-free argument) changes, not every sample. */
+typedef struct { float x, y; } tr_memo_t;
 
 typedef struct {
     uint8_t active;
@@ -35,6 +38,7 @@ typedef struct {
     float out_lp, dc_x, dc_y, pink[3];
     float lag1, lag2, lp1, hp1;          /* cymbal: envelope lags, tone pole, 1-pole HP */
     tr_svf_t r1, r2, r3;
+    tr_memo_t memo[8];
 } tr_voice_t;
 
 typedef struct {

@@ -110,12 +110,24 @@ static const float metal_tol[6] EL_DSP_DATA = {1.012f, 0.991f, 1.006f, 0.988f, 1
 
 static inline void svf_set(tr_svf_t *f, float hz, float q);
 
+static inline float decay_coef(float samples);
+static float spread_tab[128];
+static float tom_env3_c, tom_env2_c, tom_lag2_c, tom_bias;
+
 void tr808_init(tr808_t *t)
 {
     memset(t, 0, sizeof *t);
     for (int part = 0; part <= D8_KIT; ++part)
         for (int p = 0; p < params[part].count; ++p) tr808_set(t, part, p, params[part].desc[p].def);
-    for (int part = 0; part < D8_NUM; ++part) t->v[part].rng = 0x9e3779b9u * (uint32_t)(part + 1);
+    for (int i = 0; i < 128; ++i) spread_tab[i] = dsp_exp2((i - 64) / 64.0f);
+    tom_env3_c = decay_coef(MS(0.19f));
+    tom_env2_c = decay_coef(MS(10.0f));
+    tom_lag2_c = decay_coef(MS(1.5f));
+    tom_bias = dsp_tanh(0.76f * 0.0025f);
+    for (int part = 0; part < D8_NUM; ++part) {
+        t->v[part].rng = 0x9e3779b9u * (uint32_t)(part + 1);
+        for (int i = 0; i < 8; ++i) t->v[part].memo[i].x = -1e30f;   /* nothing remembered yet */
+    }
     t->noise = 0x1234567u;
     for (int i = 0; i < 6; ++i) t->metal_phase[i] = 0.137f * (float)i;
     svf_set(&t->metal_bp1, 3450.0f, 6.0f);
@@ -164,8 +176,26 @@ static inline float noise(uint32_t *s)
 static inline float powf_approx(float a, float b) { return a <= 0 ? 0 : dsp_exp2(b * dsp_log2(a)); }
 static inline float decay_coef(float samples) { return dsp_exp(-1.0f / dsp_max(samples, 1.0f)); }
 static inline float knob(const tr808_t *t, int part, int slot) { return t->pot[part][slot] / 127.0f; }
-/* Knob extension around the stock value: 64 = stock, 0 / 127 = /2 / x2. */
-static inline float spread(const tr808_t *t, int part, int slot) { return dsp_exp2((t->pot[part][slot] - 64) / 64.0f); }
+/* Knob extension around the stock value: 64 = stock, 0 / 127 = /2 / x2
+ * (spread_tab: dsp_exp2((pot - 64) / 64), filled by tr808_init). */
+static inline float spread(const tr808_t *t, int part, int slot) { return spread_tab[t->pot[part][slot] & 127u]; }
+static inline float m_decay(tr_memo_t *m, float samples)
+{
+    if (samples != m->x) { m->x = samples; m->y = decay_coef(samples); }
+    return m->y;
+}
+static inline float m_exp2(tr_memo_t *m, float x)
+{
+    if (x != m->x) { m->x = x; m->y = dsp_exp2(x); }
+    return m->y;
+}
+static inline float m_exp(tr_memo_t *m, float x)
+{
+    if (x != m->x) { m->x = x; m->y = dsp_exp(x); }
+    return m->y;
+}
+/* Fixed coefficients (tom_env3_c, tom_env2_c, tom_lag2_c, tom_bias) are
+ * set by tr808_init. */
 
 /* The 1 ms trigger pulse after the 808's differentiating pulse shaper
  * (high-pass, tau 0.1 ms, negative excursion clamped by a diode). */
@@ -271,8 +301,10 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
     const float *k = tr808_bd_cal;
-    float f0 = k[0] * tolerance[part] * dsp_exp2((t->pot[part][P_TUNE] - 64) / 64.0f);
-    float q = k[11] * dsp_exp2(k[12] * powf_approx(knob(t, part, P_DECAY), 0.8f));
+    float f0 = k[0] * tolerance[part] * spread(t, part, P_TUNE);
+    float kd = knob(t, part, P_DECAY);
+    if (kd != v->memo[0].x) { v->memo[0].x = kd; v->memo[0].y = k[11] * dsp_exp2(k[12] * powf_approx(kd, 0.8f)); }
+    float q = v->memo[0].y;
     float pulse = trigger_pulse(v);
     /* PUNCH (0 = as calibrated): the attack phase higher (up to x2) and
      * longer (up to x2), a harder, clickier start as in the SDK's Attack. */
@@ -289,8 +321,8 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
             svf_set(&v->r1, f0 * (1.0f + sigh), q);
         }
     }
-    v->env *= decay_coef(q / (DSP_PI * f0) * EL_SAMPLE_RATE);
-    v->pitch *= decay_coef(MS(k[13]));
+    v->env *= m_decay(&v->memo[1], q / (DSP_PI * f0) * EL_SAMPLE_RATE);
+    v->pitch *= m_decay(&v->memo[2], MS(k[13]));
     /* Raw resonator voltage (not normalised by Q): switching Q at the end of
      * the attack keeps the waveform continuous, as in the circuit. */
     float y = svf_bp(&v->r1, (pulse + v->aux) * k[6], 0) / v->r1.k;
@@ -305,7 +337,7 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
     if (drive > 0) { float d = 1.0f + 6.0f * drive; y = dsp_tanh(y * d) / dsp_sqrt(d); }
     /* Tone: 1-pole low-pass 305 Hz .. 7.2 kHz on the click path. */
     float tone = knob(t, part, P_TONE);
-    float cutoff = 305.0f * dsp_exp2(4.56f * tone);
+    float cutoff = 305.0f * m_exp2(&v->memo[3], 4.56f * tone);
     float click = pulse * (k[10] + 0.18f * tone);
     v->out_lp += (y + click - v->out_lp) * dsp_min(1.0f, 2.0f * DSP_PI * cutoff / EL_SAMPLE_RATE);
     /* The resonator itself is far below the tone corner; pass it straight
@@ -367,13 +399,13 @@ static float snare(tr808_t *t, tr_voice_t *v)
     float tone = knob(t, part, P_TONE);
     /* Raw resonator voltages, as the circuit sums them. */
     float body = (1.0f - tone) * k[0] * svf_bp(&v->r1, pulse * 3.0f, 0) / v->r1.k +
-                 k[1] * dsp_exp2(1.79f * tone) * svf_bp(&v->r2, pulse * 3.0f, 0) / v->r2.k;
+                 k[1] * m_exp2(&v->memo[0], 1.79f * tone) * svf_bp(&v->r2, pulse * 3.0f, 0) / v->r2.k;
     body = dsp_tanh(body * 0.9f) / 0.9f;
-    v->env *= decay_coef(MS(k[5]) * decay);
-    v->env2 *= decay_coef(MS(k[6]) * decay);
+    v->env *= m_decay(&v->memo[1], MS(k[5]) * decay);
+    v->env2 *= m_decay(&v->memo[2], MS(k[6]) * decay);
     float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
     float n = svf_hp(&v->r3, t->noise_now);
-    float lp = 1.0f - dsp_exp(-2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE);
+    float lp = 1.0f - m_exp(&v->memo[3], -2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE);
     v->aux += (n - v->aux) * lp;
     v->out_lp += (v->aux - v->out_lp) * lp;
     float noise_env = ((1.0f - k[7]) * v->env + k[7] * v->env2) * attack * v->volts;
@@ -396,27 +428,28 @@ static const float tom_hz[4] EL_DSP_DATA = {93.0f, 185.0f, 185.0f, 400.0f};   /*
 static float tom(tr808_t *t, tr_voice_t *v, int part)
 {
     int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-    float f0 = tom_hz[idx] * dsp_exp2(0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f);   /* fitted: no tolerance */
-    float scale = dsp_sqrt(93.0f / f0);   /* times as fitted for LT, shorter for higher drums */
+    float f0 = tom_hz[idx] * m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f);   /* fitted: no tolerance */
+    if (f0 != v->memo[1].x) { v->memo[1].x = f0; v->memo[1].y = dsp_sqrt(93.0f / f0); }
+    float scale = v->memo[1].y;   /* times as fitted for LT, shorter for higher drums */
     if (v->age == 0) {
         v->lag2 = v->lag1;          /* what still rings fades out instead of clicking */
         v->aux = 0;                 /* phase: the hit starts on -cos */
         svf_set(&v->r1, 500.0f * f0 / tom_hz[idx], 1.0f);
     }
     float bend = 0.277f * knob(t, part, P_SNAPPY) * 2.0f * (conga ? 0.35f : 1.0f) * (1.0f + 0.4f * v->accent);
-    v->pitch *= decay_coef(MS(42.9f * scale));
+    v->pitch *= m_decay(&v->memo[2], MS(42.9f * scale));
     float hz = f0 * (1.0f + bend * v->pitch);
     v->aux += hz * (1.0f / EL_SAMPLE_RATE);
     if (v->aux >= 1.0f) v->aux -= 1.0f;
     float body = -dsp_cos(2.0f * DSP_PI * v->aux);
-    v->env *= decay_coef(MS(74.9f * scale * (conga ? 0.65f : 1.0f) * dsp_exp2((t->pot[part][P_DECAY] - 64) / 48.0f)));
-    v->env3 *= decay_coef(MS(0.19f));
+    v->env *= m_decay(&v->memo[4], MS(74.9f * scale * (conga ? 0.65f : 1.0f) * m_exp2(&v->memo[3], (t->pot[part][P_DECAY] - 64) / 48.0f)));
+    v->env3 *= tom_env3_c;
     body *= v->env * (1.0f - v->env3);
     if (!conga) {
         /* Noise: band-passed around 500 Hz (the fit's residual), 10 ms. */
         float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
-        v->env2 *= decay_coef(MS(10.0f));
-        float amount = 0.014f * dsp_exp2((t->pot[part][P_TONE] - 64) / 16.0f);
+        v->env2 *= tom_env2_c;
+        float amount = 0.014f * m_exp2(&v->memo[5], (t->pot[part][P_TONE] - 64) / 16.0f);
         body += svf_bp(&v->r1, t->noise_now, 0) * 2.0f * amount * v->env2 * attack;
         /* Click: a 0.3 ms spike, high-passed at 1 kHz. */
         float c = dsp_exp(-(float)v->age / MS(0.3f));
@@ -425,8 +458,8 @@ static float tom(tr808_t *t, tr_voice_t *v, int part)
     }
     float soft = v->volts * 14.0f / (4.0f + 10.0f * v->accent);   /* MIDI hits below normal */
     float in = body * (1.0f + 1.2f * v->accent) * soft;
-    float y = (dsp_tanh(0.76f * (in + 0.0025f)) - dsp_tanh(0.76f * 0.0025f)) * (1.0f + 0.5f * v->accent);
-    v->lag2 *= decay_coef(MS(1.5f));
+    float y = (dsp_tanh(0.76f * (in + 0.0025f)) - tom_bias) * (1.0f + 0.5f * v->accent);
+    v->lag2 *= tom_lag2_c;
     y += v->lag2;
     v->lag1 = y;
     if (v->age > (uint32_t)MS(30.0f) && v->env < 1e-4f && dsp_abs(v->lag2) < 1e-5f) { v->lag1 = 0; v->active = 0; }
@@ -481,7 +514,7 @@ static float clap(tr808_t *t, tr_voice_t *v)
     float ms = (float)v->age / MS(1.0f), saw;
     if (ms < 30.0f) { float in = ms - 10.0f * (float)(int)(ms / 10.0f); saw = 1.0f - in / 10.0f; }
     else saw = dsp_exp(-(ms - 30.0f) / 8.7f);
-    v->env2 *= decay_coef(MS(tr808_mx_cal[5]) * spread(t, part, P_DECAY));
+    v->env2 *= m_decay(&v->memo[0], MS(tr808_mx_cal[5]) * spread(t, part, P_DECAY));
     float e = saw + tr808_mx_cal[6] * v->env2;
     if (ms > 30.0f && v->env2 < 1e-4f) v->active = 0;
     float y = bp * e * v->volts * 1.5f;
@@ -554,8 +587,8 @@ static float cowbell(tr808_t *t, tr_voice_t *v, float src)
     if (v->age == 0) svf_set(&v->r1, k[0] * spread(t, part, P_TUNE), k[1]);
     float y = svf_bp(&v->r1, src * 0.5f, 0);
     float decay = spread(t, part, P_DECAY);
-    v->env *= decay_coef(MS(k[2]) * decay);
-    v->env2 *= decay_coef(MS(k[3]) * decay);
+    v->env *= m_decay(&v->memo[0], MS(k[2]) * decay);
+    v->env2 *= m_decay(&v->memo[1], MS(k[3]) * decay);
     float attack = dsp_min(1.0f, (float)v->age / MS(0.7f));
     float e = (k[4] * v->env + (1.0f - k[4]) * v->env2) * attack;
     if (v->env2 < 1e-4f) v->active = 0;
@@ -604,10 +637,12 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
         /* The three reservoirs charge to the trigger height: accent +6 dB. */
         v->aux = 0.5f + 0.5f * v->accent;
     }
-    float decay = knob(t, part, P_DECAY), tone = powf_approx(knob(t, part, P_TONE), k[14]);
-    v->env *= decay_coef(MS(k[8] + k[9] * decay));       /* low band reservoir */
-    v->env2 *= decay_coef(MS(k[10] + k[11] * decay));     /* DECAY band reservoir */
-    v->env3 *= decay_coef(MS(k[4]));                      /* short band */
+    float decay = knob(t, part, P_DECAY), kt = knob(t, part, P_TONE);
+    if (kt != v->memo[0].x) { v->memo[0].x = kt; v->memo[0].y = powf_approx(kt, k[14]); }
+    float tone = v->memo[0].y;
+    v->env *= m_decay(&v->memo[1], MS(k[8] + k[9] * decay));       /* low band reservoir */
+    v->env2 *= m_decay(&v->memo[2], MS(k[10] + k[11] * decay));     /* DECAY band reservoir */
+    v->env3 *= m_decay(&v->memo[3], MS(k[4]));                      /* short band */
     v->lag1 += (v->env - v->lag1) * (1.0f / MS(k[12]));
     v->lag2 += (v->env2 - v->lag2) * (1.0f / MS(k[13]));
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
@@ -621,11 +656,11 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
     hi = svf_hp(&v->r3, hi);
     v->hp1 += (hi - v->hp1) * 0.5243f;                    /* 1-pole HP 5.2 kHz */
     hi = 2.78f * (hi - v->hp1);
-    float g_low = k[1] * dsp_exp2(-k[6] * (tone - 0.5f)), g_mid = k[2] * dsp_exp2(k[7] * (tone - 0.5f));
-    float g_hi = k[3] * dsp_exp2(k[5] * (tone - 0.5f));
+    float g_low = k[1] * m_exp2(&v->memo[4], -k[6] * (tone - 0.5f)), g_mid = k[2] * m_exp2(&v->memo[5], k[7] * (tone - 0.5f));
+    float g_hi = k[3] * m_exp2(&v->memo[6], k[5] * (tone - 0.5f));
     if (v->env < 1e-4f && v->env2 < 1e-4f && v->age > MS(300.0f)) v->active = 0;
     /* Tone network and LEVEL buffer: nearly flat, rolling off at the top. */
-    v->out_lp += (g_low * v->lp1 + g_mid * mid + g_hi * hi - v->out_lp) * (1.0f - dsp_exp(-2.0f * DSP_PI * k[17] / EL_SAMPLE_RATE));
+    v->out_lp += (g_low * v->lp1 + g_mid * mid + g_hi * hi - v->out_lp) * (1.0f - m_exp(&v->memo[7], -2.0f * DSP_PI * k[17] / EL_SAMPLE_RATE));
     return v->out_lp * (1.0f + 0.6f * v->accent);   /* accent +6 dB, see hat() */
 }
 
@@ -644,8 +679,8 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     }
     float k = knob(t, part, P_DECAY);
     float decay = part == D8_CH ? tr808_mx_cal[8] * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
-    v->env *= decay_coef(MS(decay) / 2.3f);
-    if (v->aux2 > 0) v->env *= decay_coef(MS(7.0f));    /* choked by the other hat */
+    v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
+    if (v->aux2 > 0) v->env *= m_decay(&v->memo[1], MS(7.0f));    /* choked by the other hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
     float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
     if (part == D8_OH) {                         /* open hat: a little more top end */
@@ -671,16 +706,16 @@ static float zap(tr808_t *t, tr_voice_t *v)
         v->aux = 1340.0f * spread(t, part, P_TUNE) * spread(t, part, P_TUNE);   /* start Hz */
         v->pitch = 1.0f;
     }
-    float sweep = 5.0f * dsp_exp2(6.3f * knob(t, part, P_SNAPPY));            /* ms */
+    float sweep = 5.0f * m_exp2(&v->memo[0], 6.3f * knob(t, part, P_SNAPPY));            /* ms */
     float depth = 7.0f * knob(t, part, P_SOUND);                               /* octaves */
-    v->pitch *= decay_coef(MS(sweep));
+    v->pitch *= m_decay(&v->memo[1], MS(sweep));
     float hz = v->aux * dsp_exp2(-depth * (1.0f - v->pitch));
     v->out_lp += dsp_min(hz, 18000.0f) * (1.0f / EL_SAMPLE_RATE);
     if (v->out_lp >= 1.0f) v->out_lp -= 1.0f;
     float y = dsp_sin(2.0f * DSP_PI * v->out_lp);
     float drive = 1.0f + 12.0f * knob(t, part, P_TONE) * (0.6f + 0.4f * v->accent);
     y = dsp_tanh(y * drive) / dsp_tanh(drive);
-    v->env *= decay_coef(MS(20.0f * dsp_exp2(5.3f * knob(t, part, P_DECAY))));
+    v->env *= m_decay(&v->memo[3], MS(20.0f * m_exp2(&v->memo[2], 5.3f * knob(t, part, P_DECAY))));
     float attack = dsp_min(1.0f, (float)v->age / MS(0.3f));
     if (v->env < 1e-4f) v->active = 0;
     return y * v->env * attack * (0.35f + 0.65f * v->volts);
@@ -710,7 +745,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
         svf_set(&v->r2, 250.0f * tune, 0.7f * ring);
         svf_set(&v->r3, 250.0f * tune, 0.55f * ring);
     }
-    float width = MS(15.15f) * dsp_exp2(4.0f * (knob(t, part, P_SNAPPY) - 0.5f));
+    float width = MS(15.15f) * m_exp2(&v->memo[0], 4.0f * (knob(t, part, P_SNAPPY) - 0.5f));
     float age = (float)v->age;
     /* The trigger voltage: exponential rise, very fast fall, the glitch. */
     float target = age < width ? 1.0f : 0.0f;
@@ -718,7 +753,7 @@ static float pulse(tr808_t *t, tr_voice_t *v)
     float x = v->aux2 + (age < width && age >= width - MS(0.05f) ? 0.233f : 0.0f);
     float coupling = MS(0.216f) * spread(t, part, P_DECAY) * spread(t, part, P_DECAY);
     v->dc_y = x - v->dc_x;                       /* input coupling, 1-pole HP */
-    v->dc_x += v->dc_y * (1.0f - decay_coef(coupling));
+    v->dc_x += v->dc_y * (1.0f - m_decay(&v->memo[1], coupling));
     float y = svf_hp(&v->r3, svf_hp(&v->r2, svf_hp(&v->r1, v->dc_y)));
     v->lp1 += (y - v->lp1) * 0.0043f;            /* 30 Hz DC block */
     if (age > width + MS(50.0f)) v->active = 0;
@@ -751,6 +786,22 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         }
     }
     float level = t->kit[0] / 110.0f;
+    /* Per block (the knobs do not move within one): the parts that sound,
+     * their level, sends and drive. */
+    int list[D8_NUM], count = 0;
+    float lv[D8_NUM], send_r[D8_NUM], send_d[D8_NUM], drive[D8_NUM], drive_norm[D8_NUM];
+    for (int part = 0; part < D8_NUM; ++part) {
+        if (po_engine(t, part) ? !t->po[part].active : !t->v[part].active) continue;
+        list[count++] = part;
+        lv[part] = t->pot[part][P_LEVEL] / 100.0f;
+        send_r[part] = knob(t, part, P_REV);
+        send_d[part] = knob(t, part, P_DLY);
+        drive[part] = 0;
+        if (((1u << part) & DRIVE_PARTS) && t->pot[part][P_SNAPPY] && !po_engine(t, part)) {
+            drive[part] = 1.0f + 6.0f * knob(t, part, P_SNAPPY);
+            drive_norm[part] = dsp_sqrt(drive[part]);
+        }
+    }
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0;
         if (metal_on) {
@@ -779,15 +830,16 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         /* One white-noise source feeds snare, clap / maracas and toms, as
          * on the 808: hit together, their noise is the same. */
         t->noise_now = noise(&t->noise);
-        for (int part = 0; part < D8_NUM; ++part) {
+        for (int i = 0; i < count; ++i) {
+            int part = list[i];
             tr_voice_t *v = &t->v[part];
             float y;
             if (po_engine(t, part)) {
                 if (!t->po[part].active) continue;
-                y = po_tick(&t->po[part]) * po_trim[part] * (t->pot[part][P_LEVEL] / 100.0f) * level;
+                y = po_tick(&t->po[part]) * po_trim[part] * lv[part] * level;
                 if (part == D8_BD) { kick[n] += y; }
                 else { left[n] += y * t->pan_l[part]; right[n] += y * t->pan_r[part]; }
-                float r = y * knob(t, part, P_REV), d = y * knob(t, part, P_DLY);
+                float r = y * send_r[part], d = y * send_d[part];
                 if (part == D8_SD || part == D8_CP || part == D8_RS) gate[n] += r; else rev[n] += r;
                 dly[n] += d;
                 continue;
@@ -807,14 +859,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             }
             ++v->age;
             /* DRIVE on rim, clap, cowbell and the metal voices, as on the bass drum */
-            if (((1u << part) & DRIVE_PARTS) && t->pot[part][P_SNAPPY]) {
-                float d = 1.0f + 6.0f * knob(t, part, P_SNAPPY);
-                y = dsp_tanh(y * d) / dsp_sqrt(d);
-            }
-            y *= trim[part] * (t->pot[part][P_LEVEL] / 100.0f) * level;
+            if (drive[part] > 0) y = dsp_tanh(y * drive[part]) / drive_norm[part];
+            y *= trim[part] * lv[part] * level;
             if (part == D8_BD) { kick[n] += y; }
             else { left[n] += y * t->pan_l[part]; right[n] += y * t->pan_r[part]; }
-            float r = y * knob(t, part, P_REV), d = y * knob(t, part, P_DLY);
+            float r = y * send_r[part], d = y * send_d[part];
             if (part == D8_SD || part == D8_CP || part == D8_RS) gate[n] += r; else rev[n] += r;
             dly[n] += d;
         }

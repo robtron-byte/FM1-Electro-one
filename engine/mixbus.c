@@ -14,6 +14,8 @@
 
 /* ---- building blocks ----------------------------------------------------- */
 
+enum { COMP_EVERY = 4 };
+
 static float coef(float ms) { return 1.0f - dsp_exp(-1.0f / (ms * 0.001f * EL_SAMPLE_RATE)); }
 
 static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack_ms, float release_ms,
@@ -25,16 +27,20 @@ static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack
     c->release = release_ms;
     c->knee_db = knee_db;
     c->makeup_db = makeup_db;
-    c->a_coef = coef(attack_ms);
-    c->r_coef = coef(release_ms);
+    c->a_coef = coef(attack_ms / COMP_EVERY);   /* per detector step */
+    c->r_coef = coef(release_ms / COMP_EVERY);
     c->makeup = dsp_exp2(makeup_db / 6.0206f);
     c->env_db = -120.0f;
     c->gain_db = 0;
+    c->gain = c->makeup;
+    c->gain_step = 0;
+    c->peak = 0;
+    c->phase = 0;
 }
 
 /* Feed-forward, log domain, soft knee; detector on the stereo peak. Returns
  * the gain to apply (linear). */
-static inline float comp_gain(mb_comp_t *c, float level)
+static inline float comp_detect(mb_comp_t *c, float level)
 {
     float in_db = 6.0206f * dsp_log2(level + 1e-9f);
     c->env_db += (in_db - c->env_db) * (in_db > c->env_db ? c->a_coef : c->r_coef);
@@ -44,6 +50,21 @@ static inline float comp_gain(mb_comp_t *c, float level)
     else { float x = over + k * 0.5f; reduce = (1.0f - 1.0f / c->ratio) * x * x / (2.0f * k); }
     c->gain_db = -reduce;
     return dsp_exp2(-reduce / 6.0206f) * c->makeup;
+}
+
+/* The detector (a log2 and an exp2) runs on the peak of every
+ * COMP_EVERY samples; the gain glides to its result over the next ones. */
+static inline float comp_gain(mb_comp_t *c, float level)
+{
+    c->peak = dsp_max(c->peak, level);
+    if (++c->phase >= COMP_EVERY) {
+        c->phase = 0;
+        float target = comp_detect(c, c->peak);
+        c->peak = 0;
+        c->gain_step = (target - c->gain) * (1.0f / COMP_EVERY);
+    }
+    c->gain += c->gain_step;
+    return c->gain;
 }
 
 void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db)

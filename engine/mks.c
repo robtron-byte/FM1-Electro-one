@@ -130,31 +130,35 @@ static EL_DSP_CODE float chop_render(const mks_chop_t *c, float p, float dt)
     float out = open ? 2.0f * (c->ramp > 0 ? lr : 1.0f) - 1.0f : -1.0f;
     float seen[7];
     int seen_count = 0;
-    /* 7 edge families: ramp reset, and rise / fall of each gate. */
-    for (int f = 0; f < 7; ++f) {
-        float m, local, offset;
-        switch (f) {
-        case 0: m = c->ramp; local = lr; offset = 0; break;
-        case 1: m = c->m0; local = l0; offset = 0; break;
-        case 2: m = c->m0; local = l0; offset = c->w0; break;
-        case 3: m = c->m1; local = l1; offset = 0; break;
-        case 4: m = c->m1; local = l1; offset = c->w1; break;
-        case 5: m = c->m2; local = l2; offset = 0; break;
-        default: m = c->m2; local = l2; offset = c->w2; break;
-        }
-        if (m <= 0) continue;
-        float x = local - offset;
-        if (x < -0.5f) x += 1.0f; else if (x >= 0.5f) x -= 1.0f;
-        float d = x / m;
-        if (d >= dt || d <= -dt) continue;
-        float edge = p - d;
-        int duplicate = 0;
-        for (int j = 0; j < seen_count; ++j) if (dsp_abs(seen[j] - edge) < 1e-5f) duplicate = 1;
-        if (duplicate) continue;
-        seen[seen_count++] = edge;
-        float h = chop_naive(c, wrap01(edge + 1e-5f)) - chop_naive(c, wrap01(edge - 1e-5f));
-        if (h != 0) out += h * polyblep(wrap01(d), dt);
+    /* 7 edge families: ramp reset, and rise / fall of each gate. Most
+     * samples are far from every edge: |x| >= dt * m clearly (the 1.001
+     * margin keeps the exact test below for the close ones). */
+#define CHOP_EDGE(M, LOCAL, OFFSET)                                                          \
+    if ((M) > 0) {                                                                           \
+        float m = (M), x = (LOCAL) - (OFFSET), lim = dt * m * 1.001f;                        \
+        if (x < -0.5f) x += 1.0f; else if (x >= 0.5f) x -= 1.0f;                             \
+        if (x < lim && x > -lim) {                                                           \
+            float d = x / m;                                                                 \
+            if (d < dt && d > -dt) {                                                         \
+                float edge = p - d;                                                          \
+                int duplicate = 0;                                                           \
+                for (int j = 0; j < seen_count; ++j) if (dsp_abs(seen[j] - edge) < 1e-5f) duplicate = 1; \
+                if (!duplicate) {                                                            \
+                    seen[seen_count++] = edge;                                               \
+                    float h = chop_naive(c, wrap01(edge + 1e-5f)) - chop_naive(c, wrap01(edge - 1e-5f)); \
+                    if (h != 0) out += h * polyblep(wrap01(d), dt);                          \
+                }                                                                            \
+            }                                                                                \
+        }                                                                                    \
     }
+    CHOP_EDGE(c->ramp, lr, 0)
+    CHOP_EDGE(c->m0, l0, 0)
+    CHOP_EDGE(c->m0, l0, c->w0)
+    CHOP_EDGE(c->m1, l1, 0)
+    CHOP_EDGE(c->m1, l1, c->w1)
+    CHOP_EDGE(c->m2, l2, 0)
+    CHOP_EDGE(c->m2, l2, c->w2)
+#undef CHOP_EDGE
     return out;
 }
 
@@ -275,14 +279,19 @@ static inline void ladder_set(mks_voice_t *v, float cutoff, float resonance)
     v->g = dsp_tan(DSP_PI * fc / EL_SAMPLE_RATE);
     v->G = v->g / (1.0f + v->g);
     v->k = resonance * 3.8f;
+    v->G2 = v->G * v->G;
+    v->G3 = v->G2 * v->G;
+    v->G4 = v->G3 * v->G;
+    v->inv = 1.0f / (1.0f + v->g);
+    v->den = 1.0f / (1.0f + v->k * v->G4);
 }
 
 static inline float ladder(mks_voice_t *v, float input)
 {
-    float G = v->G, G2 = G * G, G3 = G2 * G, G4 = G3 * G, inv = 1.0f / (1.0f + v->g);
-    float sigma = (G3 * v->s1 + G2 * v->s2 + G * v->s3 + v->s4) * inv;
+    float G = v->G, G2 = v->G2, G3 = v->G3, G4 = v->G4;
+    float sigma = (G3 * v->s1 + G2 * v->s2 + G * v->s3 + v->s4) * v->inv;
     float x = input * (1.0f + 0.55f * v->k) + 1e-20f;
-    float y4e = (G4 * x + sigma) / (1.0f + v->k * G4);
+    float y4e = (G4 * x + sigma) * v->den;
     float u = 2.0f * soft_clip(0.5f * (x - v->k * y4e));
     float t = (u - v->s1) * G, y1 = t + v->s1; v->s1 = y1 + t;
     t = (y1 - v->s2) * G; float y2 = t + v->s2; v->s2 = y2 + t;

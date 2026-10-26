@@ -63,6 +63,7 @@ typedef struct {
     uint32_t rng, noise;
     float phase, pulse_phase, last_main;
     float s1, s2, s3, s4, g, G, k;  /* ladder */
+    float G2, G3, G4, inv, den;     /* its per-block coefficients (ladder_set) */
     float hz1, hz2;                 /* HPF state */
     float hpf_fc, hpf_b0, hpf_a1;   /* HPF modes 2, 3: corner at most the voice's fundamental */
     mks_env_t env;
