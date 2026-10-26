@@ -153,6 +153,8 @@ make test      # Timing-, MIDI-Clock- und Speichertests
 
 ## Firmware bauen (Windows)
 
+Ein fertiger, noch nicht auf dem Gerät getesteter Build liegt in [`firmware/`](firmware/README.md).
+
 FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen zwei Einhängepunkte dazu (Audio und MIDI), und die Teile der FM1-Open-App, die FM1-Electro ersetzt (Bildschirm, Presets, Projekte, Sampler, FM-Bibliothek, Projektübertragung), wandern aus dem Build nach `fm1_electro_unused/`. An ihre Stelle tritt `fm1/el_sdk_app.c` als `app/screen.c`: Diese Datei übersetzt `Build.ps1` ohne LTO, so behalten ihre Funktionen Vorrang vor den Standardfunktionen des SDK. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display, Update) bleibt unverändert.
 
 1. [FM1 Open](https://github.com/m-vave/fm1_open) klonen. Getestet ist Commit `4c7496d` (V14).
