@@ -47,9 +47,11 @@ Die Silikontasten haben keinen Hinterschnitt, der eine Kappe hält. Klebe die Ka
 
 ## Erst testen
 
-1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind Rändelbohrungen mit Spiel −0,10 bis +0,20 mm pro Seite, die Punkte zählen von 1 (−0,10) über 3 (0) bis 7 (+0,20), in Schritten von 0,05. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
+1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind durchgehende Rändelbohrungen mit Spiel −0,10 bis +0,20 mm pro Seite (die Achse stößt also nicht oben an), die Punkte zählen von 1 (−0,10) über 3 (0) bis 7 (+0,20), in Schritten von 0,05. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
 2. Eine Tastenkappe und eine Kappe rechts einzeln drucken und probieren. Klemmen sie, `P['clr']` um 0,05 erhöhen. Wackeln sie zu sehr, um 0,05 senken.
 3. Dann `python3 make_parts.py` ausführen. Das braucht `pip install manifold3d trimesh numpy matplotlib networkx lxml` und die Schrift Inter. Danach alles drucken.
+
+**Schrift:** Das Skript sucht Inter Bold (`Inter-Bold.otf` oder `.ttf`) selbst, unter Linux in `/usr/share/fonts`, auf dem Mac in `~/Library/Fonts` und `/Library/Fonts`, sonst unter den installierten Schriften. Auf dem Mac: Inter von [rsms.me/inter](https://rsms.me/inter) laden und die Datei `Inter-Bold` per Doppelklick in der Schriftsammlung installieren. Eine andere Datei geht mit `python3 make_parts.py --font /pfad/zur/schrift.ttf` oder über die Umgebungsvariable `FM1_FONT`. Findet das Skript keine Inter, nimmt es DejaVu Sans Bold und warnt. Das ist nur eine Notlösung: Die Schrift läuft breiter, und mit ihr ist die vordere Leiste nicht ganz geschlossen (die meisten Slicer reparieren das). Mit Inter oder z. B. Arial Bold sind alle Teile geschlossen.
 
 ## Anpassen
 
