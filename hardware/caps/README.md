@@ -31,8 +31,8 @@ MASTER behält seinen Knopf: Das ist der Lautstärkeregler, mit eigener Markieru
 | Teil | Sitz |
 |---|---|
 | Drehknöpfe | Die Encoder haben gerändelte Achsen (Ø 6, 20 Zähne, außen 5,88, Grund 5,08) ohne Knopf. Die Bohrung hat dieselben 20 Zähne (Spiel `fit` 0,05 pro Seite) und über dem glatten Bund Luft. Der Knopf sitzt auf dem Achsende und steht 0,7 mm über dem Gehäuse. Zwischen den Knöpfen bleiben 7 mm. |
-| Kappen rechts und OCT | Sie stecken mit 0,1 mm Luft auf dem oberen halben Millimeter der Silikontaste. Darunter bleiben 0,8 mm (OCT 1,0 mm) frei zum Drücken. |
-| Tastenkappen | genauso, 0,5 mm über die Flanke, 1,0 mm Weg bleibt frei. Das Fenster (1,4 × 8,4) lässt den LED-Streifen durch. |
+| Kappen rechts und OCT | Sie stecken mit 0,1 mm Luft auf den oberen 0,3 mm der Silikontaste. Darunter bleiben bis zur Matte 1,0 mm (OCT 1,25 mm) frei zum Drücken. Gehen die Tasten bei dir tiefer, `P['skirt']` verkleinern. |
+| Tastenkappen | genauso, 0,3 mm über die Flanke, 1,25 mm Weg bleibt frei. Das Fenster (1,4 × 8,4) lässt den LED-Streifen ganz frei. |
 | Leisten | Sie liegen auf dem flachen Gehäuse vor und hinter der Tastatur und bleiben 0,4 mm von den Taschen der Silikonmatten weg. Sie sind 0,8 mm dick. |
 
 Die Silikontasten haben keinen Hinterschnitt, der eine Kappe hält. Klebe die Kappen deshalb mit einem Punkt Silikonkleber (z. B. Sil-Poxy) oder dünnem doppelseitigem Silikon-Klebeband auf. **Kein Sekundenkleber:** Er hält auf Silikon nicht und kann in die Matte laufen. Kappen aus transluzentem Material lassen die Tasten-LEDs durchscheinen. Druckst du sie deckend, siehst du nicht mehr, welche Taste leuchtet.
