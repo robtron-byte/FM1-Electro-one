@@ -6,18 +6,58 @@ mm; see README.md, "Maße"). The parts are built in device coordinates
 on print plates face down and written as STL (bodies and inlays apart) and
 3MF (one object per body and inlay colour, named after the part).
 
-Usage: python3 make_parts.py   (needs: pip install manifold3d trimesh numpy matplotlib)
+Usage: python3 make_parts.py [--font FILE]   (needs: pip install manifold3d trimesh numpy matplotlib networkx lxml)
+The labels use Inter Bold. Without --font the script takes $FM1_FONT, then
+Inter Bold from the usual Linux and macOS font folders or any installed
+Inter, and falls back to DejaVu Sans Bold (comes with matplotlib) with a warning.
 """
-import math, os
+import math, os, sys
 import numpy as np
 from manifold3d import Manifold, CrossSection, JoinType, FillRule
 import trimesh
 from matplotlib.textpath import TextPath
-from matplotlib.font_manager import FontProperties
+from matplotlib.font_manager import FontProperties, findfont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "stl")
-FONT = FontProperties(fname="/usr/share/fonts/opentype/inter/Inter-Bold.otf")
+FONT_DIRS = ["/usr/share/fonts/opentype/inter", "/usr/share/fonts/truetype/inter", "/usr/share/fonts/inter",
+             os.path.expanduser("~/Library/Fonts"), "/Library/Fonts", "/opt/homebrew/share/fonts",
+             "/usr/local/share/fonts"]
+FONT_NAMES = ["Inter-Bold.otf", "Inter-Bold.ttf"]
+
+
+def find_font(path=None):
+    """Font file for the labels: path, $FM1_FONT, Inter Bold, else DejaVu Sans Bold."""
+    for p in (path, os.environ.get("FM1_FONT")):
+        if p:
+            if not os.path.isfile(p):
+                sys.exit(f"font not found: {p}")
+            return p
+    for d in FONT_DIRS:
+        for n in FONT_NAMES:
+            if os.path.isfile(os.path.join(d, n)):
+                return os.path.join(d, n)
+    try:
+        p = findfont(FontProperties(family="Inter", weight="bold"), fallback_to_default=False)
+        if "inter" in os.path.basename(p).lower():
+            return p
+    except ValueError:
+        pass
+    p = findfont(FontProperties(family="DejaVu Sans", weight="bold"))
+    print(f"warning: Inter Bold not found, labels use {os.path.basename(p)}. "
+          "Install Inter (https://rsms.me/inter) or pass --font.", file=sys.stderr)
+    return p
+
+
+_font = None
+
+
+def font():
+    """Label font, looked up on first use (the command line may set it with --font)."""
+    global _font
+    if _font is None:
+        _font = FontProperties(fname=find_font())
+    return _font
 
 # ---- measured (CAD model) ---------------------------------------------------
 TOP = 21.5                       # housing top
@@ -103,9 +143,9 @@ def text_cs(s, height, x=0.0, y=0.0, align="center"):
     """Text as a cross-section, cap height = height, centred on (x, y)."""
     if not s:
         return CrossSection()
-    path = TextPath((0, 0), s, size=1.0, prop=FONT)
+    path = TextPath((0, 0), s, size=1.0, prop=font())
     polys = [p for p in path.to_polygons(closed_only=True) if len(p) > 2]
-    cap = TextPath((0, 0), "H", size=1.0, prop=FONT).get_extents().height
+    cap = TextPath((0, 0), "H", size=1.0, prop=font()).get_extents().height
     k = height / cap
     ext = path.get_extents()
     dx = -(ext.x0 + ext.width / 2) if align == "center" else -ext.x0
@@ -114,8 +154,8 @@ def text_cs(s, height, x=0.0, y=0.0, align="center"):
 
 
 def text_width(s, height):
-    path = TextPath((0, 0), s, size=1.0, prop=FONT)
-    cap = TextPath((0, 0), "H", size=1.0, prop=FONT).get_extents().height
+    path = TextPath((0, 0), s, size=1.0, prop=font())
+    cap = TextPath((0, 0), "H", size=1.0, prop=font()).get_extents().height
     return path.get_extents().width * height / cap
 
 
@@ -398,8 +438,15 @@ def build():
 
 
 if __name__ == "__main__":
+    import argparse, pickle
+    ap = argparse.ArgumentParser(description="Build the FM-1 knobs, caps and label strips.")
+    ap.add_argument("--font", help="font file for the labels (default: Inter Bold, see above)")
+    ap.add_argument("placed", nargs="?", default=os.devnull, help="pickle the placed parts here (for previews)")
+    args = ap.parse_args()
+    if args.font:
+        _font = FontProperties(fname=find_font(args.font))
+    print("font:", font().get_file())
     placed = build()
-    import pickle, sys
-    with open(sys.argv[1] if len(sys.argv) > 1 else os.devnull, "wb") as f:
+    with open(args.placed, "wb") as f:
         pickle.dump([(n, c, to_mesh(m).vertices, to_mesh(m).faces) for n, c, m in placed], f)
     print("written to", OUT)
