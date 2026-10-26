@@ -44,6 +44,10 @@ typedef struct {
     po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */
     float metal_phase[6];                    /* shared six-oscillator metal source */
     tr_svf_t metal_bp1, metal_bp2;           /* its 3.44 kHz and 7.1 kHz band-passes */
+    /* Open and closed hat, cowbell with their TUNE off centre: their own
+     * oscillators (centred they share the bank above, as on the 808). */
+    float hat_phase[2][6], cb_phase[2];
+    tr_svf_t hat_bp[2];
     uint32_t noise;
     float noise_now;                         /* this frame's sample of the shared noise source */
     float pan_l[D8_NUM], pan_r[D8_NUM];

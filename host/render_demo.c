@@ -3,6 +3,7 @@
  * check step timing and measure render cost.
  * Usage: render_demo <output directory> */
 #include "electro.h"
+#include "tr808.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -386,6 +387,46 @@ static int tape_long_test(const char *dir)
     return ok ? 0 : 1;
 }
 
+/* TUNE of open hat, closed hat and cowbell moves their pitch (zero
+ * crossings), not their level, and leaves the centred sound as it was. */
+static double hit_808(int part, int idx, int tune, double *crossings)
+{
+    static tr808_t t;
+    static float buf[22016];
+    float k[64], l[64], r[64], a[64], b[64], c[64];
+    tr808_init(&t);
+    tr808_set(&t, part, idx, tune);
+    tr808_trigger(&t, part, 0.8f);
+    for (int p = 0; p < 22016; p += 64) {
+        memset(k, 0, sizeof k); memset(l, 0, sizeof l); memset(r, 0, sizeof r);
+        memset(a, 0, sizeof a); memset(b, 0, sizeof b); memset(c, 0, sizeof c);
+        tr808_render(&t, k, l, r, a, b, c, 64);
+        for (int i = 0; i < 64; ++i) buf[p + i] = l[i] + r[i];
+    }
+    double e = 0;
+    int z = 0;
+    for (int i = 1; i < 22016; ++i) { e += buf[i] * buf[i]; z += (buf[i] > 0) != (buf[i - 1] > 0); }
+    *crossings = z;
+    return 10 * log10(e + 1e-30);
+}
+
+static int tune_808_test(void)
+{
+    static const int parts[3] = {D8_OH, D8_CH, D8_CB}, idx[3] = {2, 1, 1};
+    static const char *const names[3] = {"OH", "CH", "CB"};
+    int ok = 1;
+    printf("808 tune:");
+    for (int i = 0; i < 3; ++i) {
+        double zl, zc, zh, ll = hit_808(parts[i], idx[i], 20, &zl), lc = hit_808(parts[i], idx[i], 64, &zc),
+                            lh = hit_808(parts[i], idx[i], 108, &zh);
+        double level = fmax(fabs(ll - lc), fabs(lh - lc));
+        ok &= level < 3.0 && zl < zc * 0.97 && zh > zc * 1.03;
+        printf(" %s pitch %.2fx..%.2fx level within %.1f dB;", names[i], zl / zc, zh / zc, level);
+    }
+    printf(" %s\n", ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static int dist_test(void)
 {
     double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
@@ -403,7 +444,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir);
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

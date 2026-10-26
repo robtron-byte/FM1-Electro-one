@@ -479,18 +479,31 @@ static inline float rect(float phase, float dt)
     return y + 0.5f * blep(phase, dt) - 0.5f * blep(down, dt);
 }
 
-static float metal(tr808_t *t, float tune, float *cowbell)
+static float metal(float *phase, float tune, float *cowbell)
 {
     float sum = 0, r[6];
     for (int i = 0; i < 6; ++i) {
         float dt = metal_hz[i] * metal_tol[i] * tune * (1.0f / EL_SAMPLE_RATE);
-        t->metal_phase[i] += dt;
-        if (t->metal_phase[i] >= 1.0f) t->metal_phase[i] -= 1.0f;
-        r[i] = rect(t->metal_phase[i], dt);
+        phase[i] += dt;
+        if (phase[i] >= 1.0f) phase[i] -= 1.0f;
+        r[i] = rect(phase[i], dt);
         sum += r[i];
     }
-    *cowbell = 2.0f * (r[4] + r[5]) - 2.0f;
+    if (cowbell) *cowbell = 2.0f * (r[4] + r[5]) - 2.0f;
     return sum * (1.0f / 3.0f) - 1.0f;
+}
+
+/* The cowbell's 540 and 800 Hz rectangles alone (its TUNE off centre). */
+static float cowbell_osc(float *phase, float tune)
+{
+    float sum = 0;
+    for (int i = 0; i < 2; ++i) {
+        float dt = metal_hz[4 + i] * tune * (1.0f / EL_SAMPLE_RATE);
+        phase[i] += dt;
+        if (phase[i] >= 1.0f) phase[i] -= 1.0f;
+        sum += rect(phase[i], dt);
+    }
+    return 2.0f * sum - 2.0f;
 }
 
 /* Calibration of cowbell, clap tail, rim shot ring and the hats, fitted
@@ -594,7 +607,10 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
 static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 {
     if (v->age == 0) {
-        svf_set(&v->r1, part == D8_CH ? 11700.0f : 7800.0f, 2.5f);
+        /* TUNE moves the high-pass with the oscillators, the closed hat's half
+         * as far (it would leave the audio band); centred as on the 808 */
+        float f = spread(t, part, P_TUNE);
+        svf_set(&v->r1, part == D8_CH ? 11700.0f * dsp_sqrt(f) : 7800.0f * f, 2.5f);
         v->aux = 0.5f + 0.5f * v->accent;
     }
     float k = knob(t, part, P_DECAY);
@@ -698,9 +714,27 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0;
         if (metal_on) {
-            float m = metal(t, spread(t, D8_CY, P_TUNE), &cb_src);
+            float m = metal(t->metal_phase, spread(t, D8_CY, P_TUNE), &cb_src);
             low_src = svf_bp(&t->metal_bp1, m, 0);
             high_src = svf_bp(&t->metal_bp2, m, 0);
+        }
+        /* TUNE of the hats and the cowbell off centre: their oscillators
+         * retuned (pitch, not level); they start where the shared bank is. */
+        float hat_src[2] = {high_src, high_src};
+        for (int h = 0; h < 2; ++h) {
+            int part = h ? D8_CH : D8_OH;
+            if (!t->v[part].active || t->pot[part][P_TUNE] == 64) continue;
+            if (t->v[part].age == 0) {
+                memcpy(t->hat_phase[h], t->metal_phase, sizeof t->metal_phase);
+                t->hat_bp[h] = t->metal_bp2;
+                svf_set(&t->hat_bp[h], dsp_min(7100.0f * spread(t, part, P_TUNE), 16000.0f), 6.0f);
+            }
+            float m = metal(t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
+            hat_src[h] = svf_bp(&t->hat_bp[h], m, 0);
+        }
+        if (t->v[D8_CB].active && t->pot[D8_CB][P_TUNE] != 64) {
+            if (t->v[D8_CB].age == 0) memcpy(t->cb_phase, t->metal_phase + 4, sizeof t->cb_phase);
+            cb_src = cowbell_osc(t->cb_phase, spread(t, D8_CY, P_TUNE) * spread(t, D8_CB, P_TUNE));
         }
         /* One white-noise source feeds snare, clap / maracas and toms, as
          * on the 808: hit together, their noise is the same. */
@@ -729,7 +763,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             case D8_CY: y = cymbal(t, v, low_src, high_src); break;
             case D8_ZP: y = zap(t, v); break;
             case D8_PU: y = pulse(t, v); break;
-            default: y = hat(t, v, part, high_src * spread(t, part, P_TUNE) / spread(t, D8_CY, P_TUNE)); break;
+            default: y = hat(t, v, part, hat_src[part == D8_CH]); break;
             }
             ++v->age;
             y *= trim[part] * (t->pot[part][P_LEVEL] / 100.0f) * level;
