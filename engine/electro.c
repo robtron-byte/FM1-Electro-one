@@ -17,7 +17,8 @@ void el_init(el_engine_t *e)
     dr_init(&e->drums);
     fx_init(&e->fx);
     mb_init(&e->mix);
-    static const uint8_t voices[EL_TRACKS] = {3, 4, 2};
+    /* Voices per area: RHYTHM 3, STRINGS 4, BASS 1 (always monophonic). */
+    static const uint8_t voices[EL_TRACKS] = {3, 4, 1};
     for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
@@ -689,6 +690,8 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         pos += (unsigned)n;
     }
     if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
+    /* BASS always in mono (its chorus and unison spread fold to the middle). */
+    for (unsigned i = 0; i < frames; ++i) bass_l[i] = bass_r[i] = 0.5f * (bass_l[i] + bass_r[i]);
     punch_throw(e, frames);
     /* Distortion send per area (mono), its return on the drum bus. */
     const uint8_t *fv = e->fx.v;
