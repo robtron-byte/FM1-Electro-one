@@ -245,6 +245,19 @@ float tr808_bd_cal[BD_CAL] = {
     /* f0     sigh   sigh_acc att_hz att_q att_ms gain  retrig h2       h3       click q0    q_span sigh_ms drive */
     43.91f, 0.3451f, 0.03772f, 216.1f, 12.91f, 5.097f, 1.541f, 0.4058f, 0.09819f, -0.321f, 0.002613f, 2.91f, 5.743f, 37.45f, 4.777f};
 
+/* Tail of the bass drum (A/B tested by ear):
+ * BODY: a quiet octave that stays through the decay (rectified, 2 f0
+ *   band, about -20 dB), so the tail is heard on small speakers too.
+ *   0 = the pure fitted sine tail.
+ * SINK: pitch that keeps sinking with the tail (0.06 = about 5 % over the
+ *   decay, as in the FM1 Open SDK's kick); 0 = only the fitted sigh. */
+#ifndef TR808_BD_BODY
+#define TR808_BD_BODY 0.2f
+#endif
+#ifndef TR808_BD_SINK
+#define TR808_BD_SINK 0.0f
+#endif
+
 static float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
@@ -260,7 +273,7 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
         else {
             /* Sigh: the pitch starts high and glides down to f0 with its own
              * time constant (measured: ~52 -> 44 Hz within ~100 ms). */
-            float sigh = (k[1] + k[2] * v->accent) * v->pitch;
+            float sigh = (k[1] + k[2] * v->accent) * v->pitch + TR808_BD_SINK * v->env;
             svf_set(&v->r1, f0 * (1.0f + sigh), q);
         }
     }
@@ -269,6 +282,10 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
     /* Raw resonator voltage (not normalised by Q): switching Q at the end of
      * the attack keeps the waveform continuous, as in the circuit. */
     float y = svf_bp(&v->r1, (pulse + v->aux) * k[6], 0) / v->r1.k;
+    if (TR808_BD_BODY > 0) {
+        if ((v->age & 7u) == 0) svf_set(&v->r2, 2.0f * f0, 0.85f);
+        y += TR808_BD_BODY * svf_bp(&v->r2, dsp_abs(y), 0);
+    }
     /* Feedback buffer non-linearity: 2nd and 3rd harmonics. */
     float x = y * k[14];
     y = (x + k[8] * x * x + k[9] * x * x * x) / k[14];

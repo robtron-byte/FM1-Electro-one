@@ -8,6 +8,10 @@
 #include "dsp_math.h"
 #include <string.h>
 
+#ifndef MB_KICK_GAIN
+#define MB_KICK_GAIN 1.5f
+#endif
+
 /* ---- building blocks ----------------------------------------------------- */
 
 static float coef(float ms) { return 1.0f - dsp_exp(-1.0f / (ms * 0.001f * EL_SAMPLE_RATE)); }
@@ -159,8 +163,16 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             sl = bq(&mb->synth_presence, 0, bq(&mb->synth_hp, 0, sl)) * synth_gain;
             sr = bq(&mb->synth_presence, 1, bq(&mb->synth_hp, 1, sr)) * synth_gain;
         }
-        /* The kick joins after the drum bus: no compression on it. */
+        /* The kick joins after the drum bus: no compression on it. By
+         * default it also goes around the master compressor and tube (they
+         * squeezed its attack and pumped its tail up by 1-4 dB); with
+         * MB_KICK_THROUGH_MASTER it runs through them as before. */
+#ifdef MB_KICK_THROUGH_MASTER
         float l = dl + bl + sl + kick[n], r = dr + br + sr + kick[n];
+#else
+        float l = dl + bl + sl, r = dr + br + sr;
+        if (!mb->enabled) { l += kick[n]; r += kick[n]; }
+#endif
         if (mb->enabled) {
             l = bq(&mb->master_high, 0, bq(&mb->master_low, 0, l));
             r = bq(&mb->master_high, 1, bq(&mb->master_low, 1, r));
@@ -168,6 +180,10 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             reduction = dsp_min(reduction, mb->master_comp.gain_db);
             l = tube(l * g, mb->master_drive);
             r = tube(r * g, mb->master_drive);
+#ifndef MB_KICK_THROUGH_MASTER
+            l += kick[n] * MB_KICK_GAIN;    /* as loud as through the master's make-up */
+            r += kick[n] * MB_KICK_GAIN;
+#endif
             /* DC blocker after the asymmetric stage. */
             float yl = l - mb->dc_x[0] + 0.9995f * mb->dc_y[0];
             mb->dc_x[0] = l; mb->dc_y[0] = yl; l = yl;

@@ -82,4 +82,13 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web
+.PHONY: demo test screens presets soundcheck clean web kick-ab
+
+# Bass drum tail variants for listening: A through the master (old), B dry
+# tail, C with the octave body (current), D plus a sinking pitch.
+KICK_VARIANTS = A:-DMB_KICK_THROUGH_MASTER:-DTR808_BD_BODY=0.0f B::-DTR808_BD_BODY=0.0f C:: D::-DTR808_BD_SINK=0.06f
+kick-ab: host/kick_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in $(KICK_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/kick_ab_$$n host/kick_ab.c $(ENGINE) -lm && \
+	  ./build/kick_ab_$$n build/wav/kick_$$n.wav $${DECAY:-100} && echo "build/wav/kick_$$n.wav"; done
