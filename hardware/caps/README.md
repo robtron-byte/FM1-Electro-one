@@ -10,7 +10,7 @@ Druckteile für das M-VAVE FM-1, beschriftet und eingefärbt nach der FM1-Electr
 
 | Datei | Teile | Farbe Körper | Farbe Schrift |
 |---|---|---|---|
-| `stl/knobs.3mf` | 7 Drehknöpfe: SEL, PRE, ALG (Ø 13) und KNOB 1–4 (Ø 15) | SEL/PRE/ALG anthrazit, 1–4 weiß | weiß; 1–4 in den Bereichsfarben (in HOME sind KNOB 1–4 die Pegel von BEAT, RHYTHM, STRINGS, BASS) |
+| `stl/knobs.3mf` | 7 Drehknöpfe: SEL, PRE, ALG (Ø 10) und KNOB 1–4 (Ø 11), 9 mm hoch | SEL/PRE/ALG anthrazit, 1–4 weiß | weiß; 1–4 in den Bereichsfarben (in HOME sind KNOB 1–4 die Pegel von BEAT, RHYTHM, STRINGS, BASS) |
 | `stl/buttons.3mf` | 12 Kappen für die Tasten rechts, 2 für OCT− / OCT+ | transluzent (natur) | Bereichstasten in ihrer Farbe, PLAY grün, REC rot, sonst schwarz |
 | `stl/keys.3mf` | 27 Tastenkappen mit Fenster für den LED-Streifen | vordere Reihe: je 4 in BEAT-, RHYTHM-, STRINGS-, BASS-Farbe; hintere Reihe: 1–4 in den Bereichsfarben, 5–11 schwarz | weiß (auf Gelb schwarz) |
 | `stl/strips.3mf` | 2 Beschriftungsleisten zum Aufkleben: vor den Tasten (Bereiche über ihren Plätzen A–D) und hinter den Tasten (MUTE, LIVE FX) | anthrazit | Bereichsfarben, weiß |
@@ -30,7 +30,7 @@ MASTER behält seinen Knopf: Das ist der Lautstärkeregler, mit eigener Markieru
 
 | Teil | Sitz |
 |---|---|
-| Drehknöpfe | Die Encoder haben gerändelte Achsen (Ø 6, 20 Zähne) ohne Knopf. Die Bohrung klemmt auf der Rändelung (Ø 5,85) und hat über dem glatten Bund Luft. Der Knopf sitzt auf dem Achsende und steht 0,7 mm über dem Gehäuse. |
+| Drehknöpfe | Die Encoder haben gerändelte Achsen (Ø 6, 20 Zähne, außen 5,88, Grund 5,08) ohne Knopf. Die Bohrung hat dieselben 20 Zähne (Spiel `fit` 0,05 pro Seite) und über dem glatten Bund Luft. Der Knopf sitzt auf dem Achsende und steht 0,7 mm über dem Gehäuse. Zwischen den Knöpfen bleiben 7 mm. |
 | Kappen rechts und OCT | Sie stecken mit 0,1 mm Luft auf dem oberen halben Millimeter der Silikontaste. Darunter bleiben 0,8 mm (OCT 1,0 mm) frei zum Drücken. |
 | Tastenkappen | genauso, 0,5 mm über die Flanke, 1,0 mm Weg bleibt frei. Das Fenster (1,4 × 8,4) lässt den LED-Streifen durch. |
 | Leisten | Sie liegen auf dem flachen Gehäuse vor und hinter der Tastatur und bleiben 0,4 mm von den Taschen der Silikonmatten weg. Sie sind 0,8 mm dick. |
@@ -47,7 +47,7 @@ Die Silikontasten haben keinen Hinterschnitt, der eine Kappe hält. Klebe die Ka
 
 ## Erst testen
 
-1. `fit_test.stl` drucken und auf eine Encoder-Achse stecken (nicht MASTER). Die Bohrungen sind 5,6 bis 6,1 mm, die Punkte zählen von 1 (5,6) bis 7 (6,1). Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, kommt in `P['bore']` in `make_parts.py`.
+1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind Rändelbohrungen mit Spiel −0,10 bis +0,20 mm pro Seite, die Punkte zählen von 1 (−0,10) über 3 (0) bis 7 (+0,20), in Schritten von 0,05. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
 2. Eine Tastenkappe und eine Kappe rechts einzeln drucken und probieren. Klemmen sie, `P['clr']` um 0,05 erhöhen. Wackeln sie zu sehr, um 0,05 senken.
 3. Dann `python3 make_parts.py` ausführen. Das braucht `pip install manifold3d trimesh numpy matplotlib networkx lxml` und die Schrift Inter. Danach alles drucken.
 

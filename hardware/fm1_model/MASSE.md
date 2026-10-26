@@ -93,7 +93,7 @@ Die sieben Encoder haben **gerändelte Achsen ohne Knopf**: Ø 6,0 mm, 20 Zähne
 
 Platz für Knöpfe: links bis Ø 14 mm, rechts bis Ø 15 mm (3 mm Luft zum Nachbarn).
 
-**Knöpfe:** `../caps/make_parts.py` baut sie mit diesen Werten: Bohrung Ø 5,85 auf der Rändelung (Passungstest 5,6–6,1), Ø 6,4 über dem glatten Bund, Knopf sitzt auf dem Achsende.
+**Knöpfe:** `../caps/make_parts.py` baut sie mit diesen Werten: Rändelbohrung mit 20 Zähnen (Spiel `fit`, Passungstest −0,10 bis +0,20), Ø 6,4 über dem glatten Bund, Knopf sitzt auf dem Achsende; Ø 10 links, Ø 11 rechts.
 
 ## Display
 

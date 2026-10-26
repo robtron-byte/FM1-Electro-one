@@ -40,6 +40,7 @@ OCT_X, OCT_Y = [16.4, 28.8], 51.3
 # Encoders: knurled shafts, 6.0 mm, 20 teeth, smooth up to z 23, knurled
 # up to their top at z 28.2. MASTER is the volume pot and keeps its knob.
 SHAFT_D, SHAFT_TOP, KNURL_FROM = 6.0, 28.2, 23.0
+KNURL_TEETH, KNURL_OD, KNURL_RD = 20, 5.88, 5.08
 ENCODERS = {"SELECT": (31, 81), "PRESETS": (14, 64), "ALGORITHM": (31, 64),
             "KNOB 1": (91, 81), "KNOB 2": (109, 81), "KNOB 3": (127, 81), "KNOB 4": (145, 81)}
 
@@ -50,8 +51,11 @@ P = dict(
     skirt=0.50,      # how far a cap reaches down the key: the rest is travel
     lid=1.00,        # cap top
     inlay=0.40,      # depth of the text (two layers at 0.2)
-    bore=5.85,       # knob bore on the knurl: press fit (fit test: 5.6 .. 6.1)
+    fit=0.05,        # knurled bore over the knurl, per side (fit test: -0.10 .. +0.20)
     knob_gap=0.70,   # knob above the housing
+    knob_left=10.0,  # SELECT, PRESETS, ALGORITHM (17 mm apart)
+    knob_right=11.0, # KNOB 1-4 (18 mm apart)
+    knob_top=3.0,    # knob above the shaft end
 )
 
 # ---- colours (FM1-Electro: areas as on the display and in the manual) ------
@@ -175,33 +179,45 @@ def oct_cap(label):
     return cap(oct_section, OCT_TOP, [text_cs(label, 2.0)])
 
 
+def knurl_bore(fit, depth):
+    """Bore with the shaft's 20 teeth, fit added per side."""
+    pts = []
+    ro, rr = KNURL_OD / 2 + fit, KNURL_RD / 2 + fit
+    for i in range(KNURL_TEETH):
+        for k, r in ((0.0, rr), (0.3, ro), (0.5, ro), (0.8, rr)):
+            a = 2 * math.pi * (i + k) / KNURL_TEETH
+            pts.append((r * math.cos(a), r * math.sin(a)))
+    return Manifold.extrude(CrossSection([pts]), depth)
+
+
 def knob(d, label, number=None):
     """Knob on a knurled encoder shaft, its bottom P['knob_gap'] above the
     housing, resting on the shaft top. Label (or number) and a ring inlaid
     on top."""
     zb = TOP + P["knob_gap"]
     depth = SHAFT_TOP - zb
-    h = depth + 5.0
-    body = Manifold.cylinder(h - 0.79, d / 2, d / 2, 96).translate([0, 0, zb])
-    body += Manifold.cylinder(0.8, d / 2, d / 2 - 0.8, 96).translate([0, 0, zb + h - 0.8])
+    h = depth + P["knob_top"]
+    body = Manifold.cylinder(h - 0.59, d / 2, d / 2, 96).translate([0, 0, zb])
+    body += Manifold.cylinder(0.6, d / 2, d / 2 - 0.6, 96).translate([0, 0, zb + h - 0.6])
     grip = Manifold()
-    for i in range(30):
-        a = 2 * math.pi * i / 30
-        grip += Manifold.cylinder(h - 2.6, 0.55, 0.55, 12).translate(
-            [(d / 2 + 0.25) * math.cos(a), (d / 2 + 0.25) * math.sin(a), zb + 1.0])
+    flutes = int(round(math.pi * d / 1.3))
+    for i in range(flutes):
+        a = 2 * math.pi * i / flutes
+        grip += Manifold.cylinder(h - 2.0, 0.4, 0.4, 12).translate(
+            [(d / 2 + 0.15) * math.cos(a), (d / 2 + 0.15) * math.sin(a), zb + 0.8])
     body -= grip
-    # bore: clearance over the smooth part, press fit on the knurl, chamfered entry
+    # bore: clearance over the smooth part, knurled teeth on the knurl, chamfered entry
     smooth = KNURL_FROM - zb
     body -= Manifold.cylinder(smooth + 0.01, SHAFT_D / 2 + 0.2, SHAFT_D / 2 + 0.2, 64).translate([0, 0, zb - 0.01])
-    body -= Manifold.cylinder(0.6, SHAFT_D / 2 + 0.5, SHAFT_D / 2 + 0.2, 64).translate([0, 0, zb - 0.01])
-    body -= Manifold.cylinder(depth - smooth + 0.02, P["bore"] / 2, P["bore"] / 2, 64).translate([0, 0, KNURL_FROM - 0.01])
+    body -= Manifold.cylinder(0.5, SHAFT_D / 2 + 0.5, SHAFT_D / 2 + 0.2, 64).translate([0, 0, zb - 0.01])
+    body -= knurl_bore(P["fit"], depth - smooth + 0.02).translate([0, 0, KNURL_FROM - 0.01])
     zt = zb + h
-    ring = CrossSection.circle(d / 2 - 1.3, 96) - CrossSection.circle(d / 2 - 2.1, 96)
+    ring = CrossSection.circle(d / 2 - 0.9, 96) - CrossSection.circle(d / 2 - 1.5, 96)
     labels = [ring]
     if number:
-        labels.append(text_cs(number, 3.6))
+        labels.append(text_cs(number, 3.2))
     else:
-        labels.append(text_cs(label, 2.0 if len(label) <= 3 else 1.6))
+        labels.append(text_cs(label, 1.6))
     texts = []
     for cs in labels:
         body, t = inlay(body, cs, zt, P["inlay"])
@@ -239,15 +255,15 @@ def strip_back():
 
 
 def fit_test():
-    """Seven bores 5.6 .. 6.2 on the knurl (dots count up), plus one of each cap."""
-    sizes = [5.6, 5.7, 5.8, 5.85, 5.9, 6.0, 6.1]
-    plate = Manifold.extrude(rrect(len(sizes) * 10 + 4, 16, 2), 8.5)
-    for i, s in enumerate(sizes):
-        x = -len(sizes) * 5 + 5 + i * 10
-        plate -= Manifold.cylinder(1.5, SHAFT_D / 2 + 0.2, SHAFT_D / 2 + 0.2, 64).translate([x, 2, -0.01])
-        plate -= Manifold.cylinder(7.0, s / 2, s / 2, 64).translate([x, 2, 1.49])
+    """Seven knurled bores, fit -0.10 .. +0.20 per side (dots count up)."""
+    fits = [-0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20]
+    plate = Manifold.extrude(rrect(len(fits) * 10 + 4, 16, 2), 6.5)
+    for i, f in enumerate(fits):
+        x = -len(fits) * 5 + 5 + i * 10
+        plate -= Manifold.cylinder(1.3, SHAFT_D / 2 + 0.2, SHAFT_D / 2 + 0.2, 64).translate([x, 2, -0.01])
+        plate -= knurl_bore(f, 5.0).translate([x, 2, 1.28])
         for k in range(i + 1):
-            plate -= Manifold.cylinder(0.6, 0.45, 0.45, 16).translate([x - 3 + k * 1.0, -6, 8.0])
+            plate -= Manifold.cylinder(0.6, 0.45, 0.45, 16).translate([x - 3 + k * 1.0, -6, 6.0])
     return plate
 
 
@@ -299,12 +315,12 @@ def build():
     for i, (name, (x, y)) in enumerate(ENCODERS.items()):
         if name.startswith("KNOB"):
             n = int(name[-1])
-            body, texts, zt = knob(15.0, name, str(n))
+            body, texts, zt = knob(P["knob_right"], name, str(n))
             body_c, text_c = "white", AREAS[n - 1]
         else:
-            body, texts, zt = knob(13.0, {"SELECT": "SEL", "PRESETS": "PRE", "ALGORITHM": "ALG"}[name])
+            body, texts, zt = knob(P["knob_left"], {"SELECT": "SEL", "PRESETS": "PRE", "ALGORITHM": "ALG"}[name])
             body_c, text_c = "anthracite", "white"
-        gx, gy = grid(i, 4, 20, 20)
+        gx, gy = grid(i, 4, 15, 15)
         pl.add(f"{name} body", body_c, face_down(body, zt).translate([gx, gy, 0]))
         for t in texts:
             pl.add(f"{name} text", text_c, face_down(t, zt).translate([gx, gy, 0]))
