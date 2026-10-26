@@ -47,7 +47,7 @@ Die Silikontasten haben keinen Hinterschnitt, der eine Kappe hält. Klebe die Ka
 
 ## Erst testen
 
-1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind Rändelbohrungen mit Spiel −0,10 bis +0,20 mm pro Seite, die Punkte zählen von 1 (−0,10) über 3 (0) bis 7 (+0,20), in Schritten von 0,05. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
+1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind durchgehende Rändelbohrungen mit Spiel −0,10 bis +0,20 mm pro Seite (die Achse stößt also nicht oben an), die Punkte zählen von 1 (−0,10) über 3 (0) bis 7 (+0,20), in Schritten von 0,05. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
 2. Eine Tastenkappe und eine Kappe rechts einzeln drucken und probieren. Klemmen sie, `P['clr']` um 0,05 erhöhen. Wackeln sie zu sehr, um 0,05 senken.
 3. Dann `python3 make_parts.py` ausführen. Das braucht `pip install manifold3d trimesh numpy matplotlib networkx lxml` und die Schrift Inter. Danach alles drucken.
 

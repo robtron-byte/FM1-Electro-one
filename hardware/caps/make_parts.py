@@ -295,13 +295,15 @@ def strip_back():
 
 
 def fit_test():
-    """Seven knurled bores, fit -0.10 .. +0.20 per side (dots count up)."""
+    """Seven knurled bores through the plate, fit -0.10 .. +0.20 per side
+    (dots count up). Through, so the shaft never bottoms out."""
     fits = [-0.10, -0.05, 0.0, 0.05, 0.10, 0.15, 0.20]
-    plate = Manifold.extrude(rrect(len(fits) * 10 + 4, 16, 2), 6.5)
+    h = 6.5
+    plate = Manifold.extrude(rrect(len(fits) * 10 + 4, 16, 2), h)
     for i, f in enumerate(fits):
         x = -len(fits) * 5 + 5 + i * 10
         plate -= Manifold.cylinder(1.3, SHAFT_D / 2 + 0.2, SHAFT_D / 2 + 0.2, 64).translate([x, 2, -0.01])
-        plate -= knurl_bore(f, 5.0).translate([x, 2, 1.28])
+        plate -= knurl_bore(f, h - 1.28 + 0.02).translate([x, 2, 1.28])
         for k in range(i + 1):
             plate -= Manifold.cylinder(0.6, 0.45, 0.45, 16).translate([x - 3 + k * 1.0, -6, 6.0])
     return plate
