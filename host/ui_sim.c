@@ -11,6 +11,7 @@
 
 static uint16_t screen[GFX_W * GFX_H];
 static uint8_t flash[640 * 1024];
+static uint32_t flash_bytes = sizeof flash;   /* the partition size reported */
 static int leds[41];
 static uint32_t clock_ms;
 
@@ -18,23 +19,23 @@ static uint32_t clock_ms;
 uint32_t fm1_millis(void) { return clock_ms; }
 void fm1_led_set(unsigned key, int on) { if (key < 41) leds[key] = on; }
 int fm1_screen_pending(void) { return 0; }
-uint32_t fm1_flash_size(void) { return sizeof flash; }
+uint32_t fm1_flash_size(void) { return flash_bytes; }
 int fm1_flash_read(uint32_t offset, void *data, size_t bytes)
 {
-    if (offset + bytes > sizeof flash) return FM1_FLASH_INVALID;
+    if (offset + bytes > flash_bytes) return FM1_FLASH_INVALID;
     memcpy(data, flash + offset, bytes);
     return 0;
 }
 int fm1_flash_erase(uint32_t offset)
 {
-    if (offset % FM1_FLASH_SECTOR_BYTES || offset >= sizeof flash) return FM1_FLASH_INVALID;
+    if (offset % FM1_FLASH_SECTOR_BYTES || offset >= flash_bytes) return FM1_FLASH_INVALID;
     memset(flash + offset, 0xff, FM1_FLASH_SECTOR_BYTES);
     return 0;
 }
 int fm1_flash_write(uint32_t offset, const void *data, size_t bytes)
 {
     const uint8_t *p = data;
-    if (offset + bytes > sizeof flash) return FM1_FLASH_INVALID;
+    if (offset + bytes > flash_bytes) return FM1_FLASH_INVALID;
     for (size_t i = 0; i < bytes; ++i) flash[offset + i] &= p[i]; /* NOR: only 1 -> 0 */
     return 0;
 }
@@ -308,6 +309,32 @@ int main(int argc, char **argv)
         }
     }
     printf("store: save/load round trip %s\n", same ? "ok" : "FAIL");
+
+    /* FM1-Electro's own Flash layout (tools/package_fm1.py): a user
+     * partition smaller than FM1 Open's; grooves and sounds in its last
+     * eight sectors, apart from each other. */
+    {
+        static uint8_t kept_flash[sizeof flash];
+        memcpy(kept_flash, flash, sizeof flash);
+        memset(flash, 0xff, sizeof flash);
+        flash_bytes = 384u * 1024u;
+        uint32_t top = flash_bytes - 8u * FM1_FLASH_SECTOR_BYTES;
+        int own = el_store_address(0) == top + 2u * FM1_FLASH_SECTOR_BYTES && el_store_address(1) == top + 5u * FM1_FLASH_SECTOR_BYTES &&
+                  el_sound_address(0) == top && el_sound_address(1) == top + FM1_FLASH_SECTOR_BYTES;
+        el_sound_t snd = {0}, back;
+        memcpy(snd.name, "OWN", 4);
+        snd.engine = engine.track[2].part.engine;
+        memcpy(snd.v, syn_values(&engine.track[2].part), syn_value_count(snd.engine));
+        own = own && el_store_save(&engine) == 0 && el_sound_put(0, &snd) == 0 && el_store_save(&engine) == 0;
+        static el_engine_t small;
+        el_init(&small);
+        own = own && el_store_load(&small) == 0 && !memcmp(small.drums.pattern, engine.drums.pattern, sizeof small.drums.pattern) &&
+              el_sound_get(0, &back) == 0 && !strcmp(back.name, "OWN");
+        for (uint32_t i = 0; i < top; ++i) own = own && flash[i] == 0xff;   /* nothing below its area */
+        flash_bytes = sizeof flash;
+        memcpy(flash, kept_flash, sizeof flash);
+        printf("store: own Flash layout (small partition) %s\n", own ? "ok" : "FAIL");
+    }
 
     /* HOME: black keys 5 and 6 punch in the stutter and the reverb throw
      * while held; black 8 (repeat) starts with white key 2, step 2, and

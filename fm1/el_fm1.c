@@ -46,6 +46,11 @@ int el_fm1_control(void)
     return 1;
 }
 
+void *el_fm1_boot_scratch(size_t bytes)
+{
+    return !ready && bytes <= sizeof engine ? (void *)&engine : NULL;
+}
+
 int el_fm1_midi(unsigned source, const uint8_t *message, size_t bytes)
 {
     (void)source;

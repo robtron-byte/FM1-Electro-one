@@ -6,12 +6,21 @@
 #include "engine.h"
 #include <string.h>
 #define DSP_PI 3.14159265358979323846f
+/* FM1-Electro: on the device the larger math helpers stay out of line (one
+ * copy per file in SRAM instead of one per call site in Flash and SRAM). */
+#ifndef DSP_MATH_FN
+#ifdef FM1_HOST_TEST
+#define DSP_MATH_FN static FM1_DSP_CODE inline
+#else
+#define DSP_MATH_FN static __attribute__((section(".volatile_ram_code"), noinline, unused))
+#endif
+#endif
 static inline float dsp_abs(float x) { return x < 0 ? -x : x; }
 static inline float dsp_clamp(float x,float a,float b) { return x<a?a:x>b?b:x; }
 static inline float dsp_min(float a,float b) { return a<b?a:b; }
 static inline float dsp_max(float a,float b) { return a>b?a:b; }
 /* Taylor expansion after reduction to a fractional exponent in [-0.5,0.5]. */
-static FM1_DSP_CODE inline float dsp_exp2(float x) {
+DSP_MATH_FN float dsp_exp2(float x) {
     x=dsp_clamp(x,-120.0f,120.0f);
     int n=(int)(x+(x<0?-0.5f:0.5f));
     float a=(x-(float)n)*0.6931471805599453f;
@@ -21,7 +30,7 @@ static FM1_DSP_CODE inline float dsp_exp2(float x) {
 }
 static inline float dsp_exp(float x) { return dsp_exp2(x*1.4426950408889634f); }
 static inline float dsp_decay(float seconds) { return dsp_exp(-1.0f/(44100.0f*dsp_max(seconds,0.00001f))); }
-static FM1_DSP_CODE inline float dsp_sin(float x) {
+DSP_MATH_FN float dsp_sin(float x) {
     x*=1.0f/(2.0f*DSP_PI); x-=(float)(int)x;
     if(x>.5f)x-=1; if(x<-.5f)x+=1;
     float a=x*(2.0f*DSP_PI);
@@ -31,14 +40,14 @@ static FM1_DSP_CODE inline float dsp_sin(float x) {
 }
 static inline float dsp_cos(float x) {return dsp_sin(x+DSP_PI*.5f);}
 static inline float dsp_tan(float x) {return dsp_sin(x)/dsp_cos(x);}
-static FM1_DSP_CODE inline float dsp_sqrt(float x) {
+DSP_MATH_FN float dsp_sqrt(float x) {
     if(x<=0)return 0;
     uint32_t bits;memcpy(&bits,&x,4);bits=(bits>>1)+0x1fc00000u;
     float y;memcpy(&y,&bits,4);
     for(unsigned i=0;i<4;i++)y=.5f*(y+x/y);
     return y;
 }
-static FM1_DSP_CODE inline float dsp_log2(float x) {
+DSP_MATH_FN float dsp_log2(float x) {
     x=dsp_max(x,1e-30f);uint32_t bits;memcpy(&bits,&x,4);
     int e=(int)(bits>>23)-127;bits=(bits&0x7fffffu)|0x3f800000u;
     float m;memcpy(&m,&bits,4);

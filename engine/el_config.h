@@ -15,11 +15,15 @@
 #define EL_DSP_CODE
 #define EL_DSP_DATA
 #define EL_DSP_HELPER
+#define EL_DSP_VOICE
 #else
 #define EL_DSP_CODE __attribute__((section(".volatile_ram_code"), noinline, used))
 #define EL_DSP_DATA __attribute__((section(".volatile_ram.fm1"), aligned(4)))
 /* Small helpers on the audio path: in SRAM when not inlined. */
 #define EL_DSP_HELPER __attribute__((section(".volatile_ram_code")))
+/* Larger per-voice code called from one render loop: kept out of line, so
+ * each exists once in SRAM and Flash instead of copied into its caller. */
+#define EL_DSP_VOICE __attribute__((section(".volatile_ram_code"), noinline))
 #endif
 
 #define EL_FENCE() __sync_synchronize()

@@ -135,7 +135,7 @@ Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) 
 | Drei Synth-Bereiche mit Step-Sequencer, Akkorden (Rother/Kraftwerk-Folgen) und Generator | fertig, auf dem PC getestet |
 | Live-Aufnahme in die Patterns (REC, quantisiert), Groove-Generator, User-Plätze | fertig, auf dem PC getestet |
 | Delay, Hall, Gated Reverb, Verzerrung als Send, Mix- und Master-Bus | fertig, auf dem PC getestet |
-| Firmware auf dem Gerät | linkt mit der JieLi-Toolchain (Linux-Nachbau des SDK-Builds), passt ins RAM (54 KB Heap, das SDK verlangt 48 KB); **passt noch nicht in den Flash** (545 KB statt höchstens 444 KB neben dem Benutzerbereich des SDK); auf dem Gerät nicht getestet |
+| Firmware auf dem Gerät | linkt mit der JieLi-Toolchain (Linux-Nachbau des SDK-Builds) und besteht die Prüfungen von `Build.ps1`; 519 KB, mit eigenem Packer (`tools/package_fm1.py`, 384-KB-Benutzerbereich) 78 KB Luft im Flash; 83 KB Heap; startet im Emulator fm1-emu (Display, Tasten, PLAY, Audio im DMA-Puffer); auf dem Gerät nicht getestet |
 | Arpeggiator der Apps (UP, DOWN, UP/DN, RAND, ORDER, 1/32–1/1, 1–4 Oktaven, Hold), pro Synth-Bereich | fertig, auf dem PC und im Simulator getestet |
 | Noten-Looper (1/2/4/8 Takte, Overdub, frei über den Patterns) | fertig, aber vorerst herausgenommen; liegt auf dem Branch `looper` |
 
@@ -153,16 +153,23 @@ make test      # Timing-, MIDI-Clock- und Speichertests
 
 ## Firmware bauen (Windows)
 
-FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen zwei Einhängepunkte dazu (Audio und MIDI), und die Teile der FM1-Open-App, die FM1-Electro ersetzt (Bildschirm, Presets, Projekte, Sampler, FM-Bibliothek, Projektübertragung), wandern aus dem Build nach `fm1_electro_unused/`; `fm1/el_sdk_app.c` übernimmt ihre Einstiegspunkte. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display, Update) bleibt unverändert.
+FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen zwei Einhängepunkte dazu (Audio und MIDI), und die Teile der FM1-Open-App, die FM1-Electro ersetzt (Bildschirm, Presets, Projekte, Sampler, FM-Bibliothek, Projektübertragung), wandern aus dem Build nach `fm1_electro_unused/`. An ihre Stelle tritt `fm1/el_sdk_app.c` als `app/screen.c`: Diese Datei übersetzt `Build.ps1` ohne LTO, so behalten ihre Funktionen Vorrang vor den Standardfunktionen des SDK. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display, Update) bleibt unverändert.
 
 1. [FM1 Open](https://github.com/m-vave/fm1_open) klonen. Getestet ist Commit `4c7496d` (V14).
 2. `python tools\prepare_fm1.py C:\pfad\zu\fm1_open` ausführen. Das Skript kopiert den Code nach `app\electro`, setzt die Einhängepunkte und verschiebt die ersetzten App-Teile. Es bricht ab, wenn die FM1-Open-Version nicht passt.
-3. Die JieLi-Toolchain 2.5.3 installieren (siehe README von FM1 Open) und im FM1-Open-Ordner `.\sdk\Build.ps1 -FirmwareOnly -Toolchain 'C:\JL\pi32'` ausführen.
-4. Die erzeugte `.fwsc`-Datei mit der FM1-Workbench oder dem offiziellen Updater flashen. Zurück zur Original-Firmware V15 geht jederzeit über die Workbench.
+3. Die JieLi-Toolchain 2.5.3 installieren (siehe README von FM1 Open) und im FM1-Open-Ordner `.\sdk\Build.ps1 -Toolchain 'C:\JL\pi32'` ausführen, **ohne** `-FirmwareOnly`. Das baut und prüft die Firmware (`build\dx7\sdk.elf`), packt sie aber nicht: Mit dem Benutzerbereich von FM1 Open (524 KB für Sample-Bank und Projekte) passt FM1-Electro nicht in den Flash.
+4. `python tools\package_fm1.py C:\pfad\zu\fm1_open` ausführen. Der Packer (eine Python-Übersetzung von FM1 Opens `Package.cs`, nur Standardbibliothek) gibt dem Benutzerbereich 384 KB statt 524 KB, trägt die Größe in die Firmware ein (`fm1_layout`, das SDK vergleicht sie beim Start) und schreibt `build\dx7\generated\FM1_ELECTRO.fwsc`. Die Größe bitte von Update zu Update gleich lassen (`--user-kb`, Standard 384).
+5. Die `.fwsc`-Datei mit der FM1-Workbench oder dem offiziellen Updater flashen. Zurück zur Original-Firmware V15 geht jederzeit über die Workbench.
 
-Mit der JieLi-Toolchain für Linux und einem Nachbau der Schritte von `Build.ps1` linkt die Firmware, und nur memset/memmove/`__sync_synchronize` liegen auf dem Audio-Pfad im Flash (wie bei FM1 Open selbst). Rechenlast im Emulator fm1-emu (Befehle je Block, nicht kalibriert): beim Spielen etwa 78 % im Mittel. Offen: Die Firmware ist 545 KB groß, neben dem 524-KB-Benutzerbereich (Sample-Bank und Projekte) des SDK sind höchstens 444 KB frei.
+**Achtung beim Wechsel:** Die größere Firmware überschreibt den Anfang des alten Benutzerbereichs. Projekte und Samples von FM1 Open oder der Original-Firmware gehen dabei verloren, vorher sichern. Auch Einstellungen des SDK (z. B. Bluetooth-Kopplungen) können zurückgesetzt werden.
 
-**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open, die 32 eigenen Sounds (2,6 KB) in zwei weiteren Sektoren dahinter, getrennt von den Grooves. Ist dort kein Platz, nutzt es die Projekt-Slots 7–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
+Mit der JieLi-Toolchain für Linux und einem Nachbau der Schritte von `Build.ps1` linkt die Firmware und besteht dieselben Prüfungen (Pflicht-Symbole, Audio-Pfad und Panel im SRAM, Heap ab 48 KB); nur memset/memmove/`__sync_synchronize` liegen auf dem Audio-Pfad im Flash (wie bei FM1 Open selbst). Im Emulator fm1-emu startet das gepackte Image: Display und Tasten laufen, PLAY startet den Sequenzer, die Audio-Puffer füllen sich. Rechenlast dort (Befehle je Block, nicht kalibriert): beim Spielen etwa 79 % im Mittel.
+
+Zwei Dinge erledigt `el_sdk_app.c` beim Start, sonst bliebe das Gerät hängen oder stumm:
+- Das SDK gibt seinen acht Spuren Standard-Instrumente (u. a. zwei DX7, rund 60 KB Heap). FM1-Electro schaltet diese Spuren ab (`groove_track_role_set`), sonst fehlt dem SDK danach der Platz für den Stack seiner App-Task. Den Zwischenspeicher dafür leiht der noch unbenutzte Speicher der Engine.
+- Das SDK multipliziert die Ausgabe mit seinem Master-Pegel, den bisher FM1 Opens Bildschirm aus dem MASTER-Regler setzte. FM1-Electro regelt MASTER selbst und stellt den SDK-Pegel fest auf voll.
+
+**Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren, die 32 eigenen Sounds (2,6 KB) in zwei weiteren Sektoren, getrennt von den Grooves. Mit dem eigenen Packer liegen diese acht Sektoren am Ende des Benutzerbereichs. Der endet immer an derselben Flash-Adresse, die Grooves bleiben also auch bei einem anderen `--user-kb` erhalten. Mit dem Benutzerbereich von FM1 Open (falls FM1-Electro je wieder hineinpasst) nutzt es dessen Projekt-Slots 7–14, die beim Zurückwechseln zur Original-Firmware verloren gehen.
 
 ## Speicher und Rechenzeit
 

@@ -78,11 +78,16 @@ typedef struct {
     uint32_t crc;
     payload_t data;
 } record_t;
-/* Each copy spans SECTORS sectors; two copies alternate. FM1 Open's own data
- * ends at 536576 bytes (GROOVE_FLASH_BYTES); without room after it, the
- * copies use the last FM1 Open project slots (sectors 15 - 2 * SECTORS .. 14).
+/* Each copy spans SECTORS sectors; two copies alternate. Where they lie
+ * depends on the user partition:
+ * - larger than FM1 Open's 536576 bytes (GROOVE_FLASH_BYTES; the simulators):
+ *   right after FM1 Open's data;
+ * - exactly FM1 Open's: its last project slots (sectors 15 - 2 * SECTORS .. 14);
+ * - smaller (FM1-Electro's own layout, tools/package_fm1.py): the last
+ *   OWN_SECTORS sectors of the partition. The partition always ends at the
+ *   same Flash address, so the grooves stay put if its size changes.
  * Three sectors, as in every version so far: the places stay where they were. */
-enum { SECTORS = 3, FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS };
+enum { SECTORS = 3, FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS, OWN_SECTORS = 2 * SECTORS + 2 };
 _Static_assert(sizeof(record_t) <= SECTORS * FM1_FLASH_SECTOR_BYTES, "record fits its sectors");
 
 /* User sound bank: one sector per copy. */
@@ -135,10 +140,16 @@ static uint32_t crc32(const void *data, size_t bytes)
     return ~crc;
 }
 
+/* First byte of FM1-Electro's own area in a partition smaller than FM1
+ * Open's: sound bank copies, then the two groove copies. */
+static uint32_t own_area(void) { return fm1_flash_size() - OWN_SECTORS * FM1_FLASH_SECTOR_BYTES; }
+
 uint32_t el_store_address(unsigned which)
 {
-    if (fm1_flash_size() >= FM1_OPEN_BYTES + 2u * SECTORS * FM1_FLASH_SECTOR_BYTES)
+    uint32_t size = fm1_flash_size();
+    if (size >= FM1_OPEN_BYTES + 2u * SECTORS * FM1_FLASH_SECTOR_BYTES)
         return FM1_OPEN_BYTES + which * SECTORS * FM1_FLASH_SECTOR_BYTES;
+    if (size < FM1_OPEN_BYTES) return own_area() + (2u + which * SECTORS) * FM1_FLASH_SECTOR_BYTES;
     return (FALLBACK_SECTOR + which * SECTORS) * FM1_FLASH_SECTOR_BYTES;
 }
 
@@ -345,12 +356,15 @@ int el_store_save(el_engine_t *e)
 
 /* ---- user sounds ----------------------------------------------------------- */
 
-/* After the two groove copies when the partition has room there, otherwise
- * the FM1 Open project slots just below the groove fallback (7 and 8). */
+/* After the two groove copies when the partition has room there; in
+ * FM1-Electro's own layout at the start of its area; otherwise the FM1 Open
+ * project slots just below the groove fallback (7 and 8). */
 uint32_t el_sound_address(unsigned which)
 {
-    if (fm1_flash_size() >= FM1_OPEN_BYTES + (2u * SECTORS + 2u) * FM1_FLASH_SECTOR_BYTES)
+    uint32_t size = fm1_flash_size();
+    if (size >= FM1_OPEN_BYTES + (2u * SECTORS + 2u) * FM1_FLASH_SECTOR_BYTES)
         return FM1_OPEN_BYTES + (2u * SECTORS + which) * FM1_FLASH_SECTOR_BYTES;
+    if (size < FM1_OPEN_BYTES) return own_area() + which * FM1_FLASH_SECTOR_BYTES;
     return (FALLBACK_SECTOR - 2u + which) * FM1_FLASH_SECTOR_BYTES;
 }
 

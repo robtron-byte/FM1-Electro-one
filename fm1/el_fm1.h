@@ -13,4 +13,7 @@ FM1_AUDIO_CODE int el_fm1_render(int32_t *output, unsigned frames);
 int el_fm1_control(void);
 /* Returns 1 when the message was consumed. */
 int el_fm1_midi(unsigned source, const uint8_t *message, size_t bytes);
+/* Before the first el_fm1_control() the engine's memory is unused (el_init
+ * clears it): lends up to its size to the SDK's startup, else NULL. */
+void *el_fm1_boot_scratch(size_t bytes);
 #endif

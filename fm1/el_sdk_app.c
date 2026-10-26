@@ -12,9 +12,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Panel and LCD come up as in the SDK's screen; FM1-Electro draws itself. */
+/* FM1 Open's Build.ps1 checks that the firmware still holds the SDK's
+ * Bluetooth/BLE controls and project/tuning entry points. Their users
+ * (screen, transfer) are out of the build; this table keeps them linked. */
+static const void *const kept[] = {
+    (const void *)fm1_ble_set_role, (const void *)fm1_ble_scan, (const void *)fm1_ble_connect,
+    (const void *)fm1_ble_disconnect, (const void *)fm1_ble_get_status, (const void *)fm1_ble_get_device,
+    (const void *)fm1_bluetooth_configure, (const void *)fm1_bluetooth_get_status,
+    (const void *)groove_tuning_apply, (const void *)groove_project_apply_edit,
+};
+
+/* Panel and LCD come up as in the SDK's screen; FM1-Electro draws itself.
+ * The SDK's startup has just given its eight tracks their default
+ * instruments (two DX7 and more: about 60 KB of heap). They never sound
+ * here (FM1-Electro renders the audio), so the tracks are switched off and
+ * the heap is free again before the SDK starts its remaining tasks (with
+ * them, its app task finds no room for its stack and the start halts). */
 void groove_screen_init(void)
 {
+    for (unsigned t = 0; t < GROOVE_TRACKS; ++t) (void)groove_track_role_set(t, GROOVE_TRACK_OFF);
+    /* The SDK scales the output by its master level (fm1_output_mix), which
+     * FM1 Open's screen set from the MASTER knob. FM1-Electro applies MASTER
+     * itself (EL_CMD_MASTER), so the SDK's level stays at full scale. */
+    (void)groove_master_update(1023);
+    (void)*(const void *const volatile *)&kept[0];
     fm1_controls_init();
     for (unsigned key = 0; key < 41; ++key) fm1_led_set(key, 0);
     fm1_screen_init();
@@ -26,13 +47,26 @@ void groove_screen_control(void) { (void)el_fm1_control(); }
 void groove_project_init(void) {}
 void groove_project_poll(void) {}
 void groove_project_name(char name[13]) { memcpy(name, "FM1-ELECTRO", 12); }
+void groove_project_metadata(const struct groove_project *p) { (void)p; }
 
-/* Only allocated if the SDK ever asks for it. */
+/* While starting (groove_track_role_set above) the heap is full: the
+ * engine's still unused memory serves. Later only allocated if the SDK
+ * ever asks for it. */
 struct groove_project *groove_project_scratch(void)
 {
     static struct groove_project *scratch;
+    struct groove_project *boot = el_fm1_boot_scratch(sizeof *boot);
+    if (boot) return boot;
     if (!scratch) scratch = malloc(sizeof *scratch);
     return scratch;
+}
+
+/* No project transfer: application SysEx is ignored (firmware updates are
+ * handled by the SDK before this hook). */
+void fm1_app_sysex(const uint8_t *message, size_t bytes)
+{
+    (void)message;
+    (void)bytes;
 }
 
 /* No sample bank, FM library or project transfer. */
