@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Shared send effects: a tempo-synced ping-pong delay and an FDN reverb,
  * after the iOS apps' StereoDelay / Reverb, shrunk for the FM-1's RAM:
- * the delay runs at half rate in 16 bit (up to 0.6 s, darker repeats like
- * a BBD/tape echo), the reverb uses 4 instead of 8 lines. About 90 KB. */
+ * the delay runs at a third of the rate in 16 bit (up to 0.6 s, darker
+ * repeats like a BBD/tape echo), the reverb uses 4 instead of 8 lines in 16
+ * bit. About 70 KB. */
 #ifndef EL_FX_H
 #define EL_FX_H
 #include "el_config.h"
 #include "dist.h"
 
 enum {
-    FX_DELAY_CAP = 13312,  /* half-rate frames: 0.6 s */
+    FX_DELAY_CAP = 8832,   /* third-rate frames: 0.6 s */
     FX_REVERB_CAP = 2048,  /* per line */
     FX_DIFF_CAP = 512,
     FX_GATE_CAP = 8192     /* half-rate frames: 0.37 s non-linear (gated) reverb */
@@ -26,21 +27,22 @@ enum fx_param { FX_DELAY_DIV, FX_DELAY_FB, FX_DELAY_TONE, FX_DELAY_RETURN,
  * silent then, and it is cleared before and after. */
 typedef struct {
     int16_t delay[2][FX_DELAY_CAP];
-    float lines[4][FX_REVERB_CAP];
-    float diff[2][FX_DIFF_CAP];
+    int16_t lines[4][FX_REVERB_CAP];   /* at FX_LINE_SCALE: headroom for the FDN's peaks */
+    int16_t diff[2][FX_DIFF_CAP];
     int16_t gate[FX_GATE_CAP];
 } fx_buffers_t;
+#define FX_LINE_SCALE 8191.0f          /* +-4 full scale in the reverb lines */
 enum { FX_HOLE_CAP = sizeof(fx_buffers_t) / sizeof(int16_t) };
 /* While a punch-in effect sounds, the buffers are split so all of them can
- * run together: the big hall, the delay (mono, half rate: 0.5 s) and the
- * tape stop (mono, half rate, the rest: 0.85 s behind). */
-enum { FX_HALL_REGION = 23552, FX_DELAY_REGION = 11008,
+ * run together: the big hall, the delay (mono, half rate: 0.37 s) and the
+ * tape stop (mono, half rate, the rest: 0.23 s behind). */
+enum { FX_HALL_REGION = 21760, FX_DELAY_REGION = 8192,
        FX_TAPE_REGION = FX_HOLE_CAP - FX_HALL_REGION - FX_DELAY_REGION };
 enum { FX_USE_HALL = 1, FX_USE_TAPE = 2, FX_USE_DELAY = 8 };
 typedef union { fx_buffers_t b; int16_t hole[FX_HOLE_CAP]; } fx_memory_t;
 
 /* The big hall of the reverb throw: Dattorro's figure-eight tank, made
- * about 1.6 times larger, at half rate in 16 bit, slowly modulated. */
+ * 1.3 times larger, at half rate in 16 bit, slowly modulated. */
 typedef struct { uint32_t off, len, pos; } fx_line_t;
 typedef struct {
     fx_line_t in[4], ap1[2], dl1[2], ap2[2], dl2[2];
@@ -50,14 +52,19 @@ typedef struct {
 
 typedef struct {
     fx_memory_t mem;
-    float gate_diff[2][256];
+    int16_t gate_diff[2][256];   /* at FX_LINE_SCALE */
     uint8_t v[FX_PARAMS];
     unsigned dw, rw, fw;
-    uint8_t half;
+    uint8_t half;          /* frame within the delay's third-rate step (0..2) */
     float acc[2], lp[2], last[2], time, damp[4], lfo[4];
     float rev_hp[2], dly_hp[2], gate_hp[2], gate_acc, gate_lp[2];
     unsigned gw, gfw;
     uint8_t gate_half;
+    /* Delay, reverb, gated reverb asleep: input silent and output below
+     * -120 dB for longer than their longest line, buffers cleared; they
+     * wake with the next input. */
+    uint8_t delay_sleep, reverb_sleep, gate_sleep;
+    uint16_t delay_quiet, reverb_quiet, gate_quiet;   /* frames silent in and out */
     /* Reverb throw: a big, long hall while held; on release its return
      * fades out quickly and the lines are cleared. */
     uint8_t throw_on;

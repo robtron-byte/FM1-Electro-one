@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Glue between FM1 Open's application hooks and FM1-Electro. The prepare
- * script inserts one call into each of three FM1 Open files:
+ * script inserts one call into each of two FM1 Open files:
  *   app/board/audio.c    el_fm1_render() instead of fm1_engine_render()
- *   app/screen.c         el_fm1_control() at the top of groove_screen_control()
- *   app/midi_router.c    el_fm1_midi() at the top of fm1_app_midi_received() */
+ *   app/midi_router.c    el_fm1_midi() at the top of fm1_app_midi_received()
+ * and el_sdk_app.c's groove_screen_control() calls el_fm1_control(). */
 #ifndef EL_FM1_H
 #define EL_FM1_H
 #include "fm1.h"

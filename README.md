@@ -135,7 +135,7 @@ Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) 
 | Drei Synth-Bereiche mit Step-Sequencer, Akkorden (Rother/Kraftwerk-Folgen) und Generator | fertig, auf dem PC getestet |
 | Live-Aufnahme in die Patterns (REC, quantisiert), Groove-Generator, User-Plätze | fertig, auf dem PC getestet |
 | Delay, Hall, Gated Reverb, Verzerrung als Send, Mix- und Master-Bus | fertig, auf dem PC getestet |
-| Firmware auf dem Gerät | **noch nicht gebaut** (braucht die JieLi-Toolchain unter Windows) |
+| Firmware auf dem Gerät | linkt mit der JieLi-Toolchain (Linux-Nachbau des SDK-Builds), passt ins RAM (54 KB Heap, das SDK verlangt 48 KB); **passt noch nicht in den Flash** (545 KB statt höchstens 444 KB neben dem Benutzerbereich des SDK); auf dem Gerät nicht getestet |
 | Arpeggiator der Apps (UP, DOWN, UP/DN, RAND, ORDER, 1/32–1/1, 1–4 Oktaven, Hold), pro Synth-Bereich | fertig, auf dem PC und im Simulator getestet |
 | Noten-Looper (1/2/4/8 Takte, Overdub, frei über den Patterns) | fertig, aber vorerst herausgenommen; liegt auf dem Branch `looper` |
 
@@ -153,14 +153,14 @@ make test      # Timing-, MIDI-Clock- und Speichertests
 
 ## Firmware bauen (Windows)
 
-FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen drei Einhängepunkte dazu: Audio, Panel und MIDI. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display) bleibt unverändert.
+FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen zwei Einhängepunkte dazu (Audio und MIDI), und die Teile der FM1-Open-App, die FM1-Electro ersetzt (Bildschirm, Presets, Projekte, Sampler, FM-Bibliothek, Projektübertragung), wandern aus dem Build nach `fm1_electro_unused/`; `fm1/el_sdk_app.c` übernimmt ihre Einstiegspunkte. Die M-VAVE-Bibliothek (Bluetooth, USB, Flash, Display, Update) bleibt unverändert.
 
 1. [FM1 Open](https://github.com/m-vave/fm1_open) klonen. Getestet ist Commit `4c7496d` (V14).
-2. `python tools\prepare_fm1.py C:\pfad\zu\fm1_open` ausführen. Das Skript kopiert den Code nach `app\electro` und setzt die Einhängepunkte. Es bricht ab, wenn die FM1-Open-Version nicht passt.
+2. `python tools\prepare_fm1.py C:\pfad\zu\fm1_open` ausführen. Das Skript kopiert den Code nach `app\electro`, setzt die Einhängepunkte und verschiebt die ersetzten App-Teile. Es bricht ab, wenn die FM1-Open-Version nicht passt.
 3. Die JieLi-Toolchain 2.5.3 installieren (siehe README von FM1 Open) und im FM1-Open-Ordner `.\sdk\Build.ps1 -FirmwareOnly -Toolchain 'C:\JL\pi32'` ausführen.
 4. Die erzeugte `.fwsc`-Datei mit der FM1-Workbench oder dem offiziellen Updater flashen. Zurück zur Original-Firmware V15 geht jederzeit über die Workbench.
 
-Der Code kompiliert für einen 32-Bit-Testprozessor ohne Fehler. Auf dem Gerät gebaut und gemessen ist er noch nicht.
+Mit der JieLi-Toolchain für Linux und einem Nachbau der Schritte von `Build.ps1` linkt die Firmware, und nur memset/memmove/`__sync_synchronize` liegen auf dem Audio-Pfad im Flash (wie bei FM1 Open selbst). Rechenlast im Emulator fm1-emu (Befehle je Block, nicht kalibriert): beim Spielen etwa 78 % im Mittel. Offen: Die Firmware ist 545 KB groß, neben dem 524-KB-Benutzerbereich (Sample-Bank und Projekte) des SDK sind höchstens 444 KB frei.
 
 **Speicherplatz im Flash:** FM1-Electro speichert alle Plätze und Einstellungen (rund 10 KB) in zwei Kopien zu je drei 4-KB-Sektoren hinter dem Bereich von FM1 Open, die 32 eigenen Sounds (2,6 KB) in zwei weiteren Sektoren dahinter, getrennt von den Grooves. Ist dort kein Platz, nutzt es die Projekt-Slots 7–14 von FM1 Open. Die gehen beim Zurückwechseln zur Original-Firmware verloren.
 

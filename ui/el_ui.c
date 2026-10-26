@@ -132,7 +132,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     ui->gen_style[EL_AREA_STRINGS] = 1;
     ui->gen_style[EL_AREA_BASS] = 1;
     memset(ui->key_note, 0xff, sizeof ui->key_note);
-    ui->dirty = (uint16_t)((1u << GFX_BANDS) - 1u);
+    ui->dirty = (uint32_t)((1ull << GFX_BANDS) - 1u);
     for (unsigned i = 0; i < 3; ++i) ui->sig[i] = 0xffffffffu;
 }
 
@@ -1195,7 +1195,11 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
 static void mark_dirty(el_ui_t *ui)
 {
     uint32_t sig[3];
-    static const uint16_t bands[3] = {0x0003, 0x0ffe, 0x7000};
+    /* Rows 0-31 header, 16-191 main, 192-239 footer, in GFX_BAND rows. */
+    static const uint32_t bands[3] = {
+        (uint32_t)(((1ull << (32 / GFX_BAND)) - 1u)),
+        (uint32_t)(((1ull << (192 / GFX_BAND)) - 1u) & ~((1ull << (16 / GFX_BAND)) - 1u)),
+        (uint32_t)(((1ull << GFX_BANDS) - 1u) & ~((1ull << (192 / GFX_BAND)) - 1u))};
     signatures(ui, sig);
     for (unsigned i = 0; i < 3; ++i)
         if (sig[i] != ui->sig[i]) { ui->dirty |= bands[i]; ui->sig[i] = sig[i]; }
@@ -1661,13 +1665,13 @@ static void paint(el_ui_t *ui)
     for (unsigned visited = 0; visited < GFX_BANDS && ui->dirty; ++visited) {
         int pending = fm1_screen_pending();
         if (pending > 0) break;
-        if (pending < 0) ui->dirty = (uint16_t)((1u << GFX_BANDS) - 1u);
+        if (pending < 0) ui->dirty = (uint32_t)((1ull << GFX_BANDS) - 1u);
         unsigned band = ui->paint_next;
         ui->paint_next = (uint8_t)((band + 1u) % GFX_BANDS);
         if (!(ui->dirty & BIT(band))) continue;
         el_ui_draw_band(ui, band);
         if (fm1_screen_submit(0, band * GFX_BAND, GFX_W, GFX_BAND, ui->band.px, GFX_W * GFX_BAND) != 0) break;
-        ui->dirty &= (uint16_t)~BIT(band);
+        ui->dirty &= ~BIT(band);
         if (fm1_millis() - started >= 4u) break;
     }
 }

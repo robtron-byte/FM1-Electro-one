@@ -96,17 +96,33 @@ typedef struct {
 } bank_t;
 _Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one sector");
 
+/* Records of versions before 19 (24 shared slots, up to 12 KB) are read
+ * and upgraded where they can exist: in the simulator's browser storage
+ * and the host tests. The device firmware started at version 19, so there
+ * the buffer only needs today's record (2 KB) and saves about 11 KB SRAM. */
+#ifndef EL_STORE_UPGRADE
+#ifdef FM1_HOST_TEST
+#define EL_STORE_UPGRADE 1
+#else
+#define EL_STORE_UPGRADE 0
+#endif
+#endif
+
 /* Static: too large for the control task stack. Room for the larger
  * records of earlier versions when one is read. */
 static union {
     record_t r;
+#if EL_STORE_UPGRADE
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
     uint8_t v18[offsetof(record_t, data) + V18_BYTES];
+#endif
     bank_t bank;
 } buffer;
 _Static_assert(sizeof buffer <= SECTORS * FM1_FLASH_SECTOR_BYTES, "every record fits three sectors");
 #define record buffer.r
+#if EL_STORE_UPGRADE
 static payload_t upgraded;   /* an older record in today's layout */
+#endif
 
 static uint32_t crc32(const void *data, size_t bytes)
 {
@@ -139,7 +155,9 @@ static uint32_t read_valid(unsigned which)
 {
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
-    if (!(record.version >= VERSION_19 && record.version <= VERSION && record.bytes == sizeof(payload_t)) &&
+    int current = record.version >= VERSION_19 && record.version <= VERSION && record.bytes == sizeof(payload_t);
+    if (!EL_STORE_UPGRADE && !current) return 0;
+    if (!current &&
         !(record.version == VERSION_18 && record.bytes == V18_BYTES) &&
         !(record.version == VERSION_17 && record.bytes == V17_BYTES) &&
         !(record.version >= VERSION_14 && record.version <= VERSION_16 && record.bytes == V16_BYTES) &&
@@ -155,6 +173,9 @@ static const payload_t *upgrade(void)
 {
     unsigned version = record.version;
     if (version >= VERSION_19) return &record.data;
+#if !EL_STORE_UPGRADE
+    return &record.data;   /* never reached: read_valid takes only today's records */
+#else
     const payload_v12_t *o = (const payload_v12_t *)(const void *)&record.data;
     payload_t *d = &upgraded;
     memset(d, 0, sizeof *d);
@@ -187,6 +208,7 @@ static const payload_t *upgrade(void)
     if (version >= VERSION_17) memcpy(d->midi_channel, ((const payload_v17_t *)(const void *)o)->midi_channel, EL_AREAS);
     if (version >= VERSION_18) memcpy(d->option, ((const payload_v18_t *)(const void *)o)->option, EL_OPTIONS);
     return d;
+#endif
 }
 
 int el_store_load(el_engine_t *e)

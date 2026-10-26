@@ -23,7 +23,7 @@ int el_fm1_control(void)
 {
     struct fm1_controls controls;
     if (!ready) {
-        /* FM1 Open's groove_screen_init() has started the panel and LCD. */
+        /* groove_screen_init() (el_sdk_app.c) has started the panel and LCD. */
         el_init(&engine);
         /* The last grooves come back from Flash; only on the very first
          * start (empty Flash) the generated factory set plays. */

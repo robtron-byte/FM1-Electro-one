@@ -2,7 +2,7 @@
  * Panel user interface with four areas: BEAT (808), RHYTHM (rhythmic synth
  * sounds), STRINGS (electro strings and pads) and BASS (bass sequences),
  * plus a HOME overview. Reads the FM-1 controls, posts edits to the engine,
- * drives the key/button LEDs and repaints the LCD in 16-row bands.
+ * drives the key/button LEDs and repaints the LCD in 8-row bands.
  * Control task only. */
 #ifndef EL_UI_H
 #define EL_UI_H
@@ -65,7 +65,7 @@ typedef struct {
     uint64_t leds;
     uint8_t leds_valid;
     uint32_t sig[3];                    /* header, main, footer as last painted */
-    uint16_t dirty;                     /* bands waiting to be painted */
+    uint32_t dirty;                     /* bands waiting to be painted (bit per band) */
     uint8_t paint_next;
     uint32_t now;
     gfx_band_t band;
