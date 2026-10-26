@@ -8,10 +8,11 @@ on print plates face down and written as STL (bodies and inlays apart) and
 
 Usage: python3 make_parts.py [--font FILE]   (needs: pip install manifold3d trimesh numpy matplotlib networkx lxml)
 The labels use Inter Bold. Without --font the script takes $FM1_FONT, then
-Inter Bold from the usual Linux and macOS font folders or any installed
-Inter, and falls back to DejaVu Sans Bold (comes with matplotlib) with a warning.
+Inter Bold from the usual Linux and macOS font folders, a RightFont library
+or any installed Inter, and falls back to DejaVu Sans Bold (comes with
+matplotlib) with a warning.
 """
-import math, os, sys
+import glob, math, os, sys
 import numpy as np
 from manifold3d import Manifold, CrossSection, JoinType, FillRule
 import trimesh
@@ -37,6 +38,11 @@ def find_font(path=None):
         for n in FONT_NAMES:
             if os.path.isfile(os.path.join(d, n)):
                 return os.path.join(d, n)
+    # font managers that activate fonts from their own library (RightFont)
+    for n in FONT_NAMES:
+        hits = sorted(glob.glob(os.path.expanduser(f"~/RightFont/*.rightfontlibrary/fonts/**/{n}"), recursive=True))
+        if hits:
+            return hits[0]
     try:
         p = findfont(FontProperties(family="Inter", weight="bold"), fallback_to_default=False)
         if "inter" in os.path.basename(p).lower():
@@ -149,7 +155,7 @@ def text_cs(s, height, x=0.0, y=0.0, align="center"):
     k = height / cap
     ext = path.get_extents()
     dx = -(ext.x0 + ext.width / 2) if align == "center" else -ext.x0
-    cs = CrossSection([[(float((px + dx) * k), float(py * k)) for px, py in p[:-1]] for p in polys], FillRule.EvenOdd)
+    cs = CrossSection([[(float((px + dx) * k), float(py * k)) for px, py in p[:-1]] for p in polys], FillRule.NonZero)
     return cs.translate([x, y - height / 2])
 
 
