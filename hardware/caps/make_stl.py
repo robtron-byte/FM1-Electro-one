@@ -7,9 +7,11 @@ import numpy as np
 from manifold3d import Manifold, CrossSection, JoinType
 import trimesh
 
-P = dict(shaft_d=6.0, shaft_flat=4.5, shaft_depth=10.0, fit=0.15,
+P = dict(knurl_teeth=20, knurl_od=5.88, knurl_rd=5.08, collar_d=6.0, shaft_above=6.7, collar_above=1.5,
+         knob_gap=0.5, bore='knurl', fit=0.10,
          large_d=16, large_h=15, small_d=13, small_h=13, flutes=24, flute_depth=0.6, pointer_w=0.9, pointer_depth=0.7,
-         btn_w=10.4, btn_l=5.4, btn_h=2.0, btn_r=1.2, wall=0.8, top=1.2, btn_fit=0.15)
+         btn_base=8.4, btn_top=6.9, btn_h=1.26, btn_r=1.0, btn_pitch=10, btn_fit=0.1, cap_gap=0.8, wall=0.6, top=1.2)
+FITS = [-0.10, -0.05, 0, 0.05, 0.10, 0.15, 0.20]
 N = 96
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,9 +29,27 @@ def rounded_rect(w, l, r, h):
     return Manifold.extrude(cs, h)
 
 
-def d_shape(d, flat, h):
-    """D profile: circle of d, cut at flat measured from the far side."""
-    return cyl(d, h) ^ box(-d / 2, -d / 2, -1, d, flat, h + 2)
+def knurl_profile(f, p=P):
+    """Knurled shaft grown by f: zig-zag, roots at 0 degrees, tips half a tooth further."""
+    n = p['knurl_teeth']
+    pts = []
+    for i in range(2 * n):
+        a = math.pi * i / n
+        r = (p['knurl_rd'] if i % 2 == 0 else p['knurl_od']) / 2 + f
+        pts.append([r * math.cos(a), r * math.sin(a)])
+    return CrossSection([pts])
+
+
+def shaft_bore(f, p=P):
+    depth = p['shaft_above'] - p['knob_gap'] + 0.2
+    smooth = p['collar_above'] - p['knob_gap']
+    b = cyl(p['collar_d'] + 0.3, smooth + 0.02)
+    if p['bore'] == 'knurl':
+        b += Manifold.extrude(knurl_profile(f, p), depth - smooth + 0.01).translate([0, 0, smooth])
+    else:
+        b += cyl(p['knurl_rd'] + 2 * f, depth - smooth + 0.01).translate([0, 0, smooth])
+    b += cyl(p['collar_d'] + 0.9, 0.3, p['collar_d'] + 0.3)
+    return b.translate([0, 0, -0.01])
 
 
 def knob(d, h, p=P):
@@ -42,24 +62,28 @@ def knob(d, h, p=P):
     w, pd = p['pointer_w'], p['pointer_depth']
     cut += box(-w / 2, 0, h - pd, w, d / 2 + 1, pd + 1)
     cut += box(-w / 2, d / 2 - pd, h * 0.45, w, 2, h)
-    bd = p['shaft_d'] + 2 * p['fit']
-    cut += d_shape(bd, p['shaft_flat'] + 2 * p['fit'], p['shaft_depth'] + 0.01).translate([0, 0, -0.01])
+    cut += shaft_bore(p['fit'], p)
     return body - cut
 
 
 def button_cap(p=P):
-    iw, il = p['btn_w'] + 2 * p['btn_fit'], p['btn_l'] + 2 * p['btn_fit']
-    outer = rounded_rect(iw + 2 * p['wall'], il + 2 * p['wall'], p['btn_r'] + p['wall'], p['btn_h'] + p['top'])
-    inner = rounded_rect(iw, il, p['btn_r'] + p['btn_fit'], p['btn_h'] + 0.01).translate([0, 0, -0.01])
-    return outer - inner
+    """Cap over the upper part of a tapered button, ending cap_gap above the panel."""
+    reach = p['btn_h'] - p['cap_gap']
+    s0 = p['btn_base'] - (p['btn_base'] - p['btn_top']) * p['cap_gap'] / p['btn_h'] + 2 * p['btn_fit']
+    s1 = p['btn_top'] + 2 * p['btn_fit']
+    outer = s0 + 2 * p['wall']
+    assert outer < p['btn_pitch'] - 0.4, 'cap too wide for the button raster'
+    body = rounded_rect(outer, outer, p['btn_r'] + p['wall'], reach + p['top'])
+    cavity = Manifold.batch_hull([rounded_rect(s0, s0, p['btn_r'], 0.01),
+                                  rounded_rect(s1, s1, p['btn_r'] * s1 / s0, 0.01).translate([0, 0, reach])])
+    return body - cavity.translate([0, 0, -0.01])
 
 
 def fit_test(p=P):
-    sizes = [5.8, 5.9, 6.0, 6.1, 6.2, 6.3, 6.4]
-    plate = rounded_rect(len(sizes) * 10 + 4, 14, 2, 8)
-    for i, s in enumerate(sizes):
-        x = (i - (len(sizes) - 1) / 2) * 10
-        plate -= d_shape(s, p['shaft_flat'] + s - p['shaft_d'], 8.02).translate([x, -1.5, -0.01])
+    plate = rounded_rect(len(FITS) * 10 + 4, 14, 2, 8)
+    for i, f in enumerate(FITS):
+        x = (i - (len(FITS) - 1) / 2) * 10
+        plate -= Manifold.extrude(knurl_profile(f, p), 8.02).translate([x, -1.5, -0.01])
         for k in range(i + 1):
             plate -= cyl(0.7, 1, n=12).translate([x - 3 + k, 5, 7.4])
     return plate

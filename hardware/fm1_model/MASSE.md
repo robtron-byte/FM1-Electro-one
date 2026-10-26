@@ -93,7 +93,7 @@ Die sieben Encoder haben **gerändelte Achsen ohne Knopf**: Ø 6,0 mm, 20 Zähne
 
 Platz für Knöpfe: links bis Ø 14 mm, rechts bis Ø 15 mm (3 mm Luft zum Nachbarn).
 
-**Für `../caps/fm1_caps.scad`:** Die Standardwerte dort gehen von einer 6-mm-D-Achse aus. Passend zum Modell wären `shaft_d = 5.9`, `shaft_flat = 5.9` (gerändelt, keine Abflachung), `fit` 0 bis −0,05 (der Knopf klemmt auf der Rändelung) und `shaft_depth` etwa 5. Der Knopf kann bis auf den glatten Teil bei z 23,0 herunter.
+Die Knöpfe und Kappen in [`../caps`](../caps) sind auf diese Maße eingestellt: Rändelbohrung mit 20 Zähnen, Kappen für die Tasten rechts.
 
 ## Display
 

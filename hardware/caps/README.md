@@ -1,8 +1,8 @@
 # Knöpfe und Tastenkappen zum Drucken
 
-Aufsteckbare Drehknöpfe und Tastenkappen für das M-VAVE FM-1, in Farben passend zur FM1-Electro-Bedienung. Das Gerät wird dafür **nicht geöffnet**: Die Knöpfe ersetzen die vorhandenen, die Kappen stecken über den vorhandenen Tasten.
+Aufsteckbare Drehknöpfe und Tastenkappen für das M-VAVE FM-1, in Farben passend zur FM1-Electro-Bedienung. Das Gerät wird dafür **nicht geöffnet**: Die Knöpfe kommen auf die vorhandenen Encoder-Achsen, die Kappen stecken über den vorhandenen Tasten.
 
-> Die Maße des FM-1 sind nirgends veröffentlicht. Die STL-Dateien in `stl/` nutzen übliche Werte (6-mm-D-Achse, Taste 10,4 × 5,4 mm). **Erst messen, dann den Passungstest drucken, dann die Teile.**
+> Die Maße stammen aus dem CAD-Modell des FM-1 ([`../fm1_model/MASSE.md`](../fm1_model/MASSE.md)). Die Encoder haben **gerändelte Achsen mit 20 Zähnen** (EC11, Ø 6, Rändel außen 5,88, Grund 5,08), die Knöpfe haben eine passende Rändelbohrung. **Erst den Passungstest drucken, dann die Teile.**
 
 ![Vorschau](preview.png)
 
@@ -12,10 +12,10 @@ Aufsteckbare Drehknöpfe und Tastenkappen für das M-VAVE FM-1, in Farben passen
 |---|---|---|
 | `stl/knob_large.stl` | Drehknopf Ø 16 mm für KNOB 1–4 (Klang) | 4 |
 | `stl/knob_small.stl` | Drehknopf Ø 13 mm für SELECT, ALGORITHM, PRESETS (Struktur) | 3 |
-| `stl/button_cap.stl` | Tastenkappe zum Überstecken | 12 |
-| `stl/fit_test.stl` | Passungstest: 7 Bohrungen 5,8–6,4 mm (Punkte zählen die Größe) | 1 |
+| `stl/button_cap.stl` | Kappe für die 12 quadratischen Tasten rechts vom Display | 12 |
+| `stl/fit_test.stl` | Passungstest: 7 Rändelbohrungen mit Spiel −0,10 bis +0,20 mm (Punkte zählen die Stufe) | 1 |
 
-MASTER bleibt, wie er ist: Das ist der Lautstärkeregler des Geräts.
+MASTER bleibt, wie er ist: Das ist der Lautstärkeregler des Geräts, mit geschlitzter Achse und eigenem Zeiger.
 
 ## Farben
 
@@ -37,49 +37,54 @@ Die Farben folgen der Logik von Display und Anleitung: links Struktur, rechts Kl
 
 Tipp: Die Zeigerrille oben auf den Knöpfen mit etwas weißer (oder bei weißen Knöpfen schwarzer) Acrylfarbe füllen und überstehende Farbe abwischen.
 
-## 1. Messen
+## 1. Maße
 
-Mit einer Schieblehre, an einer Achse, von der der Knopf abgezogen ist:
+Alle Werte stehen schon in `fm1_caps.scad` und kommen aus dem Modell:
 
-| Maß | Wo | Variable in `fm1_caps.scad` |
+| Maß | Wert | Variable |
 |---|---|---|
-| Achsendurchmesser | über die runde Seite | `shaft_d` |
-| Maß über die Abflachung | von der flachen Seite zur runden gegenüber (bei runder Achse = Durchmesser) | `shaft_flat` |
-| Achslänge über dem Gehäuse | minus 0,5 mm | `shaft_depth` |
-| Abstand der Achsmitten | zwischen benachbarten Knöpfen | Knopf-Ø höchstens Abstand − 2 mm (`large_d`, `small_d`) |
-| Tastenbreite und -länge | die vorhandene Taste | `btn_w`, `btn_l` |
-| Tastenhöhe über dem Gehäuse | minus 0,3 mm, damit die Kappe nicht aufsitzt | `btn_h` |
-| Spalt zur Nachbartaste | muss größer als 2 × `wall` + `btn_fit` sein (ab Werk 1,75 mm) | |
+| Rändel: Zähne, außen, Grund | 20, 5,88, 5,08 | `knurl_teeth`, `knurl_od`, `knurl_rd` |
+| Glatter Bund unter dem Rändel | Ø 6,0, bis 1,5 über dem Panel | `collar_d`, `collar_above` |
+| Achse über dem Panel | 6,7 | `shaft_above` |
+| Abstand Knopf zum Panel | 0,5 | `knob_gap` |
+| Achsabstand | 18 (KNOB 1–4), 17 (links) | Knopf-Ø höchstens Abstand − 2 (`large_d`, `small_d`) |
+| Taste rechts: Fuß, oben, Höhe | 8,4, 6,9, 1,26 über dem Panel | `btn_base`, `btn_top`, `btn_h` |
+| Tastenraster | 10 | `btn_pitch` |
 
-Hat die Achse statt einer Abflachung eine Riffelung (Rändel), nimm den äußeren Durchmesser als `shaft_d` und setze `shaft_flat` = `shaft_d`. Der Knopf hält dann nur durch Klemmung; stelle `fit` auf 0 oder −0,05.
+**Selbst messen musst du nur den Tastenhub:** Drück eine der Tasten rechts, bis sie auslöst, und schätze, wie weit sie dabei nach unten geht. Die Kappe endet `cap_gap` über dem Panel (ab Werk 0,8 mm). Dieser Wert muss größer sein als der Hub, sonst stößt die Kappe auf, bevor die Taste schaltet. Weil die Tasten nur 1,26 hoch sind, greift die Kappe nur auf den oberen 0,46 mm. Sie hält deshalb vor allem mit etwas Klebemasse (siehe unten).
 
 ## 2. Passung testen
 
-`stl/fit_test.stl` drucken und auf eine Achse stecken. Die Bohrung, die stramm sitzt, ohne zu knacken, ergibt `fit = (Bohrung − shaft_d) / 2`. Beispiel: 6,2 mm passt bei 6,0-mm-Achse → `fit = 0.1`. Jede Druckerkombination ist etwas anders, darum lohnt sich der Test.
+`stl/fit_test.stl` drucken und nacheinander jede Bohrung auf eine Encoder-Achse stecken. Die Bohrung, die stramm sitzt, ohne zu knacken, ergibt `fit`:
+
+| Punkte | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|
+| `fit` | −0,10 | −0,05 | 0 | 0,05 | 0,10 | 0,15 | 0,20 |
+
+Die STL-Dateien sind mit `fit = 0.10` erzeugt. Die Zähne der Bohrung sind nur 0,4 mm hoch und damit fein für eine 0,4-mm-Düse. Greifen sie bei keiner Stufe sauber, stell `bore = "round"` ein: Dann bekommt der Knopf eine glatte Bohrung, die auf den Zahnspitzen klemmt (Ø = `knurl_rd` + 2 · `fit`, dann eher `fit` 0,2–0,3).
 
 ## 3. Anpassen und exportieren
 
-`fm1_caps.scad` in [OpenSCAD](https://openscad.org) öffnen (gibt es kostenlos für Mac), die Werte oben eintragen, `part` auf das gewünschte Teil stellen, F6, dann *Datei → Exportieren → STL*. Oder ohne OpenSCAD: in `make_stl.py` die Werte in `P` ändern und `python3 make_stl.py` ausführen (braucht `pip install manifold3d trimesh numpy matplotlib`).
+`fm1_caps.scad` in [OpenSCAD](https://openscad.org) öffnen (gibt es kostenlos für Mac), bei Bedarf `fit` und `cap_gap` ändern, `part` auf das gewünschte Teil stellen, F6, dann *Datei → Exportieren → STL*. Ohne OpenSCAD geht es auch: in `make_stl.py` die Werte in `P` ändern und `python3 make_stl.py` ausführen (braucht `pip install manifold3d trimesh numpy matplotlib`).
 
 ## 4. Drucken
 
 - PLA oder PETG, Düse 0,4 mm, Schichthöhe 0,12–0,16 mm.
-- Knöpfe: 3 Wände, 100 % Füllung, **mit der Oberseite aufs Bett** (die Bohrung zeigt nach oben). So wird die Oberseite glatt, und es braucht keinen Support.
+- Knöpfe: 3 Wände, 100 % Füllung, **mit der Oberseite aufs Bett** (die Bohrung zeigt nach oben). So wird die Oberseite glatt, es braucht keinen Support, und die Zähne der Bohrung entstehen sauber in der Ebene.
 - Kappen ebenfalls mit der Oberseite aufs Bett, die Öffnung zeigt nach oben.
 - Die Bohrung nicht nachträglich aufbohren; bei zu engem Sitz lieber `fit` um 0,05 erhöhen und neu drucken.
 
-## 5. Alte Knöpfe abnehmen
+## 5. Knöpfe aufsetzen
 
 1. Gerät ausschalten und USB abziehen.
-2. Knopf **gerade nach oben** abziehen, ohne zu kippen. Wenn er fest sitzt: ein Stück Stoff oder eine Zahnseide-Schlaufe unter den Knopfrand legen und gleichmäßig nach oben ziehen, oder zwei Teelöffel als Hebel links und rechts, mit einem Tuch als Schutz für das Gehäuse.
-3. Hat der Knopf eine kleine Madenschraube an der Seite, diese erst lösen.
-4. Nicht mit Schraubenzieher hebeln und die Achse nicht mit Gewalt drehen: Unter den Knöpfen sitzen Drehgeber, deren Achsen nicht abbrechen sollen.
-5. Die alten Knöpfe aufheben, falls du zurückbauen willst.
+2. Laut Modell stecken auf den Encodern keine Knöpfe, nur die gerändelten Achsen. Falls doch Knöpfe darauf sitzen: **gerade nach oben** abziehen, ohne zu kippen, notfalls mit einer Zahnseide-Schlaufe unter dem Rand. Nicht mit dem Schraubenzieher hebeln: Die Achsen der Drehgeber sollen nicht abbrechen.
+3. Den Knopf gerade auf die Achse drücken, bis er etwa 0,5 mm über dem Gehäuse steht. Er darf nicht aufsitzen, sonst schleift er. Die Bohrung ist so tief, dass die Achse oben nicht anstößt.
+4. Der Zeiger lässt sich in 18°-Schritten ausrichten (20 Zähne): Knopf abziehen, versetzt wieder aufstecken.
 
-## 6. Neue Teile anbringen
+## 6. Tastenkappen anbringen
 
-- **Knöpfe:** mit der Abflachung zur Abflachung der Achse ausrichten und gerade aufdrücken, bis sie knapp über dem Gehäuse stehen (nicht aufsitzen lassen, sonst schleifen sie).
-- **Tastenkappen:** einfach überstecken. Sitzen sie zu locker, innen einen Punkt wiederablösbaren Klebstoff (z. B. UHU patafix oder dünnes doppelseitiges Klebeband) setzen. Kein Sekundenkleber: Er kann in die Taste laufen und sie blockieren.
-- Danach jede Taste einmal drücken und prüfen, dass sie sauber auslöst und nicht klemmt.
+- Einen kleinen Punkt wiederablösbare Klebemasse (z. B. UHU patafix) oder ein Stück dünnes doppelseitiges Klebeband innen auf den Kappenboden setzen und die Kappe gerade auf die Taste drücken.
+- Kein Sekundenkleber: Er kann in die Silikonmatte laufen und die Taste blockieren.
+- Danach jede Taste einmal drücken und prüfen, dass sie sauber auslöst und die Kappe nicht aufs Gehäuse stößt. Stößt sie auf, `cap_gap` erhöhen und neu drucken.
 
 Die Tasten des FM-1 sind fest in das Bedienfeld eingesetzt; sie werden nicht abgenommen, die Kappen kommen darüber. Wer das Gehäuse öffnet, riskiert die Garantie, und für die Kappen ist das nicht nötig.
