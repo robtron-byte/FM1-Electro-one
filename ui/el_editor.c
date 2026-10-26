@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 #include "el_editor.h"
+#include "el_fmt.h"
 #include <string.h>
 #include "dsp_math.h"
 #include <stdio.h>
@@ -246,8 +247,8 @@ void ed_draw(gfx_band_t *b, const syn_part_t *part, unsigned section, unsigned p
         }
     char title[40];
     unsigned pages = ed_pages(s);
-    if (pages > 1) snprintf(title, sizeof title, "%s  %u/%u", s->name, page + 1u, pages);
-    else snprintf(title, sizeof title, "%s", s->name);
+    if (pages > 1) el_snprintf(title, sizeof title, "%s  %u/%u", s->name, page + 1u, pages);
+    else el_snprintf(title, sizeof title, "%s", s->name);
     if (gfx_touches(b, y + 15, 9)) gfx_text(b, 4, y + 15, title, color, 1);
     int py = y + 28, ph = h - 28;
     if (!gfx_touches(b, py, ph)) return;

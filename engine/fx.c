@@ -2,7 +2,6 @@
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "fx.h"
@@ -65,7 +64,7 @@ static const uint16_t gate_taps[16] EL_DSP_DATA = {441, 783, 1102, 1433, 1764, 2
 static const float gate_gains[16] EL_DSP_DATA = {0.62f, 0.58f, 0.6f, 0.55f, 0.57f, 0.53f, 0.55f, 0.5f,
                                                   0.52f, 0.47f, 0.48f, 0.42f, 0.4f, 0.32f, 0.22f, 0.0f};
 
-static inline float gate_read(const int16_t *line, unsigned write, unsigned back)
+static inline EL_DSP_HELPER float gate_read(const int16_t *line, unsigned write, unsigned back)
 {
     return line[(write + FX_GATE_CAP - back) % FX_GATE_CAP] * (1.0f / 32767.0f);
 }
@@ -75,13 +74,13 @@ static inline float gate_read(const int16_t *line, unsigned write, unsigned back
 static const struct { uint32_t off, len; } regions[3] = {
     {0, FX_HALL_REGION}, {FX_HALL_REGION, FX_TAPE_REGION}, {FX_HALL_REGION + FX_TAPE_REGION, FX_DELAY_REGION}};
 
-static unsigned region_of(unsigned use) { return use == FX_USE_HALL ? 0u : use == FX_USE_TAPE ? 1u : 2u; }
+static EL_DSP_HELPER unsigned region_of(unsigned use) { return use == FX_USE_HALL ? 0u : use == FX_USE_TAPE ? 1u : 2u; }
 
-int16_t *fx_region(el_fx_t *fx, unsigned use) { return fx->mem.hole + regions[region_of(use)].off; }
+EL_DSP_HELPER int16_t *fx_region(el_fx_t *fx, unsigned use) { return fx->mem.hole + regions[region_of(use)].off; }
 
 /* The first user stops delay, hall and gate and clears everything; each
  * user starts with its own region empty. */
-void fx_borrow(el_fx_t *fx, unsigned use)
+EL_DSP_HELPER void fx_borrow(el_fx_t *fx, unsigned use)
 {
     if (!fx->users) memset(&fx->mem, 0, sizeof fx->mem);
     else memset(fx_region(fx, use), 0, regions[region_of(use)].len * sizeof(int16_t));
@@ -89,7 +88,7 @@ void fx_borrow(el_fx_t *fx, unsigned use)
 }
 
 /* The last user gives the buffers back, empty: delay and hall start clean. */
-void fx_release(el_fx_t *fx, unsigned use)
+EL_DSP_HELPER void fx_release(el_fx_t *fx, unsigned use)
 {
     fx->users &= (uint8_t)~use;
     if (!fx->users) memset(&fx->mem, 0, sizeof fx->mem);
@@ -118,7 +117,7 @@ static void hole_line(fx_line_t *l, uint32_t *off, float len)
     *off += l->len;
 }
 
-void hole_init(fx_hole_t *h)
+EL_DSP_HELPER void hole_init(fx_hole_t *h)
 {
     memset(h, 0, sizeof *h);
     uint32_t off = 0;

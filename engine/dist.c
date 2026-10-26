@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Device build: all code and constants of this file run in internal SRAM. */
+/* Device build: the constants of this file sit in internal SRAM; its audio
+ * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "dist.h"
@@ -18,7 +18,7 @@ static const float half_band[12] EL_DSP_DATA = {
     0.0079527640f, -0.0045132248f, 0.0023474055f, -0.0010708521f, 0.0003905110f, -0.0000820879f};
 enum { DIST_LATENCY = 24 };
 
-static inline float dist_clip(float x, int mode)
+static inline EL_DSP_HELPER float dist_clip(float x, int mode)
 {
     switch (mode) {
     case 1: { /* OD: two cascaded asymmetric tube stages */

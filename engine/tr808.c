@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Circuit-informed TR-808 voices; values and sources in docs/TR808.md. */
-/* Device build: all code and constants of this file run in internal SRAM. */
+/* Device build: the constants of this file sit in internal SRAM; its audio
+ * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "tr808.h"
@@ -137,7 +137,7 @@ void tr808_init(tr808_t *t)
 /* ---- building blocks ------------------------------------------------------- */
 
 /* Zero-delay-feedback state-variable filter (TPT). */
-static inline void svf_set(tr_svf_t *f, float hz, float q)
+static inline EL_DSP_HELPER void svf_set(tr_svf_t *f, float hz, float q)
 {
     f->g = dsp_tan(DSP_PI * dsp_clamp(hz, 10.0f, 19000.0f) / EL_SAMPLE_RATE);
     f->k = 1.0f / dsp_max(q, 0.3f);
@@ -148,7 +148,7 @@ static inline void svf_set(tr_svf_t *f, float hz, float q)
 
 /* Returns the band-pass output normalised to unity gain at the centre;
  * *low gets the low-pass output when needed. */
-static inline float svf_bp(tr_svf_t *f, float x, float *low)
+static inline EL_DSP_HELPER float svf_bp(tr_svf_t *f, float x, float *low)
 {
     float v3 = x - f->ic2, v1 = f->a1 * f->ic1 + f->a2 * v3, v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
     f->ic1 = 2.0f * v1 - f->ic1;
@@ -157,7 +157,7 @@ static inline float svf_bp(tr_svf_t *f, float x, float *low)
     return f->k * v1;
 }
 
-static inline float svf_hp(tr_svf_t *f, float x)
+static inline EL_DSP_HELPER float svf_hp(tr_svf_t *f, float x)
 {
     float v3 = x - f->ic2, v1 = f->a1 * f->ic1 + f->a2 * v3, v2 = f->ic2 + f->a2 * f->ic1 + f->a3 * v3;
     f->ic1 = 2.0f * v1 - f->ic1;
@@ -165,7 +165,7 @@ static inline float svf_hp(tr_svf_t *f, float x)
     return x - f->k * v1 - v2;
 }
 
-static inline float noise(uint32_t *s)
+static inline EL_DSP_HELPER float noise(uint32_t *s)
 {
     uint32_t n = *s;
     n ^= n << 13; n ^= n >> 17; n ^= n << 5;
@@ -173,23 +173,23 @@ static inline float noise(uint32_t *s)
     return (float)(int32_t)n * (1.0f / 2147483648.0f);
 }
 
-static inline float powf_approx(float a, float b) { return a <= 0 ? 0 : dsp_exp2(b * dsp_log2(a)); }
-static inline float decay_coef(float samples) { return dsp_exp(-1.0f / dsp_max(samples, 1.0f)); }
-static inline float knob(const tr808_t *t, int part, int slot) { return t->pot[part][slot] / 127.0f; }
+static inline EL_DSP_HELPER float powf_approx(float a, float b) { return a <= 0 ? 0 : dsp_exp2(b * dsp_log2(a)); }
+static inline EL_DSP_HELPER float decay_coef(float samples) { return dsp_exp(-1.0f / dsp_max(samples, 1.0f)); }
+static inline EL_DSP_HELPER float knob(const tr808_t *t, int part, int slot) { return t->pot[part][slot] / 127.0f; }
 /* Knob extension around the stock value: 64 = stock, 0 / 127 = /2 / x2
  * (spread_tab: dsp_exp2((pot - 64) / 64), filled by tr808_init). */
-static inline float spread(const tr808_t *t, int part, int slot) { return spread_tab[t->pot[part][slot] & 127u]; }
-static inline float m_decay(tr_memo_t *m, float samples)
+static inline EL_DSP_HELPER float spread(const tr808_t *t, int part, int slot) { return spread_tab[t->pot[part][slot] & 127u]; }
+static inline EL_DSP_HELPER float m_decay(tr_memo_t *m, float samples)
 {
     if (samples != m->x) { m->x = samples; m->y = decay_coef(samples); }
     return m->y;
 }
-static inline float m_exp2(tr_memo_t *m, float x)
+static inline EL_DSP_HELPER float m_exp2(tr_memo_t *m, float x)
 {
     if (x != m->x) { m->x = x; m->y = dsp_exp2(x); }
     return m->y;
 }
-static inline float m_exp(tr_memo_t *m, float x)
+static inline EL_DSP_HELPER float m_exp(tr_memo_t *m, float x)
 {
     if (x != m->x) { m->x = x; m->y = dsp_exp(x); }
     return m->y;
@@ -199,7 +199,7 @@ static inline float m_exp(tr_memo_t *m, float x)
 
 /* The 1 ms trigger pulse after the 808's differentiating pulse shaper
  * (high-pass, tau 0.1 ms, negative excursion clamped by a diode). */
-static inline float trigger_pulse(tr_voice_t *v)
+static inline EL_DSP_HELPER float trigger_pulse(tr_voice_t *v)
 {
     float rect = v->age < (uint32_t)MS(1.0f) ? v->volts : 0.0f;
     v->pulse_lp += (rect - v->pulse_lp) * 0.2035f;
@@ -208,15 +208,15 @@ static inline float trigger_pulse(tr_voice_t *v)
 }
 
 /* Transistor "swing" VCA: mild asymmetric gain. */
-static inline float swing(float x) { return x > 0 ? x : x * (0.75f - 0.15f * x); }
+static inline EL_DSP_HELPER float swing(float x) { return x > 0 ? x : x * (0.75f - 0.15f * x); }
 
 /* ---- PO-12 engine -------------------------------------------------------------- */
 
 /* Parts that the PO-12 kit plays (PU stays the 808 trigger) and their
  * sounds; the Sound switch picks the second one. */
-static inline int po_engine(const tr808_t *t, int part) { return t->kit[3] && part != D8_PU; }
+static inline EL_DSP_HELPER int po_engine(const tr808_t *t, int part) { return t->kit[3] && part != D8_PU; }
 
-static inline unsigned po_sound(const tr808_t *t, int part)
+static inline EL_DSP_HELPER unsigned po_sound(const tr808_t *t, int part)
 {
     static const uint8_t first[D8_NUM] = {PO_BD, PO_SD, PO_LOTOM, PO_HITOM, PO_STICKS, PO_CLAP, PO_COWBELL, PO_CY, PO_OH,
                                          PO_CH, PO_BLIP, 0};
@@ -297,7 +297,7 @@ float tr808_bd_cal[BD_CAL] = {
 #define TR808_BD_SINK 0.0f
 #endif
 
-static float bass_drum(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
     const float *k = tr808_bd_cal;
@@ -378,7 +378,7 @@ float tr808_sd_cal[SD_CAL] = {
  * its travel). White noise through a high-pass and a low-pass, its own
  * two-slope envelope, mixed in by SNAPPY, which acts from ~1/4 of its
  * travel (nothing below, -9 dB at the middle, full at the end). */
-static float snare(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float snare(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_SD;
     const float *k = tr808_sd_cal;
@@ -425,7 +425,7 @@ static float snare(tr808_t *t, tr_voice_t *v)
  * and bends a little further. HT and the congas scale the times with the
  * pitch; congas bend less, decay faster and have no noise. */
 static const float tom_hz[4] EL_DSP_DATA = {93.0f, 185.0f, 185.0f, 400.0f};   /* LT, HT, LC, HC */
-static float tom(tr808_t *t, tr_voice_t *v, int part)
+static EL_DSP_HELPER float tom(tr808_t *t, tr_voice_t *v, int part)
 {
     int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
     float f0 = tom_hz[idx] * m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f);   /* fitted: no tolerance */
@@ -468,7 +468,7 @@ static float tom(tr808_t *t, tr_voice_t *v, int part)
 
 /* Rim shot: 455 + 1667 Hz resonators into an asymmetric swing VCA (the
  * bright ring), 22 ms gate. Claves: one 2.5 kHz resonator ringing, 25 ms. */
-static float rim(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float rim(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_RS;
     int clave = t->pot[part][P_SOUND] == 1;
@@ -498,7 +498,7 @@ static float rim(tr808_t *t, tr_voice_t *v)
 /* Hand clap: band-passed noise (~1.1 kHz, Q 2) through a sawtooth envelope
  * of three 10 ms pulses plus a 20 ms fall, and a quieter ~100 ms "reverb".
  * Maracas: high-passed noise with a 13 ms rise and 17 ms fall. */
-static float clap(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float clap(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_CP;
     float n = t->noise_now;
@@ -526,14 +526,14 @@ static float clap(tr808_t *t, tr_voice_t *v)
  * into a 7-level staircase. Band-limited with PolyBLEP: the edges are what
  * strike the band-passes, aliased edges would add a grainy noise floor. */
 #define METAL_DUTY 0.4798f
-static inline float blep(float t, float dt)
+static inline EL_DSP_HELPER float blep(float t, float dt)
 {
     if (t < dt) { t /= dt; return t + t - t * t - 1.0f; }
     if (t > 1.0f - dt) { t = (t - 1.0f) / dt; return t * t + t + t + 1.0f; }
     return 0.0f;
 }
 
-static inline float rect(float phase, float dt)
+static inline EL_DSP_HELPER float rect(float phase, float dt)
 {
     float y = phase < METAL_DUTY ? 1.0f : 0.0f;
     float down = phase - METAL_DUTY;
@@ -541,7 +541,7 @@ static inline float rect(float phase, float dt)
     return y + 0.5f * blep(phase, dt) - 0.5f * blep(down, dt);
 }
 
-static float metal(float *phase, float tune, float *cowbell)
+static EL_DSP_HELPER float metal(float *phase, float tune, float *cowbell)
 {
     float sum = 0, r[6];
     for (int i = 0; i < 6; ++i) {
@@ -556,7 +556,7 @@ static float metal(float *phase, float tune, float *cowbell)
 }
 
 /* The cowbell's 540 and 800 Hz rectangles alone (its TUNE off centre). */
-static float cowbell_osc(float *phase, float tune)
+static EL_DSP_HELPER float cowbell_osc(float *phase, float tune)
 {
     float sum = 0;
     for (int i = 0; i < 2; ++i) {
@@ -580,7 +580,7 @@ float tr808_mx_cal[MX_CAL] = {
  * rectangles through their own gates into one broad band-pass, so their
  * harmonics up to a few kHz stay in (fitted: ~2.9 kHz, Q 0.4); a fast
  * click (1.7 ms) into a ~39 ms decay, as on the recording. */
-static float cowbell(tr808_t *t, tr_voice_t *v, float src)
+static EL_DSP_HELPER float cowbell(tr808_t *t, tr_voice_t *v, float src)
 {
     const int part = D8_CB;
     const float *k = tr808_mx_cal;
@@ -599,7 +599,7 @@ static float cowbell(tr808_t *t, tr_voice_t *v, float src)
  * it passes mainly the positive half and clips against the envelope, so
  * the metal voices get rougher, not only quieter, as they decay (Werner's
  * "wild swing"). Linear for small signals at a high envelope. */
-static inline float swing_vca(float x, float env)
+static inline EL_DSP_HELPER float swing_vca(float x, float env)
 {
     float r = x > 0 ? 4.0f * x : 0.1f * x;
     return r * env / (env + (r > 0 ? r : -r) + 1e-6f);
@@ -626,7 +626,7 @@ float tr808_cy_cal[CY_CAL] = {
  *   short band: 7.1 kHz -> VCA (fixed, short) -> HP 10.32 kHz Q 5.64 plus a
  *               1-pole HP 5.2 kHz, +8.86 dB: the bright "tss" of the strike.
  * TONE mainly lifts the short band against the low one. */
-static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
+static EL_DSP_HELPER float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
 {
     const int part = D8_CY;
     const float *k = tr808_cy_cal;
@@ -668,7 +668,7 @@ static float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float high_src)
  * (no noise), a swing VCA, then a Sallen-Key high-pass, OH 7.8 kHz and
  * CH 11.7 kHz, both Q 2.5. Decay chart: OH 90 / 450 / 600 ms over its
  * DECAY knob, CH 50 ms. Accent +6 dB like the chart. */
-static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
+static EL_DSP_HELPER float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 {
     if (v->age == 0) {
         /* TUNE moves the high-pass with the oscillators, the closed hat's half
@@ -699,7 +699,7 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
  * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
  * Tone drives it into a soft-clipped square; accent opens it further. */
-static float zap(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float zap(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_ZP;
     if (v->age == 0) {
@@ -733,7 +733,7 @@ static float zap(tr808_t *t, tr_voice_t *v)
  * that the plop is taken out (see below): it clashed with the bass.
  *   Width 3.8..60 ms, Tune: the corners /4..x4, Ring: resonance of the
  *   250 Hz high-pass /2..x2, Decay: coupling 0.05..0.9 ms. */
-static float pulse(tr808_t *t, tr_voice_t *v)
+static EL_DSP_HELPER float pulse(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_PU;
     if (v->age == 0) {

@@ -2,7 +2,6 @@
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "synth_track.h"
@@ -28,7 +27,7 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
 const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS"};
 static const uint8_t rate_ticks[ST_RATES] EL_DSP_DATA = {1, 2, 4, 8, 16, 32};
 
-unsigned st_chord_notes(int root, unsigned chord, int16_t *out)
+EL_DSP_HELPER unsigned st_chord_notes(int root, unsigned chord, int16_t *out)
 {
     unsigned type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
     if (!type || type > MKS_CHORDS) { out[0] = (int16_t)el_clampi(root, 0, 127); return 1; }

@@ -8,7 +8,6 @@
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "jp6.h"
@@ -68,7 +67,7 @@ static const float divisions[14] EL_DSP_DATA = {0.125f, 1.0f / 6, 0.25f, 0.375f,
 
 static inline float unit(float raw) { return dsp_clamp(raw, 0.0f, 127.0f) * (1.0f / 127.0f); }
 
-static inline float curve_exp(const float *t, float raw)
+static inline EL_DSP_HELPER float curve_exp(const float *t, float raw)
 {
     float v = dsp_clamp(raw, 0.0f, 127.0f);
     int i = (int)(v * (1.0f / 16.0f));
@@ -93,7 +92,7 @@ static inline float hpf_hz(float raw) { return 20.0f * dsp_exp2(raw * (7.6438562
 
 typedef struct { float attack, decay, sustain, release; } env_settings_t;
 
-static void env_begin(jp6_env_t *e, int stage, float level, float seconds)
+static EL_DSP_HELPER void env_begin(jp6_env_t *e, int stage, float level, float seconds)
 {
     float samples = seconds * EL_SAMPLE_RATE;
     e->stage = (uint8_t)stage;
@@ -112,7 +111,7 @@ static inline void env_gate_off(jp6_env_t *e, const env_settings_t *s)
 
 /* Linear attack; decay and release (1 - e^(-4.5 p)) / (1 - e^(-4.5)) with
  * an exact finite duration; the sustain level follows live changes. */
-static inline float env_next(jp6_env_t *e, const env_settings_t *s)
+static inline EL_DSP_HELPER float env_next(jp6_env_t *e, const env_settings_t *s)
 {
     switch (e->stage) {
     case ENV_IDLE: return 0;
@@ -137,7 +136,7 @@ static inline float env_next(jp6_env_t *e, const env_settings_t *s)
 }
 
 /* Base times of ENV-1 (which = 0) or ENV-2 from the panel values. */
-static void env_base(const jp6_part_t *p, int which, env_settings_t *s)
+static EL_DSP_HELPER void env_base(const jp6_part_t *p, int which, env_settings_t *s)
 {
     const uint8_t *v = p->v + (which ? JP_ENV2_A : JP_ENV1_A);
     s->attack = env_seconds(v[0], 1);
@@ -147,7 +146,7 @@ static void env_base(const jp6_part_t *p, int which, env_settings_t *s)
 }
 
 /* KEY follow shortens the times for higher notes, voice drift varies them. */
-static void env_settings(const jp6_part_t *p, const jp6_voice_t *v, int which, float pitch,
+static EL_DSP_HELPER void env_settings(const jp6_part_t *p, const jp6_voice_t *v, int which, float pitch,
                          const env_settings_t *base, env_settings_t *s)
 {
     float follow = p->v[which ? JP_ENV2_KEY : JP_ENV1_KEY] / 127.0f;
@@ -163,7 +162,7 @@ static void env_settings(const jp6_part_t *p, const jp6_voice_t *v, int which, f
 
 /* Band-limited sum of the selected waveforms at phase t, bipolar. The
  * triangle stays naive (12 dB/oct harmonics, aliasing far below the rest). */
-static inline float vco_shape(unsigned w, float t, float dt, float pw)
+static inline EL_DSP_HELPER float vco_shape(unsigned w, float t, float dt, float pw)
 {
     float out = 0;
     if (w & W_SAW) out += 2.0f * t - 1.0f - polyblep(t, dt);
@@ -193,7 +192,7 @@ static inline float vco_advance(float *phase, float dt)
 }
 
 /* Step of a VCO hard-synced to a master that wrapped `since` samples ago. */
-static inline float vco_slave(float *phase, float dt, float since, unsigned w, float pw)
+static inline EL_DSP_HELPER float vco_slave(float *phase, float dt, float since, unsigned w, float pw)
 {
     if (since < 0) {
         vco_advance(phase, dt);
@@ -399,7 +398,7 @@ EL_DSP_CODE int jp6_active(const jp6_part_t *p)
     return p->silent_blocks < SILENT_BLOCKS;
 }
 
-static void release(jp6_part_t *p, jp6_voice_t *v, const env_settings_t base[2])
+static EL_DSP_HELPER void release(jp6_part_t *p, jp6_voice_t *v, const env_settings_t base[2])
 {
     env_settings_t s;
     v->gate = 0;
@@ -409,7 +408,7 @@ static void release(jp6_part_t *p, jp6_voice_t *v, const env_settings_t base[2])
     env_gate_off(&v->env2, &s);
 }
 
-static void env_bases(const jp6_part_t *p, env_settings_t base[2])
+static EL_DSP_HELPER void env_bases(const jp6_part_t *p, env_settings_t base[2])
 {
     env_base(p, 0, &base[0]);
     env_base(p, 1, &base[1]);
@@ -445,7 +444,7 @@ EL_DSP_CODE void jp6_part_set(jp6_part_t *p, unsigned param, int value)
 
 static inline float key_shift(const jp6_part_t *p) { return (float)((int)p->v[JP_KEY_SHIFT] - 12); }
 
-static void start_voice(jp6_part_t *p, jp6_voice_t *v, int key, float note, float velocity, int glide,
+static EL_DSP_HELPER void start_voice(jp6_part_t *p, jp6_voice_t *v, int key, float note, float velocity, int glide,
                         const env_settings_t base[2])
 {
     env_settings_t s;

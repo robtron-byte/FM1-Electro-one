@@ -54,6 +54,7 @@
  *   sound, keys play; the sequencer keeps playing. The area button again
  *   (or HOME, SEQ) leaves it. */
 #include "el_ui.h"
+#include "el_fmt.h"
 #include "el_editor.h"
 #include "dsp_math.h"
 #include <stdio.h>
@@ -114,7 +115,7 @@ static void notice(el_ui_t *ui, const char *text)
 
 static void note_name(char *out, size_t size, int note)
 {
-    snprintf(out, size, "%s%d", note_names[note % 12], note / 12 - 1);
+    el_snprintf(out, size, "%s%d", note_names[note % 12], note / 12 - 1);
 }
 
 void el_ui_init(el_ui_t *ui, el_engine_t *engine)
@@ -353,8 +354,8 @@ static void punch_notice(el_ui_t *ui, unsigned n, unsigned v)
 {
     static char text[24];   /* the notice keeps the pointer */
     const char *value = el_punch_value_name(n, v);
-    if (value) snprintf(text, sizeof text, "%s %s", punch_names[n], value);
-    else snprintf(text, sizeof text, "%s", punch_names[n]);
+    if (value) el_snprintf(text, sizeof text, "%s %s", punch_names[n], value);
+    else el_snprintf(text, sizeof text, "%s", punch_names[n]);
     notice(ui, text);
 }
 
@@ -488,7 +489,7 @@ static const char *sound_label(el_ui_t *ui, unsigned id)
     if (id < EL_USER_SOUND) return syn_sound_name(id);
     user_cache(ui);
     unsigned slot = id - EL_USER_SOUND;
-    snprintf(label, sizeof label, "U%02u %s", slot + 1u, slot < EL_USER_SOUNDS && ui->user_used[slot] ? ui->user_name[slot] : "?");
+    el_snprintf(label, sizeof label, "U%02u %s", slot + 1u, slot < EL_USER_SOUNDS && ui->user_used[slot] ? ui->user_name[slot] : "?");
     return label;
 }
 
@@ -703,7 +704,7 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         int shift = note - 60;
         el_post3(e, EL_CMD_TRACK_TRANSPOSE, track, 0, 0, (int16_t)shift);
         static char text[20];
-        snprintf(text, sizeof text, "TRANSPOSE %+d", shift);
+        el_snprintf(text, sizeof text, "TRANSPOSE %+d", shift);
         notice(ui, text);
         return;
     }
@@ -768,22 +769,22 @@ static int opt_value(const el_ui_t *ui, unsigned item, int *max)
 static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
 {
     int max, v = opt_value(ui, item, &max);
-    if (item <= OPT_MIDI_BASS) { if (v >= EL_MIDI_OFF) snprintf(out, size, "OFF"); else snprintf(out, size, "%d", v + 1); }
-    else if (item == OPT_CLOCK) snprintf(out, size, v ? "FOLLOW" : "IGNORE");
-    else if (item == OPT_DIST_BD) snprintf(out, size, v ? "FULL LOWS" : "PEDAL");
-    else if (item == OPT_START) snprintf(out, size, v == EL_START_SLOT_A ? "SLOTS A" : "LAST");
-    else if (item == OPT_LEVEL) snprintf(out, size, "%d", v);
-    else if (item == OPT_THRESHOLD) snprintf(out, size, "-%d DB", v);
+    if (item <= OPT_MIDI_BASS) { if (v >= EL_MIDI_OFF) el_snprintf(out, size, "OFF"); else el_snprintf(out, size, "%d", v + 1); }
+    else if (item == OPT_CLOCK) el_snprintf(out, size, v ? "FOLLOW" : "IGNORE");
+    else if (item == OPT_DIST_BD) el_snprintf(out, size, v ? "FULL LOWS" : "PEDAL");
+    else if (item == OPT_START) el_snprintf(out, size, v == EL_START_SLOT_A ? "SLOTS A" : "LAST");
+    else if (item == OPT_LEVEL) el_snprintf(out, size, "%d", v);
+    else if (item == OPT_THRESHOLD) el_snprintf(out, size, "-%d DB", v);
     else if (item == OPT_RATIO) {
         int r10 = (int)(el_comp_ratios[v % EL_COMP_RATIOS] * 10.0f + 0.5f);
-        if (r10 == 10) snprintf(out, size, "OFF (1:1)");
-        else if (r10 % 10) snprintf(out, size, "%d.%d:1", r10 / 10, r10 % 10);
-        else snprintf(out, size, "%d:1", r10 / 10);
+        if (r10 == 10) el_snprintf(out, size, "OFF (1:1)");
+        else if (r10 % 10) el_snprintf(out, size, "%d.%d:1", r10 / 10, r10 % 10);
+        else el_snprintf(out, size, "%d:1", r10 / 10);
     }
-    else if (item == OPT_ATTACK) snprintf(out, size, "%u MS", el_comp_attacks[v % EL_COMP_ATTACKS]);
-    else if (item == OPT_RELEASE) snprintf(out, size, "%u MS", el_comp_releases[v % EL_COMP_RELEASES]);
-    else if (item == OPT_MAKEUP) snprintf(out, size, "+%d.%d DB", v / 2, v % 2 ? 5 : 0);
-    else snprintf(out, size, v ? "ON" : "OFF");
+    else if (item == OPT_ATTACK) el_snprintf(out, size, "%u MS", el_comp_attacks[v % EL_COMP_ATTACKS]);
+    else if (item == OPT_RELEASE) el_snprintf(out, size, "%u MS", el_comp_releases[v % EL_COMP_RELEASES]);
+    else if (item == OPT_MAKEUP) el_snprintf(out, size, "+%d.%d DB", v / 2, v % 2 ? 5 : 0);
+    else el_snprintf(out, size, v ? "ON" : "OFF");
 }
 
 static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pressed)
@@ -1306,8 +1307,8 @@ static void draw_header(el_ui_t *ui, gfx_band_t *b)
     (void)text;
     gfx_text(b, 4, 19, m->pattern[m->next].name, TEXT, 1);   /* the beat's style */
     unsigned x10 = (unsigned)(e->transport.bpm * 10.0f + 0.5f);
-    if (x10 % 10) snprintf(bpm, sizeof bpm, "%u.%u", x10 / 10, x10 % 10);
-    else snprintf(bpm, sizeof bpm, "%u", x10 / 10);
+    if (x10 % 10) el_snprintf(bpm, sizeof bpm, "%u.%u", x10 / 10, x10 % 10);
+    else el_snprintf(bpm, sizeof bpm, "%u", x10 / 10);
     gfx_text(b, 150, 19, bpm, TEXT, 1);
     gfx_text(b, 186, 19, ui->overview ? "HOME" : "", AMBER, 1);
     int playing = e->transport.running && m->playing;
@@ -1362,8 +1363,8 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     if (shown > 16) shown = 16;
     gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
     gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
-    if (ui->step_mode[ui->area]) snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
-    else snprintf(text, sizeof text, "%s O%+d", t->arp.v[ARP_ON] ? (t->arp.v[ARP_HOLD] ? "ARP-H" : "ARP") : "KEYS",
+    if (ui->step_mode[ui->area]) el_snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
+    else el_snprintf(text, sizeof text, "%s O%+d", t->arp.v[ARP_ON] ? (t->arp.v[ARP_HOLD] ? "ARP-H" : "ARP") : "KEYS",
                   ui->octave[ui->area]);
     gfx_text(b, GFX_W - 4 - gfx_text_width(text, 1), 39, text, ui->step_mode[ui->area] || t->arp.v[ARP_ON] ? AMBER : DIM, 1);
 
@@ -1421,17 +1422,17 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
         note_name(n, sizeof n, st->note);
         unsigned type = ST_CHORD_TYPE(st->chord), inv = ST_CHORD_INV(st->chord);
         static const char *const inv_names[3] = {"", " INV1", " INV2"};
-        snprintf(text, sizeof text, "STEP %02u %s %s%s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
+        el_snprintf(text, sizeof text, "STEP %02u %s %s%s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
                  type ? mks_chord_names[type - 1] : "", type ? inv_names[inv] : "",
                  (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "");
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
         static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
         unsigned sixteenths = p->length * ticks[p->rate < ST_RATES ? p->rate : 0];
-        snprintf(text, sizeof text, "%u x %s = %u BARS  CHORD %s", p->length, st_rate_names[p->rate < ST_RATES ? p->rate : 0],
+        el_snprintf(text, sizeof text, "%u x %s = %u BARS  CHORD %s", p->length, st_rate_names[p->rate < ST_RATES ? p->rate : 0],
                  (sixteenths + 15u) / 16u, t->chord ? mks_chord_names[ST_CHORD_TYPE(t->chord) - 1] : "OFF");
     } else {
-        snprintf(text, sizeof text, "LEN %u  GATE %u%%", p->length, p->gate);
+        el_snprintf(text, sizeof text, "LEN %u  GATE %u%%", p->length, p->gate);
     }
     gfx_text(b, 4, 176, text, TEXT, 1);
     /* REC mode, red while recording. */
@@ -1485,10 +1486,10 @@ static void draw_editor(el_ui_t *ui, gfx_band_t *b)
     user_cache(ui);
     unsigned slot = ui->sound_slot;
     if (gfx_touches(b, 60, 10)) gfx_text(b, 4, 60, "SAVE SOUND TO USER SLOT", AMBER, 1);
-    snprintf(text, sizeof text, "U%02u", slot + 1u);
+    el_snprintf(text, sizeof text, "U%02u", slot + 1u);
     if (gfx_touches(b, 78, 24)) gfx_text(b, 4, 78, text, color, 3);
-    if (ui->user_used[slot]) snprintf(text, sizeof text, "REPLACES %s", ui->user_name[slot]);
-    else snprintf(text, sizeof text, "EMPTY");
+    if (ui->user_used[slot]) el_snprintf(text, sizeof text, "REPLACES %s", ui->user_name[slot]);
+    else el_snprintf(text, sizeof text, "EMPTY");
     if (gfx_touches(b, 108, 10)) gfx_text(b, 4, 108, text, ui->user_used[slot] ? RED : DIM, 1);
     if (gfx_touches(b, 128, 22)) {
         gfx_fill(b, 2, 126, GFX_W - 4, 22, PANEL);
@@ -1559,7 +1560,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         gfx_text(b, 4, FOOT_Y, "STYLE", DIM, 1);
         gfx_text(b, 4, FOOT_Y + 12, beat ? dr_styles[ui->gen_style[a]].name : st_style_name(a, ui->gen_style[a]), ACCENT, 1);
         gfx_text(b, 64, FOOT_Y, "AMOUNT", DIM, 1);
-        snprintf(value, sizeof value, "%u", ui->gen_density[a]);
+        el_snprintf(value, sizeof value, "%u", ui->gen_density[a]);
         gfx_text(b, 64, FOOT_Y + 12, value, ACCENT, 2);
         if (beat) {
             gfx_text(b, 124, FOOT_Y, "KICK", DIM, 1);
@@ -1575,7 +1576,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         gfx_text(b, 180, FOOT_Y, "PRESETS", DIM, 1);
         gfx_text(b, 180, FOOT_Y + 12, "SLOT", area_color[ui->area], 1);
         char pos[8];
-        snprintf(pos, sizeof pos, "%u", ui->name_cursor + 1u);
+        el_snprintf(pos, sizeof pos, "%u", ui->name_cursor + 1u);
         gfx_text(b, 4, FOOT_Y + 12, pos, area_color[ui->area], 2);
         char letter[2] = {ui->sound_name[ui->name_cursor] == ' ' ? '_' : ui->sound_name[ui->name_cursor], 0};
         gfx_text(b, 63, FOOT_Y + 12, letter, area_color[ui->area], 2);
@@ -1592,29 +1593,29 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             int x = 4 + (int)i * 59;
             gfx_text(b, x, FOOT_Y, k.name, DIM, 1);
             if (k.text) gfx_text(b, x, FOOT_Y + 14, k.text, k.color, 1);
-            else { snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, k.color, 2); }
+            else { el_snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, k.color, 2); }
         }
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
     char line[48];
     if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && rec_step_mode(ui)) {
-        snprintf(line, sizeof line, "STEP REC %u/32  EDIT=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
+        el_snprintf(line, sizeof line, "STEP REC %u/32  EDIT=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
         hint = line;
     } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {
-        snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);
+        el_snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);
         hint = line;
     }
     if (!hint) {
         if (ui->overview && (ui->hold & HOLD_EDIT)) {
             const uint8_t *fv = ui->engine->fx.v;
-            snprintf(line, sizeof line, "PRESETS %s ALGO DRV %u SEL TONE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
+            el_snprintf(line, sizeof line, "PRESETS %s ALGO DRV %u SEL TONE %u", fx_dist_mode_name(fv[FX_DIST_MODE]),
                      fv[FX_DIST_DRIVE], fv[FX_DIST_TONE]);
             hint = line;
         } else if (ui->overview) hint = (ui->hold & HOLD_GLO) ? "GLO: FX  PRESETS=DELAY ALGO=FINE BPM" : "LEVELS PRESETS=REV GLO=FX EDIT=DIST";
         else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &ui->engine->drums.pattern[ui->engine->drums.current];
             unsigned pages = ((unsigned)tr808_nparams(ui->part) + 3u) / 4u;
-            snprintf(line, sizeof line, "%s %u/%u KIT %s SW%u L%u%s", dr_part_names[ui->part], ui->page[0] + 1u, pages,
+            el_snprintf(line, sizeof line, "%s %u/%u KIT %s SW%u L%u%s", dr_part_names[ui->part], ui->page[0] + 1u, pages,
                      dr_kit_names[ui->engine->drums.kit_index], p->swing, p->length,
                      p->length > 16 ? (ui->step_page[0] ? " 2/2" : " 1/2") : "");
             hint = (ui->hold & HOLD_EDIT) ? "EDIT: ACCENT/CLEAR  ALGO=SWING" :
@@ -1627,10 +1628,10 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             unsigned page = ui->page[ui->area];
             const st_track_t *t = track_of(ui);
             if (page == PAGE_ARP)
-                snprintf(line, sizeof line, "ARP %s%s  TAP ARP  EDIT+ARP=HOLD", t->arp.v[ARP_ON] ? "ON" : "OFF",
+                el_snprintf(line, sizeof line, "ARP %s%s  TAP ARP  EDIT+ARP=HOLD", t->arp.v[ARP_ON] ? "ON" : "OFF",
                          t->arp.v[ARP_HOLD] ? " HOLD" : "");
             else
-                snprintf(line, sizeof line, "%s %u/%u  PRESETS=SOUND SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
+                el_snprintf(line, sizeof line, "%s %u/%u  PRESETS=SOUND SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE SEL=STEP ALGO=LENGTH" :
                                             ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
                    (ui->hold & HOLD_EDIT) ? (ui->area == EL_AREA_STRINGS ? "EDIT: ACC/REST ALGO=STEP LEN" : "EDIT: ACC/REST ALGO=GATE") : line;

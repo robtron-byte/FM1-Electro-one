@@ -5,7 +5,6 @@
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "mks.h"
@@ -26,30 +25,30 @@ const uint8_t st_chord_v15[14] = {0, 1, 1, 3, 4, 5, 5, 7, 8, 7, 2, 7, 7, 6};
 
 /* ---- math ---------------------------------------------------------------- */
 
-static inline float wrap01(float x)
+static inline EL_DSP_HELPER float wrap01(float x)
 {
     int i = (int)x;
     if ((float)i > x) --i;
     return x - (float)i;
 }
 
-static inline float polyblep(float t, float dt)
+static inline EL_DSP_HELPER float polyblep(float t, float dt)
 {
     if (t < dt) { float x = t / dt; return x + x - x * x - 1.0f; }
     if (t > 1.0f - dt) { float x = (t - 1.0f) / dt; return x * x + x + x + 1.0f; }
     return 0.0f;
 }
 
-static inline float soft_clip(float x)
+static inline EL_DSP_HELPER float soft_clip(float x)
 {
     x = dsp_clamp(x, -3.0f, 3.0f);
     return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
 }
 
-static inline float powf_fast(float a, float b) { return a <= 0.0f ? 0.0f : dsp_exp2(b * dsp_log2(a)); }
-static inline float note_hz(float note) { return 440.0f * dsp_exp2((note - 69.0f) * (1.0f / 12.0f)); }
+static inline EL_DSP_HELPER float powf_fast(float a, float b) { return a <= 0.0f ? 0.0f : dsp_exp2(b * dsp_log2(a)); }
+static inline EL_DSP_HELPER float note_hz(float note) { return 440.0f * dsp_exp2((note - 69.0f) * (1.0f / 12.0f)); }
 
-static inline float xorshift(uint32_t *s)
+static inline EL_DSP_HELPER float xorshift(uint32_t *s)
 {
     uint32_t n = *s;
     n ^= n << 13; n ^= n >> 17; n ^= n << 5;
@@ -69,7 +68,7 @@ static const float curve_vibrato[9] EL_DSP_DATA = {0, 0.0212f, 0.0477f, 0.0736f,
 static const float divisions[14] EL_DSP_DATA = {0.125f, 1.0f / 6, 0.25f, 0.375f, 1.0f / 3, 0.5f, 0.75f, 2.0f / 3,
                                                 1, 1.5f, 2, 4, 8, 16};
 
-static inline float curve_exp(const float *t, float raw)
+static inline EL_DSP_HELPER float curve_exp(const float *t, float raw)
 {
     float v = dsp_clamp(raw, 0.0f, 127.0f);
     int i = (int)(v * (1.0f / 16.0f));
@@ -100,7 +99,7 @@ static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f};
 
 static inline int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
 
-static inline float chop_naive(const mks_chop_t *c, float p)
+static inline EL_DSP_HELPER float chop_naive(const mks_chop_t *c, float p)
 {
     if (c->m0 > 0 && wrap01(p * c->m0) < c->w0) return 0;
     if (c->m1 > 0 && wrap01(p * c->m1) < c->w1) return 0;
@@ -195,7 +194,7 @@ static EL_DSP_CODE void dco_configure(mks_part_t *p, int pulse, int saw, int sub
     }
 }
 
-static inline float dco_tick(const mks_part_t *p, mks_voice_t *v, float raw_dt, float ratio, int sync)
+static inline EL_DSP_HELPER float dco_tick(const mks_part_t *p, mks_voice_t *v, float raw_dt, float ratio, int sync)
 {
     float dt = raw_dt < 0.45f ? raw_dt : 0.45f, dtm = dt * 0.25f;
     v->phase += dtm;
@@ -232,7 +231,7 @@ static inline float dco_tick(const mks_part_t *p, mks_voice_t *v, float raw_dt, 
 
 /* ---- envelope -------------------------------------------------------------- */
 
-static void env_begin(mks_env_t *e, int stage, float level, float seconds)
+static EL_DSP_HELPER void env_begin(mks_env_t *e, int stage, float level, float seconds)
 {
     float samples = seconds * EL_SAMPLE_RATE;
     e->stage = (uint8_t)stage;
@@ -244,7 +243,7 @@ static void env_begin(mks_env_t *e, int stage, float level, float seconds)
     e->curve_decay = dsp_exp(-4.5f * e->increment);
 }
 
-static inline float env_next(mks_env_t *e, const mks_env_settings_t *s)
+static inline EL_DSP_HELPER float env_next(mks_env_t *e, const mks_env_settings_t *s)
 {
     switch (e->stage) {
     case ENV_IDLE: return 0;
@@ -273,7 +272,7 @@ static inline float env_next(mks_env_t *e, const mks_env_settings_t *s)
 
 /* ---- filters --------------------------------------------------------------- */
 
-static inline void ladder_set(mks_voice_t *v, float cutoff, float resonance)
+static inline EL_DSP_HELPER void ladder_set(mks_voice_t *v, float cutoff, float resonance)
 {
     float fc = dsp_clamp(cutoff, 8.0f, EL_SAMPLE_RATE * 0.45f);
     v->g = dsp_tan(DSP_PI * fc / EL_SAMPLE_RATE);
@@ -286,7 +285,7 @@ static inline void ladder_set(mks_voice_t *v, float cutoff, float resonance)
     v->den = 1.0f / (1.0f + v->k * v->G4);
 }
 
-static inline float ladder(mks_voice_t *v, float input)
+static inline EL_DSP_HELPER float ladder(mks_voice_t *v, float input)
 {
     float G = v->G, G2 = v->G2, G3 = v->G3, G4 = v->G4;
     float sigma = (G3 * v->s1 + G2 * v->s2 + G * v->s3 + v->s4) * v->inv;
@@ -321,7 +320,7 @@ static void hpf_configure(mks_part_t *p, int mode)
     }
 }
 
-static inline float biquad(const mks_biquad_t *c, float *z1, float *z2, float x)
+static inline EL_DSP_HELPER float biquad(const mks_biquad_t *c, float *z1, float *z2, float x)
 {
     float y = c->b0 * x + *z1;
     *z1 = c->b1 * x - c->a1 * y + *z2;
@@ -443,7 +442,7 @@ static inline float env_scale(const mks_part_t *p, const mks_voice_t *v, float p
     return scale;
 }
 
-static void env_settings(const mks_part_t *p, const mks_voice_t *v, float pitch, mks_env_settings_t *s)
+static EL_DSP_HELPER void env_settings(const mks_part_t *p, const mks_voice_t *v, float pitch, mks_env_settings_t *s)
 {
     float k = env_scale(p, v, pitch);
     s->t1 = env_seconds(p->v[MP_T1], 1) * k; s->l1 = p->v[MP_L1] / 127.0f;
@@ -460,7 +459,7 @@ static float last_pitch_of(const mks_part_t *p)
     return pitch;
 }
 
-static void start_voice(mks_part_t *p, mks_voice_t *v, int note, float velocity, int glide, float from, int retrigger)
+static EL_DSP_HELPER void start_voice(mks_part_t *p, mks_voice_t *v, int note, float velocity, int glide, float from, int retrigger)
 {
     mks_env_settings_t s;
     int was_active = v->active;
@@ -535,7 +534,7 @@ EL_DSP_CODE void mks_note_on(mks_part_t *p, int note, float velocity, int legato
     start_voice(p, v, note, velocity, glide, from, 1);
 }
 
-static void release(mks_part_t *p, mks_voice_t *v)
+static EL_DSP_HELPER void release(mks_part_t *p, mks_voice_t *v)
 {
     mks_env_settings_t s;
     v->gate = 0;
@@ -648,7 +647,7 @@ static EL_DSP_CODE void control(mks_part_t *p, block_t *b, float bpm)
     b->gate_release = 0.00189f; /* 1 - exp(-1 / (0.012 * 44100)) */
 }
 
-static inline float env_amount(float env, int mode, float velocity)
+static inline EL_DSP_HELPER float env_amount(float env, int mode, float velocity)
 {
     switch (mode) {
     case 1: return -env;

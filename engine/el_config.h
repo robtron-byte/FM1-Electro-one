@@ -14,9 +14,12 @@
 #ifdef FM1_HOST_TEST
 #define EL_DSP_CODE
 #define EL_DSP_DATA
+#define EL_DSP_HELPER
 #else
 #define EL_DSP_CODE __attribute__((section(".volatile_ram_code"), noinline, used))
 #define EL_DSP_DATA __attribute__((section(".volatile_ram.fm1"), aligned(4)))
+/* Small helpers on the audio path: in SRAM when not inlined. */
+#define EL_DSP_HELPER __attribute__((section(".volatile_ram_code")))
 #endif
 
 #define EL_FENCE() __sync_synchronize()

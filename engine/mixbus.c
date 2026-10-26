@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
-/* Device build: all code and constants of this file run in internal SRAM. */
+/* Device build: the constants of this file sit in internal SRAM; its audio
+ * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
 #ifndef FM1_HOST_TEST
-#pragma code_seg(".volatile_ram_code")
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "mixbus.h"
@@ -39,7 +39,7 @@ static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack
 
 /* Feed-forward, log domain, soft knee; detector on the stereo peak. Returns
  * the gain to apply (linear). */
-static inline float comp_detect(mb_comp_t *c, float level)
+static inline EL_DSP_HELPER float comp_detect(mb_comp_t *c, float level)
 {
     float in_db = 6.0206f * dsp_log2(level + 1e-9f);
     c->env_db += (in_db - c->env_db) * (in_db > c->env_db ? c->a_coef : c->r_coef);
@@ -54,7 +54,7 @@ static inline float comp_detect(mb_comp_t *c, float level)
 /* The detector (a log2 and an exp2) runs on every COMP_EVERY-th sample
  * with its coefficients scaled to match; the gain glides to its result
  * over the next ones. */
-static inline float comp_gain(mb_comp_t *c, float level)
+static inline EL_DSP_HELPER float comp_gain(mb_comp_t *c, float level)
 {
     if (++c->phase >= COMP_EVERY) {
         c->phase = 0;
@@ -101,7 +101,7 @@ static void bq_peak(mb_biquad_t *b, float hz, float q, float gain_db)
     b->a1 = -2 * cw / a0; b->a2 = (1 - alpha / a) / a0;
 }
 
-static inline float bq(mb_biquad_t *b, int ch, float x)
+static inline EL_DSP_HELPER float bq(mb_biquad_t *b, int ch, float x)
 {
     float y = b->b0 * x + b->z1[ch];
     b->z1[ch] = b->b1 * x - b->a1 * y + b->z2[ch];
@@ -110,7 +110,7 @@ static inline float bq(mb_biquad_t *b, int ch, float x)
 }
 
 /* Tape-style: symmetric soft clip, odd harmonics, rounds the peaks. */
-static inline float tape(float x, float drive)
+static inline EL_DSP_HELPER float tape(float x, float drive)
 {
     float y = x * drive;
     y = dsp_clamp(y, -3.0f, 3.0f);
@@ -119,7 +119,7 @@ static inline float tape(float x, float drive)
 
 /* Tube-style (in the spirit of a Kultube on the master): a little even
  * harmonic content from an asymmetric curve, DC removed afterwards. */
-static inline float tube(float x, float drive)
+static inline EL_DSP_HELPER float tube(float x, float drive)
 {
     float y = x * drive;
     y = y + 0.12f * y * y;

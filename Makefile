@@ -8,11 +8,15 @@ ENGINE = engine/transport.c engine/drums.c engine/drum_factory.c engine/electro.
          engine/synth.c engine/jp6.c engine/jp6_presets.c engine/dist.c engine/po12.c \
          engine/arp.c
 
+build/fmt_test: host/fmt_test.c ui/el_fmt.c ui/el_fmt.h
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Wno-format-security -o $@ host/fmt_test.c ui/el_fmt.c
+
 build/render_demo: host/render_demo.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/render_demo.c $(ENGINE) -lm
 
-UI = ui/gfx.c ui/el_ui.c ui/el_editor.c fm1/el_store.c
+UI = ui/gfx.c ui/el_ui.c ui/el_editor.c ui/el_fmt.c fm1/el_store.c
 
 build/ui_sim: host/ui_sim.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
 	@mkdir -p build
@@ -66,13 +70,14 @@ web: build/web/fm1-electro-simulator.html
 
 build/web/fm1sim.wasm: host/web/sim.c host/web/libc.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
 	@mkdir -p build/web
-	clang $(WASM_FLAGS) -o $@ host/web/sim.c host/web/libc.c $(ENGINE) ui/gfx.c ui/el_ui.c ui/el_editor.c fm1/el_store.c
+	clang $(WASM_FLAGS) -o $@ host/web/sim.c host/web/libc.c $(ENGINE) ui/gfx.c ui/el_ui.c ui/el_editor.c ui/el_fmt.c fm1/el_store.c
 
 build/web/fm1-electro-simulator.html: build/web/fm1sim.wasm host/web/index.html tools/build_web.py
 	python3 tools/build_web.py build/web/fm1sim.wasm host/web/index.html $@
 
-test: build/render_demo build/ui_sim build/synth_test build/jp6_test
+test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_test
 	@mkdir -p build/wav build/wav_jp6 build/screens
+	./build/fmt_test
 	./build/synth_test build/wav > /dev/null
 	./build/jp6_test build/wav_jp6 | grep "^strings hpf\|FAILED"
 	./build/render_demo build/wav | grep -E "^(timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune)"
