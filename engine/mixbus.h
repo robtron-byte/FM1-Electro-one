@@ -10,7 +10,7 @@
 typedef struct {
     float threshold_db, ratio, attack, release, knee_db, makeup_db; /* settings */
     float a_coef, r_coef, makeup, env_db, gain_db;                   /* state */
-    float peak, gain, gain_step;  /* detector runs every COMP_EVERY samples, gain glides between */
+    float gain, gain_step;        /* detector runs every COMP_EVERY samples, gain glides between */
     uint8_t phase;
 } mb_comp_t;
 

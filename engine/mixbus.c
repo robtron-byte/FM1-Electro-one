@@ -34,7 +34,6 @@ static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack
     c->gain_db = 0;
     c->gain = c->makeup;
     c->gain_step = 0;
-    c->peak = 0;
     c->phase = 0;
 }
 
@@ -52,15 +51,14 @@ static inline float comp_detect(mb_comp_t *c, float level)
     return dsp_exp2(-reduce / 6.0206f) * c->makeup;
 }
 
-/* The detector (a log2 and an exp2) runs on the peak of every
- * COMP_EVERY samples; the gain glides to its result over the next ones. */
+/* The detector (a log2 and an exp2) runs on every COMP_EVERY-th sample
+ * with its coefficients scaled to match; the gain glides to its result
+ * over the next ones. */
 static inline float comp_gain(mb_comp_t *c, float level)
 {
-    c->peak = dsp_max(c->peak, level);
     if (++c->phase >= COMP_EVERY) {
         c->phase = 0;
-        float target = comp_detect(c, c->peak);
-        c->peak = 0;
+        float target = comp_detect(c, level);
         c->gain_step = (target - c->gain) * (1.0f / COMP_EVERY);
     }
     c->gain += c->gain_step;
