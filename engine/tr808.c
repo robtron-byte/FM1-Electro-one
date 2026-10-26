@@ -17,13 +17,17 @@ enum { P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_SNAPPY, P_SOUND, P_PAN, P_REV, P_DLY 
 
 static const char *const tom_names[] = {"TOM", "CONGA"}, *const rim_names[] = {"RIM", "CLAVE"};
 static const char *const sd_names[] = {"LATE", "EARLY"}, *const engine_names[] = {"TR-808", "PO-12"};
-static const char *const clap_names[] = {"CLAP", "MARAC"}, *const choke_names[] = {"OFF", "CH>OH"};
+static const char *const clap_names[] = {"CLAP", "MARAC"}, *const choke_names[] = {"OFF", "CH>OH", "BOTH"};
 #define P(n, d) {n, 127, d, 0}
-/* Every part has the same 9 slots; parts list only the ones they use. */
+/* Every part has the same 9 slots; parts list only the ones they use.
+ * Parameters added later go at the end of a part's list with 0 = the
+ * sound as before (older saves hold 0 there): BD Punch, Drive on RS, CP,
+ * CB, CY, OH, CH. */
 typedef struct { uint8_t count; uint8_t slot[TR_PARAMS]; fm1_param_t desc[TR_PARAMS]; } part_params_t;
 static const part_params_t params[D8_NUM + 1] = {
-    /* BD */ {8, {P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY, P_SNAPPY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Tone", 50), P("Pan", 64), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
+    /* BD */ {9, {P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY, P_SNAPPY, P_SOUND},
+              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Tone", 50), P("Pan", 64), P("Rev", 0), P("Dly", 0), P("Drive", 0),
+               P("Punch", 0)}},
     /* SD: Sound = later units (172 / 339 Hz) or the first ones (238 / 476 Hz) */
     /* SD */ {9, {P_LEVEL, P_TUNE, P_TONE, P_SNAPPY, P_DECAY, P_PAN, P_REV, P_DLY, P_SOUND},
               {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0),
@@ -37,18 +41,20 @@ static const part_params_t params[D8_NUM + 1] = {
     /* HT */ {9, {P_TUNE, P_SNAPPY, P_DECAY, P_TONE, P_LEVEL, P_SOUND, P_PAN, P_REV, P_DLY},
               {P("Pitch", 64), P("Bend", 64), P("Decay", 64), P("Noise", 64), P("Level", 100), {"Sound", 1, 0, tom_names},
                P("Pan", 83), P("Rev", 0), P("Dly", 0)}},
-    /* RS */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, rim_names}, P("Pan", 51), P("Rev", 0), P("Dly", 0)}},
-    /* CP */ {8, {P_LEVEL, P_TONE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY, P_TUNE},
-              {P("Level", 100), P("Tone", 64), P("Decay", 64), {"Sound", 1, 0, clap_names}, P("Pan", 64), P("Rev", 0), P("Dly", 0), P("Tune", 64)}},
-    /* CB */ {6, {P_LEVEL, P_TUNE, P_DECAY, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Pan", 77), P("Rev", 0), P("Dly", 0)}},
-    /* CY */ {7, {P_LEVEL, P_TONE, P_DECAY, P_TUNE, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tone", 64), P("Decay", 64), P("Tune", 64), P("Pan", 70), P("Rev", 0), P("Dly", 0)}},
-    /* OH */ {6, {P_LEVEL, P_DECAY, P_TUNE, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Decay", 40), P("Tune", 64), P("Pan", 54), P("Rev", 0), P("Dly", 0)}},
-    /* CH */ {6, {P_LEVEL, P_TUNE, P_DECAY, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Pan", 74), P("Rev", 0), P("Dly", 0)}},
+    /* RS */ {8, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY, P_SNAPPY},
+              {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, rim_names}, P("Pan", 51), P("Rev", 0), P("Dly", 0),
+               P("Drive", 0)}},
+    /* CP */ {9, {P_LEVEL, P_TONE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY, P_TUNE, P_SNAPPY},
+              {P("Level", 100), P("Tone", 64), P("Decay", 64), {"Sound", 1, 0, clap_names}, P("Pan", 64), P("Rev", 0), P("Dly", 0), P("Tune", 64),
+               P("Drive", 0)}},
+    /* CB */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_PAN, P_REV, P_DLY, P_SNAPPY},
+              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Pan", 77), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
+    /* CY */ {8, {P_LEVEL, P_TONE, P_DECAY, P_TUNE, P_PAN, P_REV, P_DLY, P_SNAPPY},
+              {P("Level", 100), P("Tone", 64), P("Decay", 64), P("Tune", 64), P("Pan", 70), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
+    /* OH */ {7, {P_LEVEL, P_DECAY, P_TUNE, P_PAN, P_REV, P_DLY, P_SNAPPY},
+              {P("Level", 100), P("Decay", 40), P("Tune", 64), P("Pan", 54), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
+    /* CH */ {7, {P_LEVEL, P_TUNE, P_DECAY, P_PAN, P_REV, P_DLY, P_SNAPPY},
+              {P("Level", 100), P("Tune", 64), P("Decay", 64), P("Pan", 74), P("Rev", 0), P("Dly", 0), P("Drive", 0)}},
     /* ZP: Tune = start pitch, Sweep = fall time, Depth = how far it falls,
      * Tone = drive from sine to a buzzy square */
     /* ZP */ {9, {P_LEVEL, P_TUNE, P_SNAPPY, P_SOUND, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY},
@@ -61,7 +67,8 @@ static const part_params_t params[D8_NUM + 1] = {
               {P("Level", 100), P("Width", 64), P("Tune", 64), P("Ring", 64), P("Decay", 64), P("Pan", 52),
                P("Rev", 0), P("Dly", 0)}},
     /* KIT: Engine switches every part but PU to the PO-12 style voices */
-    /* KIT */ {4, {0, 1, 2, 3}, {P("Level", 110), P("Accent", 100), {"Choke", 1, 1, choke_names}, {"Engine", 1, 0, engine_names}}},
+    /* KIT: Choke CH>OH = the closed hat cuts the open one; BOTH = either cuts the other */
+    /* KIT */ {4, {0, 1, 2, 3}, {P("Level", 110), P("Accent", 100), {"Choke", 2, 1, choke_names}, {"Engine", 1, 0, engine_names}}},
 };
 
 int tr808_nparams(int part) { return (unsigned)part <= D8_KIT ? params[part].count : 0; }
@@ -197,6 +204,7 @@ EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
     if (po_engine(t, part)) {
         po_trigger(&t->po[part], po_sound(t, part), velocity, knob(t, part, P_TUNE), knob(t, part, P_DECAY));
         if (part == D8_CH && t->kit[2] && t->po[D8_OH].active) t->po[D8_OH].choke = 1;
+        if (part == D8_OH && t->kit[2] == 2 && t->po[D8_CH].active) t->po[D8_CH].choke = 1;
         return;
     }
     tr_voice_t *v = &t->v[part];
@@ -217,6 +225,7 @@ EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
     v->pitch = 1.0f;
     /* Closed hat shuts the open hat off (fast, not instantly). */
     if (part == D8_CH && t->kit[2] && t->v[D8_OH].active) t->v[D8_OH].aux2 = 1.0f;
+    if (part == D8_OH && t->kit[2] == 2 && t->v[D8_CH].active) t->v[D8_CH].aux2 = 1.0f;
     /* Resonator and filter states are kept: no "machine gun" restart. */
 }
 
@@ -265,11 +274,14 @@ static float bass_drum(tr808_t *t, tr_voice_t *v)
     float f0 = k[0] * tolerance[part] * dsp_exp2((t->pot[part][P_TUNE] - 64) / 64.0f);
     float q = k[11] * dsp_exp2(k[12] * powf_approx(knob(t, part, P_DECAY), 0.8f));
     float pulse = trigger_pulse(v);
-    uint32_t attack = (uint32_t)MS(k[5]);
+    /* PUNCH (0 = as calibrated): the attack phase higher (up to x2) and
+     * longer (up to x2), a harder, clickier start as in the SDK's Attack. */
+    float punch = knob(t, part, P_SOUND);
+    uint32_t attack = (uint32_t)MS(k[5] * (1.0f + punch));
     if (v->age == attack) v->aux = -k[7] * 0.2f * v->volts;  /* retrigger pulse */
     v->aux *= 0.99955f;                                      /* 50 ms */
     if ((v->age & 7u) == 0) {
-        if (v->age < attack) svf_set(&v->r1, k[3] * tolerance[part], k[4]);
+        if (v->age < attack) svf_set(&v->r1, k[3] * tolerance[part] * (1.0f + punch), k[4]);
         else {
             /* Sigh: the pitch starts high and glides down to f0 with its own
              * time constant (measured: ~52 -> 44 Hz within ~100 ms). */
@@ -633,7 +645,7 @@ static float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     float k = knob(t, part, P_DECAY);
     float decay = part == D8_CH ? tr808_mx_cal[8] * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
     v->env *= decay_coef(MS(decay) / 2.3f);
-    if (v->aux2 > 0) v->env *= decay_coef(MS(7.0f));    /* choked by the closed hat */
+    if (v->aux2 > 0) v->env *= decay_coef(MS(7.0f));    /* choked by the other hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
     float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
     if (part == D8_OH) {                         /* open hat: a little more top end */
@@ -720,6 +732,8 @@ static float pulse(tr808_t *t, tr_voice_t *v)
  * metal voices and clap set to a conventional mix level. */
 static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 0.0788f, 0.1085f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
 
+enum { DRIVE_PARTS = (1u << D8_RS) | (1u << D8_CP) | (1u << D8_CB) | (1u << D8_CY) | (1u << D8_OH) | (1u << D8_CH) };
+
 /* PO-12 kit output: its own balance (po12.c), +4.6 dB to sit like the 808 kit in the mix. */
 static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};
 
@@ -727,6 +741,15 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
                               float *rev, float *gate, float *dly, int frames)
 {
     int metal_on = t->v[D8_CY].active || t->v[D8_OH].active || t->v[D8_CH].active || t->v[D8_CB].active;
+    if (!metal_on) {
+        /* The six oscillators never stop on the 808: they run on while
+         * nothing metal sounds, so each hit starts at another phase. */
+        float tune = spread(t, D8_CY, P_TUNE) * (float)frames / EL_SAMPLE_RATE;
+        for (int i = 0; i < 6; ++i) {
+            float ph = t->metal_phase[i] + metal_hz[i] * metal_tol[i] * tune;
+            t->metal_phase[i] = ph - (float)(int)ph;
+        }
+    }
     float level = t->kit[0] / 110.0f;
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0;
@@ -783,6 +806,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             default: y = hat(t, v, part, hat_src[part == D8_CH]); break;
             }
             ++v->age;
+            /* DRIVE on rim, clap, cowbell and the metal voices, as on the bass drum */
+            if (((1u << part) & DRIVE_PARTS) && t->pot[part][P_SNAPPY]) {
+                float d = 1.0f + 6.0f * knob(t, part, P_SNAPPY);
+                y = dsp_tanh(y * d) / dsp_sqrt(d);
+            }
             y *= trim[part] * (t->pot[part][P_LEVEL] / 100.0f) * level;
             if (part == D8_BD) { kick[n] += y; }
             else { left[n] += y * t->pan_l[part]; right[n] += y * t->pan_r[part]; }
