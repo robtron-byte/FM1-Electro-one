@@ -1014,8 +1014,49 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
  * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
  * Tone drives it into a soft-clipped square; accent opens it further. */
+/* Zap model 1 (A/B switch TR808_ZP_MODEL, docs/adr/0017): percussive
+ * rather than tonal. The sine's pitch falls as set by Tune / Sweep /
+ * Depth, but an inharmonic FM grit (ratio 1.41, index falling in ~6 ms)
+ * and a noise spit through a band-pass that follows the falling pitch
+ * cover its tone at the hit; the level falls faster (Decay 12..270 ms).
+ * Tone = how much grit and spit (0 = the clean sweep). */
+#ifndef TR808_ZP_MODEL
+#define TR808_ZP_MODEL 0
+#endif
+static EL_DSP_HELPER float zap_perc(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_ZP;
+    if (v->age == 0) {
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
+        v->pitch = 1.0f;
+        v->lag1 = 1.0f;     /* FM index envelope */
+        v->lag2 = 1.0f;     /* noise envelope */
+        v->aux2 = 0.0f;     /* modulator phase */
+    }
+    float sweep = 5.0f * m_exp2(&v->memo[0], 6.3f * knob(t, part, P_SNAPPY));            /* ms */
+    float depth = 7.0f * knob(t, part, P_SOUND);                               /* octaves */
+    float grit = knob(t, part, P_TONE) * (0.7f + 0.3f * v->accent);
+    v->pitch *= m_decay(&v->memo[1], MS(sweep));
+    float hz = dsp_min(v->aux * dsp_exp2(-depth * (1.0f - v->pitch)), 16000.0f);
+    v->out_lp += hz * (1.0f / EL_SAMPLE_RATE);
+    if (v->out_lp >= 1.0f) v->out_lp -= 1.0f;
+    v->aux2 += hz * 1.414f * (1.0f / EL_SAMPLE_RATE);
+    if (v->aux2 >= 1.0f) v->aux2 -= 1.0f;
+    v->lag1 *= 0.99623f;                                   /* ~6 ms */
+    float y = dsp_sin(2.0f * DSP_PI * v->out_lp + 4.0f * grit * v->lag1 * dsp_sin(2.0f * DSP_PI * v->aux2));
+    if ((v->age & 7u) == 0) svf_set(&v->r1, dsp_min(2.0f * hz, 15000.0f), 2.0f);
+    float decay = 12.0f * m_exp2(&v->memo[2], 4.5f * knob(t, part, P_DECAY));   /* ms */
+    v->lag2 *= m_decay(&v->memo[4], MS(0.35f * decay));
+    float spit = svf_bp(&v->r1, t->noise_now, 0) * 2.0f * grit * v->lag2;
+    v->env *= m_decay(&v->memo[3], MS(decay));
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.2f));
+    if (v->env < 1e-4f) v->active = 0;
+    return dsp_tanh((y + spit) * 1.3f) * v->env * attack * (0.35f + 0.65f * v->volts);
+}
+
 static EL_DSP_VOICE float zap(tr808_t *t, tr_voice_t *v)
 {
+    if (TR808_ZP_MODEL) return zap_perc(t, v);
     const int part = D8_ZP;
     if (v->age == 0) {
         v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
