@@ -98,9 +98,11 @@ kick-ab: host/kick_ab.c $(ENGINE) $(wildcard engine/*.h)
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/kick_ab_$$n host/kick_ab.c $(ENGINE) -lm && \
 	  ./build/kick_ab_$$n build/wav/kick_$$n.wav $${DECAY:-100} && echo "build/wav/kick_$$n.wav"; done
 
-# Metal voices (hats, cymbal, cowbell) for listening: A as now, B wandering
-# oscillators, C open hat with a linear discharge, D both.
-METAL_VARIANTS = A: B:-DTR808_METAL_JITTER=1 C:-DTR808_OH_LINEAR=1 D:-DTR808_METAL_JITTER=1:-DTR808_OH_LINEAR=1
+# Metal voices (hats, cymbal, cowbell) for listening: A steady oscillators,
+# exponential open hat (before), B wandering oscillators, C open hat with a
+# linear discharge, D both (the default, docs/adr/0009). E: D with the
+# cowbell fitted to the recording (TR808_CB_MODEL 1, docs/adr/0012).
+METAL_VARIANTS = A:-DTR808_METAL_JITTER=0:-DTR808_OH_LINEAR=0 B:-DTR808_OH_LINEAR=0 C:-DTR808_METAL_JITTER=0 D: E:-DTR808_CB_MODEL=1
 metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
 	@for v in $(METAL_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \

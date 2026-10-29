@@ -636,7 +636,7 @@ static inline EL_DSP_HELPER float rect(float phase, float dt)
     return y + 0.5f * blep(phase, dt) - 0.5f * blep(down, dt);
 }
 
-/* Metal oscillators that wander (A/B switch, 0 = perfectly steady): the
+/* Metal oscillators that wander (switch, 0 = perfectly steady): the
  * HD14584's threshold and the RC timing vary a little from cycle to cycle,
  * and slowly with temperature. Each oscillator gets a new random error of
  * up to +-0.5 % at every cycle and a slow random-walk drift of about
@@ -644,7 +644,7 @@ static inline EL_DSP_HELPER float rect(float phase, float dt)
  * hats and the cymbal shimmer instead of sounding static. (Idea: the 8W8
  * engine as ported in X0X-RMX; own implementation.) */
 #ifndef TR808_METAL_JITTER
-#define TR808_METAL_JITTER 0
+#define TR808_METAL_JITTER 1   /* chosen by ear (metal-ab D), docs/adr/0009 */
 #endif
 static inline EL_DSP_HELPER float metal_rand(tr808_t *t)
 {
@@ -709,10 +709,56 @@ float tr808_mx_cal[MX_CAL] = {
  * rectangles through their own gates into one broad band-pass, so their
  * harmonics up to a few kHz stay in (fitted: ~2.9 kHz, Q 0.4); a fast
  * click (1.7 ms) into a ~39 ms decay, as on the recording. */
+/* Cowbell model 1 (A/B switch TR808_CB_MODEL, docs/adr/0012), fitted to
+ * the cowbell of the recordings (808 Basics Kit A, hit 20; model 0 was
+ * fitted to hit 9, which is not a cowbell). The real one is the two
+ * rectangles through a narrow band-pass near the upper tone (the lower
+ * one ~16 dB down, little above 2.5 kHz), a clank that falls ~13 dB
+ * within 20 ms, then a long body (-40 dB only after ~230 ms). The VCA
+ * adds even harmonics (2 x 573 Hz is clearly there). A little of the
+ * rectangles' edges passes beside the band-pass (high-passed).
+ * Fitted (host/calibration/fit_cowbell.py): band-pass 1033 Hz Q 7.1,
+ * clank 89 % falling with 21 ms, body falling with 139 ms. Error against
+ * the recording (rms dB; envelope 5 ms / 20 ms, spectrum, partials):
+ * 1.35 / 1.4 / 4.3 / 6.7, model 0: 13.6 / 13.7 / 17.2 / 13.0. The rest of
+ * the partial error: that unit's tones are exactly 3:2 (573 / 859 Hz), so
+ * the VCA's products land on harmonics; 540 / 800 Hz (the 808's nominal
+ * values, kept) are 1.48 apart. */
+#ifndef TR808_CB_MODEL
+#define TR808_CB_MODEL 0
+#endif
+float tr808_cb_cal[CB_CAL] = {
+    /* bp_hz  bp_q  edge     edge_hz clank   clank_ms body_ms asym     gain */
+    1033.0f, 7.1f, 0.05648f, 901.6f, 0.8923f, 21.36f, 139.4f, 0.02784f, 1.64f};   /* gain: as loud as model 0 over 0.1 s */
+
+static EL_DSP_HELPER float cowbell_fitted(tr808_t *t, tr_voice_t *v, float src)
+{
+    const int part = D8_CB;
+    const float *k = tr808_cb_cal;
+    if (v->age == 0) {
+        float tune = spread(t, part, P_TUNE);
+        svf_set(&v->r1, k[0] * tune, k[1]);
+        svf_set(&v->r2, k[3] * tune, 0.7071f);
+    }
+    float y = svf_bp(&v->r1, src * 0.5f, 0) + k[2] * svf_hp(&v->r2, src * 0.5f);
+    float decay = spread(t, part, P_DECAY);
+    v->env *= m_decay(&v->memo[0], MS(k[5]) * decay);
+    v->env2 *= m_decay(&v->memo[1], MS(k[6]) * decay);
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.7f));
+    float e = (k[4] * v->env + (1.0f - k[4]) * v->env2) * attack;
+    if (v->env2 < 1e-4f) v->active = 0;
+    float s = y * e * (0.45f + 0.55f * v->volts * 14.0f / 4.0f / 3.5f);
+    s += k[7] * s * s;                       /* the VCA's even harmonics */
+    float o = s - v->dc_x + 0.9972f * v->dc_y;   /* DC block ~20 Hz */
+    v->dc_x = s; v->dc_y = o;
+    return o * k[8];
+}
+
 static EL_DSP_VOICE float cowbell(tr808_t *t, tr_voice_t *v, float src)
 {
     const int part = D8_CB;
     const float *k = tr808_mx_cal;
+    if (TR808_CB_MODEL) return cowbell_fitted(t, v, src);
     if (v->age == 0) svf_set(&v->r1, k[0] * spread(t, part, P_TUNE), k[1]);
     float y = svf_bp(&v->r1, src * 0.5f, 0);
     float decay = spread(t, part, P_DECAY);
@@ -793,10 +839,10 @@ static EL_DSP_VOICE float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float
     return v->out_lp * (1.0f + 0.6f * v->accent);   /* accent +6 dB, see hat() */
 }
 
-/* Open hat with a linear discharge (A/B switch, 0 = exponential as
- * fitted). Idea: the 8W8 engine as ported in X0X-RMX; own implementation. */
+/* Open hat with a linear discharge (switch, 0 = exponential as
+ * fitted before). Idea: the 8W8 engine as ported in X0X-RMX; own implementation. */
 #ifndef TR808_OH_LINEAR
-#define TR808_OH_LINEAR 0
+#define TR808_OH_LINEAR 1      /* chosen by ear (metal-ab D), docs/adr/0009 */
 #endif
 
 /* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators

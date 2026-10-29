@@ -17,7 +17,7 @@ Die 808 in `engine/tr808.c` ist ein eigenes Modell nach den Service Notes und We
 ## Folgen
 
 - Kalibrierte Teile werden nicht ungefragt verändert.
-- Offene Vergleiche: 0008 (Clap), 0009 (Metall), früher 0010 (Bassdrum).
+- Vergleiche: 0008 (Clap), 0009 (Metall, angenommen), 0010 (Bassdrum), 0012 (Cowbell).
 
 ## Verlauf
 

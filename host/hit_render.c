@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Host tool: render one 808 hit for the calibration scripts.
  * Usage: hit_render <out.raw> <part> <velocity 0..1> <seconds> [index=value ...]
- *        [bd=v,v,...] [sd=v,...] [cy=v,...] [mx=v,...] [cp=v,...] [k<index>=value (kit)]
+ *        [bd=v,v,...] [sd=v,...] [cy=v,...] [mx=v,...] [cp=v,...] [cb=v,...] [k<index>=value (kit)]
  * index=value sets the part's parameter (tr808_set order); bd / sd / cy
  * replace the leading calibration values. Output: float32 mono, 44.1 kHz,
  * hit at sample 0. */
@@ -31,6 +31,7 @@ int main(int argc, char **argv)
         else if (!strncmp(argv[i], "cy=", 3)) set_cal(tr808_cy_cal, CY_CAL, argv[i] + 3);
         else if (!strncmp(argv[i], "mx=", 3)) set_cal(tr808_mx_cal, MX_CAL, argv[i] + 3);
         else if (!strncmp(argv[i], "cp=", 3)) set_cal(tr808_cp_cal, CP_CAL, argv[i] + 3);
+        else if (!strncmp(argv[i], "cb=", 3)) set_cal(tr808_cb_cal, CB_CAL, argv[i] + 3);
         else if (argv[i][0] == 'k') { int p, v; if (sscanf(argv[i] + 1, "%d=%d", &p, &v) == 2) tr808_set(&t, D8_KIT, p, v); }
         else { int p, v; if (sscanf(argv[i], "%d=%d", &p, &v) == 2) tr808_set(&t, part, p, v); }
     }

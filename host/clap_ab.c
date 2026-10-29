@@ -4,7 +4,8 @@
  * engine/tr808.c, docs/adr/0008) and writes build/wav/clap_A..C.wav.
  * 120 BPM, 8 bars: single claps (normal, accented) with room to hear the
  * tail, then a groove with kick and closed hats.
- * Usage: clap_ab <out.wav> */
+ * Usage: clap_ab <out.wav> [reverb send 0..127, default: the groove's own] */
+#include <stdlib.h>
 #include "electro.h"
 #include "tr808.h"
 #include <stdio.h>
@@ -30,6 +31,7 @@ int main(int argc, char **argv)
     memset(&e.drums.pattern[0], 0, sizeof e.drums.pattern[0]);
     e.drums.pattern[0].length = 16;
     for (unsigned i = 0; i < EL_TRACKS; ++i) e.track[i].muted = 1;
+    if (argc > 2) tr808_set(&e.drums.kit, D8_CP, 5, atoi(argv[2]));   /* Rev */
     enum { STEPS = 8 * 16 };
     static float out[44100 * 20 * 2];
     const double step_frames = 44100.0 * 60.0 / 120.0 / 4.0;

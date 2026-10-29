@@ -15,6 +15,10 @@ real TR-808 (single hits with digital silence in between).
    host/calibration/fit_clap.py 800` (or `eval`). It fits `tr808_cp_cal`
    to hits 10 and 12: fine envelope, the long tail and the spectrum over time.
 
+5. Cowbell (model 1): build `build/hit_render_cb1` (`-DTR808_CB_MODEL=1`),
+   then `fit_cowbell.py 800` (or `eval`), against hit 20. Hit 9, which
+   `fit_misc.py cb` uses for model 0, is not a cowbell.
+
 The hit indices in the scripts belong to the "808 Basics Kit A" recording
 used for the current calibration. The cymbal and snare have their own
 tools (`host/cymbal_check.c` + `host/analyze_cymbal.py`,

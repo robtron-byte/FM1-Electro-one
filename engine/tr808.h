@@ -19,12 +19,13 @@
 /* Two tom/conga circuits (low and high) of the 808's three; the middle one
  * is left out to keep the kit lean. */
 enum { D8_BD, D8_SD, D8_LT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_ZP, D8_PU, D8_NUM, D8_KIT = D8_NUM };
-enum { TR_PARAMS = 9, TR_KIT_PARAMS = 4, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10, CP_CAL = 13 };
+enum { TR_PARAMS = 9, TR_KIT_PARAMS = 4, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10, CP_CAL = 13, CB_CAL = 9 };
 extern float tr808_mx_cal[MX_CAL];   /* cowbell, clap, rim, hats calibration */
 extern float tr808_bd_cal[BD_CAL];   /* bass drum calibration (see tr808.c) */
 extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
 extern float tr808_sd_cal[SD_CAL];   /* snare calibration (see tr808.c) */
 extern float tr808_cp_cal[CP_CAL];   /* clap model 3 calibration (see tr808.c) */
+extern float tr808_cb_cal[CB_CAL];   /* cowbell model 1 calibration (see tr808.c) */
 
 typedef struct { float ic1, ic2, g, k, a1, a2, a3; } tr_svf_t;
 /* A coefficient remembered with its argument: transcendental functions run
