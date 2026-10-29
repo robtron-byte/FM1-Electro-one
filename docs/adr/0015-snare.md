@@ -1,6 +1,6 @@
-# 0015: Snare: Vergleich mit der X0X-Snare (8W8)
+# 0015: Snare: A bleibt, Körper länger
 
-- **Status:** vorgeschlagen (Hörvergleich `build/wav/snare_original_A_B.wav`: Original 13, Original 14, A, B)
+- **Status:** angenommen: A mit längerem Körper (Hörvergleich `build/wav/snare_original_alt_neu.mp3`); B bleibt als Schalter
 - **Stand:** 2026-10-29
 
 ## Kontext
@@ -28,6 +28,13 @@ A trifft Spektrum und Rauschanteil des Originals; der Körper klingt etwas zu ku
 
 Schalter `TR808_SD_MODEL` (Standard 0 = A); 1 = B, eigene Umsetzung der 8W8-Struktur (`snare_circuit`), Pegel wie A über 0,1 s (`TR808_SD1_GAIN`). Das Ohr entscheidet; denkbar ist auch eine Mischung (A mit dem gestauchten, etwas längeren Körper von B).
 
+## Nachtrag: Körper länger
+
+Rückmeldung: „A ist besser, aber klingt etwas zu kurz aus.“ Gegen die Original-Snares 13 / 14 fiel der Körper (Tiefpass 700 Hz) mit 2,93 dB je 10 ms (Original 2,78 / 2,37). Geändert in `tr808_sd_cal`: beide Resonator-Güten ×1,2 (15,75 → 18,9, 8,558 → 10,27), Körper ×0,9 (0,9546 → 0,8591, 0,1238 → 0,1114). Ergebnis: Körper fällt mit 2,46 dB je 10 ms, Rauschen zu Körper −1,6 dB (Original −1,7 / −1,4).
+
+DECAY (5. Regler, zweite Reglerseite) skaliert Körper und Rauschen weiter zwischen halber und doppelter Länge.
+
 ## Verlauf
 
 - 2026-10-29: angelegt
+- 2026-10-29: A gewählt, „klingt etwas zu kurz aus“: Körper verlängert

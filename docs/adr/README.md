@@ -20,6 +20,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0012](0012-cowbell.md) | Cowbell an die echte Cowbell der Aufnahme angepasst | angenommen | 2026-10-29 |
 | [0013](0013-gated-reverb.md) | Gated Reverb: echter Hall mit Gate (Variante C), Clap trocken | angenommen | 2026-10-29 |
 | [0014](0014-hats.md) | Hi-Hats in X0X-/8W8-Bauweise (Variante D) | angenommen | 2026-10-29 |
-| [0015](0015-snare.md) | Snare: Vergleich mit der X0X-Snare (8W8) | **vorgeschlagen** | 2026-10-29 |
+| [0015](0015-snare.md) | Snare: A bleibt, Körper länger | angenommen | 2026-10-29 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

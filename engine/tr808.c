@@ -370,7 +370,12 @@ static EL_DSP_VOICE float bass_drum(tr808_t *t, tr_voice_t *v)
  * noise spectrum within 2.4 dB rms (1-12.7 kHz). */
 float tr808_sd_cal[SD_CAL] = {
     /* low  high  q_low  q_high  noise  n_tau1 n_tau2 n_mix  n_hp    n_lp     snap */
-    0.9546f, 0.1238f, 15.75f, 8.558f, 0.4709f, 28.89f, 39.58f, 0.1607f, 2098.7f, 7739.4f, 0.2575f};
+    0.8591f, 0.1114f, 18.9f, 10.27f, 0.4709f, 28.89f, 39.58f, 0.1607f, 2098.7f, 7739.4f, 0.2575f};
+/* Body lengthened by ear against the recording (808 Basics Kit A, snares
+ * 13 / 14; docs/adr/0015): both Q x 1.2 (body falls 2.46 dB per 10 ms
+ * instead of 2.93; the originals 2.78 / 2.37), body x 0.9 so noise to body
+ * stays as there (-1.6 dB; originals -1.7 / -1.4). Fitted values before:
+ * low 0.9546, high 0.1238, q_low 15.75, q_high 8.558. */
 
 /* Snare (Service Notes, Werner): two bridged-T resonators struck by the
  * trigger pulse, 172 and 339 Hz (as measured on the recordings; the 1981
