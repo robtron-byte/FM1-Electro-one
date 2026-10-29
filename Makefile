@@ -107,9 +107,10 @@ metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/metal_ab_$$n host/metal_ab.c $(ENGINE) -lm && \
 	  ./build/metal_ab_$$n build/wav/metal_$$n.wav && echo "build/wav/metal_$$n.wav"; done
 
-# Hand clap for listening (docs/adr/0008): A as fitted, B the circuit's
-# envelope, C also the circuit's filter and rectified noise.
-CLAP_VARIANTS = A: B:-DTR808_CP_MODEL=1 C:-DTR808_CP_MODEL=2
+# Hand clap for listening (docs/adr/0008): A as before, B the circuit's
+# envelope, C also the circuit's filter and rectified noise, D fitted to
+# the recordings (host/calibration/fit_clap.py).
+CLAP_VARIANTS = A: B:-DTR808_CP_MODEL=1 C:-DTR808_CP_MODEL=2 D:-DTR808_CP_MODEL=3
 clap-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
 	@for v in $(CLAP_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \

@@ -515,6 +515,50 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
 #ifndef TR808_CP_GAIN2
 #define TR808_CP_GAIN2 1.30f
 #endif
+/* Model 3: fitted to the recordings (808 Basics Kit A, hits 10 and 12,
+ * host/calibration/fit_clap.py). The real clap's tail is NOT a loud
+ * bright "reverb": after the main clap it is 43 dB down at 160 ms, then a
+ * very quiet, dark floor rings on for over a second (-50 dB at 350 ms,
+ * -60 dB at 900 ms, centre ~1 kHz, the highs 20-30 dB down). The highs of
+ * the loud part come from the VCA driven hard; the quiet floor stays clean.
+ * Paths: band-passed noise x (three teeth + main clap) -> VCA distortion,
+ * plus the same band-passed noise x floor -> 1-pole low-pass. Fitted:
+ * band-pass 1146 Hz Q 1.5; teeth 11.4 ms apart, falling with 5.5 ms; main
+ * clap at 33.6 ms, falling with 32 ms; floor falling with 0.66 s through
+ * a 1.2 kHz low-pass. Error against the recordings (rms dB, fine
+ * envelope / tail / spectrum): 2.5-3.1 / 1.4-1.6 / 2.3-2.7, model 0:
+ * 8.8 / 7-10 / 4-4.4. */
+float tr808_cp_cal[CP_CAL] = {
+    /* bp_hz  bp_q   tooth  tooth_ms gap_ms main_ms rise_ms main_tau floor  floor_tau floor_lp gain  drive */
+    1146.0f, 1.499f, 0.7455f, 5.498f, 11.36f, 33.58f, 0.2133f, 31.8f, 0.0231f, 657.6f, 1186.0f, 1.5f, 1.557f};
+
+static EL_DSP_HELPER float clap_fitted(tr808_t *t, tr_voice_t *v, float n)
+{
+    const int part = D8_CP;
+    const float *k = tr808_cp_cal;
+    float decay = spread(t, part, P_DECAY);
+    if (v->age == 0) {
+        svf_set(&v->r1, k[0] * spread(t, part, P_TONE) * tolerance[part], k[1]);
+        v->lag1 = v->lag2 = v->out_lp = 0;   /* main, floor, floor's low-pass */
+        v->pitch = 0;
+    }
+    uint32_t gap = (uint32_t)MS(k[4]), on = (uint32_t)MS(k[5]);
+    if (v->age == 0 || v->age == gap || v->age == 2u * gap) v->env = k[2];
+    if (v->age == on) { v->pitch = 1; v->lag2 = 1.0f; }
+    float bp = svf_bp(&v->r1, n, 0);
+    float loud = bp * (v->env + v->lag1) * v->volts * k[11];
+    v->env *= m_decay(&v->memo[0], MS(k[3]));
+    if (v->pitch > 0) {                      /* the main clap opens (linear) */
+        v->lag1 = dsp_min(1.0f, v->lag1 + 1.0f / dsp_max(1.0f, MS(k[6])));
+        if (v->lag1 >= 1.0f) v->pitch = 0;
+    } else v->lag1 *= m_decay(&v->memo[2], MS(k[7]) * decay);
+    v->lag2 *= m_decay(&v->memo[3], MS(k[9]) * decay);
+    float lpc = 1.0f - m_exp(&v->memo[4], -2.0f * DSP_PI * k[10] / EL_SAMPLE_RATE);
+    v->out_lp += (bp * v->lag2 * k[8] * v->volts * k[11] - v->out_lp) * lpc;
+    if (v->age > on && v->pitch == 0 && v->lag1 < 1e-4f && v->lag2 * k[8] < 3e-5f) v->active = 0;
+    return dsp_tanh(loud * k[12]) / (k[12] * (1.2f / 1.4f)) + v->out_lp;
+}
+
 static EL_DSP_HELPER float clap_circuit(tr808_t *t, tr_voice_t *v, float n)
 {
     const int part = D8_CP;
@@ -558,6 +602,7 @@ static EL_DSP_VOICE float clap(tr808_t *t, tr_voice_t *v)
         if (ms > rise + fall + 5.0f) v->active = 0;
         return svf_hp(&v->r1, n) * e * e * v->volts * 1.1f;
     }
+    if (TR808_CP_MODEL == 3) return clap_fitted(t, v, n);
     if (TR808_CP_MODEL) return clap_circuit(t, v, n);
     if (v->age == 0) svf_set(&v->r1, 1140.0f * spread(t, part, P_TONE) * tolerance[part], 1.95f);
     float bp = svf_bp(&v->r1, n, 0);
