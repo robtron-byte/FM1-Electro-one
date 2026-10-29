@@ -1100,8 +1100,49 @@ static EL_DSP_HELPER float zap_electro(tr808_t *t, tr_voice_t *v)
     return dsp_tanh(y * 1.2f) * v->env * attack * (0.35f + 0.65f * v->volts);
 }
 
+/* Zap model 3: after the reference the user sent (screen recording,
+ * 29.10.2026), without its bass. A nearly pure sine (harmonics 30-50 dB
+ * down) starting at ~12 kHz at full level; fitted pitch from its zero
+ * crossings (0.46 semitones rms, 0-144 ms):
+ *   octaves below the start = 0.0419 * t + 1.585 * (1 - exp(-t / 19 ms)),
+ * i.e. 6.0 kHz at 8 ms, 1.8 kHz at 32 ms, 600 Hz at 64 ms, 230 Hz at 96.
+ * The reference ends in a loud bass; here the zap fades out over 0.7
+ * octave as the pitch reaches the floor (Depth: 2 kHz .. 62 Hz, ~350 Hz at
+ * the centre). The start is ~7 dB louder, as there. Tune = start
+ * (x / 4 .. x 4), Sweep = time scale (x 0.5 .. x 2),
+ * Decay = level fall, Tone = drive (0 = the pure sine). */
+static EL_DSP_HELPER float zap_ref(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_ZP;
+    if (v->age == 0) {
+        v->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));
+        v->aux2 = 1.0f / spread(t, part, P_SNAPPY);            /* time scale: ms per ms */
+        float k = knob(t, part, P_SOUND);
+        v->lag2 = 11.0f - 5.0f * k;                            /* floor, log2 Hz: 2048 .. 64 */
+    }
+    float ms = (float)v->age * (1000.0f / EL_SAMPLE_RATE) * v->aux2;
+    if ((v->age & 15u) == 0) v->pitch = dsp_exp(-ms * (1.0f / 19.0f));   /* the fast first fall */
+    float oct = 0.0419f * ms + 1.585f * (1.0f - v->pitch);
+    float hz = dsp_min(v->aux * dsp_exp2(-oct), 18000.0f);
+    v->out_lp += hz * (1.0f / EL_SAMPLE_RATE);
+    if (v->out_lp >= 1.0f) v->out_lp -= 1.0f;
+    float y = dsp_sin(2.0f * DSP_PI * v->out_lp);
+    float tone = knob(t, part, P_TONE);
+    if (tone > 0.0f) { float d = 1.0f + 8.0f * tone; y = dsp_tanh(y * d) / dsp_tanh(d); }
+    /* fade out above the floor: no bass */
+    float above = (dsp_log2(dsp_max(hz, 1.0f)) - v->lag2) * (1.0f / 0.7f);
+    float fade = dsp_clamp(above, 0.0f, 1.0f);
+    v->env *= m_decay(&v->memo[3], MS(150.0f * spread(t, part, P_DECAY)));
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.3f));
+    if (fade <= 0.0f && v->age > (uint32_t)MS(5.0f)) v->active = 0;
+    /* as the reference: the high start ~7 dB louder, settling in ~10 ms */
+    float early = 0.447f + 0.553f * v->pitch * v->pitch;
+    return y * fade * fade * early * v->env * attack * (0.35f + 0.65f * v->volts);
+}
+
 static EL_DSP_VOICE float zap(tr808_t *t, tr_voice_t *v)
 {
+    if (TR808_ZP_MODEL == 3) return zap_ref(t, v);
     if (TR808_ZP_MODEL == 2) return zap_electro(t, v);
     if (TR808_ZP_MODEL) return zap_perc(t, v);
     const int part = D8_ZP;
@@ -1205,7 +1246,7 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
         case D8_HT: base = tom_hz[t->pot[D8_HT][P_SOUND] == 1 ? 3 : 1]; break;
         case D8_RS: if (t->pot[D8_RS][P_SOUND] == 1) { base = 2500.0f; d = 0; } else base = 455.0f; break;
         case D8_CB: base = 540.0f; break;
-        case D8_ZP: base = 1340.0f; break;
+        case D8_ZP: base = TR808_ZP_MODEL == 3 ? 12350.0f : 1340.0f; break;
         case D8_PU: base = 341.0f; break;
         default: t->key_r[part] = 1.0f; continue;
         }
