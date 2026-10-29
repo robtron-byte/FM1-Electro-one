@@ -135,7 +135,7 @@ Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) 
 | Drei Synth-Bereiche mit Step-Sequencer, Akkorden (Rother/Kraftwerk-Folgen) und Generator | fertig, auf dem PC getestet |
 | Live-Aufnahme in die Patterns (REC, quantisiert), Groove-Generator, User-Plätze | fertig, auf dem PC getestet |
 | Delay, Hall, Gated Reverb, Verzerrung als Send, Mix- und Master-Bus | fertig, auf dem PC getestet |
-| Firmware auf dem Gerät | linkt mit der JieLi-Toolchain (Linux-Nachbau des SDK-Builds) und besteht die Prüfungen von `Build.ps1`; 519 KB, mit eigenem Packer (`tools/package_fm1.py`, 384-KB-Benutzerbereich) 78 KB Luft im Flash; 83 KB Heap; startet im Emulator fm1-emu (Display, Tasten, PLAY, Audio im DMA-Puffer); auf dem Gerät nicht getestet |
+| Firmware auf dem Gerät | linkt mit der JieLi-Toolchain (Linux-Nachbau des SDK-Builds) und besteht die Prüfungen von `Build.ps1`; 522 KB, mit eigenem Packer (`tools/package_fm1.py`, 384-KB-Benutzerbereich) 75 KB Luft im Flash; 80 KB Heap; startet im Emulator fm1-emu (Display, Tasten, PLAY, Audio im DMA-Puffer); auf dem Gerät nicht getestet |
 | Arpeggiator der Apps (UP, DOWN, UP/DN, RAND, ORDER, 1/32–1/1, 1–4 Oktaven, Hold), pro Synth-Bereich | fertig, auf dem PC und im Simulator getestet |
 | Noten-Looper (1/2/4/8 Takte, Overdub, frei über den Patterns) | fertig, aber vorerst herausgenommen; liegt auf dem Branch `looper` |
 
@@ -169,7 +169,7 @@ FM1-Electro wird in eine Kopie von FM1 Open eingesetzt. Dabei kommen zwei Einhä
 
 **Achtung beim Wechsel:** Die größere Firmware überschreibt den Anfang des alten Benutzerbereichs. Projekte und Samples von FM1 Open oder der Original-Firmware gehen dabei verloren, vorher sichern. Auch Einstellungen des SDK (z. B. Bluetooth-Kopplungen) können zurückgesetzt werden.
 
-Mit der JieLi-Toolchain für Linux und einem Nachbau der Schritte von `Build.ps1` linkt die Firmware und besteht dieselben Prüfungen (Pflicht-Symbole, Audio-Pfad und Panel im SRAM, Heap ab 48 KB); nur memset/memmove/`__sync_synchronize` liegen auf dem Audio-Pfad im Flash (wie bei FM1 Open selbst). Im Emulator fm1-emu startet das gepackte Image: Display und Tasten laufen, PLAY startet den Sequenzer, die Audio-Puffer füllen sich. Rechenlast dort (Befehle je Block, nicht kalibriert): beim Spielen etwa 79 % im Mittel.
+Mit der JieLi-Toolchain für Linux und einem Nachbau der Schritte von `Build.ps1` linkt die Firmware und besteht dieselben Prüfungen (Pflicht-Symbole, Audio-Pfad und Panel im SRAM, Heap ab 48 KB); nur memset/memmove/`__sync_synchronize` liegen auf dem Audio-Pfad im Flash (wie bei FM1 Open selbst). Im Emulator fm1-emu startet das gepackte Image: Display und Tasten laufen, PLAY startet den Sequenzer, die Audio-Puffer füllen sich. Rechenlast dort (Befehle je Block, nicht kalibriert): beim Spielen etwa 80 % im Mittel, Spitzen 91 %; mit Hall-Wurf oder Tape-Stop Spitzen um 100 %, alle sieben Live-Effekte zugleich 113 %.
 
 Zwei Dinge erledigt `el_sdk_app.c` beim Start, sonst bliebe das Gerät hängen oder stumm:
 - Das SDK gibt seinen acht Spuren Standard-Instrumente (u. a. zwei DX7, rund 60 KB Heap). FM1-Electro schaltet diese Spuren ab (`groove_track_role_set`), sonst fehlt dem SDK danach der Platz für den Stack seiner App-Task. Den Zwischenspeicher dafür leiht der noch unbenutzte Speicher der Engine.

@@ -427,6 +427,35 @@ static int tune_808_test(void)
     return ok ? 0 : 1;
 }
 
+/* Drum key (docs/adr/0016): the tonal parts on the notes of the key. */
+static double key_cents(double hz, int pc)   /* distance to the nearest note of pitch class pc */
+{
+    double m = 12.0 * log2(hz / 440.0) + 69.0 - pc;
+    return 100.0 * (m - 12.0 * floor(m / 12.0 + 0.5));
+}
+static int key_808_test(void)
+{
+    static tr808_t t;
+    float k[64], l[64], r[64], a[64], b[64], c[64];
+    tr808_init(&t);
+    tr808_set(&t, D8_KIT, 4, 1);              /* key C */
+    memset(k, 0, sizeof k);
+    tr808_render(&t, k, l, r, a, b, c, 64);
+    double bd = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 0), lt = key_cents(93.0 * t.key_r[D8_LT], 7);
+    double rs = key_cents(455.0 * t.key_r[D8_RS], 7), cb = key_cents(540.0 * t.key_r[D8_CB], 0);
+    double fifth = 1200.0 * log2(800.0 * t.key_cb_hi / (540.0 * t.key_r[D8_CB]));
+    tr808_set(&t, D8_LT, 0, 76);              /* LT TUNE: two semitones up */
+    tr808_set(&t, D8_KIT, 5, 1);              /* follow the bass ... */
+    t.key_shift = 2;                          /* ... transposed by +2: key D */
+    tr808_render(&t, k, l, r, a, b, c, 64);
+    double lt2 = key_cents(93.0 * t.key_r[D8_LT], 11), bd2 = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 2);
+    double worst = fmax(fmax(fmax(fabs(bd), fabs(lt)), fmax(fabs(rs), fabs(cb))), fmax(fabs(lt2), fabs(bd2)));
+    int ok = worst < 1.0 && fabs(fifth - 700.0) < 1.0;
+    printf("808 key: C -> BD C, LT G, RS G, CB C, CB fifth %.1f cents; LT +2, follow +2 -> LT B, BD D; worst %.2f cents: %s\n",
+           fifth, worst, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static int dist_test(void)
 {
     double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
@@ -444,7 +473,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test();
+    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

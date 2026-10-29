@@ -15,10 +15,14 @@
 #define DSP_MATH_FN static __attribute__((section(".volatile_ram_code"), noinline, unused))
 #endif
 #endif
-static inline float dsp_abs(float x) { return x < 0 ? -x : x; }
-static inline float dsp_clamp(float x,float a,float b) { return x<a?a:x>b?b:x; }
-static inline float dsp_min(float a,float b) { return a<b?a:b; }
-static inline float dsp_max(float a,float b) { return a>b?a:b; }
+/* FM1-Electro: the one-line helpers always inline (the device build's LTO
+ * inline threshold is 5: they were called per sample, ~3 % of the audio
+ * time for dsp_clamp alone). */
+#define DSP_TINY static inline __attribute__((always_inline))
+DSP_TINY float dsp_abs(float x) { return x < 0 ? -x : x; }
+DSP_TINY float dsp_clamp(float x,float a,float b) { return x<a?a:x>b?b:x; }
+DSP_TINY float dsp_min(float a,float b) { return a<b?a:b; }
+DSP_TINY float dsp_max(float a,float b) { return a>b?a:b; }
 /* Taylor expansion after reduction to a fractional exponent in [-0.5,0.5]. */
 DSP_MATH_FN float dsp_exp2(float x) {
     x=dsp_clamp(x,-120.0f,120.0f);

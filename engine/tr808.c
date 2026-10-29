@@ -60,7 +60,7 @@ static const part_params_t params[D8_NUM + 1] = {
     /* ZP: Tune = start pitch, Sweep = fall time, Depth = how far it falls,
      * Tone = drive from sine to a buzzy square */
     /* ZP */ {9, {P_LEVEL, P_TUNE, P_SNAPPY, P_SOUND, P_DECAY, P_TONE, P_PAN, P_REV, P_DLY},
-              {P("Level", 100), P("Tune", 64), P("Sweep", 50), P("Depth", 80), P("Decay", 50), P("Tone", 30),
+              {P("Level", 100), P("Tune", 64), P("Sweep", 64), P("Depth", 64), P("Decay", 64), P("Tone", 0),
                P("Pan", 76), P("Rev", 10), P("Dly", 30)}},
     /* PU: the TRIGGER OUT into a mixer channel, fitted to a recording of a
      * real 808's trigger. Width = pulse length, Tune = pitch of the
@@ -1021,7 +1021,7 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
  * cover its tone at the hit; the level falls faster (Decay 12..270 ms).
  * Tone = how much grit and spit (0 = the clean sweep). */
 #ifndef TR808_ZP_MODEL
-#define TR808_ZP_MODEL 0
+#define TR808_ZP_MODEL 3   /* after the user's reference, without its bass; docs/adr/0017 */
 #endif
 static EL_DSP_HELPER float zap_perc(tr808_t *t, tr_voice_t *v)
 {
@@ -1220,7 +1220,7 @@ static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 
  * Follow BASS adds the BASS area's transposition. Each part goes to the
  * note of its degree nearest to its stock pitch: BD, HT / high conga,
  * snare body, claves, cowbell, zap and pulse on the root, LT / low conga
- * and the rim shot on the fifth; the cowbell's upper tone a pure fifth
+ * and the rim shot on the fifth; the cowbell's upper tone an equal-tempered fifth
  * above its lower. TUNE then moves in semitones (+-12). Key OFF: as
  * before (TUNE stepless, the unit's tolerances). Ratios once per block. */
 static EL_DSP_HELPER float key_note(int pc, float near_hz)
@@ -1253,7 +1253,7 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
         int semis = el_clampi((int)((t->pot[part][P_TUNE] - 64) * 12 + (t->pot[part][P_TUNE] >= 64 ? 32 : -32)) / 64, -12, 12);
         t->key_r[part] = key_note((pc + d) % 12, base) * dsp_exp2((float)semis * (1.0f / 12.0f)) / base;
     }
-    t->key_cb_hi = t->key_r[D8_CB] * (1.4983f * 540.0f / 800.0f);   /* a pure fifth */
+    t->key_cb_hi = t->key_r[D8_CB] * (1.4983f * 540.0f / 800.0f);   /* an equal-tempered fifth (as the synths) */
 }
 
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,

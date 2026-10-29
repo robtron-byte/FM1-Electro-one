@@ -79,9 +79,16 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	@mkdir -p build/wav build/wav_jp6 build/screens
 	./build/fmt_test
 	./build/synth_test build/wav > /dev/null
-	./build/jp6_test build/wav_jp6 | grep "^strings hpf\|FAILED"
-	./build/render_demo build/wav | grep -E "^(timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune)"
-	./build/ui_sim build/screens | grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds"
+	@# Each tool's output goes to a log first: a FAIL line or a failing exit
+	@# code stops make (a pipe into grep would hide both).
+	./build/jp6_test build/wav_jp6 > build/jp6_test.log; s=$$?; grep "^strings hpf\|FAILED" build/jp6_test.log; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/jp6_test.log
+	./build/render_demo build/wav > build/render_demo.log; s=$$?; \
+	  grep -E "^(timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
+	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
+	  grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 
 clean:

@@ -11,7 +11,7 @@ Wunsch: „Die Drums sollen sich an das Tuning anpassen, damit alle in einer Ton
 
 - Zwei neue KIT-Parameter (KIT-Seite 2): **Key** (OFF, C … B) und **Follow** (OFF, BASS). Follow BASS addiert die Transposition des BASS-Bereichs.
 - Jede tonale Drum geht auf den Ton ihrer Stufe, der ihrer Werkstonhöhe am nächsten liegt:
-  - **Grundton:** BD, High Tom / High Conga, Snare-Körper (beide Resonatoren), Claves, Cowbell (unterer Ton; der obere eine reine Quinte darüber), Zap (Start), Pulse.
+  - **Grundton:** BD, High Tom / High Conga, Snare-Körper (beide Resonatoren), Claves, Cowbell (unterer Ton; der obere eine temperierte Quinte darüber, wie bei den Synths), Zap (Start), Pulse.
   - **Quinte:** Low Tom / Low Conga, Rimshot.
   - Keine Terz (es gibt kein Dur/Moll).
 - TUNE dieser Drums rastet dann in Halbtönen (±12) um den zugewiesenen Ton. Key OFF: alles wie vorher (stufenlos, Bauteil-Toleranzen).
