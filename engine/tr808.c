@@ -379,8 +379,50 @@ float tr808_sd_cal[SD_CAL] = {
  * its travel). White noise through a high-pass and a low-pass, its own
  * two-slope envelope, mixed in by SNAPPY, which acts from ~1/4 of its
  * travel (nothing below, -9 dB at the middle, full at the end). */
+/* Snare model 1 (A/B switch TR808_SD_MODEL, docs/adr/0015): the 8W8
+ * engine's snare circuit (as ported in X0X-RMX), own implementation. The
+ * two bridged-T resonators (173 / 336 Hz, Q 17.4 / 10.7, scaled by DECAY)
+ * are struck so hard that the op-amp behind them clips (rail 40): a
+ * punchy, compressed knock. TONE crossfades them at equal power. The noise
+ * is half-wave rectified (the VCA transistor), its envelope one 75 ms
+ * slope from SNAPPY x the trigger height, high-passed at 1.76 kHz and
+ * open at the top. Output high-pass 30 Hz. */
+#ifndef TR808_SD_MODEL
+#define TR808_SD_MODEL 0
+#endif
+#ifndef TR808_SD1_GAIN
+#define TR808_SD1_GAIN 0.01965f   /* as loud as model 0 over 0.1 s */
+#endif
+static EL_DSP_HELPER float snare_circuit(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_SD;
+    float tune = tolerance[part] * spread(t, part, P_TUNE);
+    float dq = dsp_clamp(1.3275f * spread(t, part, P_DECAY), 0.35f, 1.5f);
+    float volts = 4.0f + 3.3f * v->accent;               /* 8W8's trigger height */
+    if (v->age == 0) {
+        svf_set(&v->r1, 173.3f * tune, 17.36f * dq);
+        svf_set(&v->r2, 336.0f * tune, 10.66f * dq);
+        svf_set(&v->r3, 1760.0f, 0.7071f);
+        float tone = knob(t, part, P_TONE) * 0.5f * DSP_PI;
+        v->lag1 = dsp_cos(tone);                          /* low resonator */
+        v->lag2 = dsp_sin(tone);                          /* high resonator */
+        v->env = knob(t, part, P_SNAPPY) * volts * 0.25f; /* noise */
+    }
+    float vp = trigger_pulse(v) / dsp_max(v->volts, 1e-3f) * volts;
+    float s1 = svf_bp(&v->r1, vp * 603.9f, 0), s2 = svf_bp(&v->r2, vp * 228.3f, 0);
+    float shells = 40.0f * dsp_tanh((s1 * v->lag1 + s2 * v->lag2) * (1.0f / 40.0f));
+    v->env *= m_decay(&v->memo[0], 0.075f * EL_SAMPLE_RATE * dq / 1.3275f);
+    float noise = svf_hp(&v->r3, dsp_max(t->noise_now, 0.0f) * v->env);
+    float out = shells * 0.1491f + noise * 1.4908f;
+    float o = out - v->dc_x + 0.99573f * v->dc_y;        /* high-pass 30 Hz */
+    v->dc_x = out; v->dc_y = o;
+    if (v->age > (uint32_t)MS(500.0f) && v->env < 1e-4f) v->active = 0;
+    return o * TR808_SD1_GAIN * dsp_min(1.0f, v->volts * 14.0f / 4.0f);   /* soft MIDI hits quieter */
+}
+
 static EL_DSP_VOICE float snare(tr808_t *t, tr_voice_t *v)
 {
+    if (TR808_SD_MODEL) return snare_circuit(t, v);
     const int part = D8_SD;
     const float *k = tr808_sd_cal;
     float pulse = trigger_pulse(v);
