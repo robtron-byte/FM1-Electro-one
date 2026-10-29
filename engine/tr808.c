@@ -496,6 +496,54 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
     return y;
 }
 
+/* Hand clap after the circuit (A/B switch TR808_CP_MODEL, see
+ * docs/adr/0008): 0 = as fitted (below); 1 = the circuit's envelope with
+ * our filter and noise; 2 = also the circuit's filter and noise. Idea:
+ * the 8W8 engine as ported in X0X-RMX; own implementation.
+ * Envelope: three pulses 10 ms apart that jump to 0.8 and fall with
+ * 4.5 ms (the sawtooth generator's capacitor), then at 28 ms the main
+ * clap, opening over 3 ms and falling with 38.5 ms, under it a quiet
+ * floor (-30 dB, 330 ms), the main and floor times scaled by DECAY.
+ * Model 2: half-wave rectified noise (the VCA transistor conducts one
+ * polarity), band-pass 874 Hz Q 1.29, high-pass 720 Hz. */
+#ifndef TR808_CP_MODEL
+#define TR808_CP_MODEL 0
+#endif
+#ifndef TR808_CP_GAIN1
+#define TR808_CP_GAIN1 1.33f
+#endif
+#ifndef TR808_CP_GAIN2
+#define TR808_CP_GAIN2 1.30f
+#endif
+static EL_DSP_HELPER float clap_circuit(tr808_t *t, tr_voice_t *v, float n)
+{
+    const int part = D8_CP;
+    const int circuit = TR808_CP_MODEL == 2;
+    float decay = spread(t, part, P_DECAY);
+    if (v->age == 0) {
+        float tone = spread(t, part, P_TONE) * tolerance[part];
+        if (circuit) { svf_set(&v->r1, 874.0f * tone, 1.29f); svf_set(&v->r2, 720.0f, 0.7071f); }
+        else svf_set(&v->r1, 1140.0f * tone, 1.95f);
+        v->lag1 = v->lag2 = 0;   /* main, floor */
+        v->pitch = 0;            /* 1 while the main clap opens */
+    }
+    if (v->age == 0 || v->age == (uint32_t)MS(10.0f) || v->age == (uint32_t)MS(20.0f)) v->env = 0.8f;
+    if (v->age == (uint32_t)MS(28.0f)) { v->pitch = 1; v->lag2 = 0.03f; }
+    float ctrl = v->env + v->lag1 + v->lag2;
+    v->env *= 0.99497f;                                            /* 4.5 ms */
+    if (v->pitch > 0) {
+        v->lag1 += (1.0f - v->lag1) * 0.00753f;                    /* 3 ms */
+        if (v->lag1 > 0.98f) v->pitch = 0;
+    } else v->lag1 *= m_decay(&v->memo[0], MS(38.5f) * decay);
+    v->lag2 *= m_decay(&v->memo[1], MS(330.0f) * decay);
+    float src = circuit ? 2.0f * dsp_max(n, 0.0f) : n;
+    float y = svf_bp(&v->r1, src * ctrl, 0);
+    if (circuit) y = svf_hp(&v->r2, y);
+    if (v->age > (uint32_t)MS(30.0f) && v->pitch == 0 && v->lag1 < 1e-4f && v->lag2 < 1e-5f) v->active = 0;
+    y *= v->volts * (circuit ? TR808_CP_GAIN2 : TR808_CP_GAIN1);
+    return dsp_tanh(y * 1.4f) / 1.2f;   /* the BA662 VCA's distortion */
+}
+
 /* Hand clap: band-passed noise (~1.1 kHz, Q 2) through a sawtooth envelope
  * of three 10 ms pulses plus a 20 ms fall, and a quieter ~100 ms "reverb".
  * Maracas: high-passed noise with a 13 ms rise and 17 ms fall. */
@@ -510,6 +558,7 @@ static EL_DSP_VOICE float clap(tr808_t *t, tr_voice_t *v)
         if (ms > rise + fall + 5.0f) v->active = 0;
         return svf_hp(&v->r1, n) * e * e * v->volts * 1.1f;
     }
+    if (TR808_CP_MODEL) return clap_circuit(t, v, n);
     if (v->age == 0) svf_set(&v->r1, 1140.0f * spread(t, part, P_TONE) * tolerance[part], 1.95f);
     float bp = svf_bp(&v->r1, n, 0);
     float ms = (float)v->age / MS(1.0f), saw;

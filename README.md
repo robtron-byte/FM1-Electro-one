@@ -139,6 +139,10 @@ Die Lage der Encoder stammt aus der Workbench von FM1 Open (`sdk/Simulator.js`) 
 | Arpeggiator der Apps (UP, DOWN, UP/DN, RAND, ORDER, 1/32–1/1, 1–4 Oktaven, Hold), pro Synth-Bereich | fertig, auf dem PC und im Simulator getestet |
 | Noten-Looper (1/2/4/8 Takte, Overdub, frei über den Patterns) | fertig, aber vorerst herausgenommen; liegt auf dem Branch `looper` |
 
+## Entscheidungen
+
+Warum FM1-Electro so gebaut ist, wie es ist (Packer, BASS mono, 808-Varianten, Live-Effekte …), steht in den Architecture Decision Records unter [`docs/adr/`](docs/adr/README.md).
+
 ## Simulator im Browser
 
 `make web` übersetzt die echte Firmware (Engine, Bedienung, Speicher) mit clang nach WebAssembly und baut daraus `build/web/fm1-electro-simulator.html`: Display, Encoder, Tasten mit LEDs, Klaviatur und Ton im Browser, auch auf dem Handy. Die FM1-Open-Schnittstelle (Display, LEDs, Bedienelemente, Flash) ist in `host/web/sim.c` nachgebildet, gespeicherte Grooves bleiben im Browser. Rechenzeit und Speicher des echten Geräts bildet der Simulator nicht ab.

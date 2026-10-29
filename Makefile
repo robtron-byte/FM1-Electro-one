@@ -87,7 +87,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab
 
 # Bass drum tail variants for listening: A through the master (old), B dry
 # tail, C with the octave body (current), D plus a sinking pitch.
@@ -106,3 +106,12 @@ metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@for v in $(METAL_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/metal_ab_$$n host/metal_ab.c $(ENGINE) -lm && \
 	  ./build/metal_ab_$$n build/wav/metal_$$n.wav && echo "build/wav/metal_$$n.wav"; done
+
+# Hand clap for listening (docs/adr/0008): A as fitted, B the circuit's
+# envelope, C also the circuit's filter and rectified noise.
+CLAP_VARIANTS = A: B:-DTR808_CP_MODEL=1 C:-DTR808_CP_MODEL=2
+clap-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in $(CLAP_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/clap_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
+	  ./build/clap_ab_$$n build/wav/clap_$$n.wav && echo "build/wav/clap_$$n.wav"; done
