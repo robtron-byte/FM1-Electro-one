@@ -63,7 +63,10 @@ static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index)
 {
     if (index >= DR_KITS) return;
     float level = m->level;
+    uint8_t key = m->kit.kit[4], follow = m->kit.kit[5];   /* the drum key stays (docs/adr/0016) */
     tr808_init(&m->kit);
+    m->kit.kit[4] = key;
+    m->kit.kit[5] = follow;
     for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[index][i].part != 255; ++i)
         tr808_set(&m->kit, kits[index][i].part, kits[index][i].param, kits[index][i].value);
     m->kit_index = (uint8_t)index;

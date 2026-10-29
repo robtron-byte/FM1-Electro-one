@@ -101,10 +101,12 @@ static inline EL_DSP_HELPER int16_t line_store(float x)
     return (int16_t)(dsp_clamp(x, -3.9998f, 3.9998f) * FX_LINE_SCALE);
 }
 
+#if FX_GATE_DENSE != 2
 static inline EL_DSP_HELPER float gate_read(const int16_t *line, unsigned write, unsigned back)
 {
     return line[(write + FX_GATE_CAP - back) % FX_GATE_CAP] * (1.0f / 32767.0f);
 }
+#endif
 
 /* ---- punch-ins borrowing the buffers --------------------------------------- */
 

@@ -377,6 +377,8 @@ static float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK], dist_send[EL_BLOCK];
 static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
 {
     el_transport_t *t = &e->transport;
+    /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
+    e->drums.kit.key_shift = e->track[EL_AREA_BASS - 1].transpose;
     dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
     /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {

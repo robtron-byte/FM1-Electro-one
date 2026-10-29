@@ -17,6 +17,8 @@ enum { P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_SNAPPY, P_SOUND, P_PAN, P_REV, P_DLY 
 
 static const char *const tom_names[] = {"TOM", "CONGA"}, *const rim_names[] = {"RIM", "CLAVE"};
 static const char *const sd_names[] = {"LATE", "EARLY"}, *const engine_names[] = {"TR-808", "PO-12"};
+static const char *const key_names[] = {"OFF", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+static const char *const follow_names[] = {"OFF", "BASS"};
 static const char *const clap_names[] = {"CLAP", "MARAC"}, *const choke_names[] = {"OFF", "CH>OH", "BOTH"};
 #define P(n, d) {n, 127, d, 0}
 /* Every part has the same 9 slots; parts list only the ones they use.
@@ -68,7 +70,8 @@ static const part_params_t params[D8_NUM + 1] = {
                P("Rev", 0), P("Dly", 0)}},
     /* KIT: Engine switches every part but PU to the PO-12 style voices */
     /* KIT: Choke CH>OH = the closed hat cuts the open one; BOTH = either cuts the other */
-    /* KIT */ {4, {0, 1, 2, 3}, {P("Level", 110), P("Accent", 100), {"Choke", 2, 1, choke_names}, {"Engine", 1, 0, engine_names}}},
+    /* KIT */ {6, {0, 1, 2, 3, 4, 5}, {P("Level", 110), P("Accent", 100), {"Choke", 2, 1, choke_names}, {"Engine", 1, 0, engine_names},
+               {"Key", 12, 0, key_names}, {"Follow", 1, 0, follow_names}}},
 };
 
 int tr808_nparams(int part) { return (unsigned)part <= D8_KIT ? params[part].count : 0; }
@@ -302,7 +305,7 @@ static EL_DSP_VOICE float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
     const float *k = tr808_bd_cal;
-    float f0 = k[0] * tolerance[part] * spread(t, part, P_TUNE);
+    float f0 = k[0] * (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE));
     float kd = knob(t, part, P_DECAY);
     if (kd != v->memo[0].x) { v->memo[0].x = kd; v->memo[0].y = k[11] * dsp_exp2(k[12] * powf_approx(kd, 0.8f)); }
     float q = v->memo[0].y;
@@ -401,7 +404,7 @@ float tr808_sd_cal[SD_CAL] = {
 static EL_DSP_HELPER float snare_circuit(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_SD;
-    float tune = tolerance[part] * spread(t, part, P_TUNE);
+    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE);
     float dq = dsp_clamp(1.3275f * spread(t, part, P_DECAY), 0.35f, 1.5f);
     float volts = 4.0f + 3.3f * v->accent;               /* 8W8's trigger height */
     if (v->age == 0) {
@@ -431,7 +434,7 @@ static EL_DSP_VOICE float snare(tr808_t *t, tr_voice_t *v)
     const int part = D8_SD;
     const float *k = tr808_sd_cal;
     float pulse = trigger_pulse(v);
-    float tune = tolerance[part] * spread(t, part, P_TUNE), decay = spread(t, part, P_DECAY);
+    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE), decay = spread(t, part, P_DECAY);
     if (v->age == 0) {
         svf_set(&v->r3, k[8], 0.7f);   /* noise high-pass */
         v->aux = 0;
@@ -476,7 +479,7 @@ static const float tom_hz[4] EL_DSP_DATA = {93.0f, 185.0f, 185.0f, 400.0f};   /*
 static EL_DSP_VOICE float tom(tr808_t *t, tr_voice_t *v, int part)
 {
     int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-    float f0 = tom_hz[idx] * m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f);   /* fitted: no tolerance */
+    float f0 = tom_hz[idx] * (t->key_on ? t->key_r[part] : m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f));   /* fitted: no tolerance */
     if (f0 != v->memo[1].x) { v->memo[1].x = f0; v->memo[1].y = dsp_sqrt(93.0f / f0); }
     float scale = v->memo[1].y;   /* times as fitted for LT, shorter for higher drums */
     if (v->age == 0) {
@@ -520,7 +523,7 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_RS;
     int clave = t->pot[part][P_SOUND] == 1;
-    float tune = tolerance[part] * spread(t, part, P_TUNE), pulse = trigger_pulse(v);
+    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE), pulse = trigger_pulse(v);
     if (v->age == 0) {
         svf_set(&v->r1, 455.0f * tune, 6.7f * tr808_mx_cal[7]);
         svf_set(&v->r2, 1667.0f * tune, 13.5f * tr808_mx_cal[7]);
@@ -732,11 +735,11 @@ static EL_DSP_VOICE float metal(tr808_t *t, float *phase, float tune, float *cow
 }
 
 /* The cowbell's 540 and 800 Hz rectangles alone (its TUNE off centre). */
-static EL_DSP_VOICE float cowbell_osc(float *phase, float tune)
+static EL_DSP_VOICE float cowbell_osc(float *phase, float tune_lo, float tune_hi)
 {
     float sum = 0;
     for (int i = 0; i < 2; ++i) {
-        float dt = metal_hz[4 + i] * tune * (1.0f / EL_SAMPLE_RATE);
+        float dt = metal_hz[4 + i] * (i ? tune_hi : tune_lo) * (1.0f / EL_SAMPLE_RATE);
         phase[i] += dt;
         if (phase[i] >= 1.0f) phase[i] -= 1.0f;
         sum += rect(phase[i], dt);
@@ -783,7 +786,7 @@ static EL_DSP_HELPER float cowbell_fitted(tr808_t *t, tr_voice_t *v, float src)
     const int part = D8_CB;
     const float *k = tr808_cb_cal;
     if (v->age == 0) {
-        float tune = spread(t, part, P_TUNE);
+        float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE);
         svf_set(&v->r1, k[0] * tune, k[1]);
         svf_set(&v->r2, k[3] * tune, 0.7071f);
     }
@@ -806,7 +809,7 @@ static EL_DSP_VOICE float cowbell(tr808_t *t, tr_voice_t *v, float src)
     const int part = D8_CB;
     const float *k = tr808_mx_cal;
     if (TR808_CB_MODEL) return cowbell_fitted(t, v, src);
-    if (v->age == 0) svf_set(&v->r1, k[0] * spread(t, part, P_TUNE), k[1]);
+    if (v->age == 0) svf_set(&v->r1, k[0] * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE)), k[1]);
     float y = svf_bp(&v->r1, src * 0.5f, 0);
     float decay = spread(t, part, P_DECAY);
     v->env *= m_decay(&v->memo[0], MS(k[2]) * decay);
@@ -1015,7 +1018,7 @@ static EL_DSP_VOICE float zap(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_ZP;
     if (v->age == 0) {
-        v->aux = 1340.0f * spread(t, part, P_TUNE) * spread(t, part, P_TUNE);   /* start Hz */
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
         v->pitch = 1.0f;
     }
     float sweep = 5.0f * m_exp2(&v->memo[0], 6.3f * knob(t, part, P_SNAPPY));            /* ms */
@@ -1049,7 +1052,7 @@ static EL_DSP_VOICE float pulse(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_PU;
     if (v->age == 0) {
-        float tune = spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
+        float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
         svf_set(&v->r1, 341.0f * tune, 0.65f);
         /* The recording rings at ~100 Hz through two resonant high-passes
          * (97 Hz Q 2.7, 92 Hz Q 4); that low "plop" fights the bass, so
@@ -1084,6 +1087,46 @@ enum { DRIVE_PARTS = (1u << D8_RS) | (1u << D8_CP) | (1u << D8_CB) | (1u << D8_C
 /* PO-12 kit output: its own balance (po12.c), +4.6 dB to sit like the 808 kit in the mix. */
 static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};
 
+/* Drum key (docs/adr/0016). KIT Key C..B tunes the tonal parts to a key,
+ * Follow BASS adds the BASS area's transposition. Each part goes to the
+ * note of its degree nearest to its stock pitch: BD, HT / high conga,
+ * snare body, claves, cowbell, zap and pulse on the root, LT / low conga
+ * and the rim shot on the fifth; the cowbell's upper tone a pure fifth
+ * above its lower. TUNE then moves in semitones (+-12). Key OFF: as
+ * before (TUNE stepless, the unit's tolerances). Ratios once per block. */
+static EL_DSP_HELPER float key_note(int pc, float near_hz)
+{
+    float q = (12.0f * dsp_log2(near_hz * (1.0f / 440.0f)) + 69.0f - (float)pc) * (1.0f / 12.0f);
+    int k = (int)(q + (q >= 0 ? 0.5f : -0.5f));
+    return 440.0f * dsp_exp2((float)(pc + 12 * k - 69) * (1.0f / 12.0f));
+}
+static EL_DSP_HELPER void key_update(tr808_t *t)
+{
+    t->key_on = t->kit[4] > 0;
+    if (!t->key_on) return;
+    int pc = (t->kit[4] - 1 + (t->kit[5] ? t->key_shift : 0)) % 12;
+    if (pc < 0) pc += 12;
+    static const uint8_t deg[D8_NUM] = {0, 0, 7, 0, 7, 0, 0, 0, 0, 0, 0, 0};   /* semitones above the root */
+    for (int part = 0; part < D8_NUM; ++part) {
+        float base;
+        int d = deg[part];
+        switch (part) {
+        case D8_BD: base = tr808_bd_cal[0]; break;
+        case D8_SD: base = t->pot[D8_SD][P_SOUND] ? 172.0f * 1.384f : 172.0f; break;
+        case D8_LT: base = tom_hz[t->pot[D8_LT][P_SOUND] == 1 ? 2 : 0]; break;
+        case D8_HT: base = tom_hz[t->pot[D8_HT][P_SOUND] == 1 ? 3 : 1]; break;
+        case D8_RS: if (t->pot[D8_RS][P_SOUND] == 1) { base = 2500.0f; d = 0; } else base = 455.0f; break;
+        case D8_CB: base = 540.0f; break;
+        case D8_ZP: base = 1340.0f; break;
+        case D8_PU: base = 341.0f; break;
+        default: t->key_r[part] = 1.0f; continue;
+        }
+        int semis = el_clampi((int)((t->pot[part][P_TUNE] - 64) * 12 + (t->pot[part][P_TUNE] >= 64 ? 32 : -32)) / 64, -12, 12);
+        t->key_r[part] = key_note((pc + d) % 12, base) * dsp_exp2((float)semis * (1.0f / 12.0f)) / base;
+    }
+    t->key_cb_hi = t->key_r[D8_CB] * (1.4983f * 540.0f / 800.0f);   /* a pure fifth */
+}
+
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
 {
@@ -1097,6 +1140,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             t->metal_phase[i] = ph - (float)(int)ph;
         }
     }
+    key_update(t);
     float level = t->kit[0] / 110.0f;
     /* Per block (the knobs do not move within one): the parts that sound,
      * their level, sends and drive. */
@@ -1145,9 +1189,13 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
             hat_src[h] = TR808_HAT_MODEL == 2 ? m * 0.714f : svf_bp(&t->hat_bp[h], m, 0);
         }
-        if (t->v[D8_CB].active && t->pot[D8_CB][P_TUNE] != 64) {
+        if (t->v[D8_CB].active && (t->key_on || t->pot[D8_CB][P_TUNE] != 64)) {
             if (t->v[D8_CB].age == 0) memcpy(t->cb_phase, t->metal_phase + 4, sizeof t->cb_phase);
-            cb_src = cowbell_osc(t->cb_phase, spread(t, D8_CY, P_TUNE) * spread(t, D8_CB, P_TUNE));
+            if (t->key_on) cb_src = cowbell_osc(t->cb_phase, t->key_r[D8_CB], t->key_cb_hi);
+            else {
+                float r = spread(t, D8_CY, P_TUNE) * spread(t, D8_CB, P_TUNE);
+                cb_src = cowbell_osc(t->cb_phase, r, r);
+            }
         }
         /* One white-noise source feeds snare, clap / maracas and toms, as
          * on the 808: hit together, their noise is the same. */

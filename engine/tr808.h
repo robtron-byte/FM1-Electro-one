@@ -19,7 +19,7 @@
 /* Two tom/conga circuits (low and high) of the 808's three; the middle one
  * is left out to keep the kit lean. */
 enum { D8_BD, D8_SD, D8_LT, D8_HT, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_ZP, D8_PU, D8_NUM, D8_KIT = D8_NUM };
-enum { TR_PARAMS = 9, TR_KIT_PARAMS = 4, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10, CP_CAL = 13, CB_CAL = 9, HH_CAL = 7, HH2_CAL = 2 };
+enum { TR_PARAMS = 9, TR_KIT_PARAMS = 6, CY_CAL = 18, SD_CAL = 11, BD_CAL = 15, MX_CAL = 10, CP_CAL = 13, CB_CAL = 9, HH_CAL = 7, HH2_CAL = 2 };
 extern float tr808_mx_cal[MX_CAL];   /* cowbell, clap, rim, hats calibration */
 extern float tr808_bd_cal[BD_CAL];   /* bass drum calibration (see tr808.c) */
 extern float tr808_cy_cal[CY_CAL];   /* cymbal calibration (see tr808.c) */
@@ -47,7 +47,13 @@ typedef struct {
 
 typedef struct {
     uint8_t pot[D8_NUM][TR_PARAMS];
-    uint8_t kit[TR_KIT_PARAMS];             /* level, accent, choke, engine (0 808, 1 PO-12) */
+    uint8_t kit[TR_KIT_PARAMS];             /* level, accent, choke, engine (0 808, 1 PO-12), key (0 off, 1..12 C..B), follow bass */
+    /* Drum key (docs/adr/0016): the semitones the engine adds while the key
+     * follows the BASS area's transposition; per block, the tonal parts'
+     * pitch ratio against their stock pitch (key on). */
+    int8_t key_shift;
+    uint8_t key_on;
+    float key_r[D8_NUM], key_cb_hi;
     tr_voice_t v[D8_NUM];
     po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */
     float metal_phase[6];                    /* shared six-oscillator metal source */

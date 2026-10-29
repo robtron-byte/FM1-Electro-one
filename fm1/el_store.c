@@ -252,6 +252,10 @@ int el_store_load(el_engine_t *e)
             tr808_set(&m->kit, (int)part, tom ? old_tom_params[p] : p, d->params[part][p]);
     }
     for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
+    /* Drum key and Follow (KIT parameters 4, 5) live in the former reserved
+     * field: older records hold 0 there = key OFF (docs/adr/0016). */
+    tr808_set(&m->kit, D8_KIT, 4, el_clampi(d->reserved & 0xffu, 0, 12));
+    tr808_set(&m->kit, D8_KIT, 5, (d->reserved >> 8) & 1u);
     m->level_value = (uint8_t)el_clampi(d->level, 0, 127);
     m->level = m->level_value / 127.0f;
     if (version >= VERSION_18) {   /* older records keep el_init's options */
@@ -321,6 +325,7 @@ int el_store_save(el_engine_t *e)
         for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
             d->params[part][p] = (uint8_t)tr808_get(&m->kit, (int)part, p);
     for (int p = 0; p < KIT_PARAMS; ++p) d->kit_params[p] = (uint8_t)tr808_get(&m->kit, D8_KIT, p);
+    d->reserved = (uint16_t)(tr808_get(&m->kit, D8_KIT, 4) | tr808_get(&m->kit, D8_KIT, 5) << 8);
     d->kit = m->kit_index;
     d->level = m->level_value;
     d->current = m->next;
