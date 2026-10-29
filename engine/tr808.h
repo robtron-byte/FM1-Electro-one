@@ -47,6 +47,11 @@ typedef struct {
     tr_voice_t v[D8_NUM];
     po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */
     float metal_phase[6];                    /* shared six-oscillator metal source */
+    /* Their pitch wanders: a slow drift and a new small error every cycle
+     * (TR808_METAL_JITTER). metal_mod = 1 + drift + jitter. */
+    float metal_drift[6], metal_jit[6], metal_mod[6];
+    uint32_t metal_rng;
+    int metal_count;
     tr_svf_t metal_bp1, metal_bp2;           /* its 3.44 kHz and 7.1 kHz band-passes */
     /* Open and closed hat, cowbell with their TUNE off centre: their own
      * oscillators (centred they share the bank above, as on the 808). */

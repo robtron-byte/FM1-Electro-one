@@ -129,7 +129,8 @@ void tr808_init(tr808_t *t)
         for (int i = 0; i < 8; ++i) t->v[part].memo[i].x = -1e30f;   /* nothing remembered yet */
     }
     t->noise = 0x1234567u;
-    for (int i = 0; i < 6; ++i) t->metal_phase[i] = 0.137f * (float)i;
+    for (int i = 0; i < 6; ++i) { t->metal_phase[i] = 0.137f * (float)i; t->metal_mod[i] = 1.0f; }
+    t->metal_rng = 0x2545f491u;
     svf_set(&t->metal_bp1, 3450.0f, 6.0f);
     svf_set(&t->metal_bp2, 7100.0f, 6.0f);
 }
@@ -541,13 +542,47 @@ static inline EL_DSP_HELPER float rect(float phase, float dt)
     return y + 0.5f * blep(phase, dt) - 0.5f * blep(down, dt);
 }
 
-static EL_DSP_VOICE float metal(float *phase, float tune, float *cowbell)
+/* Metal oscillators that wander (A/B switch, 0 = perfectly steady): the
+ * HD14584's threshold and the RC timing vary a little from cycle to cycle,
+ * and slowly with temperature. Each oscillator gets a new random error of
+ * up to +-0.5 % at every cycle and a slow random-walk drift of about
+ * +-0.1 %. The beating pattern of the six then never repeats exactly, the
+ * hats and the cymbal shimmer instead of sounding static. (Idea: the 8W8
+ * engine as ported in X0X-RMX; own implementation.) */
+#ifndef TR808_METAL_JITTER
+#define TR808_METAL_JITTER 0
+#endif
+static inline EL_DSP_HELPER float metal_rand(tr808_t *t)
+{
+    uint32_t n = t->metal_rng;
+    n ^= n << 13; n ^= n >> 17; n ^= n << 5;
+    t->metal_rng = n;
+    return (float)(int32_t)n * (1.0f / 2147483648.0f);
+}
+static EL_DSP_HELPER void metal_wander(tr808_t *t, int frames)
+{
+    if (!TR808_METAL_JITTER) return;
+    t->metal_count -= frames;
+    while (t->metal_count <= 0) {               /* drift: every 256 samples */
+        t->metal_count += 256;
+        for (int i = 0; i < 6; ++i) t->metal_drift[i] = 0.98f * (t->metal_drift[i] + 2.5e-4f * metal_rand(t));
+    }
+    for (int i = 0; i < 6; ++i) t->metal_mod[i] = 1.0f + t->metal_drift[i] + t->metal_jit[i];
+}
+
+static EL_DSP_VOICE float metal(tr808_t *t, float *phase, float tune, float *cowbell)
 {
     float sum = 0, r[6];
     for (int i = 0; i < 6; ++i) {
-        float dt = metal_hz[i] * metal_tol[i] * tune * (1.0f / EL_SAMPLE_RATE);
+        float dt = metal_hz[i] * metal_tol[i] * tune * t->metal_mod[i] * (1.0f / EL_SAMPLE_RATE);
         phase[i] += dt;
-        if (phase[i] >= 1.0f) phase[i] -= 1.0f;
+        if (phase[i] >= 1.0f) {
+            phase[i] -= 1.0f;
+            if (TR808_METAL_JITTER) {           /* this cycle's own small error */
+                t->metal_jit[i] = 0.0052f * metal_rand(t);
+                t->metal_mod[i] = 1.0f + t->metal_drift[i] + t->metal_jit[i];
+            }
+        }
         r[i] = rect(phase[i], dt);
         sum += r[i];
     }
@@ -664,6 +699,12 @@ static EL_DSP_VOICE float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float
     return v->out_lp * (1.0f + 0.6f * v->accent);   /* accent +6 dB, see hat() */
 }
 
+/* Open hat with a linear discharge (A/B switch, 0 = exponential as
+ * fitted). Idea: the 8W8 engine as ported in X0X-RMX; own implementation. */
+#ifndef TR808_OH_LINEAR
+#define TR808_OH_LINEAR 0
+#endif
+
 /* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators
  * (no noise), a swing VCA, then a Sallen-Key high-pass, OH 7.8 kHz and
  * CH 11.7 kHz, both Q 2.5. Decay chart: OH 90 / 450 / 600 ms over its
@@ -679,7 +720,17 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     }
     float k = knob(t, part, P_DECAY);
     float decay = part == D8_CH ? tr808_mx_cal[8] * spread(t, part, P_DECAY) : k < 0.5f ? 90.0f + 720.0f * k : 450.0f + 300.0f * (k - 0.5f);
-    v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
+    if (TR808_OH_LINEAR && part == D8_OH) {
+        /* The open hat's reservoir (C62) discharges through its DECAY pot
+         * at a nearly constant current: the level holds for the first
+         * third, then falls in a straight line. Length 1.8 x the chart
+         * time: as long to -20 dB as the exponential decay. */
+        float len = 1.8f * MS(decay);
+        if (v->age >= (uint32_t)(0.3f * len)) {
+            if (decay != v->memo[0].x) { v->memo[0].x = decay; v->memo[0].y = 1.0f / (0.7f * len); }
+            v->env = dsp_max(0.0f, v->env - v->memo[0].y);
+        }
+    } else v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
     if (v->aux2 > 0) v->env *= m_decay(&v->memo[1], MS(7.0f));    /* choked by the other hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
     float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
@@ -802,10 +853,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             drive_norm[part] = dsp_sqrt(drive[part]);
         }
     }
+    if (metal_on) metal_wander(t, frames);
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0;
         if (metal_on) {
-            float m = metal(t->metal_phase, spread(t, D8_CY, P_TUNE), &cb_src);
+            float m = metal(t, t->metal_phase, spread(t, D8_CY, P_TUNE), &cb_src);
             low_src = svf_bp(&t->metal_bp1, m, 0);
             high_src = svf_bp(&t->metal_bp2, m, 0);
         }
@@ -820,7 +872,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
                 t->hat_bp[h] = t->metal_bp2;
                 svf_set(&t->hat_bp[h], dsp_min(7100.0f * spread(t, part, P_TUNE), 16000.0f), 6.0f);
             }
-            float m = metal(t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
+            float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
             hat_src[h] = svf_bp(&t->hat_bp[h], m, 0);
         }
         if (t->v[D8_CB].active && t->pot[D8_CB][P_TUNE] != 64) {

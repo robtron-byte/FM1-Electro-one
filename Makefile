@@ -87,7 +87,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab
 
 # Bass drum tail variants for listening: A through the master (old), B dry
 # tail, C with the octave body (current), D plus a sinking pitch.
@@ -97,3 +97,12 @@ kick-ab: host/kick_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@for v in $(KICK_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/kick_ab_$$n host/kick_ab.c $(ENGINE) -lm && \
 	  ./build/kick_ab_$$n build/wav/kick_$$n.wav $${DECAY:-100} && echo "build/wav/kick_$$n.wav"; done
+
+# Metal voices (hats, cymbal, cowbell) for listening: A as now, B wandering
+# oscillators, C open hat with a linear discharge, D both.
+METAL_VARIANTS = A: B:-DTR808_METAL_JITTER=1 C:-DTR808_OH_LINEAR=1 D:-DTR808_METAL_JITTER=1:-DTR808_OH_LINEAR=1
+metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in $(METAL_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/metal_ab_$$n host/metal_ab.c $(ENGINE) -lm && \
+	  ./build/metal_ab_$$n build/wav/metal_$$n.wav && echo "build/wav/metal_$$n.wav"; done
