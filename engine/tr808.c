@@ -858,7 +858,7 @@ static EL_DSP_VOICE float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float
  * dB; CH spectrum / CH envelope / OH spectrum / partials 6-10 kHz):
  * 2.6 / 2.6 / 3.0 / 4.4, model 0: 5.4 / 2.8 / 12.3 / 6.6. */
 #ifndef TR808_HAT_MODEL
-#define TR808_HAT_MODEL 0
+#define TR808_HAT_MODEL 2   /* chosen by ear (D, the X0X / 8W8 structure), docs/adr/0014 */
 #endif
 float tr808_hh_cal[HH_CAL] = {
     /* bp_hz  bp_q  low_mix ch_hz    ch_q  oh_hz   oh_q */
