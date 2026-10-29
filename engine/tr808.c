@@ -725,7 +725,7 @@ float tr808_mx_cal[MX_CAL] = {
  * the VCA's products land on harmonics; 540 / 800 Hz (the 808's nominal
  * values, kept) are 1.48 apart. */
 #ifndef TR808_CB_MODEL
-#define TR808_CB_MODEL 0
+#define TR808_CB_MODEL 1   /* fitted to the real cowbell, chosen by ear, docs/adr/0012 */
 #endif
 float tr808_cb_cal[CB_CAL] = {
     /* bp_hz  bp_q  edge     edge_hz clank   clank_ms body_ms asym     gain */
@@ -845,6 +845,25 @@ static EL_DSP_VOICE float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float
 #define TR808_OH_LINEAR 1      /* chosen by ear (metal-ab D), docs/adr/0009 */
 #endif
 
+/* Hats model 1 (A/B switch TR808_HAT_MODEL, docs/adr/0014): fitted to
+ * the hats of the recordings (808 Basics Kit A, CH hits 17 / 22, OH 8 /
+ * 18). Ours sounded too low: their strongest partials sat at 7.0 kHz
+ * (the cymbal's 7.1 kHz band-pass), the originals' at 8.0-8.5 kHz, and the
+ * originals have far more at 3-6 kHz and (open hat) above 9 kHz. The hats get their own
+ * band-pass, a little of the 3.45 kHz band for their body (the originals
+ * have 10-20 dB more at 3-6 kHz) and their own high-passes. The cymbal
+ * keeps its calibration. Fitted (host/calibration/fit_hats.py): a broad
+ * band-pass 6.4 kHz Q 3.2 plus 39 % of the 3.45 kHz band; CH high-pass
+ * 10.9 kHz Q 1.24, OH 9.4 kHz Q 0.92. Error against the recordings (rms
+ * dB; CH spectrum / CH envelope / OH spectrum / partials 6-10 kHz):
+ * 2.6 / 2.6 / 3.0 / 4.4, model 0: 5.4 / 2.8 / 12.3 / 6.6. */
+#ifndef TR808_HAT_MODEL
+#define TR808_HAT_MODEL 0
+#endif
+float tr808_hh_cal[HH_CAL] = {
+    /* bp_hz  bp_q  low_mix ch_hz    ch_q  oh_hz   oh_q */
+    6373.0f, 3.169f, 0.3871f, 10910.0f, 1.244f, 9418.0f, 0.9215f};
+
 /* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators
  * (no noise), a swing VCA, then a Sallen-Key high-pass, OH 7.8 kHz and
  * CH 11.7 kHz, both Q 2.5. Decay chart: OH 90 / 450 / 600 ms over its
@@ -855,7 +874,11 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         /* TUNE moves the high-pass with the oscillators, the closed hat's half
          * as far (it would leave the audio band); centred as on the 808 */
         float f = spread(t, part, P_TUNE);
-        svf_set(&v->r1, part == D8_CH ? 11700.0f * dsp_sqrt(f) : 7800.0f * f, 2.5f);
+        if (TR808_HAT_MODEL) {
+            const float *h = tr808_hh_cal;
+            if (part == D8_CH) svf_set(&v->r1, h[3] * dsp_sqrt(f), h[4]);
+            else svf_set(&v->r1, h[5] * f, h[6]);
+        } else svf_set(&v->r1, part == D8_CH ? 11700.0f * dsp_sqrt(f) : 7800.0f * f, 2.5f);
         v->aux = 0.5f + 0.5f * v->accent;
     }
     float k = knob(t, part, P_DECAY);
@@ -995,22 +1018,29 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
     }
     if (metal_on) metal_wander(t, frames);
     for (int n = 0; n < frames; ++n) {
-        float low_src = 0, high_src = 0, cb_src = 0;
+        float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0;
         if (metal_on) {
             float m = metal(t, t->metal_phase, spread(t, D8_CY, P_TUNE), &cb_src);
             low_src = svf_bp(&t->metal_bp1, m, 0);
             high_src = svf_bp(&t->metal_bp2, m, 0);
+            if (TR808_HAT_MODEL && (t->v[D8_CH].active || t->v[D8_OH].active)) {
+                const float *h = tr808_hh_cal;
+                if (t->hat_band_hz != h[0]) { t->hat_band_hz = h[0]; svf_set(&t->hat_band, h[0], h[1]); }
+                hat_band = svf_bp(&t->hat_band, m, 0) + h[2] * low_src;
+            }
         }
         /* TUNE of the hats and the cowbell off centre: their oscillators
          * retuned (pitch, not level); they start where the shared bank is. */
         float hat_src[2] = {high_src, high_src};
+        if (TR808_HAT_MODEL) hat_src[0] = hat_src[1] = hat_band;
         for (int h = 0; h < 2; ++h) {
             int part = h ? D8_CH : D8_OH;
             if (!t->v[part].active || t->pot[part][P_TUNE] == 64) continue;
             if (t->v[part].age == 0) {
                 memcpy(t->hat_phase[h], t->metal_phase, sizeof t->metal_phase);
-                t->hat_bp[h] = t->metal_bp2;
-                svf_set(&t->hat_bp[h], dsp_min(7100.0f * spread(t, part, P_TUNE), 16000.0f), 6.0f);
+                t->hat_bp[h] = TR808_HAT_MODEL ? t->hat_band : t->metal_bp2;
+                if (TR808_HAT_MODEL) svf_set(&t->hat_bp[h], dsp_min(tr808_hh_cal[0] * spread(t, part, P_TUNE), 16000.0f), tr808_hh_cal[1]);
+                else svf_set(&t->hat_bp[h], dsp_min(7100.0f * spread(t, part, P_TUNE), 16000.0f), 6.0f);
             }
             float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
             hat_src[h] = svf_bp(&t->hat_bp[h], m, 0);

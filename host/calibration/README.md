@@ -19,6 +19,10 @@ real TR-808 (single hits with digital silence in between).
    then `fit_cowbell.py 800` (or `eval`), against hit 20. Hit 9, which
    `fit_misc.py cb` uses for model 0, is not a cowbell.
 
+6. Hats (model 1): `build/hit_render_hh1` (`-DTR808_HAT_MODEL=1`), then
+   `fit_hats.py 900` (or `eval`); `HH_FIT=1,2,...` limits the fitted
+   indices (e.g. to keep the band-pass fixed).
+
 The hit indices in the scripts belong to the "808 Basics Kit A" recording
 used for the current calibration. The cymbal and snare have their own
 tools (`host/cymbal_check.c` + `host/analyze_cymbal.py`,

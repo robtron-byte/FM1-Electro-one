@@ -1,6 +1,6 @@
 # 0012: Cowbell an die echte Cowbell der Aufnahme angepasst
 
-- **Status:** vorgeschlagen (Hörvergleich `make metal-ab`, Varianten D/E, und `build/wav/cowbell_original_old_new.wav`)
+- **Status:** angenommen (Modell 1, Standard)
 - **Stand:** 2026-10-29
 
 ## Kontext
@@ -15,9 +15,9 @@ Rückmeldung: „Die Cowbell klingt noch falsch.“ Ursache: Die bisherige Cowbe
 
 Das Gerät der Aufnahme läuft 6 % über der 808-Norm (540 / 800 Hz), seine Töne stehen genau 3:2.
 
-## Entscheidung (vorgeschlagen)
+## Entscheidung
 
-Schalter `TR808_CB_MODEL` (Standard 0), Modell 1 (`cowbell_fitted`, `tr808_cb_cal`), angepasst mit `host/calibration/fit_cowbell.py` (gerendert mit TUNE 69, damit die Tonhöhe dem Gerät entspricht):
+Schalter `TR808_CB_MODEL`, **Standard 1**, Modell 1 (`cowbell_fitted`, `tr808_cb_cal`), angepasst mit `host/calibration/fit_cowbell.py` (gerendert mit TUNE 69, damit die Tonhöhe dem Gerät entspricht):
 
 - die beiden Rechtecke durch einen engen Bandpass 1033 Hz, Q 7,1, dazu ein wenig ihrer Flanken (Hochpass 900 Hz);
 - Klank 89 % mit 21 ms Abfall, Körper mit 139 ms; DECAY skaliert beide;
@@ -36,8 +36,10 @@ Fehler gegen die Aufnahme (rms dB; Hüllkurve 5 ms / 20 ms, Spektrum in drei Zei
 ## Folgen
 
 - Der Rest-Fehler bei den Teiltönen kommt vom 3:2-Verhältnis des Aufnahme-Geräts: Dort fallen die Mischprodukte des VCA auf Obertöne, bei 540 / 800 Hz (1,48) knapp daneben.
-- Nach der Wahl: Standard umstellen, Simulator und Testbuild neu bauen.
+- Standard umgestellt; Simulator und Testbuild werden neu gebaut, sobald der Sound fertig ist.
+- Die Cowbell-Aufnahme (573 / 859 Hz) war vermutlich hochgestimmt: Am Becken derselben Aufnahme laufen die Oszillatoren auf Norm (542 / 800 Hz, siehe 0014).
 
 ## Verlauf
 
 - 2026-10-29: angelegt; falscher Referenz-Treffer der alten Kalibrierung gefunden, Modell 1 angepasst
+- 2026-10-29: „Die neue Cowbell ist super“: Standard
