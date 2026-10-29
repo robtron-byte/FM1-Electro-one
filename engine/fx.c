@@ -59,12 +59,12 @@ static inline float delay_read(const int16_t *line, unsigned write, float back)
 /* Non-linear reverb taps: 16 echoes from 20 to 330 ms at nearly flat level,
  * then nothing - the classic gated 80s / electro snare and clap. Positions
  * in half-rate frames, alternating sides. */
-#if !FX_GATE_DENSE
+#if FX_GATE_DENSE == 0
 static const uint16_t gate_taps[16] EL_DSP_DATA = {441, 783, 1102, 1433, 1764, 2117, 2448, 2800,
                                                     3131, 3484, 3815, 4167, 4498, 4851, 5182, 7277};
 static const float gate_gains[16] EL_DSP_DATA = {0.62f, 0.58f, 0.6f, 0.55f, 0.57f, 0.53f, 0.55f, 0.5f,
                                                   0.52f, 0.47f, 0.48f, 0.42f, 0.4f, 0.32f, 0.22f, 0.0f};
-#else
+#elif FX_GATE_DENSE == 1
 /* Dense version: 24 taps from 20 to 322 ms at irregular distances (5-22 ms,
  * no periodic flutter), the sides mixed, about the same total energy. It
  * swells in over the first three taps (no distinct first echo that sounds
@@ -78,6 +78,20 @@ static const float gate_dense_gains[GATE_DENSE_TAPS] EL_DSP_DATA = {
     0.439f, 0.432f, 0.421f, 0.418f, 0.409f, 0.397f, 0.394f, 0.361f, 0.278f, 0.235f, 0.141f, 0.078f};
 static const uint8_t gate_dense_right[GATE_DENSE_TAPS] EL_DSP_DATA = {
     0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
+#else
+/* Gated reverb 2: four lines in the gate buffer (2048 half-rate frames
+ * each; 27.8 / 35.7 / 44.0 / 54.1 ms), Hadamard feedback, a gentle
+ * low-pass in the loop. A hit (fast envelope 3 x above the slow one)
+ * opens the gate for 300 ms (again only after 100 ms); then it closes
+ * over ~13 ms and the loop's feedback goes with it: no tail. */
+enum { GATE_LINE = 2048, GATE_HOLD = 6615, GATE_REFRACT = 2205 };
+static const uint16_t gate_len[4] EL_DSP_DATA = {613, 787, 971, 1193};
+#ifndef FX_GATE_FB
+#define FX_GATE_FB 0.94f
+#endif
+#ifndef FX_GATE_OUT
+#define FX_GATE_OUT 0.57f   /* as loud as variants 0 and 1 */
+#endif
 #endif
 
 /* Reverb lines and diffusers in 16 bit (truncated: symmetric, no DC in
@@ -369,7 +383,10 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         if (!fx->gate_half) {
             float x = fx->gate_acc * 0.5f;
             fx->gate_acc = 0;
-#if FX_GATE_DENSE
+#if FX_GATE_DENSE == 2
+            float in = x;   /* before the diffusers: the gate's onset detector */
+#endif
+#if FX_GATE_DENSE == 1
             /* 10.9 / 9.0 / 7.1 / 5.1 ms: the taps smear into one surface */
             static const unsigned sizes[4] = {241, 199, 157, 113};
             const float k = FX_GATE_K;
@@ -384,14 +401,39 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 x = delayed - k * w;
             }
             fx->gfw = (fx->gfw + 1u) & 255u;
-            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
             float gl = 0, gr = 0;
-#if FX_GATE_DENSE
+#if FX_GATE_DENSE == 2
+            {
+                float a = dsp_abs(in);
+                fx->gate_ef += (a - fx->gate_ef) * 0.045f;    /* ~1 ms */
+                fx->gate_es += (a - fx->gate_es) * 0.0009f;   /* ~50 ms */
+                if (fx->gate_ef > 3.0f * fx->gate_es + 2e-3f && fx->gate_hold + GATE_REFRACT < GATE_HOLD) fx->gate_hold = GATE_HOLD;
+                float target = fx->gate_hold ? 1.0f : 0.0f;
+                if (fx->gate_hold) --fx->gate_hold;
+                fx->gate_gain += (target - fx->gate_gain) * (target > fx->gate_gain ? 0.045f : 0.0035f);
+                int16_t *line = fx->mem.b.gate;
+                unsigned w = fx->gw & (GATE_LINE - 1u);
+                float y[4];
+                for (int i = 0; i < 4; ++i) {
+                    float r = line[i * GATE_LINE + ((w - gate_len[i]) & (GATE_LINE - 1u))] * (1.0f / 8191.0f);
+                    fx->gate_damp[i] += (r - fx->gate_damp[i]) * 0.8f;   /* ~5.6 kHz per pass */
+                    y[i] = fx->gate_damp[i];
+                }
+                float g = 0.5f * FX_GATE_FB * fx->gate_gain;
+                float h[4] = {y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]};
+                for (int i = 0; i < 4; ++i)
+                    line[i * GATE_LINE + w] = (int16_t)(dsp_clamp((i & 1 ? -x : x) + g * h[i], -3.9998f, 3.9998f) * 8191.0f);
+                gl = (y[0] - y[2]) * fx->gate_gain * FX_GATE_OUT;
+                gr = (y[1] - y[3]) * fx->gate_gain * FX_GATE_OUT;
+            }
+#elif FX_GATE_DENSE == 1
+            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
             for (int t = 0; t < GATE_DENSE_TAPS; ++t) {
                 float s = gate_read(fx->mem.b.gate, fx->gw, gate_dense_taps[t]) * gate_dense_gains[t];
                 if (gate_dense_right[t]) gr += s; else gl += s;
             }
 #else
+            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
             for (int t = 0; t < 15; ++t) {
                 float s = gate_read(fx->mem.b.gate, fx->gw, gate_taps[t]) * gate_gains[t];
                 if (t & 1) gr += s; else gl += s;
@@ -433,6 +475,9 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         memset(fx->mem.b.gate, 0, sizeof fx->mem.b.gate);
         memset(fx->gate_diff, 0, sizeof fx->gate_diff);
         fx->gate_hp[0] = fx->gate_acc = fx->gate_lp[0] = fx->gate_lp[1] = 0;
+        fx->gate_ef = fx->gate_es = fx->gate_gain = 0;
+        fx->gate_hold = 0;
+        for (int i = 0; i < 4; ++i) fx->gate_damp[i] = 0;
     }
 }
 

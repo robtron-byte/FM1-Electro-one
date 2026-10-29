@@ -119,11 +119,12 @@ clap-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/clap_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
 	  ./build/clap_ab_$$n build/wav/clap_$$n.wav && echo "build/wav/clap_$$n.wav"; done
 
-# Gated reverb for listening (docs/adr/0013): clap D with the factory
-# grooves' send (56), the reverb as before (A) and dense (B), plus dry.
+# Gated reverb for listening (docs/adr/0013): clap D with a reverb send of
+# 56 (the old factory value), the reverb as before (A), dense taps (B), a
+# gated feedback network (C), plus dry.
 gate-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
-	@for v in A:-DFX_GATE_DENSE=0 B:-DFX_GATE_DENSE=1; do n=$${v%%:*}; f=$${v#*:}; \
+	@for v in A:-DFX_GATE_DENSE=0 B:-DFX_GATE_DENSE=1 C:-DFX_GATE_DENSE=2; do n=$${v%%:*}; f=$${v#*:}; \
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/gate_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
-	  ./build/gate_ab_$$n build/wav/gate_$$n.wav && echo "build/wav/gate_$$n.wav"; done
+	  ./build/gate_ab_$$n build/wav/gate_$$n.wav 56 && echo "build/wav/gate_$$n.wav"; done
 	@./build/gate_ab_A build/wav/gate_dry.wav 0 && echo "build/wav/gate_dry.wav"

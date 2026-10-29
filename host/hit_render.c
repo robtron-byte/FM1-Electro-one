@@ -33,6 +33,7 @@ int main(int argc, char **argv)
         else if (!strncmp(argv[i], "cp=", 3)) set_cal(tr808_cp_cal, CP_CAL, argv[i] + 3);
         else if (!strncmp(argv[i], "cb=", 3)) set_cal(tr808_cb_cal, CB_CAL, argv[i] + 3);
         else if (!strncmp(argv[i], "hh=", 3)) set_cal(tr808_hh_cal, HH_CAL, argv[i] + 3);
+        else if (!strncmp(argv[i], "h2=", 3)) set_cal(tr808_hh2_cal, HH2_CAL, argv[i] + 3);
         else if (argv[i][0] == 'k') { int p, v; if (sscanf(argv[i] + 1, "%d=%d", &p, &v) == 2) tr808_set(&t, D8_KIT, p, v); }
         else { int p, v; if (sscanf(argv[i], "%d=%d", &p, &v) == 2) tr808_set(&t, part, p, v); }
     }

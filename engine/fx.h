@@ -24,11 +24,12 @@ enum fx_param { FX_DELAY_DIV, FX_DELAY_FB, FX_DELAY_TONE, FX_DELAY_RETURN,
 
 /* Gated reverb (A/B switch, docs/adr/0013): 0 = 15 taps about 15 ms apart
  * behind two short diffusers (audible as a flutter on claps); 1 = dense:
- * 24 taps at irregular distances behind four longer diffusers. */
+ * 24 taps at irregular distances behind four longer diffusers; 2 = a real
+ * reverb (four-line feedback network) cut by a gate, as the 80s did it. */
 #ifndef FX_GATE_DENSE
 #define FX_GATE_DENSE 0
 #endif
-#define FX_GATE_DIFFS (FX_GATE_DENSE ? 4 : 2)
+#define FX_GATE_DIFFS (FX_GATE_DENSE == 1 ? 4 : 2)
 #ifndef FX_GATE_K
 #define FX_GATE_K 0.7f    /* dense diffusers' coefficient */
 #endif
@@ -69,6 +70,8 @@ typedef struct {
     uint8_t half;          /* frame within the delay's third-rate step (0..2) */
     float acc[2], lp[2], last[2], time, damp[4], lfo[4];
     float rev_hp[2], dly_hp[2], gate_hp[2], gate_acc, gate_lp[2];
+    float gate_ef, gate_es, gate_gain, gate_damp[4];   /* FX_GATE_DENSE 2: onset, gate, loop damping */
+    uint16_t gate_hold;
     unsigned gw, gfw;
     uint8_t gate_half;
     /* Delay, reverb, gated reverb asleep: input silent and output below

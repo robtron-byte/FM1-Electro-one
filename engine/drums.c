@@ -18,16 +18,16 @@ enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
 typedef struct { uint8_t part, param, value; } dr_kit_entry_t;
 enum { DR_KIT_ENTRIES = 16 };
 static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
-    /* TR-808: stock, a touch of gated reverb on the clap. */
-    {{D8_CP, 5, 24}, {255, 0, 0}},
+    /* TR-808: stock. The clap stays dry in every kit (docs/adr/0013). */
+    {{255, 0, 0}},
     /* ELECTRO (Anthony Rother style): longer kick with a little drive,
-     * snappy snare and clap in the non-linear reverb, tight hats. */
+     * snappy snare in the non-linear reverb, tight hats. */
     {{D8_BD, 2, 82}, {D8_BD, 3, 42}, {D8_BD, 7, 14}, {D8_SD, 2, 72}, {D8_SD, 3, 88}, {D8_SD, 6, 44},
-     {D8_CP, 0, 108}, {D8_CP, 5, 56}, {D8_CH, 2, 52}, {D8_OH, 1, 34}, {D8_CB, 0, 84}, {D8_RS, 0, 92},
+     {D8_CP, 0, 108}, {D8_CH, 2, 52}, {D8_OH, 1, 34}, {D8_CB, 0, 84}, {D8_RS, 0, 92},
      {D8_RS, 5, 30}, {D8_KIT, 1, 110}, {255, 0, 0}},
     /* MIAMI: booming long kick, a bit lower and driven, darker snare. */
     {{D8_BD, 1, 58}, {D8_BD, 2, 116}, {D8_BD, 0, 112}, {D8_BD, 7, 28}, {D8_BD, 3, 30},
-     {D8_SD, 2, 40}, {D8_SD, 3, 76}, {D8_CP, 5, 40}, {D8_CH, 2, 44}, {255, 0, 0}},
+     {D8_SD, 2, 40}, {D8_SD, 3, 76}, {D8_CH, 2, 44}, {255, 0, 0}},
     /* KRAFT: short clicky kick, high tight snare, claves, darker cymbal. */
     {{D8_BD, 2, 34}, {D8_BD, 3, 86}, {D8_SD, 1, 74}, {D8_SD, 2, 84}, {D8_SD, 3, 52}, {D8_SD, 6, 52},
      {D8_RS, 3, 1}, {D8_CH, 2, 40}, {D8_CY, 1, 34}, {D8_CB, 1, 70}, {D8_KIT, 2, 1}, {255, 0, 0}},

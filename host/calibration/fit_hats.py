@@ -12,7 +12,8 @@ from scipy.optimize import minimize
 SR = 44100
 KIT = os.environ['KIT_WAV']; SEG = os.environ['KIT_SEG']; R = os.environ.get('HIT_RENDER', 'build/hit_render_hh1')
 CAL = [6373, 3.169, 0.3871, 10910, 1.244, 9418, 0.9215]
-FIT = [int(i) for i in os.environ.get("HH_FIT", "0,1,2,3,4,5,6").split(",")]
+if os.environ.get('HH_MODEL') == '2': CAL = [2.0, 1.0]
+FIT = [int(i) for i in os.environ.get("HH_FIT", "0,1" if os.environ.get('HH_MODEL') == '2' else "0,1,2,3,4,5,6").split(",")]
 EDGES = np.arange(3000, 17001, 500)
 
 def load_ref(i, d):
@@ -39,9 +40,11 @@ def env(x, ms, dur):
 REF_CH = [(profile(load_ref(i, 0.06)), env(load_ref(i, 0.1), 5, 100), fine(load_ref(i, 0.06))) for i in (17, 22)]
 REF_OH = [(profile(load_ref(i, 0.25)), fine(load_ref(i, 0.25))) for i in (8, 18)]
 
+MODEL2 = os.environ.get('HH_MODEL') == '2'   # fit tr808_hh2_cal (envelope length, gain) instead
 def render(part, cal, d):
     p = f'build/calibration/hh_fit{part}.raw'
-    subprocess.run([R, p, str(part), '0.66', str(d), 'hh=' + ','.join(f'{v:.6g}' for v in cal)], check=True)
+    key = 'h2=' if MODEL2 else 'hh='
+    subprocess.run([R, p, str(part), '0.66', str(d), key + ','.join(f'{v:.6g}' for v in cal)], check=True)
     o = np.fromfile(p, dtype=np.float32).astype(float); on = int(np.argmax(np.abs(o) > 0.01 * np.abs(o).max())); return o[on:]
 
 def score(cal, detail=False):
@@ -63,7 +66,7 @@ if __name__ == '__main__':
     def f(z):
         c = list(CAL)
         for a, i in enumerate(FIT): c[i] = float(np.exp(z[a]))
-        if max(c[0], c[3], c[5]) > 19000 or c[2] > 3 or min(c[1], c[4], c[6]) < 0.3: return 1e6
+        if not MODEL2 and (max(c[0], c[3], c[5]) > 19000 or c[2] > 3 or min(c[1], c[4], c[6]) < 0.3): return 1e6
         s = score(c)
         if s < best[0]: best[0] = s; best[1] = c
         return s

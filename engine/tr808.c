@@ -864,6 +864,46 @@ float tr808_hh_cal[HH_CAL] = {
     /* bp_hz  bp_q  low_mix ch_hz    ch_q  oh_hz   oh_q */
     6373.0f, 3.169f, 0.3871f, 10910.0f, 1.244f, 9418.0f, 0.9215f};
 
+/* Hats model 2 (TR808_HAT_MODEL 2, docs/adr/0014): the structure of the
+ * 8W8 engine's hats (as ported in X0X-RMX), own implementation. No band-
+ * pass: the raw sum of the six oscillators is differentiated twice (+12 dB
+ * per octave, every partial takes part), goes through the VCA with its
+ * diode knee (nothing below ~0.6 V), two Sallen-Key high-passes (CH 5.2
+ * and 2.7 kHz, OH 6.2 and 5.2 kHz), a low-pass (CH one pole ~10.5 kHz, OH
+ * five poles ~5.9 kHz) and a 200 Hz DC block. Envelopes as ours. */
+/* Times as 8W8 at its default knobs: CH falls with 42.5 ms (half its
+ * 85 ms decay; the knee ends it), OH rises over ~6 ms, holds 30 % of
+ * 0.44 s and falls linearly over the rest. DECAY scales them. Gains: as
+ * loud as model 0 (CH over 50 ms, OH over 200 ms). */
+float tr808_hh2_cal[HH2_CAL] = {0.000869221f, 0.0625397f};
+static inline EL_DSP_HELPER float knee_gate(float e)
+{
+    float over = e - 0.59f;
+    if (over <= 0.0f) return 0.0f;
+    return over < 1.2f ? over * over * (1.0f / 2.4f) : over - 0.6f;
+}
+static EL_DSP_HELPER float hat_chain(tr_voice_t *v, int part, float bus, float env)
+{
+    float t1 = bus - v->lag1;
+    v->lag1 = bus;
+    float d = (t1 - v->lag2) * 30.0f;
+    v->lag2 = t1;
+    float s = svf_hp(&v->r3, svf_hp(&v->r2, d * knee_gate(env)));
+    if (part == D8_CH) {
+        v->lp1 += (s - v->lp1) * 0.776f;
+        s = v->lp1;
+    } else {
+        v->lp1 += (s - v->lp1) * 0.5686f; v->pink[0] += (v->lp1 - v->pink[0]) * 0.5686f;
+        v->pink[1] += (v->pink[0] - v->pink[1]) * 0.5686f; v->pink[2] += (v->pink[1] - v->pink[2]) * 0.5686f;
+        v->hp1 += (v->pink[2] - v->hp1) * 0.5686f;
+        s = v->hp1;
+    }
+    s *= part == D8_CH ? 8.0f : 5.0f;
+    float o = 0.9719f * (v->dc_y + s - v->dc_x);   /* DC block 200 Hz */
+    v->dc_x = s; v->dc_y = o;
+    return o;
+}
+
 /* Hats (Service Notes p.6/13): the 7.1 kHz band of the six oscillators
  * (no noise), a swing VCA, then a Sallen-Key high-pass, OH 7.8 kHz and
  * CH 11.7 kHz, both Q 2.5. Decay chart: OH 90 / 450 / 600 ms over its
@@ -874,7 +914,11 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         /* TUNE moves the high-pass with the oscillators, the closed hat's half
          * as far (it would leave the audio band); centred as on the 808 */
         float f = spread(t, part, P_TUNE);
-        if (TR808_HAT_MODEL) {
+        if (TR808_HAT_MODEL == 2) {
+            float g = dsp_sqrt(f);   /* TUNE moves the filters with the oscillators, as model 0 */
+            if (part == D8_CH) { svf_set(&v->r2, 5200.0f * g, 1.6f); svf_set(&v->r3, 2700.0f * g, 0.75f); }
+            else { svf_set(&v->r2, 6200.0f * g, 0.9f); svf_set(&v->r3, 5200.0f * g, 0.8f); }
+        } else if (TR808_HAT_MODEL) {
             const float *h = tr808_hh_cal;
             if (part == D8_CH) svf_set(&v->r1, h[3] * dsp_sqrt(f), h[4]);
             else svf_set(&v->r1, h[5] * f, h[6]);
@@ -888,16 +932,23 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
          * at a nearly constant current: the level holds for the first
          * third, then falls in a straight line. Length 1.8 x the chart
          * time: as long to -20 dB as the exponential decay. */
-        float len = 1.8f * MS(decay);
+        float len = TR808_HAT_MODEL == 2 ? MS(442.0f) * spread(t, part, P_DECAY) : 1.8f * MS(decay);
         if (v->age >= (uint32_t)(0.3f * len)) {
             if (decay != v->memo[0].x) { v->memo[0].x = decay; v->memo[0].y = 1.0f / (0.7f * len); }
             v->env = dsp_max(0.0f, v->env - v->memo[0].y);
         }
-    } else v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
+    } else if (TR808_HAT_MODEL == 2) v->env *= m_decay(&v->memo[0], MS(42.5f) * spread(t, part, P_DECAY));
+    else v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
     if (v->aux2 > 0) v->env *= m_decay(&v->memo[1], MS(7.0f));    /* choked by the other hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
-    float y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
-    if (part == D8_OH) {                         /* open hat: a little more top end */
+    float y;
+    if (TR808_HAT_MODEL == 2) {
+        if (v->age == 0) { v->lag1 = src; v->lag2 = 0; }   /* the bank may have jumped while idle */
+        /* trigger 4 V, accented up to 7.3 V (8W8's range) */
+        if (part == D8_OH) attack = 1.0f - m_exp(&v->memo[2], -(float)v->age / MS(6.0f));
+        y = hat_chain(v, part, src, (4.0f + 3.3f * v->accent) * v->env * attack) * tr808_hh2_cal[part == D8_OH];
+    } else y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
+    if (TR808_HAT_MODEL != 2 && part == D8_OH) { /* open hat: a little more top end */
         v->out_lp += (y - v->out_lp) * 0.7277f;  /* ~9 kHz */
         y += tr808_mx_cal[9] * (y - v->out_lp);
     }
@@ -1018,12 +1069,13 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
     }
     if (metal_on) metal_wander(t, frames);
     for (int n = 0; n < frames; ++n) {
-        float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0;
+        float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0, raw = 0;
         if (metal_on) {
             float m = metal(t, t->metal_phase, spread(t, D8_CY, P_TUNE), &cb_src);
+            raw = m * 0.714f;   /* the six squares' sum at 8W8's scale (hats model 2) */
             low_src = svf_bp(&t->metal_bp1, m, 0);
             high_src = svf_bp(&t->metal_bp2, m, 0);
-            if (TR808_HAT_MODEL && (t->v[D8_CH].active || t->v[D8_OH].active)) {
+            if (TR808_HAT_MODEL == 1 && (t->v[D8_CH].active || t->v[D8_OH].active)) {
                 const float *h = tr808_hh_cal;
                 if (t->hat_band_hz != h[0]) { t->hat_band_hz = h[0]; svf_set(&t->hat_band, h[0], h[1]); }
                 hat_band = svf_bp(&t->hat_band, m, 0) + h[2] * low_src;
@@ -1032,7 +1084,8 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         /* TUNE of the hats and the cowbell off centre: their oscillators
          * retuned (pitch, not level); they start where the shared bank is. */
         float hat_src[2] = {high_src, high_src};
-        if (TR808_HAT_MODEL) hat_src[0] = hat_src[1] = hat_band;
+        if (TR808_HAT_MODEL == 2) hat_src[0] = hat_src[1] = raw;
+        else if (TR808_HAT_MODEL) hat_src[0] = hat_src[1] = hat_band;
         for (int h = 0; h < 2; ++h) {
             int part = h ? D8_CH : D8_OH;
             if (!t->v[part].active || t->pot[part][P_TUNE] == 64) continue;
@@ -1043,7 +1096,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
                 else svf_set(&t->hat_bp[h], dsp_min(7100.0f * spread(t, part, P_TUNE), 16000.0f), 6.0f);
             }
             float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
-            hat_src[h] = svf_bp(&t->hat_bp[h], m, 0);
+            hat_src[h] = TR808_HAT_MODEL == 2 ? m * 0.714f : svf_bp(&t->hat_bp[h], m, 0);
         }
         if (t->v[D8_CB].active && t->pot[D8_CB][P_TUNE] != 64) {
             if (t->v[D8_CB].age == 0) memcpy(t->cb_phase, t->metal_phase + 4, sizeof t->cb_phase);
