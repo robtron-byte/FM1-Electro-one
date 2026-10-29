@@ -1054,8 +1054,55 @@ static EL_DSP_HELPER float zap_perc(tr808_t *t, tr_voice_t *v)
     return dsp_tanh((y + spit) * 1.3f) * v->env * attack * (0.35f + 0.65f * v->volts);
 }
 
+/* Zap model 2: the classic electro zaps. The pitch falls audibly
+ * ("piuuu", Sweep sets how long), Tone morphs through the classics:
+ *   0     Syndrum: a clean sine;
+ *   ~0.5  SH-101 laser: a square through a resonant low-pass that falls
+ *         with the pitch (the chirp);
+ *   ~1    arcade laser: plus a fast pitch flutter (35 Hz) and a little
+ *         noise at the hit.
+ * Tune = start pitch, Depth = octaves it falls, Decay = length. */
+static EL_DSP_HELPER float zap_electro(tr808_t *t, tr_voice_t *v)
+{
+    const int part = D8_ZP;
+    if (v->age == 0) {
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
+        v->pitch = 1.0f;
+        v->aux2 = 0.0f;     /* flutter phase */
+        v->lag2 = 1.0f;     /* noise at the hit */
+    }
+    float tone = knob(t, part, P_TONE);
+    float sweep = 5.0f * m_exp2(&v->memo[0], 6.3f * knob(t, part, P_SNAPPY));            /* ms */
+    float depth = 7.0f * knob(t, part, P_SOUND);                               /* octaves */
+    v->pitch *= m_decay(&v->memo[1], MS(sweep));
+    float hz = v->aux * dsp_exp2(-depth * (1.0f - v->pitch));
+    float buzz = dsp_clamp((tone - 0.6f) * 2.5f, 0.0f, 1.0f);
+    v->aux2 += 35.0f * (1.0f / EL_SAMPLE_RATE);
+    if (v->aux2 >= 1.0f) v->aux2 -= 1.0f;
+    hz *= 1.0f + 0.12f * buzz * dsp_sin(2.0f * DSP_PI * v->aux2);
+    hz = dsp_min(hz, 16000.0f);
+    float dt = hz * (1.0f / EL_SAMPLE_RATE);
+    v->out_lp += dt;
+    if (v->out_lp >= 1.0f) v->out_lp -= 1.0f;
+    float sine = dsp_sin(2.0f * DSP_PI * v->out_lp);
+    float sq = (v->out_lp < 0.5f ? 1.0f : -1.0f) + blep(v->out_lp, dt) - blep(v->out_lp < 0.5f ? v->out_lp + 0.5f : v->out_lp - 0.5f, dt);
+    float w = dsp_clamp(tone * 2.0f, 0.0f, 1.0f);   /* sine -> filtered square */
+    if ((v->age & 7u) == 0) svf_set(&v->r1, dsp_min(hz * (1.5f + 3.0f * tone), 16000.0f), 0.7f + 6.0f * w * (1.0f - 0.5f * buzz));
+    float lowpass;
+    svf_bp(&v->r1, 0.6f * sq, &lowpass);
+    float y = sine * (1.0f - w) + lowpass * w * (2.0f / (1.0f + 2.0f * w));
+    v->lag2 *= 0.9962f;                                   /* ~6 ms */
+    y += t->noise_now * 0.35f * buzz * v->lag2;
+    float decay = 20.0f * m_exp2(&v->memo[2], 5.3f * knob(t, part, P_DECAY));   /* ms */
+    v->env *= m_decay(&v->memo[3], MS(decay));
+    float attack = dsp_min(1.0f, (float)v->age / MS(0.3f));
+    if (v->env < 1e-4f) v->active = 0;
+    return dsp_tanh(y * 1.2f) * v->env * attack * (0.35f + 0.65f * v->volts);
+}
+
 static EL_DSP_VOICE float zap(tr808_t *t, tr_voice_t *v)
 {
+    if (TR808_ZP_MODEL == 2) return zap_electro(t, v);
     if (TR808_ZP_MODEL) return zap_perc(t, v);
     const int part = D8_ZP;
     if (v->age == 0) {

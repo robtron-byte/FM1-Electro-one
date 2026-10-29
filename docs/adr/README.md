@@ -22,6 +22,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0014](0014-hats.md) | Hi-Hats in X0X-/8W8-Bauweise (Variante D) | angenommen | 2026-10-29 |
 | [0015](0015-snare.md) | Snare: A bleibt, Körper länger | angenommen | 2026-10-29 |
 | [0016](0016-drum-tonart.md) | Drum-Tonart: tonale Drums auf eine Tonart gestimmt | angenommen | 2026-10-29 |
-| [0017](0017-zap.md) | Zap perkussiv statt tonal | **vorgeschlagen** | 2026-10-29 |
+| [0017](0017-zap.md) | Zap: typische Electro-Zaps | **vorgeschlagen** | 2026-10-29 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.
