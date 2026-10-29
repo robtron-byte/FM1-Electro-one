@@ -27,7 +27,7 @@ enum fx_param { FX_DELAY_DIV, FX_DELAY_FB, FX_DELAY_TONE, FX_DELAY_RETURN,
  * 24 taps at irregular distances behind four longer diffusers; 2 = a real
  * reverb (four-line feedback network) cut by a gate, as the 80s did it. */
 #ifndef FX_GATE_DENSE
-#define FX_GATE_DENSE 0
+#define FX_GATE_DENSE 2   /* chosen by ear (gate-ab C), docs/adr/0013 */
 #endif
 #define FX_GATE_DIFFS (FX_GATE_DENSE == 1 ? 4 : 2)
 #ifndef FX_GATE_K

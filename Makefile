@@ -121,7 +121,7 @@ clap-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 
 # Gated reverb for listening (docs/adr/0013): clap D with a reverb send of
 # 56 (the old factory value), the reverb as before (A), dense taps (B), a
-# gated feedback network (C), plus dry.
+# gated feedback network (C, the default), plus dry.
 gate-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
 	@for v in A:-DFX_GATE_DENSE=0 B:-DFX_GATE_DENSE=1 C:-DFX_GATE_DENSE=2; do n=$${v%%:*}; f=$${v#*:}; \
