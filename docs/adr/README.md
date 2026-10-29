@@ -13,10 +13,11 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0005](0005-codegroesse.md) | Codegröße: Mathe-Helfer und 808-Stimmen ausgelagert | angenommen | 2026-10-26 |
 | [0006](0006-808-modell-und-fremde-ideen.md) | 808: eigenes kalibriertes Modell, fremde Ideen nur als eigene Umsetzung | angenommen | 2026-10-29 |
 | [0007](0007-bass-mono.md) | BASS einstimmig und mono | angenommen | 2026-10-26 |
-| [0008](0008-clap.md) | Clap: Ausklang nach dem Original (gefittete Variante D) | **vorgeschlagen** | 2026-10-29 |
+| [0008](0008-clap.md) | Clap: Ausklang nach dem Original (gefittete Variante D) | angenommen | 2026-10-29 |
 | [0009](0009-808-metall.md) | 808-Metall: wandernde Oszillatoren, linearer Open Hat (Variante D) | angenommen | 2026-10-29 |
 | [0010](0010-bd-ausklang.md) | Bassdrum-Ausklang: Oktav-Körper (Variante C) | angenommen | 2026-10-26 |
 | [0011](0011-live-effekte.md) | Live-Effekte auf den schwarzen Tasten 5–11 | angenommen | 2026-10-26 |
 | [0012](0012-cowbell.md) | Cowbell an die echte Cowbell der Aufnahme angepasst | **vorgeschlagen** | 2026-10-29 |
+| [0013](0013-gated-reverb.md) | Gated Reverb dicht statt flatternd | **vorgeschlagen** | 2026-10-29 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

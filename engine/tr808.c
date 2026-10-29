@@ -507,7 +507,7 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
  * Model 2: half-wave rectified noise (the VCA transistor conducts one
  * polarity), band-pass 874 Hz Q 1.29, high-pass 720 Hz. */
 #ifndef TR808_CP_MODEL
-#define TR808_CP_MODEL 0
+#define TR808_CP_MODEL 3   /* chosen by ear (fitted model D), docs/adr/0008 */
 #endif
 #ifndef TR808_CP_GAIN1
 #define TR808_CP_GAIN1 1.33f

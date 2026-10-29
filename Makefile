@@ -87,7 +87,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab
 
 # Bass drum tail variants for listening: A through the master (old), B dry
 # tail, C with the octave body (current), D plus a sinking pitch.
@@ -111,10 +111,19 @@ metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
 
 # Hand clap for listening (docs/adr/0008): A as before, B the circuit's
 # envelope, C also the circuit's filter and rectified noise, D fitted to
-# the recordings (host/calibration/fit_clap.py).
-CLAP_VARIANTS = A: B:-DTR808_CP_MODEL=1 C:-DTR808_CP_MODEL=2 D:-DTR808_CP_MODEL=3
+# the recordings (host/calibration/fit_clap.py; the default).
+CLAP_VARIANTS = A:-DTR808_CP_MODEL=0 B:-DTR808_CP_MODEL=1 C:-DTR808_CP_MODEL=2 D:-DTR808_CP_MODEL=3
 clap-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
 	@for v in $(CLAP_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/clap_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
 	  ./build/clap_ab_$$n build/wav/clap_$$n.wav && echo "build/wav/clap_$$n.wav"; done
+
+# Gated reverb for listening (docs/adr/0013): clap D with the factory
+# grooves' send (56), the reverb as before (A) and dense (B), plus dry.
+gate-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in A:-DFX_GATE_DENSE=0 B:-DFX_GATE_DENSE=1; do n=$${v%%:*}; f=$${v#*:}; \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/gate_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
+	  ./build/gate_ab_$$n build/wav/gate_$$n.wav && echo "build/wav/gate_$$n.wav"; done
+	@./build/gate_ab_A build/wav/gate_dry.wav 0 && echo "build/wav/gate_dry.wav"

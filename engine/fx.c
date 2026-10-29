@@ -59,10 +59,26 @@ static inline float delay_read(const int16_t *line, unsigned write, float back)
 /* Non-linear reverb taps: 16 echoes from 20 to 330 ms at nearly flat level,
  * then nothing - the classic gated 80s / electro snare and clap. Positions
  * in half-rate frames, alternating sides. */
+#if !FX_GATE_DENSE
 static const uint16_t gate_taps[16] EL_DSP_DATA = {441, 783, 1102, 1433, 1764, 2117, 2448, 2800,
                                                     3131, 3484, 3815, 4167, 4498, 4851, 5182, 7277};
 static const float gate_gains[16] EL_DSP_DATA = {0.62f, 0.58f, 0.6f, 0.55f, 0.57f, 0.53f, 0.55f, 0.5f,
                                                   0.52f, 0.47f, 0.48f, 0.42f, 0.4f, 0.32f, 0.22f, 0.0f};
+#else
+/* Dense version: 24 taps from 20 to 322 ms at irregular distances (5-22 ms,
+ * no periodic flutter), the sides mixed, about the same total energy. It
+ * swells in over the first three taps (no distinct first echo that sounds
+ * like a second clap) and falls over the last fifth, then the gate. */
+enum { GATE_DENSE_TAPS = 24 };
+static const uint16_t gate_dense_taps[GATE_DENSE_TAPS] EL_DSP_DATA = {
+    441, 701, 1053, 1358, 1586, 1985, 2120, 2435, 2754, 2991, 3344, 3688,
+    3808, 4110, 4552, 4683, 4987, 5461, 5589, 5892, 6246, 6428, 6830, 7100};
+static const float gate_dense_gains[GATE_DENSE_TAPS] EL_DSP_DATA = {
+    0.171f, 0.29f, 0.404f, 0.5f, 0.495f, 0.485f, 0.482f, 0.475f, 0.466f, 0.461f, 0.451f, 0.442f,
+    0.439f, 0.432f, 0.421f, 0.418f, 0.409f, 0.397f, 0.394f, 0.361f, 0.278f, 0.235f, 0.141f, 0.078f};
+static const uint8_t gate_dense_right[GATE_DENSE_TAPS] EL_DSP_DATA = {
+    0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
+#endif
 
 /* Reverb lines and diffusers in 16 bit (truncated: symmetric, no DC in
  * the loops), with headroom. */
@@ -353,20 +369,34 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         if (!fx->gate_half) {
             float x = fx->gate_acc * 0.5f;
             fx->gate_acc = 0;
+#if FX_GATE_DENSE
+            /* 10.9 / 9.0 / 7.1 / 5.1 ms: the taps smear into one surface */
+            static const unsigned sizes[4] = {241, 199, 157, 113};
+            const float k = FX_GATE_K;
+#else
             static const unsigned sizes[2] = {142, 107};
-            for (int d = 0; d < 2; ++d) {
+            const float k = 0.6f;
+#endif
+            for (int d = 0; d < FX_GATE_DIFFS; ++d) {
                 float delayed = fx->gate_diff[d][(fx->gfw - sizes[d]) & 255u] * (1.0f / FX_LINE_SCALE);
-                float w = x + 0.6f * delayed;
+                float w = x + k * delayed;
                 fx->gate_diff[d][fx->gfw & 255u] = line_store(w);
-                x = delayed - 0.6f * w;
+                x = delayed - k * w;
             }
             fx->gfw = (fx->gfw + 1u) & 255u;
             fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
             float gl = 0, gr = 0;
+#if FX_GATE_DENSE
+            for (int t = 0; t < GATE_DENSE_TAPS; ++t) {
+                float s = gate_read(fx->mem.b.gate, fx->gw, gate_dense_taps[t]) * gate_dense_gains[t];
+                if (gate_dense_right[t]) gr += s; else gl += s;
+            }
+#else
             for (int t = 0; t < 15; ++t) {
                 float s = gate_read(fx->mem.b.gate, fx->gw, gate_taps[t]) * gate_gains[t];
                 if (t & 1) gr += s; else gl += s;
             }
+#endif
             fx->gw = (fx->gw + 1u) % FX_GATE_CAP;
             /* Gentle low-pass (about 9 kHz at the half rate) on the return. */
             fx->gate_lp[0] += (gl - fx->gate_lp[0]) * 0.7f;

@@ -22,6 +22,17 @@ enum fx_param { FX_DELAY_DIV, FX_DELAY_FB, FX_DELAY_TONE, FX_DELAY_RETURN,
                 FX_DIST_MODE, FX_DIST_DRIVE, FX_DIST_TONE,
                 FX_DIST_SEND_BEAT, FX_DIST_SEND_RHYTHM, FX_DIST_SEND_STRINGS, FX_DIST_SEND_BASS, FX_PARAMS };
 
+/* Gated reverb (A/B switch, docs/adr/0013): 0 = 15 taps about 15 ms apart
+ * behind two short diffusers (audible as a flutter on claps); 1 = dense:
+ * 24 taps at irregular distances behind four longer diffusers. */
+#ifndef FX_GATE_DENSE
+#define FX_GATE_DENSE 0
+#endif
+#define FX_GATE_DIFFS (FX_GATE_DENSE ? 4 : 2)
+#ifndef FX_GATE_K
+#define FX_GATE_K 0.7f    /* dense diffusers' coefficient */
+#endif
+
 /* The buffers of delay, hall and gated reverb. During a reverb throw
  * (the punch-in) the whole area is the big hall's memory: all three are
  * silent then, and it is cleared before and after. */
@@ -52,7 +63,7 @@ typedef struct {
 
 typedef struct {
     fx_memory_t mem;
-    int16_t gate_diff[2][256];   /* at FX_LINE_SCALE */
+    int16_t gate_diff[FX_GATE_DIFFS][256];   /* at FX_LINE_SCALE */
     uint8_t v[FX_PARAMS];
     unsigned dw, rw, fw;
     uint8_t half;          /* frame within the delay's third-rate step (0..2) */
