@@ -5,3 +5,4 @@
 - **Fremden Code** anderer Firmwares nur lesen und Ideen selbst umsetzen (Lizenz: GPL-3.0-only mit Linking-Exception).
 - Dokumentation und Records auf Deutsch.
 - Nach Änderungen am Gerätecode: `make test`; wenn Standards umgestellt werden, den Testbuild in `firmware/` neu packen (`tools/package_fm1.py`, siehe `docs/adr/0003`).
+- **Vor jedem Testbuild in `firmware/`** zusätzlich `tools/fm1-emu/check.sh` (Hardware-Prüfung im Emulator, `docs/adr/0018`). Keine Float-Division, deren Nenner 0 werden kann: der Compiler rechnet bewachte Divisionen vor ihrem Test aus.

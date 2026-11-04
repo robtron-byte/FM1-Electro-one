@@ -1,0 +1,401 @@
+diff --git a/crates/fm1-core/src/lib.rs b/crates/fm1-core/src/lib.rs
+index 13da134..20daceb 100644
+--- a/crates/fm1-core/src/lib.rs
++++ b/crates/fm1-core/src/lib.rs
+@@ -1705,7 +1705,9 @@ impl Cpu {
+             }
+             Fast::Div { d, a, b, k } => {
+                 let (a, b) = (self.regs[(a & 15) as usize], self.regs[(b & 15) as usize]);
++                DIVS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 self.regs[(d & 15) as usize] = if b == 0 {
++                    div0_note(self.pc);
+                     0
+                 } else {
+                     match k {
+@@ -2375,10 +2377,10 @@ impl Cpu {
+                     "|" => a | b,
+                     "^" => a ^ b,
+                     "*" => a.wrapping_mul(b),
+-                    "/" if s.ends_with("(s)") => if b == 0 { 0 } else { (a as i32).wrapping_div(b as i32) as u32 },
+-                    "/" => if b == 0 { 0 } else { a / b },
+-                    _ if s.ends_with("(s)") => if b == 0 { 0 } else { (a as i32).wrapping_rem(b as i32) as u32 },
+-                    _ => if b == 0 { 0 } else { a % b },
++                    "/" if s.ends_with("(s)") => if b == 0 { div0_note(self.pc); 0 } else { (a as i32).wrapping_div(b as i32) as u32 },
++                    "/" => if b == 0 { div0_note(self.pc); 0 } else { a / b },
++                    _ if s.ends_with("(s)") => if b == 0 { div0_note(self.pc); 0 } else { (a as i32).wrapping_rem(b as i32) as u32 },
++                    _ => if b == 0 { div0_note(self.pc); 0 } else { a % b },
+                 };
+             }
+             "R += #i" | "R -= #i" | "R |= #i" | "R &= #i" | "R ^= #i" | "R *= #i"
+@@ -3187,7 +3189,7 @@ impl Cpu {
+                         let q = ((raw >> 21) & 7) as usize;
+                         let x = (self.regs[2 * q + 1] as u64) << 32 | self.regs[2 * q] as u64;
+                         let b = self.regs[((raw >> 24) & 0xf) as usize];
+-                        let y = if b == 0 { 0 } else if signed { (x as i64).wrapping_div(b as i32 as i64) as u64 } else { x / b as u64 };
++                        let y = if b == 0 { div0_note(self.pc); 0 } else if signed { (x as i64).wrapping_div(b as i32 as i64) as u64 } else { x / b as u64 };
+                         self.regs[lo] = y as u32;
+                         self.regs[hi] = (y >> 32) as u32;
+                     }
+@@ -6705,10 +6707,42 @@ fn sat16_raw(raw: u64) -> Option<(u8, u8, bool)> {
+ /// fmaf with a library call rather than with them, so the product is rounded before the add.
+ fn fpu_d(op: u8, d: u32, a: u32, b: u32) -> u32 {
+     let (x, y, acc) = (f32::from_bits(a), f32::from_bits(b), f32::from_bits(d));
+-    match op {
++    let r = match op {
+         7 => (acc + x * y).to_bits(),
+         8 => (acc - x * y).to_bits(),
+         _ => fpu(op, a, b),
++    };
++    if FPU_WATCH.load(std::sync::atomic::Ordering::Relaxed) { fpu_check(op, d, a, b, r); }
++    r
++}
++
++pub static FPU_WATCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++pub static CUR_PC: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++/// (diagnostic) FPU events by (pc, kind): kind 0 NaN/Inf input, 1 invalid/overflow result from
++/// finite inputs, 2 division by zero, 3 float->int out of range, 4 denormal result
++pub static FPU_EV: std::sync::Mutex<Vec<(u32, u8, u64, u32, u32, u32)>> = std::sync::Mutex::new(Vec::new());
++#[cold]
++fn fpu_check(op: u8, d: u32, a: u32, b: u32, r: u32) {
++    let fx = |v: u32| f32::from_bits(v);
++    let unary = op & 0xf == 0xf || op >= 0x10;
++    let ins_finite = fx(a).is_finite() && (unary || fx(b).is_finite()) && (!(op == 7 || op == 8) || fx(d).is_finite());
++    let int_in = op == 0x8f || op == 0x9f;
++    let mut kind = None;
++    if !int_in && !ins_finite { kind = Some(0u8); }
++    else if op == 3 && fx(b) == 0.0 { kind = Some(2); }
++    else if !int_in && op >> 4 <= 7 && unary && op != 0x8f && op != 0x9f && op & 0xf == 0xf {
++        let x = fx(a);
++        let k = op >> 4;
++        if k <= 3 && !(x > -2147483904.0 && x < 2147483648.0) { kind = Some(3); }
++        if (4..=7).contains(&k) && !(x > -1.0 && x < 4294967296.0) { kind = Some(3); }
++    }
++    if kind.is_none() && !int_in && (op <= 8) && !fx(r).is_finite() { kind = Some(1); }
++    if kind.is_none() && op <= 8 && fx(r) != 0.0 && !fx(r).is_normal() && fx(r).is_finite() { kind = Some(4); }
++    if kind == Some(2) { trap_note(CUR_PC.load(std::sync::atomic::Ordering::Relaxed), "float"); }
++    if let Some(k) = kind {
++        let pc = CUR_PC.load(std::sync::atomic::Ordering::Relaxed);
++        let mut v = FPU_EV.lock().unwrap();
++        if let Some(e) = v.iter_mut().find(|e| e.0 == pc && e.1 == k) { e.2 += 1 } else if v.len() < 4000 { v.push((pc, k, 1, a, b, r)) }
+     }
+ }
+ 
+@@ -7085,3 +7119,24 @@ pub fn describe(win: u64, pc: u32) -> Option<String> {
+         _ => return None,
+     })
+ }
++
++/// (diagnostic) integer divisions by zero: (count, last pc)
++pub static DIVS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static DIV0: std::sync::Mutex<Vec<(u32, u64)>> = std::sync::Mutex::new(Vec::new());
++#[cold]
++pub fn div0_note(pc: u32) {
++    trap_note(pc, "integer");
++    let mut v = DIV0.lock().unwrap();
++    if let Some(e) = v.iter_mut().find(|e| e.0 == pc) { e.1 += 1 } else { v.push((pc, 1)) }
++}
++
++/// (diagnostic) EMU_CON bit 2 as the firmware last set it: a divide by zero (integer or float, as
++/// on the AC79) is then a CPU exception on the hardware
++pub static TRAP_ARMED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++pub static TRAPS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++#[cold]
++pub fn trap_note(pc: u32, what: &str) {
++    if !TRAP_ARMED.load(std::sync::atomic::Ordering::Relaxed) { return; }
++    let n = TRAPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++    if n < 5 { println!("TRAP: {what} divide by zero at pc {pc:#010x} with EMU_CON bit 2 set (a CPU exception on an FM-1)"); }
++}
+diff --git a/crates/fm1-emu/src/main.rs b/crates/fm1-emu/src/main.rs
+index 2bbba86..f5d236d 100644
+--- a/crates/fm1-emu/src/main.rs
++++ b/crates/fm1-emu/src/main.rs
+@@ -433,6 +433,20 @@ fn main() -> ExitCode {
+     // interrupts taken per source and core (the summary's busiest)
+     let mut irq_by: std::collections::BTreeMap<(u32, u8), u64> = Default::default();
+     // cpu0 instructions outside any ISR, in one ISR level, in a nested level
++    let stk_tcb: Option<u32> = std::env::var("FM1_STK_TCB").ok().and_then(|v| u32::from_str_radix(v.trim_start_matches("0x"), 16).ok());
++    let mut isr_min: std::collections::BTreeMap<u32, (u32, u32)> = Default::default();
++    let isr_top: u32 = std::env::var("FM1_ISR_TOP").ok().and_then(|v| u32::from_str_radix(v.trim_start_matches("0x"), 16).ok()).unwrap_or(0x1c697cc);
++    let isr_bot: u32 = std::env::var("FM1_ISR_BOT").ok().and_then(|v| u32::from_str_radix(v.trim_start_matches("0x"), 16).ok()).unwrap_or(0x1c68178);
++    let wdt_pc: Option<u32> = std::env::var("FM1_WDT_PC").ok().and_then(|v| u32::from_str_radix(v.trim_start_matches("0x"), 16).ok());
++    let (mut wdt_last, mut wdt_hits, mut wdt_gap) = (0u64, 0u64, (0u64, 0u64));
++    fm1_core::FPU_WATCH.store(std::env::var("FM1_FPU_WATCH").is_ok(), std::sync::atomic::Ordering::Relaxed);
++    let mut guard_hits = 0u32;
++    let mtrack: Option<(u32, u32)> = std::env::var("FM1_MALLOC").ok().and_then(|v| { let (a, b) = v.split_once(',')?; Some((u32::from_str_radix(a, 16).ok()?, u32::from_str_radix(b, 16).ok()?)) });
++    let mut mpend: [Option<(u32, u32, u32)>; 2] = [None, None];
++    let mut mlive: std::collections::HashMap<u32, u32> = Default::default();
++    let (mut mcur, mut mpeak, mut mnull, mut mcount) = (0i64, (0i64, 0u64), 0u32, 0u64);
++    let mut isr_chain: std::collections::BTreeMap<u32, u32> = Default::default();
++    let mut task_min: std::collections::BTreeMap<(u32, u32), (u32, u32)> = Default::default();
+     let mut busy = [0u64; 3];
+     let irq_trace = std::env::var("FM1_IRQ_TRACE").is_ok();
+     // cpu1 (core id 1) is held until cpu0 releases it with `0x10008 |= 8`
+@@ -517,7 +531,7 @@ fn main() -> ExitCode {
+             }
+             if (Some(cpu.pc) == args.break_pc || extra_breaks.contains(&cpu.pc)) && break_hits < break_max {
+                 break_hits += 1;
+-                println!("break c{} pc={:#010x} [{}] sp={:#010x} rets={:#010x} irq_levels={:?} r0-11={:x?}", cpu.core_id, cpu.pc, total_steps, cpu.sp, cpu.rets, cpu.irq_levels, &cpu.regs[..12]);
++                println!("break @{}ms c{} pc={:#010x} [{}] sp={:#010x} rets={:#010x} irq_levels={:?} r0-11={:x?}", soc.periph.ms(), cpu.core_id, cpu.pc, total_steps, cpu.sp, cpu.rets, cpu.irq_levels, &cpu.regs[..12]);
+                 if break_hits == break_max {
+                     println!("    (the last hit shown: FM1_BREAK_MAX={break_max})");
+                 }
+@@ -603,6 +617,51 @@ fn main() -> ExitCode {
+             if ci == 0 {
+                 if cpu.irq_levels.is_empty() { busy[0] += 1 } else { busy[cpu.irq_levels.len().min(2)] += 1 }
+             }
++            soc.cur_pc = cpu.pc;
++            fm1_core::TRAP_ARMED.store(soc.guard[0] & 4 != 0, std::sync::atomic::Ordering::Relaxed);
++            if let Some((ma, fa)) = mtrack {
++                if cpu.pc == ma { mpend[cpu.core_id as usize & 1] = Some((cpu.rets, cpu.regs[0], cpu.sp)); }
++                else if cpu.pc == fa && cpu.regs[0] != 0 {
++                    if let Some(sz) = mlive.remove(&cpu.regs[0]) { mcur -= sz as i64; }
++                }
++                if let Some((ret, sz, sp)) = mpend[cpu.core_id as usize & 1] {
++                    if cpu.pc == ret && cpu.sp >= sp {
++                        mpend[cpu.core_id as usize & 1] = None;
++                        let p = cpu.regs[0];
++                        if p == 0 { mnull += 1; if mnull <= 10 { println!("MALLOC NULL size {sz} @{}ms caller {ret:#010x} live {mcur}", soc.periph.ms()); } }
++                        else { mlive.insert(p, sz); mcur += sz as i64; if mcur > mpeak.0 { mpeak = (mcur, soc.periph.ms()); } }
++                        mcount += 1;
++                        if std::env::var_os("FM1_MALLOC_LOG").is_some() { println!("MALLOC @{}ms size {sz} -> {p:#010x} caller {ret:#010x} live {mcur}", soc.periph.ms()); }
++                    }
++                }
++            }
++            if cpu.core_id == 0 && soc.guard[0] & 8 != 0 {
++                let irq = !cpu.irq_levels.is_empty();
++                let (lo, hi) = if irq { (soc.guard[1], soc.guard[2]) } else { (soc.guard[3], soc.guard[4]) };
++                if (cpu.sp < lo || cpu.sp > hi) && guard_hits < 20 {
++                    guard_hits += 1;
++                    println!("GUARD stack @{}ms pc {:#010x} sp {:#010x} window [{lo:#010x}, {hi:#010x}] irq {irq} usp {:#010x} ssp {:#010x}", soc.periph.ms(), cpu.pc, cpu.sp, cpu.usp, cpu.ssp);
++                }
++            }
++            fm1_core::CUR_PC.store(cpu.pc, std::sync::atomic::Ordering::Relaxed);
++            if Some(cpu.pc) == wdt_pc {
++                let now = soc.periph.ms();
++                if wdt_hits > 0 && now - wdt_last > wdt_gap.0 { wdt_gap = (now - wdt_last, wdt_last); }
++                wdt_last = now; wdt_hits += 1;
++            }
++            if let Some(tcb_at) = stk_tcb {
++                if !cpu.irq_levels.is_empty() {
++                    let e = isr_min.entry(cpu.core_id).or_insert((u32::MAX, 0));
++                    if cpu.sp < e.0 && cpu.sp <= isr_top && cpu.sp >= isr_bot { e.0 = cpu.sp; e.1 = cpu.pc; isr_chain.insert(cpu.core_id, cpu.irq_levels.len() as u32); }
++                } else {
++                    let tcb = soc.read32(tcb_at + 4 * cpu.core_id as u32 * 0);
++                    let tcb = if cpu.core_id == 1 { soc.read32(tcb_at + 0x10) } else { tcb };
++                    if tcb != 0 && cpu.sp <= tcb && cpu.sp + 0x4000 > tcb {
++                        let e = task_min.entry((cpu.core_id, tcb)).or_insert((u32::MAX, 0));
++                        if cpu.sp < e.0 && cpu.sp <= isr_top && cpu.sp >= isr_bot { e.0 = cpu.sp; e.1 = cpu.pc; }
++                    }
++                }
++            }
+             let stepped = if cpu.core_id == 1 && soc.flaky_core1.is_some() {
+                 cpu.step(&mut fm1_soc::machine::Core1Loads(&mut soc))
+             } else {
+@@ -684,6 +743,24 @@ fn main() -> ExitCode {
+             print!("{}{pc:#x}", if i == 0 { "" } else { " -> " });
+         }
+         println!();
++        if let Ok(f) = std::env::var("FM1_PC_DUMP") { let mut o = String::new(); for (pc, n) in pcs.iter() { o += &format!("{pc:#010x} {n}\n"); } let _ = std::fs::write(f, o); }
++        for (c, (m, pc)) in isr_min.iter() { println!("STK isr core{c} min sp {m:#010x} at pc {pc:#010x} depth {:?}", isr_chain.get(c)); }
++        for ((c, tcb), (m, pc)) in task_min.iter() {
++            let w: Vec<String> = (0..24).map(|i| format!("{:08x}", soc.read32(tcb + 4 * i))).collect();
++            let size = soc.read32(tcb + 8) + 4;
++            let name: String = (0..16).map(|i| soc.read8(tcb + 12 + i)).take_while(|&b| b != 0).map(|b| b as char).collect();
++            let _ = w;
++            println!("STK task {name:<12} core{c} stack {size:5} used {:5} free {:6} (deepest at pc {pc:#010x})", tcb - m, size as i64 - (tcb - m) as i64);
++        }
++        println!("DIVS (fast) {}", fm1_core::DIVS.load(std::sync::atomic::Ordering::Relaxed)); for (pc, n) in fm1_core::DIV0.lock().unwrap().iter() { println!("DIV0 pc {pc:#010x} n {n}"); }
++        if wdt_pc.is_some() { println!("WDT hits {wdt_hits}, last at {wdt_last} ms, longest gap {} ms after {} ms", wdt_gap.0, wdt_gap.1); }
++        for ((pc, k), (n, a)) in soc.prot.iter() { println!("PROT {} pc {pc:#010x} n {n} last addr {a:#010x}", if *k == 0 { "code-write" } else { "null-page" }); }
++        for (pc, k, n, a, b, r) in fm1_core::FPU_EV.lock().unwrap().iter() { println!("FPU kind {k} pc {pc:#010x} n {n} a {a:08x} b {b:08x} r {r:08x}"); }
++        if mtrack.is_some() { println!("MALLOC calls {mcount}, live {mcur} bytes in {} blocks, peak {} at {}ms, NULL {mnull}", mlive.len(), mpeak.0, mpeak.1); }
++        println!("TRAPS {} (divides by zero while EMU_CON bit 2 was set)", fm1_core::TRAPS.load(std::sync::atomic::Ordering::Relaxed));
++        println!("GUARDREGS {:x?}", soc.guard);
++        println!("misaligned accesses: {} pcs", soc.misalign.len());
++        for (pc, (n, a, w, wr)) in soc.misalign.iter() { println!("  MIS pc={pc:#010x} n={n} last={a:#010x} w={w} {}", if *wr {"W"} else {"R"}); }
+         println!("pc histogram top-8:");
+         for (pc, n) in pcs.iter().take(8) {
+             println!("  {pc:#010x}  {n}");
+diff --git a/crates/fm1-soc/src/lib.rs b/crates/fm1-soc/src/lib.rs
+index b342349..743c008 100644
+--- a/crates/fm1-soc/src/lib.rs
++++ b/crates/fm1-soc/src/lib.rs
+@@ -176,6 +176,16 @@ impl Board {
+ }
+ 
+ pub struct Soc {
++    /// (diagnostic) the pc of the instruction being stepped, and the unaligned 16/32-bit
++    /// accesses seen per pc: (count, last address, width, write)
++    pub cur_pc: u32,
++    pub fetching: bool,
++    pub guard: [u32; 6],
++    pub wseen: std::collections::HashSet<(u32, u32)>,
++    pub prot: std::collections::BTreeMap<(u32, u8), (u64, u32)>,
++    pub prot_lo: u32,
++    pub prot_hi: u32,
++    pub misalign: std::collections::BTreeMap<u32, (u64, u32, u8, bool)>,
+     pub board: Board,
+     /// The BT baseband's window base (0x2FC44), as the firmware set it.
+     bt_window: u32,
+@@ -251,6 +261,36 @@ fn dbg_line(addr: u32) -> &'static str {
+ }
+ 
+ impl Soc {
++    #[inline(always)]
++    fn note_prot(&mut self, addr: u32, kind: u8) {
++        // kind: 0 write in the protected range, 1 read/write of the null page
++        if self.fetching { return; }
++        let hit = if kind == 0 { addr >= self.prot_lo && addr < self.prot_hi } else { addr < 0x1000 };
++        if hit {
++            let e = self.prot.entry((self.cur_pc, kind)).or_insert((0, addr));
++            e.0 += 1; e.1 = addr;
++        }
++    }
++    #[cold]
++    fn wtrace(&mut self, addr: u32, v: u32, w: u8) {
++        match addr {
++            0x1eef0d0 => self.guard[0] = v,
++            0x1eef0dc => self.guard[1] = v,
++            0x1eef0d8 => self.guard[2] = v,
++            0x1eef0e4 => self.guard[3] = v,
++            0x1eef0e0 => self.guard[4] = v,
++            _ => {}
++        }
++        if matches!(addr, 0x1eef0e0 | 0x1eef0e4) { return; }
++        if std::env::var_os("FM1_CPUREG_TRACE").is_none() { return; }
++        let k = (self.cur_pc, addr);
++        if self.wseen.insert(k) { eprintln!("CPUREG w{w} pc {:#010x} [{addr:#010x}] = {v:#010x} @{}ms", self.cur_pc, self.periph.ms()); }
++    }
++    fn note_misalign(&mut self, addr: u32, w: u8, wr: bool) {
++        if self.fetching { return; }
++        let e = self.misalign.entry(self.cur_pc).or_insert((0, 0, w, wr));
++        e.0 += 1; e.1 = addr; e.2 = w; e.3 = wr;
++    }
+     /// After an erase or page program: the XIP window shows the flash chip, also where the
+     /// window's contents come from the package (`xip`, the app area as installed). A booted
+     /// package's window reaches flash 0x93000, and April OS writes its samples from 0x74000
+@@ -345,6 +385,14 @@ impl Soc {
+     /// `ram_size` in bytes; `xip` = the app binary mapped at XIP_BASE.
+     pub fn new(ram_size: usize, xip: Vec<u8>) -> Self {
+         Self {
++            cur_pc: 0,
++            fetching: false,
++            guard: [0, 0, u32::MAX, 0, u32::MAX, 0],
++            wseen: Default::default(),
++            prot: Default::default(),
++            prot_lo: std::env::var("FM1_PROT").ok().and_then(|v| v.split_once('-').map(|(a, _)| u32::from_str_radix(a.trim_start_matches("0x"), 16).unwrap())).unwrap_or(0),
++            prot_hi: std::env::var("FM1_PROT").ok().and_then(|v| v.split_once('-').map(|(_, b)| u32::from_str_radix(b.trim_start_matches("0x"), 16).unwrap())).unwrap_or(0),
++            misalign: Default::default(),
+             board: Board::Fm1,
+             bt_window: BT_WINDOW_BASE,
+             xip,
+@@ -675,6 +723,13 @@ impl Soc {
+ }
+ 
+ impl Bus for Soc {
++    #[inline(always)]
++    fn fetch32(&mut self, addr: u32) -> u32 {
++        self.fetching = true;
++        let v = self.read32(addr);
++        self.fetching = false;
++        v
++    }
+     fn irq_window(&mut self) {
+         if self.periph.any_pending() {
+             self.periph.next_due = 0;
+@@ -745,6 +800,7 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn read8(&mut self, addr: u32) -> u8 {
++        self.note_prot(addr, 1);
+         let o = addr.wrapping_sub(RAM_BASE);
+         if (o as usize) < self.ram.len() {
+             return self.ram.read8(o);
+@@ -754,6 +810,8 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn read16(&mut self, addr: u32) -> u16 {
++        self.note_prot(addr, 1);
++        if addr & 1 != 0 { self.note_misalign(addr, 2, false); }
+         // halfwords sit at offsets 0 and 2 of the word (the old `>> 8` for
+         // offset 2 returned bytes 1-2 and sheared every 16-bit pixel canvas)
+         let v = self.read32(addr & !3);
+@@ -762,6 +820,8 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn read32(&mut self, addr: u32) -> u32 {
++        self.note_prot(addr, 1);
++        if addr & 3 != 0 { self.note_misalign(addr, 4, false); }
+         let o = addr.wrapping_sub(RAM_BASE) as usize;
+         if o + 4 <= self.ram.len() {
+             return self.ram.read32(o as u32);
+@@ -775,6 +835,8 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn write8(&mut self, addr: u32, value: u8) {
++        if addr >= 0x1eee000 && addr < 0x1eef400 && addr & !0xf != 0x1eef0f0 { self.wtrace(addr, value as u32, 1); }
++        self.note_prot(addr, 1); if self.prot_hi != 0 { self.note_prot(addr, 0); }
+         let o = addr.wrapping_sub(RAM_BASE);
+         if (o as usize) < self.ram.len() {
+             return self.ram.write8(o, value);
+@@ -784,6 +846,9 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn write16(&mut self, addr: u32, value: u16) {
++        if addr >= 0x1eee000 && addr < 0x1eef400 && addr & !0xf != 0x1eef0f0 { self.wtrace(addr, value as u32, 2); }
++        self.note_prot(addr, 1); if self.prot_hi != 0 { self.note_prot(addr, 0); }
++        if addr & 1 != 0 { self.note_misalign(addr, 2, true); }
+         // merged at (addr & 2) within the aligned word, as the slow path does
+         let o = (addr & !1).wrapping_sub(RAM_BASE) as usize;
+         if o + 2 <= self.ram.len() && addr & 1 == 0 {
+@@ -794,6 +859,9 @@ impl Bus for Soc {
+ 
+     #[inline(always)]
+     fn write32(&mut self, addr: u32, value: u32) {
++        if addr >= 0x1eee000 && addr < 0x1eef400 && addr & !0xf != 0x1eef0f0 { self.wtrace(addr, value as u32, 4); }
++        self.note_prot(addr, 1); if self.prot_hi != 0 { self.note_prot(addr, 0); }
++        if addr & 3 != 0 { self.note_misalign(addr, 4, true); }
+         let o = addr.wrapping_sub(RAM_BASE) as usize;
+         if o + 4 <= self.ram.len() {
+             return self.ram.write32(o as u32, value);
+@@ -1080,6 +1148,19 @@ pub fn stock_from_package(pkg: &[u8], syx: Option<&[u8]>) -> Result<Stock, Strin
+     let u = fwsc::unpack(pkg)?;
+     let board = Board::of_identity(&u.identity);
+     let mut flash = fwsc::full_flash(&u.raw, FLASH_SIZE);
++    // (diagnostic) FM1_FLASH_UNDER=old.fwsc|random: what an update leaves outside its image
++    if let Ok(under) = std::env::var("FM1_FLASH_UNDER") {
++        let old: Vec<u8> = if under == "random" {
++            let mut x: u32 = 0x1234_5678;
++            (0..FLASH_SIZE).map(|_| { x ^= x << 13; x ^= x >> 17; x ^= x << 5; x as u8 }).collect()
++        } else {
++            let o = fwsc::unpack(&std::fs::read(&under).map_err(|e| e.to_string())?)?;
++            fwsc::full_flash(&o.raw, FLASH_SIZE)
++        };
++        let keep = u.raw.len().min(FLASH_SIZE);
++        flash[keep..].copy_from_slice(&old[keep..FLASH_SIZE]);
++        eprintln!("FM1_FLASH_UNDER: flash {keep:#x}.. from {under}");
++    }
+     if board == Board::Smk37 {
+         // a unit's factory calibration record, with the stock defaults
+         fwsc::smk_trim_fill_defaults(&mut flash);
+diff --git a/crates/fm1-soc/src/ram.rs b/crates/fm1-soc/src/ram.rs
+index c93e717..ea53591 100644
+--- a/crates/fm1-soc/src/ram.rs
++++ b/crates/fm1-soc/src/ram.rs
+@@ -14,8 +14,15 @@ pub struct Ram {
+ 
+ impl Ram {
+     pub fn new(size: usize) -> Self {
++        let data = match std::env::var("FM1_RAM_RANDOM").ok().and_then(|v| v.parse::<u64>().ok()) {
++            Some(seed) if size >= 256 * 1024 => {
++                let mut x = seed.wrapping_mul(0x9e3779b97f4a7c15) | 1;
++                (0..size).map(|_| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; (x >> 24) as u8 }).collect()
++            }
++            _ => vec![0; size],
++        };
+         Self {
+-            data: vec![0; size],
++            data,
+             code: vec![0; size / 4 + 1],
+             code_writes: 0,
+         }

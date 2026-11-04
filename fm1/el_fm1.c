@@ -32,6 +32,9 @@ int el_fm1_control(void)
         ui.save = el_store_save;
         ui.sound_get = el_sound_get;
         ui.sound_put = el_sound_put;
+        /* Again before the audio starts: its first silent block would
+         * trap (docs/adr/0018). */
+        el_fm1_trap_off();
         EL_FENCE();
         ready = 1;
     }

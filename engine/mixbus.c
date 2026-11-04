@@ -215,7 +215,11 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
         /* Look-ahead peak limiter: the gain reaches its target before the
          * peak leaves the 1 ms delay line. */
         float peak = dsp_max(dsp_abs(l), dsp_abs(r));
-        float target = peak > lim->ceiling ? lim->ceiling / peak : 1.0f;
+        /* Never a division by zero: the compiler computes a guarded divide
+         * ahead of its test (peak > ceiling ? ceiling / peak : 1), and on the
+         * FM-1 that traps at the first silent sample (docs/adr/0018). Below
+         * the ceiling this is ceiling / ceiling = 1 exactly. */
+        float target = lim->ceiling / dsp_max(peak, lim->ceiling);
         if (target < lim->gain) lim->gain += (target - lim->gain) * 0.25f;
         else lim->gain += (target - lim->gain) * lim->release;
         float delayed_l = lim->buffer[0][lim->pos], delayed_r = lim->buffer[1][lim->pos];

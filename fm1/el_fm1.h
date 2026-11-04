@@ -16,4 +16,6 @@ int el_fm1_midi(unsigned source, const uint8_t *message, size_t bytes);
 /* Before the first el_fm1_control() the engine's memory is unused (el_init
  * clears it): lends up to its size to the SDK's startup, else NULL. */
 void *el_fm1_boot_scratch(size_t bytes);
+/* Switches the CPU's divide-by-zero trap off (el_sdk_app.c, docs/adr/0018). */
+void el_fm1_trap_off(void);
 #endif

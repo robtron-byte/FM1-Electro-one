@@ -28,8 +28,19 @@ static const void *const kept[] = {
  * here (FM1-Electro renders the audio), so the tracks are switched off and
  * the heap is free again before the SDK starts its remaining tasks (with
  * them, its app task finds no room for its stack and the start halts). */
+/* The SDK starts with the CPU's divide-by-zero trap on (EMU_CON bit 2). On
+ * the FM-1 it fires on float divides too, and the compiler computes a guarded
+ * divide ahead of its test (x > c ? c / x : 1) and discards the infinity: a
+ * hardware exception, then a reset, at the first silent sample (the boot loop
+ * of the first device test, docs/adr/0018). X0X, SLOOP, Felucca and Dinghy
+ * switch it off the same way. The SDK only sets the register while it starts
+ * (before this hook) and later toggles just the stack-guard bit (3). */
+#define EL_EMU_CON (*(volatile uint32_t *)0x1EEF0D0u)
+void el_fm1_trap_off(void) { EL_EMU_CON &= ~(1u << 2); }
+
 void groove_screen_init(void)
 {
+    el_fm1_trap_off();
     for (unsigned t = 0; t < GROOVE_TRACKS; ++t) (void)groove_track_role_set(t, GROOVE_TRACK_OFF);
     /* The SDK scales the output by its master level (fm1_output_mix), which
      * FM1 Open's screen set from the MASTER knob. FM1-Electro applies MASTER
