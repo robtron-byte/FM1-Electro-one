@@ -112,3 +112,4 @@ Die Original-Firmware V16 hat im Emulator aber noch mehr Sprünge als FM1-Electr
 
 - 2026-11-05: angelegt nach dem ersten Gerätetest mit laufendem Groove (6 s statt 2 s pro Pattern)
 - 2026-11-05: Messwerte vom Gerät: FPU schnell, Last 170–180 %; Zeitmessung je Render-Abschnitt und weitere CPU-Tests
+- 2026-11-05: Zweite Messung: Drums 59 %, Effekte 21 %, RHYTHM 14 %, BASS 4 % (STRINGS stumm, Master aus). Die Schleife aus dem SRAM braucht 10,7 ns, mit verketteter FMUL 28,1 ns. Eine abhängige FMUL kostet also ~17 ns (~6 Takte): Die erste Deutung („FPU schnell“) war falsch, die Flash-Schleife hatte die Latenz verdeckt. Speicherzugriffe sind nicht die Ursache: V16 macht im Emulator fünfmal so viele. Nächster Messbuild: Ganzzahl- und 64-Bit-Multiplikation aus dem SRAM, als Entscheidung für Festkomma (zuerst die Drums).

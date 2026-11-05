@@ -88,6 +88,11 @@ enum { EL_BENCH_LOOP, EL_BENCH_INT, EL_BENCH_FADD, EL_BENCH_FMUL, EL_BENCH_FMUL4
        EL_BENCH_LDSEQ,   /* a float load per step, through 8 KB in order */
        EL_BENCH_LDRND,   /* a dependent load per step, jumping through 64 KB (latency) */
        EL_BENCH_CALL,    /* a call of a small function per step, from SRAM */
+       EL_BENCH_RIADD,   /* integer add chain from SRAM */
+       EL_BENCH_RIMUL,   /* integer multiply-add chain from SRAM */
+       EL_BENCH_RMUL64,  /* 32 x 32 -> 64 bit multiply, the high word kept (Q31), chained, from SRAM */
+       EL_BENCH_RFADD,   /* float add chain from SRAM */
+       EL_BENCH_RIMUL4,  /* four independent integer multiply-adds from SRAM */
        EL_BENCH_KINDS };
 void el_ui_init(el_ui_t *ui, el_engine_t *engine);
 /* One control pass: handle input, update LEDs, paint some dirty bands. */

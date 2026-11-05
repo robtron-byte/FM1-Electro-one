@@ -7,6 +7,7 @@
 - **Im OPTIONS-Menü** (HOME + SAVE) stehen unten zwei Zeilen mit dem CPU-Test vom Start, in Nanosekunden pro Operation: `NS LOOP … INT … ADD …` und `MUL … M4 … DIV … DEN …`. Bitte ein Foto davon schicken.
 - Im Stillstand pausiert die Master-Bearbeitung jetzt; die Bedienung sollte ohne laufenden Groove flüssig sein.
 - **Seit dem zweiten Messbuild:** Während ein Groove läuft, zeigt die erste der beiden Zeilen, wie viel Prozent eines Audio-Blocks jeder Teil braucht: `DR` Drums, `RH` RHYTHM, `ST` STRINGS, `BA` BASS, `FX` Effekte, `MB` Master, `PU` Punch-ins. Die zweite Zeile zeigt weitere Messwerte (`R` Schleife aus dem RAM, `RM` Multiplikation aus dem RAM, `LD`/`RND` Speicher, `C` Funktionsaufruf).
+- **Seit dem dritten Messbuild:** eine dritte Zeile unten (statt „HOME OR SAVE: DONE“) misst Ganzzahl-Addition `IA`, Ganzzahl-Multiplikation `IM`, 64-Bit-Multiplikation `M64`, Kommazahl-Addition `FA` und vier unabhängige Ganzzahl-Multiplikationen `IM4`, alle aus dem RAM: entscheidet, ob Festkomma schneller ist.
 - Alle Funktionstasten leuchten jetzt; aktive Zustände blinken (PLAY im Takt, REC schnell, ARP/SEQ/EDIT langsam, ADR 0020).
 
 **Behoben gegenüber dem Build vom 29.10.:** Der erste Build startete auf dem echten FM-1 in einer Schleife neu (Display blinkte etwa im Sekundentakt, oben ein Streifen der Oberfläche). Ursache: eine Division durch null im Master-Limiter bei Stille, die die CPU mit dem eingeschalteten Divisions-Trap des SDK als Ausnahme behandelt und das Gerät neu startet. Der Trap ist jetzt aus, und die Division kann nicht mehr null werden (ADR 0018).
@@ -19,7 +20,7 @@ Er enthält den neuen Sound: Clap, Cowbell und Hats nach den Vergleichen (ADR 00
 - **Hardware-Prüfung im Emulator** (`tools/fm1-emu/check.sh`, ADR 0018): kein Divisions-Trap, keine Division durch null, kein NaN/Inf, keine unausgerichteten Zugriffe, Stacks in ihren Fenstern, Watchdog bedient, auch mit zufälligem RAM und Flash-Inhalt beim Start. Der alte Build fällt bei dieser Prüfung durch.
 - **Auf einem echten FM-1:** Der Build vom 04.11. startet und spielt Synths über die Tastatur. Mit Groove ist er etwa dreifach überlastet (ADR 0019). Dieser Messbuild ist noch nicht auf dem Gerät gelaufen.
 
-SHA-256: `19ef0ed261b05a61c6080ec1782fb567b5b6733a3a0406ef1598c8b74c67cc36`
+SHA-256: `aab77dd83d2e42e6bff2756491e382ded9d3b619474113f67981ae4540efcf34`
 
 Geprüft vor dem Packen: `make test` (alle Host-Tests), die Prüfungen aus `Build.ps1` (Pflicht-Symbole, Audio-Pfad im SRAM, 80 KB Heap), Start im Emulator fm1-emu (Display, PLAY, Audio im DMA-Puffer, Benutzerbereich 384 KB erkannt). Rechenlast im Emulator: etwa 15 % im Leerlauf, 55 % bei der Prüffolge mit laufendem Groove.
 

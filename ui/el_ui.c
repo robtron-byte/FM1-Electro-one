@@ -1587,9 +1587,14 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                 el_snprintf(l1, sizeof l1, "NS LOOP %u.%u INT %u.%u ADD %u.%u", NS(EL_BENCH_LOOP), NS(EL_BENCH_INT), NS(EL_BENCH_FADD));
             el_snprintf(l2, sizeof l2, "R%u.%u RM%u.%u LD%u.%u RND%u.%u C%u.%u", NS(EL_BENCH_RLOOP), NS(EL_BENCH_RMUL),
                         NS(EL_BENCH_LDSEQ), NS(EL_BENCH_LDRND), NS(EL_BENCH_CALL));
+            char l3[44];
+            el_snprintf(l3, sizeof l3, "IA%u.%u IM%u.%u M64 %u.%u FA%u.%u IM4 %u.%u", NS(EL_BENCH_RIADD), NS(EL_BENCH_RIMUL),
+                        NS(EL_BENCH_RMUL64), NS(EL_BENCH_RFADD), NS(EL_BENCH_RIMUL4));
 #undef NS
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);
+            gfx_text(b, 4, GFX_H - 12, l3, ACCENT, 1);
+            return;
         } else {
             gfx_text(b, 4, FOOT_Y, "SELECT / ALGO: SETTING", DIM, 1);
             gfx_text(b, 4, FOOT_Y + 12, "PRESETS / KNOBS: VALUE", DIM, 1);

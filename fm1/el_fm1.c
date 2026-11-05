@@ -38,9 +38,19 @@ static FM1_AUDIO_CODE __attribute__((noinline)) uint32_t bench_ram(unsigned kind
     volatile float seed_f = 1.0000001f;
     float a = seed_f, k = seed_f;
     uint32_t x = 1u, start = EL_AUDIO_TIMER;
+    volatile uint32_t seed_i = 12345u;
+    uint32_t y = seed_i, z = seed_i + 1u, w = seed_i + 2u, v = seed_i + 3u, m = seed_i | 1u;
     if (kind == EL_BENCH_RLOOP) for (int i = 0; i < BENCH_N; ++i) KEEP(x);
     else if (kind == EL_BENCH_RMUL) for (int i = 0; i < BENCH_N; ++i) { a = a * k; KEEP(a); }
+    else if (kind == EL_BENCH_RFADD) for (int i = 0; i < BENCH_N; ++i) { a = a + k; KEEP(a); }
+    else if (kind == EL_BENCH_RIADD) for (int i = 0; i < BENCH_N; ++i) { y = y + m; KEEP(y); }
+    else if (kind == EL_BENCH_RIMUL) for (int i = 0; i < BENCH_N; ++i) { y = y * m + 1013904223u; KEEP(y); }
+    else if (kind == EL_BENCH_RIMUL4)
+        for (int i = 0; i < BENCH_N; ++i) { y = y * m + 1u; z = z * m + 3u; w = w * m + 5u; v = v * m + 7u; KEEP(y); KEEP(z); KEEP(w); KEEP(v); }
+    else if (kind == EL_BENCH_RMUL64)
+        for (int i = 0; i < BENCH_N; ++i) { y = (uint32_t)(((int64_t)(int32_t)y * (int32_t)m) >> 31); KEEP(y); }
     else for (int i = 0; i < BENCH_N; ++i) x = bench_callee(x);
+    x += y + z + w + v;
     uint32_t end = EL_AUDIO_TIMER;
     volatile float sink = a; volatile uint32_t sink_i = x; (void)sink; (void)sink_i;
     return end >= start ? end - start : end + EL_AUDIO_TIMER_PERIOD + 1u - start;
@@ -51,7 +61,7 @@ static uint32_t bench_one(unsigned kind, uint32_t *mem)
     volatile uint32_t seed_i = 12345u;
     float a = seed_f, b = seed_f, c = seed_f, d = seed_f, k = seed_f, z = small;
     uint32_t x = seed_i;
-    if (kind == EL_BENCH_RLOOP || kind == EL_BENCH_RMUL || kind == EL_BENCH_CALL) return bench_ram(kind);
+    if (kind == EL_BENCH_RLOOP || kind == EL_BENCH_RMUL || kind == EL_BENCH_CALL || kind >= EL_BENCH_RIADD) return bench_ram(kind);
     uint32_t start = EL_AUDIO_TIMER;
     switch (kind) {
     case EL_BENCH_LOOP: for (int i = 0; i < BENCH_N; ++i) KEEP(x); break;
