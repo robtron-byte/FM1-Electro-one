@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
-#ifndef FM1_HOST_TEST
+#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "drums.h"

@@ -2,7 +2,7 @@
  * Circuit-informed TR-808 voices; values and sources in docs/TR808.md. */
 /* Device build: the constants of this file sit in internal SRAM; its audio
  * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
-#ifndef FM1_HOST_TEST
+#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "tr808.h"

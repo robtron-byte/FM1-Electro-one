@@ -7,7 +7,7 @@
  * The audio path uses no libc math: approximations from dsp_math.h. */
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
-#ifndef FM1_HOST_TEST
+#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "jp6.h"

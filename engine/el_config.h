@@ -11,7 +11,9 @@
 
 /* Everything called from the audio interrupt must live in internal SRAM on
  * the device (see FM1_AUDIO_CODE in the SDK). Host builds ignore placement. */
-#ifdef FM1_HOST_TEST
+/* EL_PLATFORM: the build on our own platform (platform/, docs/adr/0021): the
+ * code runs from flash through the cache, as the platform's apps do. */
+#if defined(FM1_HOST_TEST) || defined(EL_PLATFORM)
 #define EL_DSP_CODE
 #define EL_DSP_DATA
 #define EL_DSP_HELPER

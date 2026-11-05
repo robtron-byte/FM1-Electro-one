@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
-#ifndef FM1_HOST_TEST
+#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "electro.h"
@@ -379,6 +379,16 @@ static float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK], dist_send[EL_BLOCK];
 #ifdef FM1_HOST_TEST
 static inline uint32_t prof_now(void) { return 0; }
 static inline void prof_add(el_engine_t *e, unsigned stage, uint32_t *t) { (void)e; (void)stage; (void)t; }
+#elif defined(EL_PLATFORM)
+/* the platform's free-running 24 MHz counter (fm1/el_app.c) */
+uint32_t el_platform_ticks(void);
+static inline uint32_t prof_now(void) { return el_platform_ticks(); }
+static inline void prof_add(el_engine_t *e, unsigned stage, uint32_t *t)
+{
+    uint32_t now = el_platform_ticks();
+    e->prof[stage] += now - *t;
+    *t = now;
+}
 #else
 static inline EL_DSP_HELPER uint32_t prof_now(void) { return *(volatile uint32_t *)0x1EEF0F0u; }
 static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32_t *t)
