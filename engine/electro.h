@@ -134,6 +134,10 @@ typedef struct {
     /* Time per render stage (device only, docs/adr/0019): ticks of the SDK's
      * audio time base summed since the control task last took them. */
     volatile uint32_t prof[EL_PROF_STAGES];
+    /* Second core (docs/adr/0021): the platform's hand-over of a job and the
+     * wait for it (0 = done; else run it here). NULL: one core. */
+    int (*par_run)(void (*job)(uint32_t), uint32_t arg);
+    int (*par_wait)(void);
 } el_engine_t;
 
 /* Control task, before audio starts. */

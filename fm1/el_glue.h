@@ -17,6 +17,12 @@ void el_glue_render(int32_t *out, unsigned frames);
 /* Main loop: a complete MIDI message from USB or the TRS jack. */
 void el_glue_midi(const uint8_t *message, size_t bytes);
 
-/* From the platform side: its free-running 24 MHz counter. */
+/* From the platform side: its free-running 24 MHz counter, and the second
+ * core (el_app.c over hal/fm1_cpu1.h): ok = it started and passed its
+ * self-test; run hands a job over (1 = taken), wait: 0 = done, else it gave
+ * up (one core from then on: run the job yourself). */
 uint32_t el_platform_ticks(void);
+int el_platform_cpu1_ok(void);
+int el_platform_cpu1_run(void (*job)(uint32_t), uint32_t arg);
+int el_platform_cpu1_wait(void);
 #endif

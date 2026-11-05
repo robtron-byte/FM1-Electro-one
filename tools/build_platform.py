@@ -41,6 +41,7 @@ def build_app():
     cmds = [("cc", "-c", fw / "crt0.S", "-o", out / "crt0.o"),
             ("cc", "-c", fw / "hal" / "fm1_vec.S", "-o", out / "fm1_vec.o"),
             ("cc", "-c", fw / "hal" / "fm1_isr.S", "-o", out / "fm1_isr.o"),
+            ("cc", "-c", fw / "hal" / "fm1_cpu1.S", "-o", out / "fm1_cpu1.o"),
             ("cc", *flags, *FPU, "-isystem", str(tc / "pi32v2" / "include"), "-c", str(ROOT / "fm1" / "el_app.c"),
              "-o", out / "el_app.o")]
     objs = []
@@ -52,7 +53,7 @@ def build_app():
     elf = out / "dinghy.elf"
     lib = tc / "pi32v2" / "lib" / "r3"
     b.tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", fw / "app.ld", out / "crt0.o", out / "fm1_vec.o",
-         out / "fm1_isr.o", out / "el_app.o", *objs, "--start-group", str(lib / "libm.a"), str(lib / "libcompiler_rt.a"),
+         out / "fm1_isr.o", out / "fm1_cpu1.o", out / "el_app.o", *objs, "--start-group", str(lib / "libm.a"), str(lib / "libcompiler_rt.a"),
          "--end-group", "-o", elf, "-Map", out / "fm1-electro.map")
     return b.link_outputs(elf) if hasattr(b, "link_outputs") else finish(elf)
 
@@ -60,11 +61,12 @@ def build_app():
 def finish(elf):
     """platform/tools/build.py's build_app after its link, unchanged."""
     out = b.OUT
-    for sect in ("text.bin", "data.bin", "ramtext.bin"):
+    for sect in ("text.bin", "data.bin", "ramtext.bin", "c1text.bin"):
         (out / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = b.tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, out / "text.bin"),
                                  ("common/bin/objcopy", "-O", "binary", "-j", ".data", elf, out / "data.bin"),
                                  ("common/bin/objcopy", "-O", "binary", "-j", ".ram_text", elf, out / "ramtext.bin"),
+                                 ("common/bin/objcopy", "-O", "binary", "-j", ".c1_text", elf, out / "c1text.bin"),
                                  ("common/bin/objdump", "-t", elf),
                                  ("common/bin/objdump", "-d", elf),
                                  ("common/bin/objdump", "-d", "-j", ".ram_text", elf))
@@ -74,7 +76,7 @@ def finish(elf):
     def symv(name):
         return int(re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M).group(1), 16)
     img = bytearray((out / "text.bin").read_bytes())
-    for sect, lname in (("ramtext.bin", "_rt_load"), ("data.bin", "_data_load")):
+    for sect, lname in (("ramtext.bin", "_rt_load"), ("c1text.bin", "_c1_load"), ("data.bin", "_data_load")):
         load = symv(lname)
         blob = (out / sect).read_bytes() if (out / sect).exists() else b""
         if blob:

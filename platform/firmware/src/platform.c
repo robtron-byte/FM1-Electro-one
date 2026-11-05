@@ -52,6 +52,7 @@ enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_KNOB2 = 3, ENC_KNOB
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#include "fm1_cpu1.h"                          /* FM1-Electro: the second core (SLOOP 2.8.5 / X0X) */
 #if BOARD_SMK37
 #include "smk_input.h"                          /* keys with velocity, buttons, 8 encoders, LEDs, pads, faders, wheels */
 static void fm1_led_key_glow(uint32_t id, int on) { (void)id; (void)on; }   /* (no key LEDs: the pads glow) */
@@ -446,6 +447,8 @@ void fm1_cstart(void)
     extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
     extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
     uint32_t *s, *d, p3, boot_mode;
+    fm1_cpu1_halt();                            /* FM1-Electro (as SLOOP 2.8.3): a second core a reset left running, held
+                                                 * before the RAM it may read is cleared */
     fm1_time_init();
     fm1_reset_reason();
     p3 = fm1_boot.p3_rst;
@@ -479,6 +482,10 @@ void fm1_cstart(void)
 #if BOARD_SMK37
     smk_trim_read();                            /* (after fm1_input_init: it sets the defaults first) */
     smk_owner_check();
+#endif
+#ifdef APP_BOOT
+    APP_BOOT();                                 /* FM1-Electro: the second core starts here, before the audio and the
+                                                 * timers (SLOOP main.c cpu1_boot: started later it never reached its entry) */
 #endif
     fm1_audio_init(abuf, HALF_WORDS, isr_alnk0, 3);   /* (abuf is zero: .bss) */
     usb_start();

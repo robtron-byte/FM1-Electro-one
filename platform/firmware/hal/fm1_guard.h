@@ -86,6 +86,23 @@ static void fm1_guard_enable(uint32_t which)
 
 /* write-protect 0x01C7FD50..0x01C7FFFF (boot info, mailbox, vectors):
  * call after the last fm1_irq_attach */
+/* FM1-Electro: from SLOOP 2.8.5 hal/fm1_guard.h (isod89, GPL-3.0-only), for the second core */
+/* the PC limits apply to the second core too, and it starts in the chip's ROM (found by Melodee's
+ * dual-core work: DBG bit 10, c1_pc_limit_err_r): open them while it starts, then
+ * fm1_guard_enable(FM1_GUARD_PC) again (X0X, hal/fm1_guard.h) */
+static void fm1_guard_pc_open(void)
+{
+    fm1__dbg_unlock();
+    FM1_PC_LIMIT0_L = 0u;
+    FM1_PC_LIMIT0_H = 0xFFFFFFFFu;
+    FM1_PC_LIMIT1_L = 0u;
+    FM1_PC_LIMIT1_H = 0xFFFFFFFFu;
+    fm1__dbg_lock();
+}
+
+/* the reserved top of RAM is write-protected now (fm1_guard_lock_top) */
+static int fm1_guard_top_locked(void) { return (FM1_C0_WR_LIMIT_EN & 4u) != 0; }
+
 static void fm1_guard_lock_top(void)
 {
     fm1__dbg_unlock();

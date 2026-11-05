@@ -8,10 +8,46 @@
 #define APP_NAME "FM1-ELECTRO"
 static void app_idle(void);
 #define LCD_IDLE app_idle
+static void el_cpu1_boot(void);
+#define APP_BOOT el_cpu1_boot
 #include "platform.c"
 #include "el_glue.h"
 
 uint32_t el_platform_ticks(void) { return fm1_ticks(); }
+
+/* ---- the second core (hal/fm1_cpu1.h: X0X's, hardened in SLOOP 2.8.3; the
+ * start as SLOOP's src/cpu1.c cpu1_boot, by Andre Rezemini): started at
+ * power-on before the audio, proved with a self-test job; any fault later and
+ * the platform holds it: one core until power-off */
+static uint8_t cpu1_ok;
+static volatile uint32_t cpu1_test_out;
+static uint32_t cpu1_lcg(uint32_t x)
+{
+    for (uint32_t i = 0; i < 64u; i++) x = x * 1664525u + 1013904223u;
+    return x;
+}
+static void cpu1_selftest(uint32_t arg) { cpu1_test_out = cpu1_lcg(arg); }
+static void el_cpu1_boot(void)
+{
+    fm1_guard_pc_open();   /* it boots through the chip's ROM */
+    int started = fm1_cpu1_start() == 0;
+    fm1_guard_enable(FM1_GUARD_PC);
+    if (!started) return;
+    cpu1_test_out = 0;
+    if (!fm1_cpu1_run(cpu1_selftest, 20261105u) || fm1_cpu1_wait() != 0 || cpu1_test_out != cpu1_lcg(20261105u)) {
+        fm1_cpu1_hold();
+        return;
+    }
+    cpu1_ok = 1;
+}
+int el_platform_cpu1_ok(void) { return cpu1_ok; }
+int el_platform_cpu1_run(void (*job)(uint32_t), uint32_t arg) { return cpu1_ok && fm1_c1_on ? fm1_cpu1_run(job, arg) : 0; }
+int el_platform_cpu1_wait(void)
+{
+    if (fm1_cpu1_wait() == 0) return 0;
+    cpu1_ok = 0;   /* fm1_cpu1_wait held it */
+    return -1;
+}
 
 /* ---- time */
 uint32_t fm1_millis(void) { return fm1_ms; }

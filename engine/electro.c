@@ -399,21 +399,42 @@ static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32
 }
 #endif
 
-static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
+/* The three synth areas of one stretch: on the second core while the first
+ * renders the drums (docs/adr/0021), else after them. Their reverb and delay
+ * sends go to buffers of their own (the drums write rev / dly meanwhile);
+ * render_bus adds them. */
+static float syn_rev[EL_BLOCK], syn_dly[EL_BLOCK];
+static struct { el_engine_t *e; int pos, n; } synth_args;
+static EL_DSP_CODE void render_synths(el_engine_t *e, int pos, int n)
 {
     uint32_t pt = prof_now();
-    el_transport_t *t = &e->transport;
-    /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
-    e->drums.kit.key_shift = e->track[EL_AREA_BASS - 1].transpose;
-    dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
-    prof_add(e, EL_PROF_DRUMS, &pt);
+    float bpm = e->transport.bpm;
     /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         float *l = i == EL_AREA_BASS - 1u ? bass_l : i == EL_AREA_RHYTHM - 1u ? rhythm_l : synth_l;
         float *r = i == EL_AREA_BASS - 1u ? bass_r : i == EL_AREA_RHYTHM - 1u ? rhythm_r : synth_r;
-        st_render(&e->track[i], l + pos, r + pos, dly + pos, rev + pos, n, t->bpm);
+        st_render(&e->track[i], l + pos, r + pos, syn_dly + pos, syn_rev + pos, n, bpm);
         prof_add(e, EL_PROF_RHYTHM + i, &pt);
     }
+}
+static EL_DSP_CODE void synth_job(uint32_t arg)
+{
+    (void)arg;
+    render_synths(synth_args.e, synth_args.pos, synth_args.n);
+}
+
+static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
+{
+    /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
+    e->drums.kit.key_shift = e->track[EL_AREA_BASS - 1].transpose;
+    synth_args.e = e;
+    synth_args.pos = pos;
+    synth_args.n = n;
+    int par = e->par_run && e->par_run(synth_job, 0);
+    uint32_t pt = prof_now();
+    dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
+    prof_add(e, EL_PROF_DRUMS, &pt);
+    if (!par || e->par_wait()) render_synths(e, pos, n);   /* one core, or the second gave up */
 }
 
 /* Note values of the punch-ins (white keys while one is held): length in
@@ -692,7 +713,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     t->swing = e->drums.pattern[e->drums.current].swing;
     for (unsigned i = 0; i < frames; ++i)
         kick[i] = drum_l[i] = drum_r[i] = bass_l[i] = bass_r[i] = synth_l[i] = synth_r[i] = rev[i] = gate[i] = dly[i] =
-            rhythm_l[i] = rhythm_r[i] = 0.0f;
+            rhythm_l[i] = rhythm_r[i] = syn_rev[i] = syn_dly[i] = 0.0f;
     unsigned pos = 0, guard = 0;
     e->stutter_sync = -1;
     while (pos < frames && guard++ < 64) {
@@ -720,6 +741,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         pos += (unsigned)n;
     }
     if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
+    for (unsigned i = 0; i < frames; ++i) { rev[i] += syn_rev[i]; dly[i] += syn_dly[i]; }
     /* BASS always in mono (its chorus and unison spread fold to the middle). */
     for (unsigned i = 0; i < frames; ++i) bass_l[i] = bass_r[i] = 0.5f * (bass_l[i] + bass_r[i]);
     uint32_t pt = prof_now();
