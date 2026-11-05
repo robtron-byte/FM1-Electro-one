@@ -1,8 +1,41 @@
 diff --git a/crates/fm1-core/src/lib.rs b/crates/fm1-core/src/lib.rs
-index 13da134..20daceb 100644
+index 13da134..6b6d68b 100644
 --- a/crates/fm1-core/src/lib.rs
 +++ b/crates/fm1-core/src/lib.rs
-@@ -1705,7 +1705,9 @@ impl Cpu {
+@@ -299,8 +299,24 @@ pub struct Cpu {
+     /// Compile the checks for `stop_pc` / `stop_io` into this core's blocks (set before its
+     /// JIT is made; core 1's).
+     pub stop_checks: bool,
++    /// (diagnostic, the cost model) the last stepped instruction: registers read, written,
++    /// its class (`TIM_*`) and how many words it moves; None: not a simple micro-op
++    pub last_tim: Option<(u16, u16, u8, u8)>,
+ }
+ 
++pub const TIM_ALU: u8 = 0;
++pub const TIM_IMUL: u8 = 1;
++pub const TIM_LOAD: u8 = 2;
++pub const TIM_STORE: u8 = 3;
++pub const TIM_FADD: u8 = 4;
++pub const TIM_FMUL: u8 = 5;
++pub const TIM_FDIV: u8 = 6;
++pub const TIM_FMAC: u8 = 7;
++pub const TIM_FCVT: u8 = 8;
++pub const TIM_MULTI: u8 = 9;
++pub const TIM_FLOW: u8 = 10;
++pub const TIM_IDIV: u8 = 11;
++
+ /// What instructions can see of a core between instructions, outside any pair, predicated
+ /// block, repeat loop or interrupt (`Cpu::plain_state`): two equal ones at the same pc, with
+ /// memory and peripherals unchanged, run on identically. (fm1_soc's polling-loop skip compares
+@@ -1248,6 +1264,7 @@ impl Cpu {
+         let l = self.icache[slot];
+         let next_pc = self.pc + l.len as u32;
+         // hot path: a micro-op outside any dual-issue pair
++        self.last_tim = l.fast.and_then(|f| f.timing());
+         if let (Some(f), false, true) = (l.fast, l.pair_head, self.pair_pending.is_none()) {
+             if !trace_on() {
+                 if self.profile {
+@@ -1705,7 +1722,9 @@ impl Cpu {
              }
              Fast::Div { d, a, b, k } => {
                  let (a, b) = (self.regs[(a & 15) as usize], self.regs[(b & 15) as usize]);
@@ -12,7 +45,7 @@ index 13da134..20daceb 100644
                      0
                  } else {
                      match k {
-@@ -2375,10 +2377,10 @@ impl Cpu {
+@@ -2375,10 +2394,10 @@ impl Cpu {
                      "|" => a | b,
                      "^" => a ^ b,
                      "*" => a.wrapping_mul(b),
@@ -27,7 +60,7 @@ index 13da134..20daceb 100644
                  };
              }
              "R += #i" | "R -= #i" | "R |= #i" | "R &= #i" | "R ^= #i" | "R *= #i"
-@@ -3187,7 +3189,7 @@ impl Cpu {
+@@ -3187,7 +3206,7 @@ impl Cpu {
                          let q = ((raw >> 21) & 7) as usize;
                          let x = (self.regs[2 * q + 1] as u64) << 32 | self.regs[2 * q] as u64;
                          let b = self.regs[((raw >> 24) & 0xf) as usize];
@@ -36,7 +69,39 @@ index 13da134..20daceb 100644
                          self.regs[lo] = y as u32;
                          self.regs[hi] = (y >> 32) as u32;
                      }
-@@ -6705,10 +6707,42 @@ fn sat16_raw(raw: u64) -> Option<(u8, u8, bool)> {
+@@ -5806,6 +5825,31 @@ struct BOp {
+ impl Fast {
+     /// The guest registers this op reads and writes (bit masks), for gluing pairs (`BOp::glue`);
+     /// None: not worked out (never glued).
++    /// (reads, writes, class, words) for the cost model.
++    fn timing(&self) -> Option<(u16, u16, u8, u8)> {
++        let (r, w) = self.regs_rw()?;
++        let class = match *self {
++            Fast::FOp { op, .. } => match op { 0 | 1 => TIM_FADD, 2 => TIM_FMUL, 3 => TIM_FDIV, 5 | 6 => TIM_FADD, 7 | 8 => TIM_FMAC, _ => TIM_FCVT },
++            Fast::Alu3 { op: Op::Mul, .. } | Fast::Alu3I { op: Op::Mul, .. } | Fast::Alu2 { op: Op::Mul, .. } | Fast::Alu2I { op: Op::Mul, .. } => TIM_IMUL,
++            Fast::Div { .. } => TIM_IDIV,
++            Fast::Ld { .. } | Fast::LdIdx { .. } | Fast::LdPost { .. } | Fast::LdPre { .. } | Fast::LdPostR { .. } | Fast::LdW { .. }
++            | Fast::LdWSp { .. } | Fast::LdBu { .. } | Fast::MemA4 { .. } | Fast::Rmw { .. } => TIM_LOAD,
++            Fast::St { .. } | Fast::StIdx { .. } | Fast::StPost { .. } | Fast::StPre { .. } | Fast::StPostR { .. } | Fast::StW { .. }
++            | Fast::StWSp { .. } => TIM_STORE,
++            Fast::LdPair { .. } | Fast::StPair { .. } | Fast::PushRets { .. } | Fast::PopPc { .. } | Fast::PushMask { .. }
++            | Fast::PopMask { .. } | Fast::BlockMove { .. } => TIM_MULTI,
++            Fast::Goto { .. } | Fast::Call { .. } | Fast::Rts | Fast::CallR { .. } | Fast::GotoR { .. } => TIM_FLOW,
++            _ => TIM_ALU,
++        };
++        let words = match *self {
++            Fast::LdPair { .. } | Fast::StPair { .. } => 2,
++            Fast::PushMask { mask } | Fast::PopMask { mask } | Fast::BlockMove { mask, .. } => mask.count_ones() as u8,
++            Fast::PushRets { .. } | Fast::PopPc { .. } => ((r | w).count_ones() + 1) as u8,
++            _ => 1,
++        };
++        Some((r, w, class, words))
++    }
++
+     fn regs_rw(&self) -> Option<(u16, u16)> {
+         let m = |r: u8| 1u16 << (r & 15);
+         let rhs = |rk: u8, rv: u32| if rk == 1 { 0 } else { m(rv as u8) };
+@@ -6705,10 +6749,42 @@ fn sat16_raw(raw: u64) -> Option<(u8, u8, bool)> {
  /// fmaf with a library call rather than with them, so the product is rounded before the add.
  fn fpu_d(op: u8, d: u32, a: u32, b: u32) -> u32 {
      let (x, y, acc) = (f32::from_bits(a), f32::from_bits(b), f32::from_bits(d));
@@ -80,7 +145,7 @@ index 13da134..20daceb 100644
      }
  }
  
-@@ -7085,3 +7119,24 @@ pub fn describe(win: u64, pc: u32) -> Option<String> {
+@@ -7085,3 +7161,24 @@ pub fn describe(win: u64, pc: u32) -> Option<String> {
          _ => return None,
      })
  }
@@ -106,10 +171,10 @@ index 13da134..20daceb 100644
 +    if n < 5 { println!("TRAP: {what} divide by zero at pc {pc:#010x} with EMU_CON bit 2 set (a CPU exception on an FM-1)"); }
 +}
 diff --git a/crates/fm1-emu/src/main.rs b/crates/fm1-emu/src/main.rs
-index 2bbba86..f5d236d 100644
+index 2bbba86..6dbbe6a 100644
 --- a/crates/fm1-emu/src/main.rs
 +++ b/crates/fm1-emu/src/main.rs
-@@ -433,6 +433,20 @@ fn main() -> ExitCode {
+@@ -433,6 +433,24 @@ fn main() -> ExitCode {
      // interrupts taken per source and core (the summary's busiest)
      let mut irq_by: std::collections::BTreeMap<(u32, u8), u64> = Default::default();
      // cpu0 instructions outside any ISR, in one ISR level, in a nested level
@@ -121,6 +186,10 @@ index 2bbba86..f5d236d 100644
 +    let (mut wdt_last, mut wdt_hits, mut wdt_gap) = (0u64, 0u64, (0u64, 0u64));
 +    fm1_core::FPU_WATCH.store(std::env::var("FM1_FPU_WATCH").is_ok(), std::sync::atomic::Ordering::Relaxed);
 +    let mut guard_hits = 0u32;
++    let (mut isr_insns, mut isr_taken) = (0u64, 0u64);
++    let (mut isr_words, mut isr_fpu) = (0u64, 0u64);
++    let model_all = std::env::var_os("FM1_MODEL_ALL").is_some();
++    let mut cost_dump: Option<std::collections::HashMap<u32, u64>> = std::env::var_os("FM1_COST_DUMP").map(|_| Default::default());
 +    let mtrack: Option<(u32, u32)> = std::env::var("FM1_MALLOC").ok().and_then(|v| { let (a, b) = v.split_once(',')?; Some((u32::from_str_radix(a, 16).ok()?, u32::from_str_radix(b, 16).ok()?)) });
 +    let mut mpend: [Option<(u32, u32, u32)>; 2] = [None, None];
 +    let mut mlive: std::collections::HashMap<u32, u32> = Default::default();
@@ -130,7 +199,7 @@ index 2bbba86..f5d236d 100644
      let mut busy = [0u64; 3];
      let irq_trace = std::env::var("FM1_IRQ_TRACE").is_ok();
      // cpu1 (core id 1) is held until cpu0 releases it with `0x10008 |= 8`
-@@ -517,7 +531,7 @@ fn main() -> ExitCode {
+@@ -517,7 +535,7 @@ fn main() -> ExitCode {
              }
              if (Some(cpu.pc) == args.break_pc || extra_breaks.contains(&cpu.pc)) && break_hits < break_max {
                  break_hits += 1;
@@ -139,11 +208,15 @@ index 2bbba86..f5d236d 100644
                  if break_hits == break_max {
                      println!("    (the last hit shown: FM1_BREAK_MAX={break_max})");
                  }
-@@ -603,6 +617,51 @@ fn main() -> ExitCode {
+@@ -603,11 +621,72 @@ fn main() -> ExitCode {
              if ci == 0 {
                  if cpu.irq_levels.is_empty() { busy[0] += 1 } else { busy[cpu.irq_levels.len().min(2)] += 1 }
              }
 +            soc.cur_pc = cpu.pc;
++            let pc_before = cpu.pc;
++            let in_isr_before = cpu.core_id == 0 && !cpu.irq_levels.is_empty();
++            let depth_before = cpu.irq_levels.len();
++            soc.in_isr = cpu.core_id == 0 && !cpu.irq_levels.is_empty();
 +            fm1_core::TRAP_ARMED.store(soc.guard[0] & 4 != 0, std::sync::atomic::Ordering::Relaxed);
 +            if let Some((ma, fa)) = mtrack {
 +                if cpu.pc == ma { mpend[cpu.core_id as usize & 1] = Some((cpu.rets, cpu.regs[0], cpu.sp)); }
@@ -191,7 +264,24 @@ index 2bbba86..f5d236d 100644
              let stepped = if cpu.core_id == 1 && soc.flaky_core1.is_some() {
                  cpu.step(&mut fm1_soc::machine::Core1Loads(&mut soc))
              } else {
-@@ -684,6 +743,24 @@ fn main() -> ExitCode {
+                 cpu.step(&mut soc)
+             };
++            if (in_isr_before || (model_all && cpu.core_id == 0)) && cpu.irq_levels.len() == depth_before {
++                isr_insns += 1;
++                let d = cpu.pc.wrapping_sub(pc_before);
++                let taken = d == 0 || d > 8;
++                if taken { isr_taken += 1; }
++                let (words, fpu) = match cpu.last_tim { Some((_, _, c, w)) => (w as u64, (4..=8).contains(&c)), None => (1, false) };
++                isr_words += words.saturating_sub(1);
++                if fpu { isr_fpu += 1; }
++                if let Some(f) = cost_dump.as_mut() {
++                    *f.entry(pc_before).or_insert(0u64) += 1 + words.saturating_sub(1) + taken as u64 + fpu as u64;
++                }
++            }
+             match stepped {
+                 Ok(()) => {
+                     if let (Some(a), Some(old)) = (args.watch, watch_val) {
+@@ -684,6 +763,46 @@ fn main() -> ExitCode {
              print!("{}{pc:#x}", if i == 0 { "" } else { " -> " });
          }
          println!();
@@ -210,6 +300,28 @@ index 2bbba86..f5d236d 100644
 +        for (pc, k, n, a, b, r) in fm1_core::FPU_EV.lock().unwrap().iter() { println!("FPU kind {k} pc {pc:#010x} n {n} a {a:08x} b {b:08x} r {r:08x}"); }
 +        if mtrack.is_some() { println!("MALLOC calls {mcount}, live {mcur} bytes in {} blocks, peak {} at {}ms, NULL {mnull}", mlive.len(), mpeak.0, mpeak.1); }
 +        println!("TRAPS {} (divides by zero while EMU_CON bit 2 was set)", fm1_core::TRAPS.load(std::sync::atomic::Ordering::Relaxed));
++        if std::env::var_os("FM1_XIP_READS").is_some() {
++            let mut v: Vec<_> = soc.xip_reads.iter().collect();
++            v.sort_by_key(|(_, (n, _))| std::cmp::Reverse(*n));
++            for (pc, (n, a)) in v.iter().take(40) { println!("XIPREAD pc {pc:#010x} n {n} last {a:#010x}"); }
++        }
++        let secs = (soc.periph.ms().max(1) as f64) / 1000.0;
++        println!("ISRMEM {:.1} M accesses/s ({:.1}% of ISR insns)", soc.isr_mem[0] as f64 / secs / 1e6, 100.0 * soc.isr_mem[0] as f64 / isr_insns.max(1) as f64);
++        { let tot: u64 = soc.isr_regions.values().sum(); let mut v: Vec<_> = soc.isr_regions.iter().collect(); v.sort_by_key(|(_, n)| std::cmp::Reverse(**n));
++          for (r, n) in v.iter().take(12) { println!("ISRREGION {:#010x}..+16K {:5.1}%", **r << 14, 100.0 * **n as f64 / tot.max(1) as f64); } }
++        {
++            // the cost model (fm1-emulator docs/performance.md, Felucca on an FM-1): about 6.5 ns an
++            // instruction and 6.5 ns a taken branch; here also a word moved by push/pop/block moves
++            // and an FPU instruction one slot more each
++            let slots = isr_insns + isr_taken + isr_words + isr_fpu;
++            println!("MODEL slots {:.1} M/s: insns {:.1} taken {:.1} extra words {:.1} fpu {:.1}; at 6.5 ns a slot: {:.0}% of real time",
++                slots as f64 / secs / 1e6, isr_insns as f64 / secs / 1e6, isr_taken as f64 / secs / 1e6,
++                isr_words as f64 / secs / 1e6, isr_fpu as f64 / secs / 1e6, slots as f64 * 6.5e-9 / secs * 100.0);
++            if let (Some(m), Ok(path)) = (cost_dump.as_ref(), std::env::var("FM1_COST_DUMP")) {
++                let mut o = String::new(); for (pc, n) in m { o += &format!("{pc:#010x} {n}\n"); } let _ = std::fs::write(path, o);
++            }
++        }
++        println!("ISRCOST insns {:.1} M/s, taken branches {:.1} M/s ({:.1}% of insns)", isr_insns as f64 / secs / 1e6, isr_taken as f64 / secs / 1e6, 100.0 * isr_taken as f64 / isr_insns.max(1) as f64);
 +        println!("GUARDREGS {:x?}", soc.guard);
 +        println!("misaligned accesses: {} pcs", soc.misalign.len());
 +        for (pc, (n, a, w, wr)) in soc.misalign.iter() { println!("  MIS pc={pc:#010x} n={n} last={a:#010x} w={w} {}", if *wr {"W"} else {"R"}); }
@@ -217,10 +329,10 @@ index 2bbba86..f5d236d 100644
          for (pc, n) in pcs.iter().take(8) {
              println!("  {pc:#010x}  {n}");
 diff --git a/crates/fm1-soc/src/lib.rs b/crates/fm1-soc/src/lib.rs
-index b342349..743c008 100644
+index b342349..1a4a88a 100644
 --- a/crates/fm1-soc/src/lib.rs
 +++ b/crates/fm1-soc/src/lib.rs
-@@ -176,6 +176,16 @@ impl Board {
+@@ -176,6 +176,20 @@ impl Board {
  }
  
  pub struct Soc {
@@ -228,6 +340,10 @@ index b342349..743c008 100644
 +    /// accesses seen per pc: (count, last address, width, write)
 +    pub cur_pc: u32,
 +    pub fetching: bool,
++    pub in_isr: bool,
++    pub isr_mem: [u64; 2],
++    pub isr_regions: std::collections::BTreeMap<u32, u64>,
++    pub xip_reads: std::collections::BTreeMap<u32, (u64, u32)>,
 +    pub guard: [u32; 6],
 +    pub wseen: std::collections::HashSet<(u32, u32)>,
 +    pub prot: std::collections::BTreeMap<(u32, u8), (u64, u32)>,
@@ -237,7 +353,7 @@ index b342349..743c008 100644
      pub board: Board,
      /// The BT baseband's window base (0x2FC44), as the firmware set it.
      bt_window: u32,
-@@ -251,6 +261,36 @@ fn dbg_line(addr: u32) -> &'static str {
+@@ -251,6 +265,41 @@ fn dbg_line(addr: u32) -> &'static str {
  }
  
  impl Soc {
@@ -245,6 +361,11 @@ index b342349..743c008 100644
 +    fn note_prot(&mut self, addr: u32, kind: u8) {
 +        // kind: 0 write in the protected range, 1 read/write of the null page
 +        if self.fetching { return; }
++        if kind == 1 && self.in_isr { self.isr_mem[0] += 1; *self.isr_regions.entry(addr >> 14).or_default() += 1; }
++        if kind == 1 && self.in_isr && (0x0200_0000..0x0400_0000).contains(&addr) {
++            let e = self.xip_reads.entry(self.cur_pc).or_insert((0, addr));
++            e.0 += 1; e.1 = addr;
++        }
 +        let hit = if kind == 0 { addr >= self.prot_lo && addr < self.prot_hi } else { addr < 0x1000 };
 +        if hit {
 +            let e = self.prot.entry((self.cur_pc, kind)).or_insert((0, addr));
@@ -274,12 +395,16 @@ index b342349..743c008 100644
      /// After an erase or page program: the XIP window shows the flash chip, also where the
      /// window's contents come from the package (`xip`, the app area as installed). A booted
      /// package's window reaches flash 0x93000, and April OS writes its samples from 0x74000
-@@ -345,6 +385,14 @@ impl Soc {
+@@ -345,6 +394,18 @@ impl Soc {
      /// `ram_size` in bytes; `xip` = the app binary mapped at XIP_BASE.
      pub fn new(ram_size: usize, xip: Vec<u8>) -> Self {
          Self {
 +            cur_pc: 0,
 +            fetching: false,
++            in_isr: false,
++            isr_mem: [0, 0],
++            isr_regions: Default::default(),
++            xip_reads: Default::default(),
 +            guard: [0, 0, u32::MAX, 0, u32::MAX, 0],
 +            wseen: Default::default(),
 +            prot: Default::default(),
@@ -289,7 +414,7 @@ index b342349..743c008 100644
              board: Board::Fm1,
              bt_window: BT_WINDOW_BASE,
              xip,
-@@ -675,6 +723,13 @@ impl Soc {
+@@ -675,6 +736,13 @@ impl Soc {
  }
  
  impl Bus for Soc {
@@ -303,7 +428,7 @@ index b342349..743c008 100644
      fn irq_window(&mut self) {
          if self.periph.any_pending() {
              self.periph.next_due = 0;
-@@ -745,6 +800,7 @@ impl Bus for Soc {
+@@ -745,6 +813,7 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn read8(&mut self, addr: u32) -> u8 {
@@ -311,7 +436,7 @@ index b342349..743c008 100644
          let o = addr.wrapping_sub(RAM_BASE);
          if (o as usize) < self.ram.len() {
              return self.ram.read8(o);
-@@ -754,6 +810,8 @@ impl Bus for Soc {
+@@ -754,6 +823,8 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn read16(&mut self, addr: u32) -> u16 {
@@ -320,7 +445,7 @@ index b342349..743c008 100644
          // halfwords sit at offsets 0 and 2 of the word (the old `>> 8` for
          // offset 2 returned bytes 1-2 and sheared every 16-bit pixel canvas)
          let v = self.read32(addr & !3);
-@@ -762,6 +820,8 @@ impl Bus for Soc {
+@@ -762,6 +833,8 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn read32(&mut self, addr: u32) -> u32 {
@@ -329,7 +454,7 @@ index b342349..743c008 100644
          let o = addr.wrapping_sub(RAM_BASE) as usize;
          if o + 4 <= self.ram.len() {
              return self.ram.read32(o as u32);
-@@ -775,6 +835,8 @@ impl Bus for Soc {
+@@ -775,6 +848,8 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn write8(&mut self, addr: u32, value: u8) {
@@ -338,7 +463,7 @@ index b342349..743c008 100644
          let o = addr.wrapping_sub(RAM_BASE);
          if (o as usize) < self.ram.len() {
              return self.ram.write8(o, value);
-@@ -784,6 +846,9 @@ impl Bus for Soc {
+@@ -784,6 +859,9 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn write16(&mut self, addr: u32, value: u16) {
@@ -348,7 +473,7 @@ index b342349..743c008 100644
          // merged at (addr & 2) within the aligned word, as the slow path does
          let o = (addr & !1).wrapping_sub(RAM_BASE) as usize;
          if o + 2 <= self.ram.len() && addr & 1 == 0 {
-@@ -794,6 +859,9 @@ impl Bus for Soc {
+@@ -794,6 +872,9 @@ impl Bus for Soc {
  
      #[inline(always)]
      fn write32(&mut self, addr: u32, value: u32) {
@@ -358,7 +483,7 @@ index b342349..743c008 100644
          let o = addr.wrapping_sub(RAM_BASE) as usize;
          if o + 4 <= self.ram.len() {
              return self.ram.write32(o as u32, value);
-@@ -1080,6 +1148,19 @@ pub fn stock_from_package(pkg: &[u8], syx: Option<&[u8]>) -> Result<Stock, Strin
+@@ -1080,6 +1161,19 @@ pub fn stock_from_package(pkg: &[u8], syx: Option<&[u8]>) -> Result<Stock, Strin
      let u = fwsc::unpack(pkg)?;
      let board = Board::of_identity(&u.identity);
      let mut flash = fwsc::full_flash(&u.raw, FLASH_SIZE);
