@@ -284,7 +284,7 @@ EL_DSP_CODE int tr808_active(const tr808_t *t)
  * at five DECAY settings: pitch glides from ~52 to 44 Hz within ~100 ms,
  * 2nd / 3rd harmonics at about -33..-43 / -35..-50 dB, decays within
  * ~2 dB rms of the envelopes. */
-float tr808_bd_cal[BD_CAL] = {
+TR808_CAL float tr808_bd_cal[BD_CAL] = {
     /* f0     sigh   sigh_acc att_hz att_q att_ms gain  retrig h2       h3       click q0    q_span sigh_ms drive */
     43.91f, 0.3451f, 0.03772f, 216.1f, 12.91f, 5.097f, 1.541f, 0.4058f, 0.09819f, -0.321f, 0.002613f, 2.91f, 5.743f, 37.45f, 4.777f};
 
@@ -371,7 +371,7 @@ static EL_DSP_VOICE float bass_drum(tr808_t *t, tr_voice_t *v)
  * against recordings of a real TR-808 at 16 TONE / SNAPPY settings: mode
  * levels within 0.8 dB rms, noise level within 0.4 dB, decays within ~6 %,
  * noise spectrum within 2.4 dB rms (1-12.7 kHz). */
-float tr808_sd_cal[SD_CAL] = {
+TR808_CAL float tr808_sd_cal[SD_CAL] = {
     /* low  high  q_low  q_high  noise  n_tau1 n_tau2 n_mix  n_hp    n_lp     snap */
     0.8591f, 0.1114f, 18.9f, 10.27f, 0.4709f, 28.89f, 39.58f, 0.1607f, 2098.7f, 7739.4f, 0.2575f};
 /* Body lengthened by ear against the recording (808 Basics Kit A, snares
@@ -578,7 +578,7 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
  * a 1.2 kHz low-pass. Error against the recordings (rms dB, fine
  * envelope / tail / spectrum): 2.5-3.1 / 1.4-1.6 / 2.3-2.7, model 0:
  * 8.8 / 7-10 / 4-4.4. */
-float tr808_cp_cal[CP_CAL] = {
+TR808_CAL float tr808_cp_cal[CP_CAL] = {
     /* bp_hz  bp_q   tooth  tooth_ms gap_ms main_ms rise_ms main_tau floor  floor_tau floor_lp gain  drive */
     1146.0f, 1.499f, 0.7455f, 5.498f, 11.36f, 33.58f, 0.2133f, 31.8f, 0.0231f, 657.6f, 1186.0f, 1.5f, 1.557f};
 
@@ -751,7 +751,7 @@ static EL_DSP_VOICE float cowbell_osc(float *phase, float tune_lo, float tune_hi
  * against single-hit recordings of a real TR-808 (envelope and 1/3-octave
  * spectrum): cowbell, clap tail 98 ms, rim ring +19 %, closed hat 27 ms
  * to -20 dB, open hat a touch brighter. */
-float tr808_mx_cal[MX_CAL] = {
+TR808_CAL float tr808_mx_cal[MX_CAL] = {
     /* cb_hz  cb_q  cb_t1 cb_t2  cb_mix cp_tail cp_gain rs_q  ch_ms  oh_hf */
     2934.0f, 0.406f, 1.663f, 38.52f, 0.655f, 98.53f, 0.275f, 1.193f, 27.42f, 0.238f};
 
@@ -777,7 +777,7 @@ float tr808_mx_cal[MX_CAL] = {
 #ifndef TR808_CB_MODEL
 #define TR808_CB_MODEL 1   /* fitted to the real cowbell, chosen by ear, docs/adr/0012 */
 #endif
-float tr808_cb_cal[CB_CAL] = {
+TR808_CAL float tr808_cb_cal[CB_CAL] = {
     /* bp_hz  bp_q  edge     edge_hz clank   clank_ms body_ms asym     gain */
     1033.0f, 7.1f, 0.05648f, 901.6f, 0.8923f, 21.36f, 139.4f, 0.02784f, 1.64f};   /* gain: as loud as model 0 over 0.1 s */
 
@@ -835,7 +835,7 @@ static inline EL_DSP_HELPER float swing_vca(float x, float env)
  * settings (Fischer sample set): high/low band balance within 0.4 dB rms,
  * decay times within ~8 % (early) / ~10 % (late), 1/3 octaves within
  * 3.5 dB rms at TONE 5 / DECAY 2.5. Host builds may change it. */
-float tr808_cy_cal[CY_CAL] = {
+TR808_CAL float tr808_cy_cal[CY_CAL] = {
     /* drive  low   decay short  tau_s  tone_s tone_l tone_d  tau_l0 tau_l1 tau_d0 tau_d1 lag_l lag_d  tone_p */
     0.5476f, 0.5929f, 0.8818f, 1.658f, 47.71f, 1.884f, -0.4735f, 0.7804f, 159.7f, 469.2f, 102.8f, 173.6f, 58.48f, 4.648f, 1.996f,
     /* hh2 Hz  hh3 Hz   output low-pass Hz */
@@ -910,7 +910,7 @@ static EL_DSP_VOICE float cymbal(tr808_t *t, tr_voice_t *v, float low_src, float
 #ifndef TR808_HAT_MODEL
 #define TR808_HAT_MODEL 2   /* chosen by ear (D, the X0X / 8W8 structure), docs/adr/0014 */
 #endif
-float tr808_hh_cal[HH_CAL] = {
+TR808_CAL float tr808_hh_cal[HH_CAL] = {
     /* bp_hz  bp_q  low_mix ch_hz    ch_q  oh_hz   oh_q */
     6373.0f, 3.169f, 0.3871f, 10910.0f, 1.244f, 9418.0f, 0.9215f};
 
@@ -925,7 +925,7 @@ float tr808_hh_cal[HH_CAL] = {
  * 85 ms decay; the knee ends it), OH rises over ~6 ms, holds 30 % of
  * 0.44 s and falls linearly over the rest. DECAY scales them. Gains: as
  * loud as model 0 (CH over 50 ms, OH over 200 ms). */
-float tr808_hh2_cal[HH2_CAL] = {0.000869221f, 0.0625397f};
+TR808_CAL float tr808_hh2_cal[HH2_CAL] = {0.000869221f, 0.0625397f};
 static inline EL_DSP_HELPER float knee_gate(float e)
 {
     float over = e - 0.59f;

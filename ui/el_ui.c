@@ -1184,6 +1184,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
                      (uint32_t)track_of(ui)->recording << 17 | (uint32_t)e->transport.running << 18 |
                      (uint32_t)e->option[EL_OPT_REC_STEP] << 19);
     if (ui->sound_save) mix(&sig[2], (uint8_t)ui->sound_name[ui->name_cursor]);
+    if (ui->options)
+        for (unsigned i = 0; i < EL_PROF_STAGES; ++i) mix(&sig[2], ui->prof[i] | i << 8 | (uint32_t)ui->prof_valid << 16);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
     for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
@@ -1214,17 +1216,23 @@ static void update_leds(el_ui_t *ui)
     el_engine_t *e = ui->engine;
     const dr_machine_t *m = &e->drums;
     int playing = e->transport.running && m->playing;
-    uint64_t leds = 0;
-    if (playing) leds |= 1ull << BTN_PLAY;
-    if (m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording) leds |= 1ull << BTN_REC;
-    if (synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) leds |= 1ull << BTN_ARP;
-    if (ui->overview) leds |= 1ull << BTN_HOME;
-    else leds |= 1ull << area_buttons[ui->area];
-    if (ui->hold & HOLD_GEN) leds |= 1ull << BTN_ARP;
-    if ((synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer))
-        leds |= 1ull << BTN_SEQ;
-    if (in_editor(ui)) leds |= 1ull << BTN_EDIT;
-    if (ui->sound_save && (ui->now / 250u) & 1u) leds |= 1ull << BTN_SAVE;
+    /* Function buttons (docs/adr/0020): all lit, so they can be found; a
+     * state that is on blinks instead (the LEDs know only on and off):
+     * PLAY with the quarter notes, REC fast, ARP / SEQ / EDIT and the page
+     * shown on OCT- / OCT+ slowly, SAVE fast while a sound is being named.
+     * The area shows on the screen. */
+    uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0;
+    int slow = (ui->now / 400u) & 1u, fast = (ui->now / 125u) & 1u;
+    if (playing) {
+        uint32_t step = e->transport.step ? e->transport.step - 1u : 0u;   /* the step sounding now */
+        if ((step & 3u) >= 2u) blink |= 1ull << BTN_PLAY;   /* lit on the first half of each quarter */
+    }
+    if ((m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording) && fast) blink |= 1ull << BTN_REC;
+    if (((synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) || (ui->hold & HOLD_GEN)) && slow) blink |= 1ull << BTN_ARP;
+    if (((synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer)) && slow)
+        blink |= 1ull << BTN_SEQ;
+    if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
+    if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
     if (ui->overview) {
         /* The slot each area plays; the one it switches to blinks. While a
          * punch-in with a value is held: its value instead. */
@@ -1244,7 +1252,7 @@ static void update_leds(el_ui_t *ui)
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         unsigned page = ui->step_page[0];
-        if (p->length > 16) leds |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
+        if (p->length > 16 && slow) blink |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
         for (unsigned i = 0; i < UI_WHITE; ++i) {
             unsigned s = i + page * 16u;
             if (s >= p->length) continue;
@@ -1265,7 +1273,7 @@ static void update_leds(el_ui_t *ui)
         int tplay = playing && t->playing;
         if (ui->step_mode[ui->area] && !ui->editor) {
             unsigned page = ui->step_page[ui->area];
-            if (p->length > 16) leds |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
+            if (p->length > 16 && slow) blink |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
             for (unsigned i = 0; i < UI_WHITE; ++i) {
                 unsigned s = i + page * 16u;
                 if (s >= p->length) continue;
@@ -1284,6 +1292,7 @@ static void update_leds(el_ui_t *ui)
             for (unsigned k = 0; k < UI_KEYS; ++k) if (ui->key_note[k] != 0xff) leds |= 1ull << (14u + k);
         }
     }
+    leds &= ~blink;
     uint64_t changed = ui->leds_valid ? leds ^ ui->leds : ~0ull;
     for (unsigned i = 0; i < 14u + UI_KEYS; ++i)
         if (changed & (1ull << i)) fm1_led_set(i, (int)((leds >> i) & 1u));
@@ -1564,13 +1573,20 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     gfx_fill(b, 0, FOOT_Y - 4, GFX_W, GFX_H - FOOT_Y + 4, PANEL);
     if (ui->options) {
         if (ui->bench[0]) {
-            /* The CPU test from the start, in ns per operation. */
+            /* The render stages (percent of a block, ADR 0019) and the CPU
+             * test from the start (ns per step: SRAM loop, SRAM FMUL,
+             * sequential and random load, call). */
             char l1[44], l2[44];
             const uint16_t *k = ui->bench;
+            const uint8_t *p = ui->prof;
 #define NS(i) (unsigned)(k[i] / 10u), (unsigned)(k[i] % 10u)
-            el_snprintf(l1, sizeof l1, "NS LOOP %u.%u INT %u.%u ADD %u.%u", NS(EL_BENCH_LOOP), NS(EL_BENCH_INT), NS(EL_BENCH_FADD));
-            el_snprintf(l2, sizeof l2, "MUL %u.%u M4 %u.%u DIV %u.%u DEN %u.%u", NS(EL_BENCH_FMUL), NS(EL_BENCH_FMUL4),
-                        NS(EL_BENCH_FDIV), NS(EL_BENCH_DENORM));
+            if (ui->prof_valid)
+                el_snprintf(l1, sizeof l1, "DR%u RH%u ST%u BA%u FX%u MB%u PU%u", p[EL_PROF_DRUMS], p[EL_PROF_RHYTHM],
+                            p[EL_PROF_STRINGS], p[EL_PROF_BASS], p[EL_PROF_FX], p[EL_PROF_MASTER], p[EL_PROF_PUNCH]);
+            else
+                el_snprintf(l1, sizeof l1, "NS LOOP %u.%u INT %u.%u ADD %u.%u", NS(EL_BENCH_LOOP), NS(EL_BENCH_INT), NS(EL_BENCH_FADD));
+            el_snprintf(l2, sizeof l2, "R%u.%u RM%u.%u LD%u.%u RND%u.%u C%u.%u", NS(EL_BENCH_RLOOP), NS(EL_BENCH_RMUL),
+                        NS(EL_BENCH_LDSEQ), NS(EL_BENCH_LDRND), NS(EL_BENCH_CALL));
 #undef NS
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);

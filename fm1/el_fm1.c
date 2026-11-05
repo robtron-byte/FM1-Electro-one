@@ -3,6 +3,7 @@
 #include "el_ui.h"
 #include "el_store.h"
 #include "fm1_device.h"
+#include <string.h>
 
 static el_engine_t engine;
 static el_ui_t ui;
@@ -15,26 +16,42 @@ static int master_shown = -1;
 #define EL_AUDIO_TIMER (*(volatile uint32_t *)0x1EEF0F0u)
 #define EL_AUDIO_TIMER_PERIOD (*(volatile uint32_t *)0x1EEF0F4u)   /* it counts 0..PERIOD */
 static volatile uint32_t load_peak;   /* ticks, written by the audio interrupt */
-static uint32_t block_ticks, load_at, drops_seen;
+static uint32_t block_ticks, load_at, drops_seen, prof_blocks;
 
-/* CPU test (docs/adr/0019): how long one operation takes on this FM-1. From
- * Flash (SRAM is short); the loops are a few words and run from the cache
- * after the first round. Each loop runs N times with its operation
- * chained (each step needs the one before), timed by the audio time base;
- * the shortest of five runs counts (an interrupt may land in one). */
-enum { BENCH_N = 2000 };
+/* CPU test (docs/adr/0019): how long one step takes on this FM-1. The flash
+ * loops are a few words and run from the cache after the first round; the
+ * R* kinds run the same from SRAM, like the audio code. Each loop runs N
+ * steps with its operation chained (each needs the one before), timed by
+ * the audio time base; the shortest of five runs counts (an interrupt may
+ * land in one). The loads use the engine's memory, which is free before
+ * el_init. */
+enum { BENCH_N = 2000, BENCH_RND_WORDS = 16384 };
 #define KEEP(x) __asm__ volatile("" : "+r"(x))
 static uint32_t ticks_since(uint32_t start)
 {
     uint32_t end = EL_AUDIO_TIMER;
     return end >= start ? end - start : end + EL_AUDIO_TIMER_PERIOD + 1u - start;
 }
-static uint32_t bench_one(unsigned kind)
+static FM1_AUDIO_CODE __attribute__((noinline)) uint32_t bench_callee(uint32_t x) { KEEP(x); return x + 1u; }
+static FM1_AUDIO_CODE __attribute__((noinline)) uint32_t bench_ram(unsigned kind)
+{
+    volatile float seed_f = 1.0000001f;
+    float a = seed_f, k = seed_f;
+    uint32_t x = 1u, start = EL_AUDIO_TIMER;
+    if (kind == EL_BENCH_RLOOP) for (int i = 0; i < BENCH_N; ++i) KEEP(x);
+    else if (kind == EL_BENCH_RMUL) for (int i = 0; i < BENCH_N; ++i) { a = a * k; KEEP(a); }
+    else for (int i = 0; i < BENCH_N; ++i) x = bench_callee(x);
+    uint32_t end = EL_AUDIO_TIMER;
+    volatile float sink = a; volatile uint32_t sink_i = x; (void)sink; (void)sink_i;
+    return end >= start ? end - start : end + EL_AUDIO_TIMER_PERIOD + 1u - start;
+}
+static uint32_t bench_one(unsigned kind, uint32_t *mem)
 {
     volatile float seed_f = 1.0000001f, small = 1e-39f, two = 2.0f;
     volatile uint32_t seed_i = 12345u;
     float a = seed_f, b = seed_f, c = seed_f, d = seed_f, k = seed_f, z = small;
     uint32_t x = seed_i;
+    if (kind == EL_BENCH_RLOOP || kind == EL_BENCH_RMUL || kind == EL_BENCH_CALL) return bench_ram(kind);
     uint32_t start = EL_AUDIO_TIMER;
     switch (kind) {
     case EL_BENCH_LOOP: for (int i = 0; i < BENCH_N; ++i) KEEP(x); break;
@@ -46,6 +63,8 @@ static uint32_t bench_one(unsigned kind)
         break;
     case EL_BENCH_FDIV: { float t = two; for (int i = 0; i < BENCH_N; ++i) { a = t / a; KEEP(a); } } break;
     case EL_BENCH_DENORM: for (int i = 0; i < BENCH_N; ++i) { z = z * k; KEEP(z); } break;
+    case EL_BENCH_LDSEQ: { const float *f = (const float *)mem; for (int i = 0; i < BENCH_N; ++i) { a += f[i]; KEEP(a); } } break;
+    case EL_BENCH_LDRND: for (int i = 0; i < BENCH_N; ++i) { x = mem[x]; KEEP(x); } break;
     default: break;
     }
     uint32_t used = ticks_since(start);
@@ -54,17 +73,27 @@ static uint32_t bench_one(unsigned kind)
     (void)sink; (void)sink_i;
     return used;
 }
-static void bench(uint16_t out[8])
+static void bench(uint16_t out[16], uint32_t *mem)
 {
     uint32_t clock = fm1_device_clock();
     if (!clock) return;
-    for (unsigned kind = EL_BENCH_LOOP; kind <= EL_BENCH_DENORM; ++kind) {
+    /* A random cycle through BENCH_RND_WORDS words (each step lands far from
+     * the last), and small floats for the sequential loads. */
+    uint32_t r = 0x2545f497u;
+    for (unsigned i = 0; i < BENCH_RND_WORDS; ++i) mem[i] = i;
+    for (unsigned i = BENCH_RND_WORDS - 1u; i > 0; --i) {
+        r ^= r << 13; r ^= r >> 17; r ^= r << 5;
+        unsigned j = r % i, t = mem[i]; mem[i] = mem[j]; mem[j] = t;   /* Sattolo: one cycle */
+    }
+    float *seq = (float *)(mem + BENCH_RND_WORDS);
+    for (unsigned i = 0; i < BENCH_N; ++i) seq[i] = 1e-3f;
+    for (unsigned kind = EL_BENCH_LOOP; kind < EL_BENCH_KINDS; ++kind) {
         uint32_t best = 0xffffffffu;
-        for (int r = 0; r < 5; ++r) {
-            uint32_t t = bench_one(kind);
+        for (int run = 0; run < 5; ++run) {
+            uint32_t t = bench_one(kind, kind == EL_BENCH_LDSEQ ? (uint32_t *)seq : mem);
             if (t < best) best = t;
         }
-        /* tenths of a ns per iteration; the loop itself is not subtracted */
+        /* tenths of a ns per step; the loop itself is not subtracted */
         uint64_t tenth_ns = (uint64_t)best * 10000000000ull / clock / BENCH_N;
         out[kind] = (uint16_t)(tenth_ns > 65535u ? 65535u : tenth_ns ? tenth_ns : 1u);
     }
@@ -90,12 +119,17 @@ int el_fm1_control(void)
     struct fm1_controls controls;
     if (!ready) {
         /* groove_screen_init() (el_sdk_app.c) has started the panel and LCD. */
+        /* The CPU test first: it borrows the engine's memory. */
+        _Static_assert(sizeof engine >= (BENCH_RND_WORDS + BENCH_N) * 4u, "CPU test memory");
+        bench(ui.bench, (uint32_t *)(void *)&engine);
         el_init(&engine);
         /* The last grooves come back from Flash; only on the very first
          * start (empty Flash) the generated factory set plays. */
         el_store_load(&engine);
+        uint16_t measured[16];
+        memcpy(measured, ui.bench, sizeof measured);
         el_ui_init(&ui, &engine);
-        bench(ui.bench);
+        memcpy(ui.bench, measured, sizeof measured);
         ui.save = el_store_save;
         ui.sound_get = el_sound_get;
         ui.sound_put = el_sound_put;
@@ -126,6 +160,16 @@ int el_fm1_control(void)
         ui.load = (int16_t)((uint64_t)peak * 100u / block_ticks);
         ui.load_drops = s.overruns != drops_seen;
         drops_seen = s.overruns;
+        /* Stage shares: their ticks against the blocks rendered meanwhile. */
+        uint32_t blocks = engine.blocks, n = blocks - prof_blocks;
+        prof_blocks = blocks;
+        for (unsigned i = 0; i < EL_PROF_STAGES; ++i) {
+            uint32_t t = engine.prof[i];
+            engine.prof[i] = 0;   /* a block in between is lost from one figure: fine */
+            uint64_t pct = n ? (uint64_t)t * 100u / ((uint64_t)n * block_ticks) : 0;
+            ui.prof[i] = (uint8_t)(pct > 255u ? 255u : pct);
+        }
+        ui.prof_valid = n != 0;
     }
     el_ui_control(&ui, &controls, now);
     return 1;

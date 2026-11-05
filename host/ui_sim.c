@@ -477,7 +477,10 @@ int main(int argc, char **argv)
     tap_button(BTN_LFO);
     hold(BTN_EDIT, 0);
     run(100);
-    ed_ok = ed_ok && ui.editor && ui.area == EL_AREA_BASS && leds[BTN_EDIT];
+    /* In the editor EDIT blinks (docs/adr/0020): it changes within 0.5 s. */
+    int edit_was = leds[BTN_EDIT], edit_changed = 0;
+    for (int i = 0; i < 10 && !edit_changed; ++i) { run(50); edit_changed = leds[BTN_EDIT] != edit_was; }
+    ed_ok = ed_ok && ui.editor && ui.area == EL_AREA_BASS && edit_changed;
     shot(dir, "14_editor_first");
     unsigned engine = bass->part.engine;
     turn(0, 1);                           /* SELECT: next section */
@@ -517,7 +520,9 @@ int main(int argc, char **argv)
     shot(dir, "19_editor_jp6_vcf");
     ed_ok = ed_ok && bass->part.engine == SYN_JP6;
     tap_button(BTN_LFO);                  /* the area button leaves */
-    ed_ok = ed_ok && !ui.editor;
+    run(20);
+    /* Outside it every function button is lit (ADR 0020), EDIT too. */
+    ed_ok = ed_ok && !ui.editor && leds[BTN_EDIT] && leds[BTN_FX] && leds[BTN_GLO] && leds[BTN_HOME];
     printf("editor: all parameters, navigation, keys, leave %s\n", ed_ok ? "ok" : "FAIL");
     /* User sounds: SAVE in the editor, rename, slot 3, SAVE stores; PRESETS
      * finds it after the factory sounds; another button cancels; the groove

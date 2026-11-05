@@ -75,11 +75,20 @@ typedef struct {
     uint8_t load_drops;
     /* CPU test at start (device only; bench[0] == 0: none): tenths of a
      * nanosecond per operation, EL_BENCH_* (docs/adr/0019). */
-    uint16_t bench[8];
+    uint16_t bench[16];
+    /* Average share of a block per render stage (EL_PROF_*), percent;
+     * prof_valid 0: none measured (host). */
+    uint8_t prof[EL_PROF_STAGES], prof_valid;
     gfx_band_t band;
 } el_ui_t;
 
-enum { EL_BENCH_LOOP, EL_BENCH_INT, EL_BENCH_FADD, EL_BENCH_FMUL, EL_BENCH_FMUL4, EL_BENCH_FDIV, EL_BENCH_DENORM, EL_BENCH_RAM };
+enum { EL_BENCH_LOOP, EL_BENCH_INT, EL_BENCH_FADD, EL_BENCH_FMUL, EL_BENCH_FMUL4, EL_BENCH_FDIV, EL_BENCH_DENORM,
+       EL_BENCH_RLOOP,   /* the empty loop again, run from SRAM like the audio code */
+       EL_BENCH_RMUL,    /* the FMUL chain from SRAM */
+       EL_BENCH_LDSEQ,   /* a float load per step, through 8 KB in order */
+       EL_BENCH_LDRND,   /* a dependent load per step, jumping through 64 KB (latency) */
+       EL_BENCH_CALL,    /* a call of a small function per step, from SRAM */
+       EL_BENCH_KINDS };
 void el_ui_init(el_ui_t *ui, el_engine_t *engine);
 /* One control pass: handle input, update LEDs, paint some dirty bands. */
 void el_ui_control(el_ui_t *ui, const struct fm1_controls *controls, uint32_t now);

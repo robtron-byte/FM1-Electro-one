@@ -77,6 +77,38 @@ Schritt 1, ohne hörbare Klangänderung:
   - `tools/fm1-emu/check.sh` meldet jetzt einen SDK-Assert (`cpu_assert_debug`). So fällt es auf, wenn der Start an zu wenig Heap scheitert.
 - **Nächster Schritt:** die Messwerte vom Gerät, dann gezielt die teuren Operationen ersetzen, die MKS-50-Chop vereinfachen und die Stimmenzahl als A/B anbieten.
 
+## Messung auf dem Gerät (2026-11-05)
+
+CPU-Test, ns pro Schritt, inklusive des Schleifensprungs:
+
+| Messung | ns |
+|---|---|
+| LOOP | 21,9 |
+| INT | 34,4 |
+| ADD | 25,0 |
+| MUL | 28,1 |
+| M4 | 44,2 |
+| DIV | 34,4 |
+| DEN | 25,0 |
+
+- **Kommazahl-Befehle sind schnell:** FADD etwa 3 ns, FMUL etwa 6 ns, FDIV etwa 12 ns.
+- **Denormals kosten nichts extra.** Die Vermutung „FPU teuer“ ist damit widerlegt.
+- **Teuer ist der genommene Sprung** (die leere Schleife): etwa 22 ns, rund 8 Takte. X0X misst dasselbe.
+
+Die Original-Firmware V16 hat im Emulator aber noch mehr Sprünge als FM1-Electro und läuft trotzdem. Bei 175 % Last (Anzeige beim Spielen, 170–180 %) kostet ein Befehl von FM1-Electro auf dem Gerät etwa 4,8 Takte, einer von V16 höchstens 2,4.
+
+**Folgeschritt:**
+- **Zeit je Render-Abschnitt auf dem Gerät** (`el_engine_t.prof`, `prof_add` in `engine/electro.c`):
+  - Abschnitte: Drums, RHYTHM, STRINGS, BASS, Effekte, Master, Punch-ins.
+  - Im OPTIONS-Menü steht der Anteil eines Blocks in Prozent.
+- **Weitere Messungen im CPU-Test:**
+  - Schleife und FMUL aus dem SRAM;
+  - Laden der Reihe nach (8 KB);
+  - Laden mit abhängigen Sprüngen durch 64 KB (Latenz);
+  - Funktionsaufruf.
+- **Tabelle im Flash behoben:** Die Kalibriertabelle der Hats lag im Flash, weil LTO sie als nie beschrieben erkannte. Die Kalibriertabellen sind auf dem Gerät jetzt `const` (`TR808_CAL`) und liegen damit im SRAM.
+
 ## Verlauf
 
 - 2026-11-05: angelegt nach dem ersten Gerätetest mit laufendem Groove (6 s statt 2 s pro Pattern)
+- 2026-11-05: Messwerte vom Gerät: FPU schnell, Last 170–180 %; Zeitmessung je Render-Abschnitt und weitere CPU-Tests

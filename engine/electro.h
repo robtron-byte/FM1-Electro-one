@@ -93,6 +93,10 @@ int el_option_max(unsigned option);
 enum { EL_START_LAST, EL_START_SLOT_A };
 enum { EL_AREA_BEAT, EL_AREA_RHYTHM, EL_AREA_STRINGS, EL_AREA_BASS };
 
+/* Render stages timed on the device: drums, RHYTHM, STRINGS, BASS, effects
+ * (distortion, reverb, delay, gated reverb, throw), master bus, punch-ins. */
+enum { EL_PROF_DRUMS, EL_PROF_RHYTHM, EL_PROF_STRINGS, EL_PROF_BASS, EL_PROF_FX, EL_PROF_MASTER, EL_PROF_PUNCH, EL_PROF_STAGES };
+
 typedef struct {
     el_transport_t transport;
     dr_machine_t drums;
@@ -127,6 +131,9 @@ typedef struct {
     float ph_mix, ph_phase, ph_a[2], ph_z[2][6], ph_fb[2];
     int stutter_sync;
     volatile uint32_t blocks;
+    /* Time per render stage (device only, docs/adr/0019): ticks of the SDK's
+     * audio time base summed since the control task last took them. */
+    volatile uint32_t prof[EL_PROF_STAGES];
 } el_engine_t;
 
 /* Control task, before audio starts. */

@@ -374,17 +374,35 @@ static float synth_l[EL_BLOCK], synth_r[EL_BLOCK], rev[EL_BLOCK], gate[EL_BLOCK]
 static float left[EL_BLOCK], right[EL_BLOCK];
 static float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK], dist_send[EL_BLOCK];
 
+/* Stage timing: the SDK's audio time base (0x1EEF0F0, counting 0..PERIOD
+ * at 0x1EEF0F4) on the device; nothing on the host. */
+#ifdef FM1_HOST_TEST
+static inline uint32_t prof_now(void) { return 0; }
+static inline void prof_add(el_engine_t *e, unsigned stage, uint32_t *t) { (void)e; (void)stage; (void)t; }
+#else
+static inline EL_DSP_HELPER uint32_t prof_now(void) { return *(volatile uint32_t *)0x1EEF0F0u; }
+static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32_t *t)
+{
+    uint32_t now = prof_now(), start = *t;
+    e->prof[stage] += now >= start ? now - start : now + *(volatile uint32_t *)0x1EEF0F4u + 1u - start;
+    *t = now;
+}
+#endif
+
 static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
 {
+    uint32_t pt = prof_now();
     el_transport_t *t = &e->transport;
     /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
     e->drums.kit.key_shift = e->track[EL_AREA_BASS - 1].transpose;
     dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
+    prof_add(e, EL_PROF_DRUMS, &pt);
     /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         float *l = i == EL_AREA_BASS - 1u ? bass_l : i == EL_AREA_RHYTHM - 1u ? rhythm_l : synth_l;
         float *r = i == EL_AREA_BASS - 1u ? bass_r : i == EL_AREA_RHYTHM - 1u ? rhythm_r : synth_r;
         st_render(&e->track[i], l + pos, r + pos, dly + pos, rev + pos, n, t->bpm);
+        prof_add(e, EL_PROF_RHYTHM + i, &pt);
     }
 }
 
@@ -694,6 +712,7 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
     /* BASS always in mono (its chorus and unison spread fold to the middle). */
     for (unsigned i = 0; i < frames; ++i) bass_l[i] = bass_r[i] = 0.5f * (bass_l[i] + bass_r[i]);
+    uint32_t pt = prof_now();
     punch_throw(e, frames);
     /* Distortion send per area (mono), its return on the drum bus. */
     const uint8_t *fv = e->fx.v;
@@ -718,12 +737,15 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     fx_distortion(&e->fx, dist_send, drum_l, drum_r, (int)frames);
     /* Effect returns sit with the synths (high-passed, gently ducked). */
     fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
+    prof_add(e, EL_PROF_FX, &pt);
     mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, left, right, (int)frames);
+    prof_add(e, EL_PROF_MASTER, &pt);
     punch_delay(e, frames);
     punch_crush(e, frames);
     punch_phaser(e, frames);
     punch_stutter(e, frames);
     punch_tape(e, frames);
+    prof_add(e, EL_PROF_PUNCH, &pt);
     ++e->blocks;
 }
 
