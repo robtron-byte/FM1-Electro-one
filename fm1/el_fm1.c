@@ -83,6 +83,21 @@ static uint32_t bench_one(unsigned kind, uint32_t *mem)
     (void)sink; (void)sink_i;
     return used;
 }
+/* The clock as X0X reads it off an FM-1 (fm1-x0x docs/plans/2026-10-04-
+ * dual-core-and-clock.md): the PLL from a 24 MHz reference, the system clock
+ * from source 0x10014 & 0xF (6: 2/3 of the PLL; others shown as found). */
+static void clock_read(el_ui_t *u)
+{
+    uint32_t r0 = *(volatile uint32_t *)0x119A0u, r8 = *(volatile uint32_t *)0x119A8u;
+    uint32_t rc = *(volatile uint32_t *)0x119ACu, src = *(volatile uint32_t *)0x10014u & 0xFu;
+    uint32_t ref = (r0 & 0xC000000u) != 0x8000000u ? 24u : 0u;
+    uint32_t pll = ref ? ref * ((rc & 0xFFFu) + 2u) / (((r8 >> 2) & 31u) + 2u) : 0u;
+    u->clk_pll = (uint16_t)(pll ? pll : 1u);
+    u->clk_src = (uint8_t)src;
+    u->clk_sys = (uint16_t)(src == 6u ? pll * 2u / 3u : 0u);
+    u->clk_timer = (uint16_t)(fm1_device_clock() / 1000000u);
+}
+
 static void bench(uint16_t out[16], uint32_t *mem)
 {
     uint32_t clock = fm1_device_clock();
@@ -140,6 +155,7 @@ int el_fm1_control(void)
         memcpy(measured, ui.bench, sizeof measured);
         el_ui_init(&ui, &engine);
         memcpy(ui.bench, measured, sizeof measured);
+        clock_read(&ui);
         ui.save = el_store_save;
         ui.sound_get = el_sound_get;
         ui.sound_put = el_sound_put;

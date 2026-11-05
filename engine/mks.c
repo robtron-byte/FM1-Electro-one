@@ -107,10 +107,13 @@ static inline EL_DSP_HELPER float chop_naive(const mks_chop_t *c, float p)
     return c->ramp > 0 ? wrap01(p * c->ramp) : 1.0f;
 }
 
-static EL_DSP_CODE float chop_render(const mks_chop_t *c, float p, float dt)
+static EL_DSP_CODE float chop_general(const mks_chop_t *c, float p, float dt);
+
+/* The two most common shapes, a plain ramp and a single gate (square /
+ * pulse), inline in the voice loop (a call per sample and oscillator cost
+ * more than these: docs/adr/0019); every other shape in chop_general. */
+static inline __attribute__((always_inline)) float chop_render(const mks_chop_t *c, float p, float dt)
 {
-    /* Fast paths with the same result for the two most common shapes:
-     * a plain ramp and a single gate (square / pulse). */
     if (c->m1 <= 0 && c->m2 <= 0) {
         if (c->m0 <= 0) {
             float t = wrap01(p * c->ramp), d = dt * c->ramp;
@@ -123,6 +126,11 @@ static EL_DSP_CODE float chop_render(const mks_chop_t *c, float p, float dt)
             return out;
         }
     }
+    return chop_general(c, p, dt);
+}
+
+static EL_DSP_CODE float chop_general(const mks_chop_t *c, float p, float dt)
+{
     float l0 = c->m0 > 0 ? wrap01(p * c->m0) : 0, l1 = c->m1 > 0 ? wrap01(p * c->m1) : 0;
     float l2 = c->m2 > 0 ? wrap01(p * c->m2) : 0, lr = c->ramp > 0 ? wrap01(p * c->ramp) : 0;
     int open = (c->m0 <= 0 || l0 >= c->w0) && (c->m1 <= 0 || l1 >= c->w1) && (c->m2 <= 0 || l2 >= c->w2);

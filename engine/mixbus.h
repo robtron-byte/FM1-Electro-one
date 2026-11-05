@@ -39,6 +39,10 @@ typedef struct {
      * states are cleared once and the bus is skipped until input returns. */
     uint8_t sleep;
     uint32_t quiet;
+    /* MB_LITE_EQ (docs/adr/0019): one-pole states of the cheap EQ, per channel:
+     * drum low / high shelf, synth high-pass, bass high-pass (mono),
+     * master low / high shelf. */
+    float lite[2][6];
 } el_mixbus_t;
 
 void mb_init(el_mixbus_t *mb);

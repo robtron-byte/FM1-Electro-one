@@ -79,6 +79,10 @@ typedef struct {
     /* Average share of a block per render stage (EL_PROF_*), percent;
      * prof_valid 0: none measured (host). */
     uint8_t prof[EL_PROF_STAGES], prof_valid;
+    /* Clock registers (device only, ADR 0019): PLL and system clock in MHz
+     * as X0X reads them, the system clock source code, the timer clock. */
+    uint16_t clk_pll, clk_sys, clk_timer;
+    uint8_t clk_src;
     gfx_band_t band;
 } el_ui_t;
 

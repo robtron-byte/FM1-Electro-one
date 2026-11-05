@@ -253,6 +253,14 @@ EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *r
     }
 }
 
+/* FX_REVERB_HALF 1 (default, docs/adr/0019): the hall's network runs on
+ * every second frame (half the cost); its lines, modulation and damping are
+ * scaled so size and decay stay, the output is interpolated between. 0: on
+ * every frame as before. */
+#ifndef FX_REVERB_HALF
+#define FX_REVERB_HALF 1
+#endif
+
 EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, const float *gate,
                            float *left, float *right, int frames, float bpm)
 {
@@ -273,9 +281,20 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         gains[i] = dsp_exp2(-3.0f * 3.321928f * lengths[i] / (t60 * EL_SAMPLE_RATE));
     }
     float damp_hz = 14000.0f - v[FX_REVERB_DAMP] / 127.0f * 12000.0f;
-    float damp = 1.0f - dsp_exp(-2.0f * DSP_PI * damp_hz / EL_SAMPLE_RATE);
     float diffusion = 0.55f + 0.17f * size, mod = 1.5f + 8.0f * size;
     unsigned dsize[2] = {(unsigned)(diff_lengths[0] * (0.5f + size)), (unsigned)(diff_lengths[1] * (0.5f + size))};
+#if FX_REVERB_HALF
+    /* the same times at half the rate: half the frames (the gains stay:
+     * they are per pass of a line, which takes as long as before) */
+    const float rev_rate = EL_SAMPLE_RATE * 0.5f;
+    for (int i = 0; i < 4; ++i) lengths[i] *= 0.5f;
+    dsize[0] >>= 1; dsize[1] >>= 1;
+    mod *= 0.5f;
+    damp_hz = dsp_min(damp_hz, rev_rate * 0.45f);
+#else
+    const float rev_rate = EL_SAMPLE_RATE;
+#endif
+    float damp = 1.0f - dsp_exp(-2.0f * DSP_PI * damp_hz / rev_rate);
     int delay_on = dret > 0.0f, reverb_on = rret > 0.0f;
     /* Reverb throw: the big hall owns the buffers while it sounds; delay,
      * hall and gated reverb rest. The memory is cleared when it starts and
@@ -347,6 +366,16 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             /* High-passed send (about 300 Hz): a clean low end under the hall. */
             fx->rev_hp[0] += (rev[n] - fx->rev_hp[0]) * 0.0418f;
             float x = rev[n] - fx->rev_hp[0];
+#if FX_REVERB_HALF
+            fx->rev_acc += x;
+            fx->rev_half ^= 1u;
+            if (fx->rev_half) {   /* the frame between: halfway to the last output */
+                left[n] += 0.5f * (fx->rev_out[0][0] + fx->rev_out[0][1]) * rret;
+                right[n] += 0.5f * (fx->rev_out[1][0] + fx->rev_out[1][1]) * rret;
+            } else {
+            x = fx->rev_acc * 0.5f;
+            fx->rev_acc = 0.0f;
+#endif
             for (int d = 0; d < 2; ++d) {
                 float delayed = fx->mem.b.diff[d][(fx->fw - dsize[d]) & (FX_DIFF_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 float w = x + diffusion * delayed;
@@ -355,7 +384,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             }
             float y[4], sum = 0;
             for (int i = 0; i < 4; ++i) {
-                fx->lfo[i] += (0.23f + 0.17f * (float)i) / EL_SAMPLE_RATE;
+                fx->lfo[i] += (0.23f + 0.17f * (float)i) / rev_rate;
                 if (fx->lfo[i] >= 1.0f) fx->lfo[i] -= 1.0f;
                 float p = fx->lfo[i], tri = p < 0.5f ? 4 * p - 1 : 3 - 4 * p;
                 float pos = (float)fx->rw - (lengths[i] + mod * tri);
@@ -373,9 +402,20 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 fx->mem.b.lines[i][fx->rw & (FX_REVERB_CAP - 1)] = line_store(y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f));
             fx->rw = (fx->rw + 1u) & (FX_REVERB_CAP - 1);
             fx->fw = (fx->fw + 1u) & (FX_DIFF_CAP - 1);
+#if FX_REVERB_HALF
+            fx->rev_out[0][0] = fx->rev_out[0][1];
+            fx->rev_out[1][0] = fx->rev_out[1][1];
+            fx->rev_out[0][1] = 0.6f * (y[0] - y[2] + 0.5f * y[1]);
+            fx->rev_out[1][1] = 0.6f * (y[1] - y[3] + 0.5f * y[0]);
+            left[n] += fx->rev_out[0][1] * rret;
+            right[n] += fx->rev_out[1][1] * rret;
+            reverb_peak = dsp_max(reverb_peak, dsp_abs(y[0]) + dsp_abs(y[1]) + dsp_abs(y[2]) + dsp_abs(y[3]));
+            }
+#else
             left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * rret;
             right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * rret;
             reverb_peak = dsp_max(reverb_peak, dsp_abs(y[0]) + dsp_abs(y[1]) + dsp_abs(y[2]) + dsp_abs(y[3]));
+#endif
         }
         if (!gate_on) continue;
         /* Gated reverb: diffused input at half rate, flat tap cluster. */
@@ -470,6 +510,8 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         memset(fx->mem.b.diff, 0, sizeof fx->mem.b.diff);
         for (int i = 0; i < 4; ++i) fx->damp[i] = 0;
         fx->rev_hp[0] = 0;
+        fx->rev_acc = 0;
+        fx->rev_out[0][0] = fx->rev_out[0][1] = fx->rev_out[1][0] = fx->rev_out[1][1] = 0;
     }
     if (fx->gate_quiet > 2u * FX_GATE_CAP + 1024u) {
         fx->gate_sleep = 1;

@@ -8,6 +8,26 @@
 #include "dsp_math.h"
 #include <string.h>
 
+/* MB_LITE_EQ 1 (default, docs/adr/0019): the bus EQs as one-pole shelves
+ * and high-passes (about a fifth of the cost of the 14 biquads per sample
+ * they replace; the presence peak at 2.5 kHz is left out); 0: the biquads. */
+#ifndef MB_LITE_EQ
+#define MB_LITE_EQ 1
+#endif
+#if MB_LITE_EQ
+/* One-pole coefficients 1 - exp(-2 pi f / 44100) and shelf gains 10^(dB/20) - 1. */
+#define LITE_DRUM_LOW_C 0.011334f    /* 80 Hz */
+#define LITE_DRUM_LOW_G 0.188502f    /* +1.5 dB */
+#define LITE_DRUM_HIGH_C 0.722339f   /* 9 kHz */
+#define LITE_DRUM_HIGH_G 0.188502f
+#define LITE_SYNTH_HP_C 0.022541f    /* 160 Hz */
+#define LITE_BASS_HP_C 0.004549f     /* 32 Hz */
+#define LITE_MASTER_LOW_C 0.008512f  /* 60 Hz */
+#define LITE_MASTER_LOW_G 0.122018f  /* +1 dB */
+#define LITE_MASTER_HIGH_C 0.818806f /* 12 kHz */
+#define LITE_MASTER_HIGH_G 0.188502f
+#endif
+
 #ifndef MB_KICK_GAIN
 #define MB_KICK_GAIN 1.5f
 #endif
@@ -150,6 +170,7 @@ static EL_DSP_CODE void mb_settle(el_mixbus_t *mb)
     mb->limiter.gain = 1.0f;
     mb->duck_env = 0.0f;
     mb->dc_x[0] = mb->dc_x[1] = mb->dc_y[0] = mb->dc_y[1] = 0.0f;
+    for (int i = 0; i < 6; ++i) mb->lite[0][i] = mb->lite[1][i] = 0.0f;
 }
 
 /* ---- setup ------------------------------------------------------------------ */
@@ -202,8 +223,16 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
         float dl = drum_l[n], dr = drum_r[n], bl = bass_l[n], br = bass_r[n], sl = synth_l[n], sr = synth_r[n];
         if (mb->enabled) {
             /* Drum bus: tilt EQ, compressor, tape saturation. */
+#if MB_LITE_EQ
+            float *ql = mb->lite[0], *qr = mb->lite[1];
+            ql[0] += (dl - ql[0]) * LITE_DRUM_LOW_C; qr[0] += (dr - qr[0]) * LITE_DRUM_LOW_C;
+            ql[1] += (dl - ql[1]) * LITE_DRUM_HIGH_C; qr[1] += (dr - qr[1]) * LITE_DRUM_HIGH_C;
+            dl += LITE_DRUM_LOW_G * ql[0] + LITE_DRUM_HIGH_G * (dl - ql[1]);
+            dr += LITE_DRUM_LOW_G * qr[0] + LITE_DRUM_HIGH_G * (dr - qr[1]);
+#else
             dl = bq(&mb->drum_low, 0, dl); dr = bq(&mb->drum_low, 1, dr);
             dl = bq(&mb->drum_high, 0, dl); dr = bq(&mb->drum_high, 1, dr);
+#endif
             float g = comp_gain(&mb->drum_comp, dsp_max(dsp_abs(dl), dsp_abs(dr)));
             dl = tape(dl * g, mb->drum_drive, inv_drum);
             dr = tape(dr * g, mb->drum_drive, inv_drum);
@@ -212,10 +241,19 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             mb->duck_env += (k - mb->duck_env) * (k > mb->duck_env ? mb->duck_attack : mb->duck_release);
             float duck = dsp_clamp(mb->duck_env * 2.5f, 0.0f, 1.0f);
             float bass_gain = 1.0f - 0.55f * duck, synth_gain = 1.0f - 0.25f * duck;
+#if MB_LITE_EQ
+            /* BASS is mono here (electro.c folds it): one high-pass for both. */
+            ql[3] += (bl - ql[3]) * LITE_BASS_HP_C;
+            bl = br = (bl - ql[3]) * bass_gain;
+            ql[2] += (sl - ql[2]) * LITE_SYNTH_HP_C; qr[2] += (sr - qr[2]) * LITE_SYNTH_HP_C;
+            sl = (sl - ql[2]) * synth_gain;
+            sr = (sr - qr[2]) * synth_gain;
+#else
             bl = bq(&mb->bass_hp, 0, bl) * bass_gain;
             br = bq(&mb->bass_hp, 1, br) * bass_gain;
             sl = bq(&mb->synth_presence, 0, bq(&mb->synth_hp, 0, sl)) * synth_gain;
             sr = bq(&mb->synth_presence, 1, bq(&mb->synth_hp, 1, sr)) * synth_gain;
+#endif
         }
         /* The kick joins after the drum bus: no compression on it. By
          * default it also goes around the master compressor and tube (they
@@ -228,8 +266,16 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
         if (!mb->enabled) { l += kick[n]; r += kick[n]; }
 #endif
         if (mb->enabled) {
+#if MB_LITE_EQ
+            float *ml = mb->lite[0], *mr = mb->lite[1];
+            ml[4] += (l - ml[4]) * LITE_MASTER_LOW_C; mr[4] += (r - mr[4]) * LITE_MASTER_LOW_C;
+            ml[5] += (l - ml[5]) * LITE_MASTER_HIGH_C; mr[5] += (r - mr[5]) * LITE_MASTER_HIGH_C;
+            l += LITE_MASTER_LOW_G * ml[4] + LITE_MASTER_HIGH_G * (l - ml[5]);
+            r += LITE_MASTER_LOW_G * mr[4] + LITE_MASTER_HIGH_G * (r - mr[5]);
+#else
             l = bq(&mb->master_high, 0, bq(&mb->master_low, 0, l));
             r = bq(&mb->master_high, 1, bq(&mb->master_low, 1, r));
+#endif
             float g = comp_gain(&mb->master_comp, dsp_max(dsp_abs(l), dsp_abs(r)));
             reduction = dsp_min(reduction, mb->master_comp.gain_db);
             l = tube(l * g, mb->master_drive, inv_master);

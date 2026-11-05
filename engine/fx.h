@@ -70,6 +70,10 @@ typedef struct {
     uint8_t half;          /* frame within the delay's third-rate step (0..2) */
     float acc[2], lp[2], last[2], time, damp[4], lfo[4];
     float rev_hp[2], dly_hp[2], gate_hp[2], gate_acc, gate_lp[2];
+    /* FX_REVERB_HALF (docs/adr/0019): the hall at half rate: the send summed
+     * over two frames, the last two outputs for the interpolation. */
+    float rev_acc, rev_out[2][2];
+    uint8_t rev_half;
     float gate_ef, gate_es, gate_gain, gate_damp[4];   /* FX_GATE_DENSE 2: onset, gate, loop damping */
     uint16_t gate_hold;
     unsigned gw, gfw;

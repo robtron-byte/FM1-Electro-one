@@ -108,8 +108,22 @@ Die Original-Firmware V16 hat im Emulator aber noch mehr Sprünge als FM1-Electr
   - Funktionsaufruf.
 - **Tabelle im Flash behoben:** Die Kalibriertabelle der Hats lag im Flash, weil LTO sie als nie beschrieben erkannte. Die Kalibriertabellen sind auf dem Gerät jetzt `const` (`TR808_CAL`) und liegen damit im SRAM.
 
+## Kostenmodell und erste Umbauten (2026-11-05)
+
+- **Kostenmodell im Emulator** (`tools/fm1-emu/hardware-checks.patch`, `MODEL`-Zeile): etwa 6,5 ns pro Befehl, je genommenen Sprung, je weiteres Wort bei Push/Pop und je FPU-Befehl noch einmal. Das ist die Messung von Felucca auf dem Gerät (fm1-emulator `docs/performance.md`); die Zahlen des CPU-Tests passen dazu.
+- **Vorhersage:** 125 % für den Testbuild (das Gerät zeigt Spitzen von 166 %), 92 % für V16.
+- **Der Takt ist nicht die Ursache:** Das Gerät läuft wie bei Felucca, SLOOP und X0X mit M-VAVEs 360 MHz.
+- **Mess-Groove mit allen Bereichen und Master an:** 853.000 Slots pro Block bei einem Budget von 446.000.
+- **Umbauten ohne neue Klangidee** (die Schalter bleiben zum Vergleich):
+  - `MB_LITE_EQ` (Standard 1): Die EQs des Master-Busses sind einpolige Shelves bzw. Hochpässe statt 14 Biquads. Der BASS (mono) wird nur einmal gefiltert, die Präsenz bei 2,5 kHz entfällt.
+  - `FX_REVERB_HALF` (Standard 1): Der Hall rechnet mit halber Rate. Längen, Modulation und Dämpfung sind umgerechnet, der Ausgang wird interpoliert.
+  - MKS-50: Die beiden häufigen Chop-Formen sind inline, die anderen bleiben in `chop_general`.
+  - Ergebnis: 853.000 → 777.000 Slots (−9 %). Weniger Stimmen (RHYTHM 2, STRINGS 2) brachten nur weitere −9 % und bleiben vorerst aus.
+- **Zweiter Kern:** Das SDK von FM1 Open hält seine Task-Funktionen (`os_task_create`, `thread_fork`) intern. Eigene Arbeit auf dem zweiten Kern ist so nicht möglich.
+
 ## Verlauf
 
 - 2026-11-05: angelegt nach dem ersten Gerätetest mit laufendem Groove (6 s statt 2 s pro Pattern)
 - 2026-11-05: Messwerte vom Gerät: FPU schnell, Last 170–180 %; Zeitmessung je Render-Abschnitt und weitere CPU-Tests
+- 2026-11-05: Kostenmodell, `MB_LITE_EQ`, `FX_REVERB_HALF`, Chop inline: 853.000 → 777.000 Slots im Mess-Groove; zweiter Kern im SDK nicht nutzbar
 - 2026-11-05: Zweite Messung: Drums 59 %, Effekte 21 %, RHYTHM 14 %, BASS 4 % (STRINGS stumm, Master aus). Die Schleife aus dem SRAM braucht 10,7 ns, mit verketteter FMUL 28,1 ns. Eine abhängige FMUL kostet also ~17 ns (~6 Takte): Die erste Deutung („FPU schnell“) war falsch, die Flash-Schleife hatte die Latenz verdeckt. Speicherzugriffe sind nicht die Ursache: V16 macht im Emulator fünfmal so viele. Nächster Messbuild: Ganzzahl- und 64-Bit-Multiplikation aus dem SRAM, als Entscheidung für Festkomma (zuerst die Drums).

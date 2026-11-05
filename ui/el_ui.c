@@ -1471,9 +1471,16 @@ static void draw_options(el_ui_t *ui, gfx_band_t *b)
         /* Master compressor gain reduction, 0 .. -12 dB. */
         float gr = ui->engine->mix.enabled ? -ui->engine->mix.gain_reduction_db : 0.0f;
         int w = (int)(dsp_min(gr, 12.0f) * 6.0f);
-        gfx_text(b, 100, 34, "COMP GR", DIM, 1);
-        gfx_fill(b, 150, 35, 72, 6, GRID);
-        if (w > 0) gfx_fill(b, 222 - w, 35, w, 6, AMBER);
+        if (ui->clk_pll) {
+            /* The clock, read from the chip (ADR 0019). */
+            char clk[32];
+            el_snprintf(clk, sizeof clk, "PLL%u S%u=%u T%u", ui->clk_pll, ui->clk_src, ui->clk_sys, ui->clk_timer);
+            gfx_text(b, 70, 34, clk, ACCENT, 1);
+        } else {
+            gfx_text(b, 100, 34, "COMP GR", DIM, 1);
+            gfx_fill(b, 150, 35, 72, 6, GRID);
+            if (w > 0) gfx_fill(b, 222 - w, 35, w, 6, AMBER);
+        }
     }
     for (unsigned i = 0; i < OPT_ITEMS; ++i) {
         int y = 46 + (int)i * 10;
