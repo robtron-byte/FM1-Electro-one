@@ -2,6 +2,7 @@
 #include "el_store.h"
 #include "fm1.h"
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* The four slots (A-D) of every area and the settings are stored, so the
@@ -113,17 +114,23 @@ _Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one se
 #endif
 #endif
 
-/* Static: too large for the control task stack. Room for the larger
- * records of earlier versions when one is read. */
-static union {
+/* Too large for the control task stack. Room for the larger records of
+ * earlier versions when one is read. Taken from the heap only while a
+ * record or the sound bank is read or written: as a static it cost the
+ * SDK's start 2.6 KB of heap it is short of (docs/adr/0019). */
+typedef union {
     record_t r;
 #if EL_STORE_UPGRADE
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
     uint8_t v18[offsetof(record_t, data) + V18_BYTES];
 #endif
     bank_t bank;
-} buffer;
-_Static_assert(sizeof buffer <= SECTORS * FM1_FLASH_SECTOR_BYTES, "every record fits three sectors");
+} store_buffer_t;
+_Static_assert(sizeof(store_buffer_t) <= SECTORS * FM1_FLASH_SECTOR_BYTES, "every record fits three sectors");
+static store_buffer_t *held;
+#define buffer (*held)
+static int take(void) { return (held = malloc(sizeof *held)) != NULL; }
+static void give(void) { free(held); held = NULL; }
 #define record buffer.r
 #if EL_STORE_UPGRADE
 static payload_t upgraded;   /* an older record in today's layout */
@@ -222,7 +229,7 @@ static const payload_t *upgrade(void)
 #endif
 }
 
-int el_store_load(el_engine_t *e)
+static int el_store_load_held(el_engine_t *e)
 {
     if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
     uint32_t a = read_valid(0), b = read_valid(1);
@@ -311,7 +318,7 @@ int el_store_load(el_engine_t *e)
     return 0;
 }
 
-int el_store_save(el_engine_t *e)
+static int el_store_save_held(el_engine_t *e)
 {
     uint32_t a = read_valid(0), b = read_valid(1);
     uint32_t sequence = ((int32_t)(a - b) > 0 ? a : b) + 1u;
@@ -399,7 +406,7 @@ static int bank_read(void)
     return (int)newest;
 }
 
-int el_sound_get(unsigned slot, el_sound_t *out)
+static int el_sound_get_held(unsigned slot, el_sound_t *out)
 {
     if (slot >= EL_USER_SOUNDS || !out) return -1;
     memset(out, 0, sizeof *out);
@@ -416,7 +423,7 @@ int el_sound_get(unsigned slot, el_sound_t *out)
     return 0;
 }
 
-int el_sound_put(unsigned slot, const el_sound_t *in)
+static int el_sound_put_held(unsigned slot, const el_sound_t *in)
 {
     if (slot >= EL_USER_SOUNDS || !in || in->engine >= SYN_ENGINES) return -1;
     if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
@@ -441,3 +448,35 @@ int el_sound_put(unsigned slot, const el_sound_t *in)
     return r;
 }
 
+
+int el_store_load(el_engine_t *e)
+{
+    if (!take()) return -1;
+    int r = el_store_load_held(e);
+    give();
+    return r;
+}
+
+int el_store_save(el_engine_t *e)
+{
+    if (!take()) return -1;
+    int r = el_store_save_held(e);
+    give();
+    return r;
+}
+
+int el_sound_get(unsigned slot, el_sound_t *out)
+{
+    if (!take()) return -1;
+    int r = el_sound_get_held(slot, out);
+    give();
+    return r;
+}
+
+int el_sound_put(unsigned slot, const el_sound_t *in)
+{
+    if (!take()) return -1;
+    int r = el_sound_put_held(slot, in);
+    give();
+    return r;
+}

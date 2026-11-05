@@ -1,6 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-`FM1_ELECTRO.fwsc` ist ein Testbuild vom Stand 04.11.2026, im selben Commit wie diese Zeile.
+`FM1_ELECTRO.fwsc` ist ein Testbuild vom Stand 05.11.2026, im selben Commit wie diese Zeile.
+
+**Neu in diesem Build (Messbuild, ADR 0019):** Der Build vom 04.11. startet, ist aber beim Spielen etwa dreifach überlastet (Sequencer zu langsam und stumm). Dieser Build behebt das noch nicht vollständig. Er zeigt, wie viel Rechenzeit das Gerät wirklich hat:
+- **Oben im Header** steht die Last in Prozent, rechts neben dem Tempo: grün unter 70 %, gelb ab 70 %, rot ab 88 % oder wenn Audio-Blöcke ausfallen.
+- **Im OPTIONS-Menü** (HOME + SAVE) stehen unten zwei Zeilen mit dem CPU-Test vom Start, in Nanosekunden pro Operation: `NS LOOP … INT … ADD …` und `MUL … M4 … DIV … DEN …`. Bitte ein Foto davon schicken.
+- Im Stillstand pausiert die Master-Bearbeitung jetzt; die Bedienung sollte ohne laufenden Groove flüssig sein.
 
 **Behoben gegenüber dem Build vom 29.10.:** Der erste Build startete auf dem echten FM-1 in einer Schleife neu (Display blinkte etwa im Sekundentakt, oben ein Streifen der Oberfläche). Ursache: eine Division durch null im Master-Limiter bei Stille, die die CPU mit dem eingeschalteten Divisions-Trap des SDK als Ausnahme behandelt und das Gerät neu startet. Der Trap ist jetzt aus, und die Division kann nicht mehr null werden (ADR 0018).
 
@@ -10,9 +15,9 @@ Er enthält den neuen Sound: Clap, Cowbell und Hats nach den Vergleichen (ADR 00
 - **Gepackt** mit `tools/package_fm1.py`, Benutzerbereich 384 KB.
 - **Geprüft:** Die Prüfungen aus `Build.ps1` bestehen. Im Emulator fm1-emu startet die Firmware: Display, Tasten und PLAY laufen, die Audio-Puffer füllen sich.
 - **Hardware-Prüfung im Emulator** (`tools/fm1-emu/check.sh`, ADR 0018): kein Divisions-Trap, keine Division durch null, kein NaN/Inf, keine unausgerichteten Zugriffe, Stacks in ihren Fenstern, Watchdog bedient, auch mit zufälligem RAM und Flash-Inhalt beim Start. Der alte Build fällt bei dieser Prüfung durch.
-- **Auf einem echten FM-1** lief bisher nur der alte Build (Neustart-Schleife). Dieser hier ist der erste mit der Korrektur.
+- **Auf einem echten FM-1:** Der Build vom 04.11. startet und spielt Synths über die Tastatur. Mit Groove ist er etwa dreifach überlastet (ADR 0019). Dieser Messbuild ist noch nicht auf dem Gerät gelaufen.
 
-SHA-256: `0ae67f7199ab31747dcc603379ee54ab7d597f077f141da4e52160b50c9eb302`
+SHA-256: `ff5be0a7a1d468b77d2013a7d58a73bef5b3a4cbc7c0a62ae72eaca5fed82331`
 
 Geprüft vor dem Packen: `make test` (alle Host-Tests), die Prüfungen aus `Build.ps1` (Pflicht-Symbole, Audio-Pfad im SRAM, 80 KB Heap), Start im Emulator fm1-emu (Display, PLAY, Audio im DMA-Puffer, Benutzerbereich 384 KB erkannt). Rechenlast im Emulator: etwa 15 % im Leerlauf, 55 % bei der Prüffolge mit laufendem Groove.
 

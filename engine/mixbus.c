@@ -15,6 +15,11 @@
 /* ---- building blocks ----------------------------------------------------- */
 
 enum { COMP_EVERY = 4 };
+/* Below -120 dBFS counts as silence; half a second of it (longer than every
+ * filter tail, the compressors' release and the look-ahead) puts the bus to
+ * sleep. */
+#define MB_QUIET 1e-6f
+#define MB_SLEEP_FRAMES 22050u
 
 static float coef(float ms) { return 1.0f - dsp_exp(-1.0f / (ms * 0.001f * EL_SAMPLE_RATE)); }
 
@@ -110,21 +115,41 @@ static inline EL_DSP_HELPER float bq(mb_biquad_t *b, int ch, float x)
 }
 
 /* Tape-style: symmetric soft clip, odd harmonics, rounds the peaks. */
-static inline EL_DSP_HELPER float tape(float x, float drive)
+static inline EL_DSP_HELPER float tape(float x, float drive, float inv_drive)
 {
     float y = x * drive;
     y = dsp_clamp(y, -3.0f, 3.0f);
-    return y * (27.0f + y * y) / (27.0f + 9.0f * y * y) / drive;
+    return y * (27.0f + y * y) / (27.0f + 9.0f * y * y) * inv_drive;
 }
 
 /* Tube-style (in the spirit of a Kultube on the master): a little even
  * harmonic content from an asymmetric curve, DC removed afterwards. */
-static inline EL_DSP_HELPER float tube(float x, float drive)
+static inline EL_DSP_HELPER float tube(float x, float drive, float inv_drive)
 {
     float y = x * drive;
     y = y + 0.12f * y * y;
     y = dsp_clamp(y, -3.0f, 3.0f);
-    return y * (27.0f + y * y) / (27.0f + 9.0f * y * y) / drive;
+    return y * (27.0f + y * y) / (27.0f + 9.0f * y * y) * inv_drive;
+}
+
+/* Every state back to silence, as after a long pause (the sleep). */
+static EL_DSP_CODE void mb_settle(el_mixbus_t *mb)
+{
+    mb_biquad_t *bqs[] = {&mb->drum_low, &mb->drum_high, &mb->synth_hp, &mb->synth_presence,
+                          &mb->bass_hp, &mb->master_low, &mb->master_high};
+    for (unsigned i = 0; i < sizeof bqs / sizeof bqs[0]; ++i)
+        for (int ch = 0; ch < 2; ++ch) bqs[i]->z1[ch] = bqs[i]->z2[ch] = 0.0f;
+    mb_comp_t *cs[] = {&mb->drum_comp, &mb->master_comp};
+    for (unsigned i = 0; i < 2; ++i) {
+        cs[i]->env_db = -120.0f;
+        cs[i]->gain_db = 0.0f;
+        cs[i]->gain = cs[i]->makeup;
+        cs[i]->gain_step = 0.0f;
+    }
+    for (int i = 0; i < MB_LOOKAHEAD; ++i) mb->limiter.buffer[0][i] = mb->limiter.buffer[1][i] = 0.0f;
+    mb->limiter.gain = 1.0f;
+    mb->duck_env = 0.0f;
+    mb->dc_x[0] = mb->dc_x[1] = mb->dc_y[0] = mb->dc_y[1] = 0.0f;
 }
 
 /* ---- setup ------------------------------------------------------------------ */
@@ -162,7 +187,17 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
                             float *synth_l, float *synth_r, float *out_l, float *out_r, int frames)
 {
     mb_limiter_t *lim = &mb->limiter;
-    float reduction = 0;
+    float reduction = 0, in_peak = 0, out_peak = 0;
+    for (int n = 0; n < frames; ++n)
+        in_peak = dsp_max(in_peak, dsp_max(dsp_max(dsp_max(dsp_abs(kick[n]), dsp_abs(drum_l[n])), dsp_max(dsp_abs(drum_r[n]), dsp_abs(bass_l[n]))),
+                                           dsp_max(dsp_abs(bass_r[n]), dsp_max(dsp_abs(synth_l[n]), dsp_abs(synth_r[n])))));
+    if (in_peak >= MB_QUIET) mb->sleep = 0;
+    else if (mb->sleep) {
+        for (int n = 0; n < frames; ++n) out_l[n] = out_r[n] = 0.0f;
+        mb->gain_reduction_db = 0.0f;
+        return;
+    }
+    const float inv_drum = 1.0f / mb->drum_drive, inv_master = 1.0f / mb->master_drive;
     for (int n = 0; n < frames; ++n) {
         float dl = drum_l[n], dr = drum_r[n], bl = bass_l[n], br = bass_r[n], sl = synth_l[n], sr = synth_r[n];
         if (mb->enabled) {
@@ -170,8 +205,8 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             dl = bq(&mb->drum_low, 0, dl); dr = bq(&mb->drum_low, 1, dr);
             dl = bq(&mb->drum_high, 0, dl); dr = bq(&mb->drum_high, 1, dr);
             float g = comp_gain(&mb->drum_comp, dsp_max(dsp_abs(dl), dsp_abs(dr)));
-            dl = tape(dl * g, mb->drum_drive);
-            dr = tape(dr * g, mb->drum_drive);
+            dl = tape(dl * g, mb->drum_drive, inv_drum);
+            dr = tape(dr * g, mb->drum_drive, inv_drum);
             /* Kick-keyed ducking: the bass makes room for the kick, pads breathe. */
             float k = dsp_abs(kick[n]);
             mb->duck_env += (k - mb->duck_env) * (k > mb->duck_env ? mb->duck_attack : mb->duck_release);
@@ -197,8 +232,8 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             r = bq(&mb->master_high, 1, bq(&mb->master_low, 1, r));
             float g = comp_gain(&mb->master_comp, dsp_max(dsp_abs(l), dsp_abs(r)));
             reduction = dsp_min(reduction, mb->master_comp.gain_db);
-            l = tube(l * g, mb->master_drive);
-            r = tube(r * g, mb->master_drive);
+            l = tube(l * g, mb->master_drive, inv_master);
+            r = tube(r * g, mb->master_drive, inv_master);
 #ifndef MB_KICK_THROUGH_MASTER
             l += kick[n] * MB_KICK_GAIN;    /* as loud as through the master's make-up */
             r += kick[n] * MB_KICK_GAIN;
@@ -225,10 +260,16 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
         float delayed_l = lim->buffer[0][lim->pos], delayed_r = lim->buffer[1][lim->pos];
         lim->buffer[0][lim->pos] = l;
         lim->buffer[1][lim->pos] = r;
-        lim->pos = (lim->pos + 1u) % MB_LOOKAHEAD;
+        if (++lim->pos >= MB_LOOKAHEAD) lim->pos = 0;
         /* Hold the lowest gain seen over the look-ahead window. */
         out_l[n] = dsp_clamp(delayed_l * lim->gain, -lim->ceiling, lim->ceiling);
         out_r[n] = dsp_clamp(delayed_r * lim->gain, -lim->ceiling, lim->ceiling);
+        out_peak = dsp_max(out_peak, dsp_max(dsp_abs(out_l[n]), dsp_abs(out_r[n])));
     }
     mb->gain_reduction_db = reduction;
+    if (in_peak < MB_QUIET && out_peak < MB_QUIET) {
+        mb->quiet += (uint32_t)frames;
+        if (mb->quiet >= MB_SLEEP_FRAMES) { mb_settle(mb); mb->sleep = 1; mb->quiet = 0; }
+    } else
+        mb->quiet = 0;
 }

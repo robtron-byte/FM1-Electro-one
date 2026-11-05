@@ -123,6 +123,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     memset(ui, 0, sizeof *ui);
     ui->engine = engine;
     ui->follow = 1;
+    ui->load = -1;
     ui->rec_key = ui->rec_note = 0xff;
     ui->octave[EL_AREA_STRINGS] = -1;
     ui->octave[EL_AREA_BASS] = -2;
@@ -1128,6 +1129,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
+    mix(&sig[0], (uint32_t)(uint16_t)ui->load | (uint32_t)ui->load_drops << 16);
     for (unsigned a = 0; a < EL_AREAS; ++a)
         mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1);
     mix(&sig[1], ui->area | ui->overview << 3 | (uint32_t)playing << 4 | (uint32_t)ui->part << 8);
@@ -1314,7 +1316,15 @@ static void draw_header(el_ui_t *ui, gfx_band_t *b)
     if (x10 % 10) el_snprintf(bpm, sizeof bpm, "%u.%u", x10 / 10, x10 % 10);
     else el_snprintf(bpm, sizeof bpm, "%u", x10 / 10);
     gfx_text(b, 150, 19, bpm, TEXT, 1);
-    gfx_text(b, 186, 19, ui->overview ? "HOME" : "", AMBER, 1);
+    if (ui->load >= 0 && !ui->overview) {
+        /* CPU load: green with headroom, amber near the limit, red from
+         * 88 % (the SDK drops a block that is not ready after 7/8 of its
+         * time; the sequencer then slows down) or when blocks were dropped. */
+        char load[8];
+        el_snprintf(load, sizeof load, "%d%%", ui->load > 999 ? 999 : ui->load);
+        gfx_text(b, 180, 19, load, ui->load_drops || ui->load >= 88 ? RED : ui->load >= 70 ? AMBER : GREEN, 1);
+    } else
+        gfx_text(b, 186, 19, ui->overview ? "HOME" : "", AMBER, 1);
     int playing = e->transport.running && m->playing;
     gfx_text(b, 212, 19, playing ? "PLAY" : "STOP", playing ? GREEN : DIM, 1);
 }
@@ -1553,8 +1563,21 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     char value[24];
     gfx_fill(b, 0, FOOT_Y - 4, GFX_W, GFX_H - FOOT_Y + 4, PANEL);
     if (ui->options) {
-        gfx_text(b, 4, FOOT_Y, "SELECT / ALGO: SETTING", DIM, 1);
-        gfx_text(b, 4, FOOT_Y + 12, "PRESETS / KNOBS: VALUE", DIM, 1);
+        if (ui->bench[0]) {
+            /* The CPU test from the start, in ns per operation. */
+            char l1[44], l2[44];
+            const uint16_t *k = ui->bench;
+#define NS(i) (unsigned)(k[i] / 10u), (unsigned)(k[i] % 10u)
+            el_snprintf(l1, sizeof l1, "NS LOOP %u.%u INT %u.%u ADD %u.%u", NS(EL_BENCH_LOOP), NS(EL_BENCH_INT), NS(EL_BENCH_FADD));
+            el_snprintf(l2, sizeof l2, "MUL %u.%u M4 %u.%u DIV %u.%u DEN %u.%u", NS(EL_BENCH_FMUL), NS(EL_BENCH_FMUL4),
+                        NS(EL_BENCH_FDIV), NS(EL_BENCH_DENORM));
+#undef NS
+            gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
+            gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);
+        } else {
+            gfx_text(b, 4, FOOT_Y, "SELECT / ALGO: SETTING", DIM, 1);
+            gfx_text(b, 4, FOOT_Y + 12, "PRESETS / KNOBS: VALUE", DIM, 1);
+        }
         gfx_text(b, 4, GFX_H - 12, "HOME OR SAVE: DONE", AMBER, 1);
         return;
     }

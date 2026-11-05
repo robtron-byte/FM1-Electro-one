@@ -68,9 +68,18 @@ typedef struct {
     uint32_t dirty;                     /* bands waiting to be painted (bit per band) */
     uint8_t paint_next;
     uint32_t now;
+    /* Audio load, shown in the header (device only; -1 hides it): percent of
+     * a block's time the last half second's slowest block took, and whether
+     * blocks were dropped (docs/adr/0019). */
+    int16_t load;
+    uint8_t load_drops;
+    /* CPU test at start (device only; bench[0] == 0: none): tenths of a
+     * nanosecond per operation, EL_BENCH_* (docs/adr/0019). */
+    uint16_t bench[8];
     gfx_band_t band;
 } el_ui_t;
 
+enum { EL_BENCH_LOOP, EL_BENCH_INT, EL_BENCH_FADD, EL_BENCH_FMUL, EL_BENCH_FMUL4, EL_BENCH_FDIV, EL_BENCH_DENORM, EL_BENCH_RAM };
 void el_ui_init(el_ui_t *ui, el_engine_t *engine);
 /* One control pass: handle input, update LEDs, paint some dirty bands. */
 void el_ui_control(el_ui_t *ui, const struct fm1_controls *controls, uint32_t now);

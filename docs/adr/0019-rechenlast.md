@@ -1,0 +1,82 @@
+# 0019: Rechenlast auf dem echten FM-1: Lastanzeige, CPU-Test, Master schläft bei Stille
+
+- **Status:** vorgeschlagen
+- **Stand:** 2026-11-05
+
+## Kontext
+
+Nach der Korrektur aus ADR 0018 startet FM1-Electro auf dem Gerät. Mit dem Sequencer war es aber dreifach überlastet:
+
+- Ein Pattern bei 120 BPM brauchte 6 statt 2 Sekunden.
+- Aus dem Sequencer kam kein Ton, und die Bedienung war träge.
+- Ein einzelner Synth über die Tastatur klang.
+
+**Ursache im SDK:** `app/board/audio.c` lässt einen Block aus, wenn die Pause zu lang war, und verwirft einen Block, der nach 7/8 seiner Zeit nicht fertig ist. Der Sequencer zählt in berechneten Samples, also läuft er langsamer, und die zu späten Blöcke bleiben stumm.
+
+**Messungen im Emulator:**
+- Die Original-Firmware V16 führt beim Spielen **mehr** Befehle aus als FM1-Electro (165 gegen 134 Mio. pro Sekunde) und läuft auf dem Gerät flüssig.
+- Bei FM1-Electro sind im Audio-Interrupt etwa 17 % der Befehle FPU-Befehle, bei V16 0,2 %.
+- FM1-Electro erzeugt außerdem sehr viele Denormal-Zahlen. V16 erzeugt fast keine.
+
+**Andere Firmwares:**
+- X0X misst etwa 1.300 Befehle pro Sample bei 115 % Last eines Kerns, und das mit Float-DSP.
+- SLOOP rechnet fast nur Festkomma (Q15): 2 von 59 Quelldateien benutzen `float`.
+
+**Vermutung:** FPU-Befehle (und vielleicht Denormals) kosten auf dem AC79 ein Vielfaches eines Ganzzahlbefehls. Der Emulator zählt einen Takt pro Befehl.
+
+**Lastverteilung beim Spielen (Emulator, Befehle):**
+
+| Teil | Anteil |
+|---|---|
+| MKS-50-Stimmen (davon die Chop-Pulsbreite allein 12 %) | 34 % |
+| Effekte | 22 % |
+| Drums | 20 % |
+| Master-Bus | 12 % |
+
+Im Stillstand nahm der Master-Bus 63 %, obwohl nichts klang.
+
+**Heap:** Der Heap war beim SDK-Start nur gut 1 KB vor dem Absturz. Die acht Standardinstrumente des SDK brauchen kurz 77 KB. Schon 928 Byte mehr statischer Speicher ließen das achte und danach den Bluetooth-Start scheitern (`le_hw_init`, `cpu_assert_debug`).
+
+## Entscheidung
+
+Schritt 1, ohne hörbare Klangänderung:
+
+- **Lastanzeige im Header** (nur Gerät):
+  - Die Renderzeit jedes Blocks wird mit dem Zeitzähler des SDK gemessen (`0x1EEF0F0`, Umlauf bei `0x1EEF0F4`, wie in `app/board/audio.c`).
+  - Angezeigt wird der langsamste Block je halbe Sekunde in Prozent eines Blocks.
+  - Farben: grün unter 70 %, gelb ab 70 %, rot ab 88 % oder wenn das SDK Blöcke verworfen hat (`fm1_audio_stats.overruns`).
+- **CPU-Test beim Start** (`fm1/el_fm1.c`):
+  - Er misst die Dauer je einer verketteten Operation: leere Schleife, Integer-Mul-Add, FADD, FMUL, 4 unabhängige FMUL, FDIV, FMUL mit Denormal.
+  - Es zählt jeweils der kürzeste von 5 Läufen à 2000 Schritten.
+  - Die Ergebnisse stehen in ns im OPTIONS-Menü unten (`NS LOOP … INT … ADD …` / `MUL … M4 … DIV … DEN …`).
+  - Diese Zahlen entscheiden die nächsten Schritte, z. B. Festkomma, Denormals auf null setzen oder Divisionen vermeiden.
+- **Master-Bus schläft bei Stille** (`engine/mixbus.c`):
+  - Schläft, wenn Ein- und Ausgang eine halbe Sekunde unter −120 dBFS bleiben.
+  - Die Zustände werden dann einmal auf null gesetzt, und der Bus gibt bis zum nächsten Signal exakte Stille aus.
+  - Die Effekte schliefen schon vorher (`fx.c`).
+- **Kleine Einsparungen ohne Klangänderung:**
+  - `tape`/`tube` multiplizieren mit dem Kehrwert des Drives statt zu dividieren.
+  - Der Limiter-Zeiger springt per Vergleich statt per Modulo zurück.
+  - Die Demos weichen von vorher höchstens um Rundungsreste ab, im Mittel etwa −95 dB.
+- **Mehr Heap:**
+  - Der Puffer von `fm1/el_store.c` (2,6 KB) kommt nur noch während Laden und Sichern vom Heap.
+  - Der CPU-Test läuft aus dem Flash.
+  - Der Heap hat damit 83.820 B, 1.952 B mehr als der Build, der auf dem Gerät lief.
+
+## Alternativen
+
+- **Gleich auf Festkomma umbauen:** Das ist ein großer Umbau mit Klangrisiko. Erst sollen die Messwerte vom Gerät zeigen, welche Operation wirklich teuer ist.
+- **Zweiter Kern** wie X0X/SLOOP: Das ist ein Folgeschritt. Er muss gegen das SDK von FM1 Open geprüft werden, das Bluetooth und Tasks auf beiden Kernen betreibt.
+- **Weniger Stimmen:** Der Nutzer hat zugestimmt. Es kommt als A/B nach den Messwerten.
+
+## Folgen
+
+- Mit der Lastanzeige zeigt jeder Testbuild am Gerät selbst, wie viel Reserve er hat. Der Emulator ist für die Rechenlast nicht maßgeblich.
+- **Speicher:**
+  - Der Heap bleibt knapp. Jeder neue statische Puffer verkleinert ihn.
+  - `tools/fm1-emu/check.sh` meldet jetzt einen SDK-Assert (`cpu_assert_debug`). So fällt es auf, wenn der Start an zu wenig Heap scheitert.
+- **Nächster Schritt:** die Messwerte vom Gerät, dann gezielt die teuren Operationen ersetzen, die MKS-50-Chop vereinfachen und die Stimmenzahl als A/B anbieten.
+
+## Verlauf
+
+- 2026-11-05: angelegt nach dem ersten Gerätetest mit laufendem Groove (6 s statt 2 s pro Pattern)

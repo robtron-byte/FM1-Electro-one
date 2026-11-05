@@ -24,5 +24,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0016](0016-drum-tonart.md) | Drum-Tonart: tonale Drums auf eine Tonart gestimmt | angenommen | 2026-10-29 |
 | [0017](0017-zap.md) | Zap nach der Referenz des Nutzers (Modell 3), ohne Bass | angenommen | 2026-10-29 |
 | [0018](0018-divisions-trap.md) | Divisions-Trap aus, keine Division durch null, Hardware-Prüfung vor jedem Flashen | angenommen | 2026-11-04 |
+| [0019](0019-rechenlast.md) | Rechenlast: Lastanzeige, CPU-Test, Master schläft bei Stille | vorgeschlagen | 2026-11-05 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

@@ -35,6 +35,10 @@ typedef struct {
     float drum_drive, master_drive, dc_x[2], dc_y[2];
     uint8_t enabled;
     float gain_reduction_db;   /* for the display */
+    /* Sleep (docs/adr/0019): silent in and out for MB_SLEEP_FRAMES, the
+     * states are cleared once and the bus is skipped until input returns. */
+    uint8_t sleep;
+    uint32_t quiet;
 } el_mixbus_t;
 
 void mb_init(el_mixbus_t *mb);

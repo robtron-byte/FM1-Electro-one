@@ -8,14 +8,15 @@ set -e
 EMU=${1:?fm1-emu-Verzeichnis}; FW=${2:?Paket}; ELF=${3:?sdk.elf}
 NM=${NM:-nm}
 sym() { $NM "$ELF" | awk -v s="$1" '$NF==s {print $1; exit}'; }
-TCB=$(sym CurrentTCB); WDT=$(sym wdt_clear)
+TCB=$(sym CurrentTCB); WDT=$(sym wdt_clear); ASSERT=$(sym cpu_assert_debug)
 cd "$EMU"
-OUT=$(FM1_FPU_WATCH=1 FM1_STK_TCB=0x$TCB FM1_WDT_PC=$WDT FM1_FLASH_UNDER=random FM1_RAM_RANDOM=7 \
+OUT=$(FM1_BREAK_MAX=1 FM1_BREAK_PCS=$ASSERT FM1_FPU_WATCH=1 FM1_STK_TCB=0x$TCB FM1_WDT_PC=$WDT FM1_FLASH_UNDER=random FM1_RAM_RANDOM=7 \
   ./target/release/fm1-emu --fwsc "$FW" --ms 4000 \
   --keys '1000:PLAY,1300:n7,1500:k12,1800:enc0:+3,2000:enc2:-5,2300:n5,2600:k14,3000:enc4:+7,3500:n9' 2>&1)
 echo "$OUT" | grep -E "^(halt|TRAP|GUARD |DIV0|FPU kind [0-3]|STK isr|WDT|misaligned|GUARDREGS|cpu0)"
 fail=0
 echo "$OUT" | grep -q "^halt" && { echo "FEHLER: Emulator hält an"; fail=1; }
+echo "$OUT" | grep -q "^break" && { echo "FEHLER: SDK-Assert (cpu_assert_debug), z. B. Heap beim Start zu knapp (ADR 0019)"; fail=1; }
 echo "$OUT" | grep -q "^TRAP:" && { echo "FEHLER: Division durch null bei aktivem Trap"; fail=1; }
 echo "$OUT" | grep -q "^GUARD stack" && { echo "FEHLER: Stack außerhalb seines Fensters"; fail=1; }
 echo "$OUT" | grep -q "^misaligned accesses: 0 pcs" || { echo "FEHLER: unausgerichtete Zugriffe"; fail=1; }
