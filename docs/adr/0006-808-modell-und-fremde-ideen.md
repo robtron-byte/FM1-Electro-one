@@ -13,6 +13,7 @@ Die 808 in `engine/tr808.c` ist ein eigenes Modell nach den Service Notes und We
 - Ideen aus anderen Engines werden **selbst umgesetzt**, nicht kopiert, und im Code mit Herkunft der Idee vermerkt.
 - Jede Klangänderung kommt zuerst als **A/B-Schalter** (Präprozessor, Standard aus) mit einem `make …-ab`-Hörvergleich. Erst nach der Wahl wird der Standard umgestellt und der Record angenommen.
 - Fremder Code wird in dieser Umgebung nicht ausgeführt, nur gelesen.
+- Ausnahme seit 2026-11-05: Für die eigene Grundlage ohne das SDK von FM1 Open (ADR 0021) darf GPL-3.0-Code übernommen werden, mit Urheber, Herkunft und Lizenz. Für die 808 gilt weiter: unser kalibriertes Modell ist die Grundlage.
 
 ## Folgen
 
@@ -22,3 +23,4 @@ Die 808 in `engine/tr808.c` ist ein eigenes Modell nach den Service Notes und We
 ## Verlauf
 
 - 2026-10-29: angelegt nach dem Vergleich mit X0X-RMX
+- 2026-11-05: Regel gelockert für die eigene Grundlage (ADR 0021), auf Wunsch des Nutzers
