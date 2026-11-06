@@ -107,22 +107,31 @@ int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int1
     return el_queue_push(&m->queue, cmd);
 }
 
-int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p)
+int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p, int keep_cond)
 {
     if (slot >= DR_PATTERNS || !p) return -1;
     if (m->staging_posted != m->staging_taken) return -2;
     m->staging = *p;
     EL_FENCE();
-    if (dr_post(m, DR_CMD_LOAD, (uint8_t)slot, 0, 0, 0)) return -1;
+    if (dr_post(m, DR_CMD_LOAD, (uint8_t)slot, 0, keep_cond ? 1 : 0, 0)) return -1;
     ++m->staging_posted;
     return 0;
 }
 
 /* A pattern brings its sound along: its kit (a Miami groove gets the boom
  * kick) with the knobs as they were set in it (docs/adr/0024). */
+static EL_DSP_CODE void set_cond(dr_machine_t *m, unsigned slot, unsigned part, unsigned step, unsigned cond)
+{
+    for (unsigned k = 0; k < 3; ++k) {
+        uint32_t *w = &m->cond[slot][k][part];
+        *w = (cond >> k) & 1u ? *w | 1u << step : *w & ~(1u << step);
+    }
+}
+
 static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
 {
     m->current = (uint8_t)index;
+    m->pass = 0;
     tr808_sound_apply(&m->kit, &m->sound[index]);
     if (m->pattern[index].kit < DR_KITS) m->kit_index = m->pattern[index].kit;
 }
@@ -164,6 +173,7 @@ EL_DSP_CODE void dr_rewind(dr_machine_t *m)
     m->pos = 0;
     m->roll_pending = 0;
     m->suppress = 0;
+    m->pass = 0;
     if (m->next != m->current) enter(m, m->next);
 }
 
@@ -175,10 +185,12 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     if (!m->playing) {
         pos = 0;
         m->playing = 1;
+        m->pass = 0;
     } else {
         pos = m->pos + 1u;
         if (pos >= p->length) {
             pos = 0;
+            ++m->pass;
             if (m->next != m->current) {
                 enter(m, m->next);
                 p = &m->pattern[m->current];
@@ -194,6 +206,7 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     m->roll_pending = 0;
     for (unsigned part = 0; part < DR_PARTS; ++part) {
         if (!(p->hit[part] & bit) || !audible(m, part) || m->muted) continue;
+        if (!el_cond_plays(dr_cond(m, m->current, part, pos), m->pass)) continue;
         if (!(suppress & (1u << part))) tr808_trigger(&m->kit, (int)part, velocity);
         if (p->roll[part] & bit) {
             m->roll_pending |= 1u << part;
@@ -250,7 +263,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_TOGGLE:
         if (part < DR_PARTS && step < DR_STEPS) {
             p->hit[part] ^= 1u << step;
-            if (!(p->hit[part] & (1u << step))) p->roll[part] &= ~(1u << step);
+            if (!(p->hit[part] & (1u << step))) { p->roll[part] &= ~(1u << step); set_cond(m, m->current, part, step, 0); }
         }
         break;
     case DR_CMD_ROLL:
@@ -263,9 +276,10 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         if (step < DR_STEPS) p->accent ^= 1u << step;
         break;
     case DR_CMD_CLEAR_PART:
-        if (part < DR_PARTS) p->hit[part] = p->roll[part] = 0;
+        if (part < DR_PARTS) { p->hit[part] = p->roll[part] = 0; for (unsigned k = 0; k < 3; ++k) m->cond[m->current][k][part] = 0; }
         else {
             for (unsigned i = 0; i < DR_PARTS; ++i) p->hit[i] = p->roll[i] = 0;
+            memset(m->cond[m->current], 0, sizeof m->cond[m->current]);
             p->accent = 0;
         }
         break;
@@ -287,6 +301,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         if (part < DR_PATTERNS && step < DR_PATTERNS) {
             m->pattern[step] = m->pattern[part];
             m->sound[step] = m->sound[part];
+            memcpy(m->cond[step], m->cond[part], sizeof m->cond[step]);
             if (step == m->current) enter(m, step);
         }
         break;
@@ -299,6 +314,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
                 if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
             }
             m->pattern[part] = m->staging;
+            if (!c->c) memset(m->cond[part], 0, sizeof m->cond[part]);
         }
         EL_FENCE();
         ++m->staging_taken;
@@ -330,6 +346,9 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_AREA_MUTE:
         m->muted = step ? 1 : 0;
         break;
+    case DR_CMD_COND:
+        if (part < DR_PARTS && step < DR_STEPS) set_cond(m, m->current, part, step, (unsigned)el_clampi(c->value, 0, EL_CONDS - 1));
+        break;
     default:
         return;
     }
@@ -346,11 +365,15 @@ EL_DSP_CODE void dr_step_at(dr_machine_t *m, uint32_t step, float step_frames, u
 {
     unsigned len = m->pattern[m->current].length ? m->pattern[m->current].length : 1u;
     unsigned real = !m->playing ? 0u : m->pos + 1u < len ? m->pos + 1u : 0u;
-    uint8_t next = m->next;
+    /* the step conditions by the playhead's pass (dr_step counts one more
+     * when the repeated step is the first) */
+    uint8_t next = m->next, pass = (uint8_t)(m->pass + (m->playing && real == 0));
     m->next = m->current;
     m->playing = 1;
     m->pos = (uint8_t)((target % len + len - 1u) % len);
+    m->pass = (uint8_t)(target % len == 0 ? pass - 1u : pass);
     dr_step(m, step, step_frames);
     m->next = next;
     m->pos = (uint8_t)real;
+    m->pass = pass;
 }

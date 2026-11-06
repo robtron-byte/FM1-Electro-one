@@ -44,6 +44,7 @@ EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot)
     if (slot >= ST_PATTERNS) slot = 0;
     t->current = (uint8_t)slot;
     t->playing = 0;
+    t->pass = 0;
     const st_sound_t *s = &t->sound[slot];
     t->preset = s->preset;
     const uint8_t *v = syn_values(&t->part);
@@ -121,6 +122,7 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
     t->playing = 0;
     t->pos = 0;
     t->tick = 0;
+    t->pass = 0;
 }
 
 EL_DSP_CODE void st_mute(st_track_t *t, int on)
@@ -142,13 +144,15 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     t->tick = 0;
     unsigned pos = t->playing ? t->pos + 1u : 0u;
     if (pos >= p->length) pos = 0;
+    if (!t->playing) t->pass = 0;
+    else if (pos == 0) ++t->pass;
     t->pos = (uint8_t)pos;
     t->playing = 1;
     float step_frames = sixteenth_frames * (float)ticks;
     t->step_frames = step_frames;
     t->since_step = 0;
     const st_step_t *s = &p->step[pos];
-    int on = (s->flags & ST_ON) && !t->muted;
+    int on = (s->flags & ST_ON) && !t->muted && el_cond_plays(ST_COND(s->flags), t->pass);
     if (!on) { release_all(t); return; }
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);
@@ -591,13 +595,18 @@ EL_DSP_CODE void st_step_at(st_track_t *t, uint32_t step, float sixteenth_frames
     unsigned tick = 0, pos = 0;
     if (t->playing && t->tick + 1u < ticks) { tick = t->tick + 1u; pos = t->pos; }
     else if (t->playing) pos = t->pos + 1u < len ? t->pos + 1u : 0u;
-    uint8_t next = t->next;
+    /* the step conditions by the playhead's pass (st_step counts one more
+     * when the repeated step is the first) */
+    unsigned rstep = target / ticks % len;
+    uint8_t next = t->next, pass = (uint8_t)(t->pass + (t->playing && tick == 0 && pos == 0));
     t->next = t->current;
     t->playing = 1;
     t->tick = (uint8_t)(ticks - 1u);
-    t->pos = (uint8_t)((target / ticks % len + len - 1u) % len);
+    t->pos = (uint8_t)((rstep + len - 1u) % len);
+    t->pass = (uint8_t)(rstep == 0 ? pass - 1u : pass);
     st_step(t, step, sixteenth_frames);
     t->next = next;
     t->tick = (uint8_t)tick;
     t->pos = (uint8_t)pos;
+    t->pass = pass;
 }

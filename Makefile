@@ -87,7 +87,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	  grep -E "^(two cores|timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
 	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
-	  grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
+	  grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steps\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 

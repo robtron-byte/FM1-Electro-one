@@ -12,6 +12,9 @@
 
 enum { ST_STEPS = 32, ST_PATTERNS = 4, ST_NO_CHORD = 0 };   /* slots A-D */
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
+/* Bits 3-5 of the flags: the step's condition (EL_COND_*, docs/adr/0025). */
+#define ST_COND(flags) (((unsigned)(flags) >> 3) & 7u)
+#define ST_COND_MASK 0x38u
 /* Step lengths: 1/16, 1/8, 1/4, 1/2, 1 bar, 2 bars (in 16ths: 1..32). */
 enum { ST_RATE_16TH, ST_RATE_8TH, ST_RATE_QUARTER, ST_RATE_HALF, ST_RATE_BAR, ST_RATE_2BARS, ST_RATES };
 /* chord byte: low nibble = type (0 single note, 1..8 chord memory slot + 1),
@@ -52,6 +55,7 @@ typedef struct {
     uint8_t last_note;         /* used when a step is switched on */
     int16_t sounding[MKS_CHORD_NOTES];
     uint8_t sounding_count, tied, tick;
+    uint8_t pass;              /* passes of the current pattern since it started */
     float gate_countdown, step_frames, since_step;
     arp_t arp;
     volatile uint32_t revision;

@@ -257,7 +257,18 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
     if (!delta) return;
     knob_t k = knob(ui, slot);
     if (!k.name) return;
-    int step = k.max > 16 ? delta * (delta > 1 || delta < -1 ? 2 : 1) : delta;
+    /* Many values (filters, levels, most sound knobs): faster the faster the
+     * knob turns, a slow turn still one at a time. Few values (types,
+     * switches, up to 16): one per detent. */
+    int step = delta;
+    if (k.max > 16) {
+        uint32_t gap = ui->now - ui->knob_at[slot];   /* ms since the last detent */
+        int a = delta < 0 ? -delta : delta;
+        int mult = a >= 3 ? 3 : a == 2 ? 2 : gap < 40u ? 3 : gap < 90u ? 2 : 1;
+        if (k.max > 64 && mult > 1) ++mult;           /* 0..127: up to four */
+        step = delta * mult;
+    }
+    ui->knob_at[slot] = ui->now;
     int value = raw_value(ui, slot, &param) + step, r;
     value = el_clampi(value, param == PARAM_ARP + ARP_GATE ? 5 : 0, k.max);
     if (ui->overview && param >= 300u) {
@@ -318,7 +329,7 @@ static void generate(el_ui_t *ui, unsigned key)
         const dr_pattern_t *p = &m->pattern[m->current];
         dr_generate(&g, ui->gen_style[0], ui->gen_density[0], seed, ui->gen_keep ? p : NULL);
         g.length = p->length;
-        if (dr_post_pattern(m, m->current, &g) == 0) { notice(ui, "NEW BEAT"); keep_later(ui); }
+        if (dr_post_pattern(m, m->current, &g, 0) == 0) { notice(ui, "NEW BEAT"); keep_later(ui); }
         return;
     }
     st_track_t *t = track_of(ui);
@@ -413,7 +424,7 @@ static void run_jobs(el_ui_t *ui)
     el_engine_t *e = ui->engine;
     while (ui->job_stage) {
         unsigned st = ui->job_stage;
-        int r = st == 1 ? dr_post_pattern(&e->drums, ui->job_slot[0], &ui->job_drums)
+        int r = st == 1 ? dr_post_pattern(&e->drums, ui->job_slot[0], &ui->job_drums, !ui->job_fresh)
                         : el_load_pattern(e, st - 2u, ui->job_slot[st - 1u], &ui->job_parts[st - 2u]);
         if (r) break;   /* staging busy: next pass */
         if (++ui->job_stage > 1u + EL_TRACKS) {
@@ -458,7 +469,7 @@ static void generator_key(el_ui_t *ui, unsigned key)
         dr_pattern_t d;
         st_pattern_t p;
         vary(ui, ui->area, ui->now * 2654435761u + 977u, &d, &p);
-        int r = ui->area == EL_AREA_BEAT ? dr_post_pattern(&ui->engine->drums, ui->engine->drums.current, &d)
+        int r = ui->area == EL_AREA_BEAT ? dr_post_pattern(&ui->engine->drums, ui->engine->drums.current, &d, 1)
                                          : el_load_pattern(ui->engine, ui->area - 1u, track_of(ui)->current, &p);
         if (r == 0) { notice(ui, "VARIED"); keep_later(ui); } else notice(ui, "BUSY, TRY AGAIN");
         return;
@@ -612,6 +623,60 @@ static void sound_save_edit(el_ui_t *ui, const int16_t *enc)
 
 /* Black key -> drum part. 11 keys for 12 parts: BD .. ZAP on the black
  * keys, SEQ in BEAT switches to the second layer with PULSE on key 1. */
+/* ---- step conditions (docs/adr/0025): hold a step, turn PRESETS ----------- */
+
+static const char *const cond_names[EL_CONDS] = {"1:1", "1:2", "2:2", "1:4", "2:4", "3:4", "4:4"};
+
+static void cond_notice(el_ui_t *ui)
+{
+    static char text[40];
+    static const char *const what[EL_CONDS] = {"EVERY PASS", "1ST OF 2", "2ND OF 2", "1ST OF 4", "2ND OF 4", "3RD OF 4", "4TH OF 4"};
+    el_snprintf(text, sizeof text, "STEP %u: %s %s", ui->sh_step + 1u, cond_names[ui->sh_cond % EL_CONDS], what[ui->sh_cond % EL_CONDS]);
+    notice(ui, text);
+}
+
+/* A step key goes down: a silent step sounds at once; a sounding one goes
+ * off when its key is let go, unless an encoder turned meanwhile. */
+static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, int on, unsigned cond)
+{
+    ui->sh_key = (uint8_t)(key + 1u);
+    ui->sh_area = ui->area;
+    ui->sh_step = (uint8_t)step;
+    ui->sh_part = (uint8_t)part;
+    ui->sh_cond = (uint8_t)(on ? cond : 0u);
+    ui->sh_used = 0;
+    ui->sh_remove = (uint8_t)(on != 0);
+}
+
+/* The held step: PRESETS sets its condition (the other encoders keep their
+ * jobs; any turn keeps the step). Returns what is left of PRESETS. */
+static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets)
+{
+    if (!ui->sh_key) return presets;
+    for (unsigned i = 0; i < UI_ENCODERS; ++i) if (enc[i]) ui->sh_used = 1;
+    if (!presets) return 0;
+    el_engine_t *e = ui->engine;
+    unsigned cond = (unsigned)el_clampi((int)ui->sh_cond + (presets > 0 ? 1 : -1), 0, EL_CONDS - 1);
+    int r = ui->sh_area == EL_AREA_BEAT ? dr_post(&e->drums, DR_CMD_COND, ui->sh_part, ui->sh_step, 0, (int16_t)cond)
+                                        : el_post3(e, EL_CMD_STEP_COND, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, (int16_t)cond);
+    if (r == 0) {
+        ui->sh_cond = (uint8_t)cond;
+        cond_notice(ui);
+    }
+    return 0;
+}
+
+static void step_hold_release(el_ui_t *ui, uint32_t keys)
+{
+    if (!ui->sh_key || (keys & BIT(ui->sh_key - 1u))) return;
+    if (ui->sh_remove && !ui->sh_used) {
+        el_engine_t *e = ui->engine;
+        if (ui->sh_area == EL_AREA_BEAT) dr_post(&e->drums, DR_CMD_TOGGLE, ui->sh_part, ui->sh_step, 0, 0);
+        else el_post3(e, EL_CMD_STEP_TOGGLE, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, 0);
+    }
+    ui->sh_key = 0;
+}
+
 static int beat_part(const el_ui_t *ui, int black)
 {
     int part = black < 0 ? -1 : black + (ui->beat_layer ? UI_BLACK : 0);
@@ -637,7 +702,11 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     if (s >= p->length) return;
     if (hold & HOLD_EDIT) dr_post(m, DR_CMD_ACCENT, 0, (uint8_t)s, 0, 0);
     else if (hold & HOLD_GLO) dr_post(m, DR_CMD_ROLL, ui->part, (uint8_t)s, 0, 0);
-    else dr_post(m, DR_CMD_TOGGLE, ui->part, (uint8_t)s, 0, 0);
+    else {
+        int on = (p->hit[ui->part] >> s) & 1u;
+        step_hold(ui, key, s, ui->part, on, dr_cond(m, m->current, ui->part, s));
+        if (!on) dr_post(m, DR_CMD_TOGGLE, ui->part, (uint8_t)s, 0, 0);
+    }
 }
 
 /* Step record while stopped, as on the SH-101 and the KeyStep: every key
@@ -693,7 +762,11 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         ui->cursor[ui->area] = (uint8_t)s;
         if (hold & HOLD_EDIT) el_post3(e, EL_CMD_STEP_FLAG, track, (uint8_t)s, ST_ACCENT, 0);
         else if (hold & HOLD_GLO) el_post3(e, EL_CMD_STEP_FLAG, track, (uint8_t)s, ST_TIE, 0);
-        else el_post3(e, EL_CMD_STEP_TOGGLE, track, (uint8_t)s, 0, 0);
+        else {
+            int on = (p->step[s].flags & ST_ON) != 0;
+            step_hold(ui, key, s, 0, on, ST_COND(p->step[s].flags));
+            if (!on) el_post3(e, EL_CMD_STEP_TOGGLE, track, (uint8_t)s, 0, 0);
+        }
         return;
     }
     if (ui->area == EL_AREA_STRINGS && (hold & HOLD_GLO) && step >= 0 && step <= MKS_CHORDS) {
@@ -967,6 +1040,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (ui->punch_key[i]) punch_held |= BIT(i);
     }
     release_keys(ui, ui->prev_keys & ~c->keys);
+    step_hold_release(ui, c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
         if (hold & HOLD_GEN) {
@@ -1018,7 +1092,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         return;
     }
     const int16_t *enc = c->encoders;
-    const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM], presets = enc[ENC_PRESETS];
+    const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM];
+    const int presets = step_hold_encoders(ui, enc, enc[ENC_PRESETS]);
     int dist_page = ui->overview && (hold & HOLD_EDIT);
     if (dist_page) {
         /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone. */
@@ -1398,6 +1473,7 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
                 if ((p->accent >> s) & 1u) gfx_fill(b, x, y, CELL - 2, CELL - 2, c);
                 else gfx_fill(b, x + 2, y + 2, CELL - 6, CELL - 6, c);
                 if ((p->roll[part] >> s) & 1u) gfx_fill(b, x + 4, y + 4, 3, 3, BACK);
+                if (dr_cond(m, m->current, part, s)) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
             }
         }
     }
@@ -1465,6 +1541,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                 uint16_t c = k == 0 && (st->flags & ST_ACCENT) ? color : (uint16_t)((color >> 1) & 0x7bef);
                 gfx_fill(b, x, y, w, 5, c);
             }
+            if (ST_COND(st->flags)) gfx_fill(b, x, ROLL_Y + ROLL_H - 3, 4, 2, TEXT);   /* not every pass (ADR 0025) */
             if (col >= 30 && ST_CHORD_TYPE(st->chord)) {
                 char label[12];
                 note_name(label, sizeof label, st->note);
@@ -1480,9 +1557,10 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
         note_name(n, sizeof n, st->note);
         unsigned type = ST_CHORD_TYPE(st->chord), inv = ST_CHORD_INV(st->chord);
         static const char *const inv_names[3] = {"", " INV1", " INV2"};
-        el_snprintf(text, sizeof text, "STEP %02u %s %s%s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
+        el_snprintf(text, sizeof text, "STEP %02u %s %s%s%s%s%s%s", ui->cursor[ui->area] + 1u, (st->flags & ST_ON) ? n : "---",
                  type ? mks_chord_names[type - 1] : "", type ? inv_names[inv] : "",
-                 (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "");
+                 (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "",
+                 ST_COND(st->flags) ? " " : "", ST_COND(st->flags) ? cond_names[ST_COND(st->flags) % EL_CONDS] : "");
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
         static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};

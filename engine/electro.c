@@ -34,9 +34,9 @@ void el_init(el_engine_t *e)
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
     e->dry_gain = e->stutter_gain = 1.0f;
-    /* Stutter 1/16, tape stop over an 8th, delay 1/8, crusher
+    /* Stutter 1/16, tape stop over a quarter, delay 1/8, crusher
      * 8 bit, phaser once a bar. */
-    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 1, 0, 1, 2, 2};
+    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 3, 0, 1, 2, 2};
     memcpy(e->punch_div, punch_init, sizeof punch_init);
     static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
     for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
@@ -217,6 +217,10 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_STEP_TOGGLE:
         if (!(s->flags & ST_ON)) { s->note = t->last_note; s->chord = t->chord; }
         s->flags ^= ST_ON;
+        if (!(s->flags & ST_ON)) s->flags &= (uint8_t)~ST_COND_MASK;   /* a step switched off forgets its condition */
+        break;
+    case EL_CMD_STEP_COND:
+        s->flags = (uint8_t)((s->flags & ~ST_COND_MASK) | (unsigned)el_clampi(c->value, 0, EL_CONDS - 1) << 3);
         break;
     case EL_CMD_STEP_FLAG:
         s->flags = (uint8_t)((s->flags ^ c->c) | ST_ON);
@@ -297,7 +301,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) {
+    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }

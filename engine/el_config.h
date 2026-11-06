@@ -36,6 +36,16 @@
 
 #define EL_FENCE() __sync_synchronize()
 
+/* Step condition (docs/adr/0025): a step plays on pass n of every m of its
+ * pattern (passes counted from the pattern's start): 1:1 always, 1:2 the
+ * first of every two, 2:2 the second, 1:4 .. 4:4 one of every four. */
+enum { EL_COND_ALWAYS, EL_COND_1_2, EL_COND_2_2, EL_COND_1_4, EL_COND_2_4, EL_COND_3_4, EL_COND_4_4, EL_CONDS };
+static inline int el_cond_plays(unsigned cond, unsigned pass)
+{
+    static const uint8_t every[EL_CONDS] = {1, 2, 2, 4, 4, 4, 4}, which[EL_CONDS] = {0, 0, 1, 0, 1, 2, 3};
+    return cond >= EL_CONDS || pass % every[cond] == which[cond];
+}
+
 static inline int el_clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 static inline float el_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 /* The BEAT kit in fixed point (engine/dr_fixed.c, docs/adr/0022): on the own

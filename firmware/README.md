@@ -1,8 +1,13 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 14. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 15. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 14. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 15. Build:
+- **Step-Varianz** (ADR 0025): Step-Taste halten (BEAT, oder ein Synth-Bereich im STEP-Modus) und **PRESETS** drehen: `1:2` spielt den Step nur im ersten von je zwei Durchläufen des Patterns, `2:2` im zweiten, `1:4` bis `4:4` in einem von vier, `1:1` immer. Ein kleiner weißer Strich markiert solche Steps. Ein klingender Step geht beim Loslassen nur aus, wenn kein Regler gedreht wurde. Variationen behalten die Varianz, ein neues Pattern beginnt ohne.
+- **Tape-Stop** jetzt standardmäßig über eine Viertel.
+- **Regler mit vielen Werten** (Filter, Pegel, die meisten Klangregler) werden schneller, je schneller man dreht; langsam bleibt es ein Wert pro Raste. Regler mit bis zu 16 Werten bleiben wie bisher.
+
+Aus dem 14. Build:
 - **Verzerrung entlastet** (13. Build auf dem Gerät: FX 34 %, PEAK 104 %, LATE BLOCKS 140): Sie rechnet jetzt auf dem zweiten Kern vor den Synths, parallel zu den Drums; Hall, Delay und Master bleiben auf dem ersten. Jeder Block wählt die Aufteilung, die am schnellsten fertig ist. Die Verzerrung selbst rechnet ein Drittel weniger. Bei Steps (jede 16tel) laufen Effekte und Master im längeren Teil des Blocks. Klang bitgleich. Emulator: mit Verzerrung PEAK 96 → 83 %, ohne 83 → 74 %.
 
 Aus dem 13. Build:
@@ -26,7 +31,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `5757786130895afe0a631d657941cc6fbeb2a7fbad7c9a2ee31c647a657873df`
+SHA-256: `3422f79026ccd072316ba16dae30770d36380b21c7aab592e90b5bce96935c03`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -645,5 +645,80 @@ int main(int argc, char **argv)
         if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
     }
     printf("slots: a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok ? 0 : 1;
+
+    /* Step conditions (docs/adr/0025): the playback, Repeat and the panel
+     * (a step held, PRESETS turned). */
+    int sc_ok = 1;
+    {
+        static el_engine_t ce;
+        el_init(&ce);
+        dr_machine_t *m = &ce.drums;
+        dr_pattern_t *p = &m->pattern[m->current];
+        p->length = 4;
+        for (unsigned i = 0; i < DR_PARTS; ++i) p->hit[i] = p->roll[i] = 0;
+        p->hit[D8_BD] = 1u;                                   /* BD on step 1 */
+        dr_post(m, DR_CMD_COND, D8_BD, 0, 0, EL_COND_2_2);
+        dr_process_commands(m);
+        unsigned played = 0;
+        for (unsigned pass = 0; pass < 6; ++pass)
+            for (unsigned st = 0; st < 4; ++st) {
+                m->kit.v[D8_BD].age = 12345u;
+                dr_step(m, pass * 4u + st, 1000.0f);
+                if (st == 0 && m->kit.v[D8_BD].age == 0) played |= 1u << pass;
+            }
+        sc_ok = sc_ok && played == 0x2au;                    /* passes 2, 4, 6 */
+        /* Repeat on step 1: the playhead's pass decides. */
+        dr_rewind(m);
+        unsigned rep = 0;
+        for (unsigned n = 0; n < 8; ++n) {
+            m->kit.v[D8_BD].age = 12345u;
+            dr_step_at(m, n, 1000.0f, 0);
+            if (m->kit.v[D8_BD].age == 0) rep |= 1u << n;
+        }
+        sc_ok = sc_ok && rep == 0xf0u;                       /* the second pass of the playhead */
+        /* Synth: a 1:4 step plays on the first of every four passes. */
+        st_track_t *t = &ce.track[0];
+        st_pattern_t *sp = &t->pattern[t->current];
+        sp->length = 2;
+        sp->rate = ST_RATE_16TH;
+        sp->step[0].flags = ST_ON;
+        sp->step[1].flags = 0;
+        el_post3(&ce, EL_CMD_STEP_COND, 0, 0, 0, EL_COND_1_4);
+        float audio[EL_BLOCK * 2];
+        el_render_float(&ce, audio, EL_BLOCK);
+        sc_ok = sc_ok && ST_COND(sp->step[0].flags) == EL_COND_1_4;
+        st_rewind(t);
+        unsigned sp_played = 0;
+        for (unsigned pass = 0; pass < 8; ++pass) {
+            st_step(t, pass * 2u, 1000.0f);
+            if (t->sounding_count) sp_played |= 1u << pass;
+            st_step(t, pass * 2u + 1u, 1000.0f);
+        }
+        sc_ok = sc_ok && sp_played == 0x11u;                 /* passes 1 and 5 */
+        if (!sc_ok) printf("debug cond: drums %02x repeat %02x synth %02x\n", played, rep, sp_played);
+    }
+    {
+        /* The panel: BEAT, BD, step 15 held, PRESETS one detent: 1:2, and the
+         * step stays on; held again without a turn: off, condition gone. */
+        el_engine_t *sim = ui.engine;   /* (a local `engine` above hides the simulator's) */
+        if (sim->transport.running) { tap_button(BTN_PLAY); run(100); }
+        ui.overview = 0; ui.editor = 0; ui.area = EL_AREA_BEAT; ui.part = D8_BD; ui.step_page[0] = 0;
+        dr_machine_t *m = &sim->drums;
+        dr_post(m, DR_CMD_LENGTH, 0, 16, 0, 0);
+        run(30);
+        if ((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) { tap_key(24); run(30); }
+        panel.keys |= 1u << 24; run(30);
+        panel.encoders[6] = 1; run(10);
+        unsigned on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u, cond = dr_cond(m, m->current, D8_BD, 14);
+        shot(dir, "22_step_cond");
+        panel.keys &= ~(1u << 24); run(30);
+        unsigned kept_on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u;
+        tap_key(24); run(30);
+        unsigned off = !((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) && dr_cond(m, m->current, D8_BD, 14) == 0;
+        int panel_ok = on && cond == EL_COND_1_2 && kept_on && off;
+        if (!panel_ok) printf("debug panel: on %u cond %u kept %u off %u\n", on, cond, kept_on, off);
+        sc_ok = sc_ok && panel_ok;
+    }
+    printf("steps: conditions 2:2 / 1:4, under Repeat, held step + PRESETS %s\n", sc_ok ? "ok" : "FAIL");
+    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }
