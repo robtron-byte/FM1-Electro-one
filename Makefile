@@ -94,7 +94,14 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check
+
+# The fixed-point distortion (engine/dist.c, DIST_FIXED, own platform) against
+# the float one: every type, five settings, each within -60 dB.
+dist-fixed-check: host/dist_fixed_check.c host/dist_fixed_cmp.py engine/dist.c engine/dist.h
+	@mkdir -p build
+	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DDIST_FIXED=$$fx -o build/dfc_$$fx host/dist_fixed_check.c engine/dist.c -lm && ./build/dfc_$$fx build/dfc_$$fx.raw || exit 1; done
+	@python3 host/dist_fixed_cmp.py build/dfc_0.raw build/dfc_1.raw
 
 # The fixed-point cymbal and hats (engine/tr808_metal_fixed.h, own platform)
 # against the float 808: single hits with several knob settings, each must

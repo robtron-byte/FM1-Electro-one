@@ -10,18 +10,38 @@
 
 enum { DIST_OFF, DIST_OD, DIST_DIST, DIST_RAT, DIST_TUBE, DIST_MODES };
 
+/* DIST_FIXED: the distortion in fixed point (own platform: its FPU is slow,
+ * the float version took more than a core with the HOME sends up). */
+#ifndef DIST_FIXED
+#if defined(EL_PLATFORM)
+#define DIST_FIXED 1
+#else
+#define DIST_FIXED 0
+#endif
+#endif
+
 /* One channel's rings and filters; mono signals run only the left one. */
 typedef struct {
     /* in and os are rings of 32 and 64, each value written twice (at i and
      * i + 32 / i + 64): the filters read them in one piece, no masking */
     float in[64], os[128], dry[32];
     float pre, tight, dcx, dcy, lp1, lp2;
+#if DIST_FIXED
+    /* the same in fixed point (dist.c, DIST_FIXED): the driven signal Q18,
+     * the rest Q24 */
+    int32_t qin[64], qos[128], qdry[32];
+    int32_t qpre, qtight, qdcx, qdcy, qlp1, qlp2;
+#endif
 } el_dist_ch_t;
 
 typedef struct {
     el_dist_ch_t ch[2];
     float gain, mix;
     uint8_t in_pos, os_pos, mono;
+#if DIST_FIXED
+    int32_t qgain, qmix;   /* Q20, Q30 (taken from gain / mix at the first call) */
+    uint8_t qinit;
+#endif
 } el_dist_t;
 
 /* In place. mode DIST_*, drive / tone / level / mix 0..127 (level 64 +-0 dB

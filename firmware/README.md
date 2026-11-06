@@ -1,6 +1,6 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 10. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 11. Build)
 
 Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in diesem Build:
 - **PO-12-Kit** rechnet viel weniger (die Werte, die sich während eines Schlags nicht ändern, einmal pro Schlag statt pro Sample; Klang gleich).
@@ -11,14 +11,14 @@ Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Au
 - Bereichstasten gedimmt, OCT blinkt am Ende der Oktave (ADR 0020).
 - **Kein Knacksen mehr beim Verlassen von OPTIONS:** gespeichert wird nur, was sich geändert hat, und während der Groove läuft erst bei STOP (das Löschen des Flash hält den Ton ~50 ms je Sektor an, ADR 0023). SAVE speichert weiter sofort.
 - **Hall-Wurf** (schwarze Taste 6) rechnet sparsamer, gleicher Klang.
-- **Verzerrung** (HOME + EDIT, KNOB 1–4) rechnet sparsamer (Kennlinien als Tabelle, Abweichung unter −65 dB).
+- **Verzerrung** (HOME + EDIT, KNOB 1–4, auch in den JP-6-Sounds) rechnet jetzt in Festkomma, Abweichung zur bisherigen unter −76 dB.
 - **Sequencer-Balken** läuft gerade: die Position wird für ein ganzes Bild festgehalten.
 
 **Last:** Gegenüber dem 7. Build (Gerät: DR49, PEAK 100 %, MAX 103 %, LATE BLOCKS 11) rechnen die Drums sparsamer, bei gleichem Klang: Mischung blockweise, Koeffizienten nur bei Reglerbewegung, Oszillatoren springen über die Strecken ohne Kante, DRIVE über eine Tabelle. Emulator: Kern 0 mit Groove 91 % → 82 %. Bitte wieder die OPTIONS-Zeilen fotografieren (HOME + SAVE, Groove läuft).
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `6ee18e76e5da3b81d8c7a3503b41c57aa85c3f8f5df750d04286d5dc15bdafe4`
+SHA-256: `1f6732396f128f40d3bfb24c22333fff7dda820e38a2482a2efbec708a1088df`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
