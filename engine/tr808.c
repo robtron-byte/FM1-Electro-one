@@ -949,7 +949,7 @@ TR808_CAL float tr808_hh2_cal[HH2_CAL] = {0.000869221f, 0.0625397f};
  * 0014): 0 as 8W8 (before), 1 fitted to four closed hats of a real TR-808
  * (the user's recordings, 2026-11-06; host/calibration/fit_ch.py). */
 #ifndef TR808_CH_FIT
-#define TR808_CH_FIT 0
+#define TR808_CH_FIT 1   /* chosen by the user (B), docs/adr/0014 */
 #endif
 #if TR808_CH_FIT
 /* Fitted (differential evolution, spectrum + partials + envelope, non-accented hits): error against the
