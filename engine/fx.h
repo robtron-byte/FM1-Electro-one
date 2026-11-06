@@ -59,6 +59,8 @@ typedef struct { uint32_t off, len, pos; } fx_line_t;
 typedef struct {
     fx_line_t in[4], ap1[2], dl1[2], ap2[2], dl2[2];
     float lp[2], feedback[2], phase, acc, prev[2], out[2];
+    uint16_t tap_i[2][7];   /* the output taps' whole samples back (hole_init) */
+    float tap_f[2][7];      /* and the fraction between them */
     uint8_t half;
 } fx_hole_t;
 

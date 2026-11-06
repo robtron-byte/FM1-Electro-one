@@ -52,8 +52,7 @@ static inline float delay_read(const int16_t *line, unsigned write, float back)
     int i = (int)pos;
     if ((float)i > pos) --i;
     float frac = pos - (float)i;
-    i %= FX_DELAY_CAP;
-    if (i < 0) i += FX_DELAY_CAP;
+    if (i < 0) i += FX_DELAY_CAP;   /* write < CAP and back < CAP: at most one turn (no division) */
     float a = line[i], b = line[i + 1 < FX_DELAY_CAP ? i + 1 : 0];
     return (a + (b - a) * frac) * (1.0f / 32767.0f);
 }
@@ -173,35 +172,56 @@ EL_DSP_HELPER void hole_init(fx_hole_t *h)
         hole_line(&h->dl2[t], &off, hole_tank[t][3] * HOLE_SCALE);
     }
     if (off > FX_HALL_REGION) memset(h, 0, sizeof *h);   /* never: the lines fit their region */
+    /* The taps sit at fixed points: their whole and fractional parts once
+     * here, not in float at every step (hole_tap). */
+    for (int s = 0; s < 2; ++s)
+        for (int k = 0; k < 7; ++k) {
+            float back = (float)hole_taps[s][k][2] * HOLE_SCALE;
+            unsigned ib = (unsigned)back;
+            float fb = back - (float)ib;
+            h->tap_i[s][k] = (uint16_t)(fb > 0.0f ? ib + 1u : ib);   /* the older of the two samples */
+            h->tap_f[s][k] = fb > 0.0f ? 1.0f - fb : 0.0f;          /* towards the newer one */
+        }
 }
 
 /* 16-bit lines at a quarter of full scale: room for the tank's peaks. */
-static inline float hole_get(const int16_t *m, const fx_line_t *l, float back)
+static inline __attribute__((always_inline)) float hole_get(const int16_t *m, const fx_line_t *l, float back)
 {
     float p = (float)l->pos - back;
     while (p < 0.0f) p += (float)l->len;
-    unsigned i = (unsigned)p;
-    float f = p - (float)i, a = m[l->off + i % l->len], b = m[l->off + (i + 1u) % l->len];
+    unsigned i = (unsigned)p, len = l->len;
+    /* i is below 2 len: a subtraction instead of the two divisions of a
+     * modulo (26 reads a tank step: over a million divisions a second) */
+    if (i >= len) i -= len;
+    unsigned j = i + 1u >= len ? i + 1u - len : i + 1u;
+    float f = p - (float)(unsigned)p, a = m[l->off + i], b = m[l->off + j];
     return (a + (b - a) * f) * (4.0f / 32767.0f);
 }
 
-static inline void hole_put(int16_t *m, fx_line_t *l, float x)
+static inline __attribute__((always_inline)) void hole_put(int16_t *m, fx_line_t *l, float x)
 {
     m[l->off + l->pos] = (int16_t)(dsp_clamp(x * 0.25f, -1.0f, 1.0f) * 32767.0f);
     l->pos = l->pos + 1u < l->len ? l->pos + 1u : 0u;
 }
 
-static inline float hole_allpass(int16_t *m, fx_line_t *l, float x, float g, float back)
+static inline __attribute__((always_inline)) float hole_allpass(int16_t *m, fx_line_t *l, float x, float g, float back)
 {
     float d = hole_get(m, l, back), w = x + g * d;
     hole_put(m, l, w);
     return d - g * w;
 }
 
-static inline float hole_tap(const int16_t *m, const fx_hole_t *h, int t, int line, int back)
+/* tap k of side s: the line's sample tap_i back, interpolated by tap_f
+ * towards the newer one (as hole_get with the same back) */
+static inline __attribute__((always_inline)) float hole_tap(const int16_t *m, const fx_hole_t *h, int s, int k)
 {
+    int t = hole_taps[s][k][0], line = hole_taps[s][k][1];
     const fx_line_t *l = line == 0 ? &h->dl1[t] : line == 1 ? &h->ap2[t] : &h->dl2[t];
-    return hole_get(m, l, (float)back * HOLE_SCALE);
+    unsigned len = l->len, back = h->tap_i[s][k];
+    unsigned i = l->pos >= back ? l->pos - back : l->pos + len - back;
+    unsigned j = i + 1u < len ? i + 1u : 0u;
+    float a = m[l->off + i], b = m[l->off + j];
+    return (a + (b - a) * h->tap_f[s][k]) * (4.0f / 32767.0f);
 }
 
 EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *right, int frames)
@@ -242,7 +262,7 @@ EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *r
             for (int s = 0; s < 2; ++s) {
                 float y = 0;
                 for (int k = 0; k < 7; ++k)
-                    y += hole_tap(m, h, hole_taps[s][k][0], hole_taps[s][k][1], hole_taps[s][k][2]) * (float)hole_taps[s][k][3];
+                    y += hole_tap(m, h, s, k) * (float)hole_taps[s][k][3];
                 h->prev[s] = h->out[s];
                 h->out[s] = y * 0.6f;
             }
@@ -358,7 +378,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 fx->mem.b.delay[0][fx->dw] = (int16_t)(dsp_clamp(fx->acc[0] * (1.0f / 3.0f), -1, 1) * 32767.0f);
                 fx->mem.b.delay[1][fx->dw] = (int16_t)(dsp_clamp(fx->acc[1] * (1.0f / 3.0f), -1, 1) * 32767.0f);
                 fx->acc[0] = fx->acc[1] = 0;
-                fx->dw = (fx->dw + 1u) % FX_DELAY_CAP;
+                fx->dw = fx->dw + 1u < FX_DELAY_CAP ? fx->dw + 1u : 0u;
             }
             left[n] += yl * dret;
             right[n] += yr * dret;

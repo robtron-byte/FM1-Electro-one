@@ -64,3 +64,4 @@ Jetzt bremst Kern 1 (STRINGS 55 %).
 
 Felucca (github.com/hugelton/Felucca, alles Festkomma), FM-106, SLOOP/X0X (zweiter Kern), Firmware-Liste
 github.com/aroum/fm1-custom-fw.
+- Gerät (8. Build): DR34, PEAK 91 %, MAX 102 %, LATE BLOCKS steigen vor allem beim Hall-Wurf und beim Verlassen von OPTIONS (Flash-Löschen sperrt Interrupts ~50 ms/Sektor). 9. Build: Speichern im Lauf verschoben (ADR 0023), Hall-Wurf billiger.

@@ -53,6 +53,7 @@ typedef struct {
     /* New grooves are kept in Flash on their own, shortly after the last
      * generator key press (they survive a restart). */
     uint8_t autosave;
+    uint8_t opt_snap[EL_OPTIONS];         /* the options when OPTIONS opened: save only what changed */
     uint32_t autosave_at;
     uint8_t key_note[UI_KEYS];          /* note sent for each held key, 0xff = none */
     uint8_t key_track[UI_KEYS];

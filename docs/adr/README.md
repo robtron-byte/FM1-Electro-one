@@ -28,5 +28,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0020](0020-tasten-leds.md) | Funktionstasten leuchten, aktive Zustände blinken, inaktive Bereiche gedimmt | vorgeschlagen | 2026-11-06 |
 | [0021](0021-eigene-grundlage.md) | Eigene Grundlage ohne das SDK von FM1 Open (Felucca-Plattform, Dinghy) | vorgeschlagen | 2026-11-05 |
 | [0022](0022-drums-festkomma.md) | Drums in Festkomma auf der eigenen Plattform (Felucca-Drumstimmen) | vorgeschlagen | 2026-11-06 |
+| [0023](0023-speichern-im-stillstand.md) | Automatisch speichern erst bei STOP (Flash-Löschen stoppt den Ton) | vorgeschlagen | 2026-11-06 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

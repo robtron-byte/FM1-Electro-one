@@ -221,7 +221,14 @@ int main(int argc, char **argv)
         el_midi_input(&engine, off_new, 3);
         run(50);
         routed = routed && engine.track[1].last_note == 77;
+        /* Stored only when the groove stops (a flash erase would stop the
+         * sound while it plays), then kept over a restart. */
         static el_engine_t kept;
+        el_init(&kept);
+        int playing = engine.transport.running;
+        routed = routed && playing && (el_store_load(&kept) != 0 || kept.option[EL_OPT_OUT_LEVEL] != 107);
+        tap_button(BTN_PLAY);             /* STOP: now it is stored */
+        run(300);
         el_init(&kept);
         routed = routed && el_store_load(&kept) == 0 && kept.option[EL_OPT_OUT_LEVEL] == 107 && !kept.option[EL_OPT_HINTS] &&
                  kept.mix.master_comp.threshold_db == -20.0f && kept.mix.master_comp.ratio == 4.0f &&
@@ -230,6 +237,8 @@ int main(int argc, char **argv)
         printf("options: menu, STRINGS on CH %u, BEAT %s, level %u, help off, routed and kept over restart %s\n",
                engine.midi_channel[EL_AREA_STRINGS] + 1u, engine.midi_channel[EL_AREA_BEAT] == EL_MIDI_OFF ? "OFF" : "on",
                engine.option[EL_OPT_OUT_LEVEL], menu && routed ? "ok" : "FAIL");
+        tap_button(BTN_PLAY);             /* and on again */
+        run(100);
         el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_STRINGS, 1);   /* back to the defaults */
         el_post(&engine, EL_CMD_MIDI_CHANNEL, EL_AREA_BEAT, 9);
         el_post(&engine, EL_CMD_OPTION, EL_OPT_OUT_LEVEL, 127);
@@ -275,8 +284,11 @@ int main(int argc, char **argv)
     printf("slots: per area A-D, new groove and variation after a second press %s\n", slots && fresh && varied ? "ok" : "FAIL");
     if (!(slots && fresh && varied)) printf("debug slots %d (%u %u %u %u) asked %d fresh %d still %d varied %d\n", slots, engine.drums.current, engine.track[0].current, engine.track[1].current, engine.track[2].current, asked, fresh, still, varied);
     tap_button(BTN_HOME);
-    /* Generated parts are kept in Flash by themselves and come back after a restart. */
+    /* Generated parts are kept in Flash by themselves (once the groove
+     * stops) and come back after a restart. */
     run(2500);
+    int was_running = engine.transport.running;
+    if (was_running) { tap_button(BTN_PLAY); run(300); }
     static el_engine_t restarted;
     el_init(&restarted);
     int lr = el_store_load(&restarted);
@@ -285,6 +297,7 @@ int main(int argc, char **argv)
             !memcmp(&restarted.track[1].pattern[2], &engine.track[1].pattern[2], sizeof(st_pattern_t)) &&
             restarted.track[0].current == 1 && restarted.track[1].current == 2;
     printf("store: new groove and slots kept over restart %s\n", fresh ? "ok" : "FAIL");
+    if (was_running) { tap_button(BTN_PLAY); run(100); }
 
     tap_button(BTN_PLAY);
     tap_button(BTN_SAVE);             /* SAVE: everything */

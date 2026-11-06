@@ -422,7 +422,9 @@ static void run_jobs(el_ui_t *ui)
             keep_later(ui);
         }
     }
-    if (ui->autosave && !ui->job_stage && (int32_t)(ui->now - ui->autosave_at) >= 0 &&
+    /* (not while the groove plays: the flash erase would stop the sound for
+     * ~50 ms a sector; it waits for STOP) */
+    if (ui->autosave && !ui->job_stage && (int32_t)(ui->now - ui->autosave_at) >= 0 && !e->transport.running &&
         e->drums.staging_posted == e->drums.staging_taken && e->staged_posted == e->staged_taken) {
         ui->autosave = 0;
         if (ui->save && ui->save(e) != 0) notice(ui, "SAVE FAILED");
@@ -794,7 +796,14 @@ static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pr
     const int16_t *enc = c->encoders;
     if (pressed & (BIT(BTN_HOME) | BIT(BTN_SAVE))) {
         ui->options = 0;
-        notice(ui, ui->save && ui->save(e) == 0 ? "OPTIONS SAVED" : "OPTIONS SET");
+        /* Only what changed, and not while the groove plays: a flash erase
+         * holds every interrupt for ~50 ms a sector (a gap in the sound).
+         * It waits for STOP (the autosave below). */
+        int changed = 0;
+        for (unsigned i = 0; i < EL_OPTIONS; ++i) changed |= ui->opt_snap[i] != e->option[i];
+        if (!changed) notice(ui, "OPTIONS");
+        else if (e->transport.running) { ui->autosave = 1; ui->autosave_at = ui->now; notice(ui, "OPTIONS SET: SAVED AT STOP"); }
+        else notice(ui, ui->save && ui->save(e) == 0 ? "OPTIONS SAVED" : "OPTIONS SET");
         return;
     }
     int move = enc[ENC_SELECT] + enc[ENC_ALGORITHM];
@@ -831,6 +840,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         release_keys(ui, ~0u);
         ui->options = 1;
         ui->opt_item = 0;
+        for (unsigned i = 0; i < EL_OPTIONS; ++i) ui->opt_snap[i] = ui->engine->option[i];
         ui->prev_buttons = c->buttons;
         ui->prev_keys = c->keys;
         return;
