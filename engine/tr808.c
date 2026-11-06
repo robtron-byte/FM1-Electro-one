@@ -943,13 +943,29 @@ TR808_CAL float tr808_hh_cal[HH_CAL] = {
  * 0.44 s and falls linearly over the rest. DECAY scales them. Gains: as
  * loud as model 0 (CH over 50 ms, OH over 200 ms). */
 TR808_CAL float tr808_hh2_cal[HH2_CAL] = {0.000869221f, 0.0625397f};
+/* The closed hat of model 2: high-pass 1 Hz / Q, high-pass 2 Hz / Q (both
+ * move with TUNE), the one-pole low-pass Hz, the decay ms (half 8W8's) and
+ * a gain on tr808_hh2_cal[0]. TR808_CH_FIT (A/B, `make ch-ab`, docs/adr/
+ * 0014): 0 as 8W8 (before), 1 fitted to four closed hats of a real TR-808
+ * (the user's recordings, 2026-11-06; host/calibration/fit_ch.py). */
+#ifndef TR808_CH_FIT
+#define TR808_CH_FIT 0
+#endif
+#if TR808_CH_FIT
+/* Fitted (differential evolution, spectrum + partials + envelope, non-accented hits): error against the
+ * recordings' mean 4.6 / 6.0 / 3.7 dB (before 6.4 / 7.0 / 4.7; the four hits among themselves 0.8 / 1.3 / 2.5).
+ * The partials stay as the six oscillators put them. Gain: as loud as before over 50 ms. */
+TR808_CAL float tr808_ch2_cal[CH2_CAL] = {1744.0f, 3.404f, 6763.0f, 2.902f, 8316.0f, 39.19f, 0.8944f};
+#else
+TR808_CAL float tr808_ch2_cal[CH2_CAL] = {5200.0f, 1.6f, 2700.0f, 0.75f, 10500.0f, 42.5f, 1.0f};
+#endif
 static inline EL_DSP_HELPER float knee_gate(float e)
 {
     float over = e - 0.59f;
     if (over <= 0.0f) return 0.0f;
     return over < 1.2f ? over * over * (1.0f / 2.4f) : over - 0.6f;
 }
-static EL_DSP_HELPER float hat_chain(tr_voice_t *v, int part, float bus, float env)
+static EL_DSP_HELPER float hat_chain(tr_voice_t *v, int part, float bus, float env, float ch_lp)
 {
     float t1 = bus - v->lag1;
     v->lag1 = bus;
@@ -957,7 +973,7 @@ static EL_DSP_HELPER float hat_chain(tr_voice_t *v, int part, float bus, float e
     v->lag2 = t1;
     float s = svf_hp(&v->r3, svf_hp(&v->r2, d * knee_gate(env)));
     if (part == D8_CH) {
-        v->lp1 += (s - v->lp1) * 0.776f;
+        v->lp1 += (s - v->lp1) * ch_lp;
         s = v->lp1;
     } else {
         v->lp1 += (s - v->lp1) * 0.5686f; v->pink[0] += (v->lp1 - v->pink[0]) * 0.5686f;
@@ -983,7 +999,7 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         float f = spread(t, part, P_TUNE);
         if (TR808_HAT_MODEL == 2) {
             float g = dsp_sqrt(f);   /* TUNE moves the filters with the oscillators, as model 0 */
-            if (part == D8_CH) { svf_set(&v->r2, 5200.0f * g, 1.6f); svf_set(&v->r3, 2700.0f * g, 0.75f); }
+            if (part == D8_CH) { const float *c = tr808_ch2_cal; svf_set(&v->r2, c[0] * g, c[1]); svf_set(&v->r3, c[2] * g, c[3]); }
             else { svf_set(&v->r2, 6200.0f * g, 0.9f); svf_set(&v->r3, 5200.0f * g, 0.8f); }
         } else if (TR808_HAT_MODEL) {
             const float *h = tr808_hh_cal;
@@ -1004,7 +1020,7 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
             if (decay != v->memo[0].x) { v->memo[0].x = decay; v->memo[0].y = 1.0f / (0.7f * len); }
             v->env = dsp_max(0.0f, v->env - v->memo[0].y);
         }
-    } else if (TR808_HAT_MODEL == 2) v->env *= m_decay(&v->memo[0], MS(42.5f) * spread(t, part, P_DECAY));
+    } else if (TR808_HAT_MODEL == 2) v->env *= m_decay(&v->memo[0], MS(tr808_ch2_cal[5]) * spread(t, part, P_DECAY));
     else v->env *= m_decay(&v->memo[0], MS(decay) / 2.3f);
     if (v->aux2 > 0) v->env *= m_decay(&v->memo[1], MS(7.0f));    /* choked by the other hat */
     float attack = dsp_min(1.0f, (float)v->age / MS(0.1f));
@@ -1013,7 +1029,9 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
         if (v->age == 0) { v->lag1 = src; v->lag2 = 0; }   /* the bank may have jumped while idle */
         /* trigger 4 V, accented up to 7.3 V (8W8's range) */
         if (part == D8_OH) attack = 1.0f - m_exp(&v->memo[2], -(float)v->age / MS(6.0f));
-        y = hat_chain(v, part, src, (4.0f + 3.3f * v->accent) * v->env * attack) * tr808_hh2_cal[part == D8_OH];
+        float ch_lp = 1.0f - m_exp(&v->memo[3], -2.0f * DSP_PI * tr808_ch2_cal[4] / EL_SAMPLE_RATE);
+        y = hat_chain(v, part, src, (4.0f + 3.3f * v->accent) * v->env * attack, ch_lp) *
+            tr808_hh2_cal[part == D8_OH] * (part == D8_CH ? tr808_ch2_cal[6] : 1.0f);
     } else y = svf_hp(&v->r1, swing_vca(src * 1.2f, v->env * attack * v->aux));
     if (TR808_HAT_MODEL != 2 && part == D8_OH) { /* open hat: a little more top end */
         v->out_lp += (y - v->out_lp) * 0.7277f;  /* ~9 kHz */

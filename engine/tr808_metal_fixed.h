@@ -191,7 +191,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
                 dm_svf_set(&v->r3, ck[16], 5.64f);
             } else {
                 float g = dsp_sqrt(spread(t, part, P_TUNE));
-                if (part == D8_CH) { dm_svf_set(&v->r2, 5200.0f * g, 1.6f); dm_svf_set(&v->r3, 2700.0f * g, 0.75f); }
+                if (part == D8_CH) { const float *c = tr808_ch2_cal; dm_svf_set(&v->r2, c[0] * g, c[1]); dm_svf_set(&v->r3, c[2] * g, c[3]); }
                 else { dm_svf_set(&v->r2, 6200.0f * g, 0.9f); dm_svf_set(&v->r3, 5200.0f * g, 0.8f); }
             }
         }
@@ -213,7 +213,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
             out_gain[k] = dm_q28(1.0f + 0.6f * acc);
             kv[k] = dm_q28(0.5f + 0.5f * acc);        /* the reservoirs' height (aux) */
         } else {
-            if (part == D8_CH) c_env[k] = dm_q30(decay_coef(MS(42.5f) * spread(t, part, P_DECAY)));
+            if (part == D8_CH) c_env[k] = dm_q30(decay_coef(MS(tr808_ch2_cal[5]) * spread(t, part, P_DECAY)));
             else {
                 float len = MS(442.0f) * spread(t, part, P_DECAY);
                 oh_start = (uint32_t)(0.3f * len);
@@ -223,7 +223,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
             if (tv->aux2 > 0) c_choke[k] = dm_q30(decay_coef(MS(7.0f)));
             kv[k] = dm_q28(4.0f + 3.3f * acc);
             /* the chain's x8 / x5 and the calibration after the (linear) DC block */
-            out_gain[k] = dm_q28((part == D8_CH ? 8.0f : 5.0f) * tr808_hh2_cal[part == D8_OH]);
+            out_gain[k] = dm_q28(part == D8_CH ? 8.0f * tr808_hh2_cal[0] * tr808_ch2_cal[6] : 5.0f * tr808_hh2_cal[1]);
             int h = part == D8_CH;
             if (t->pot[part][P_TUNE] != 64) own[h] = 1;
         }
@@ -237,7 +237,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
         for (int i = 0; i < 6; ++i) dm_step_set(t, b, i);
     }
     const int32_t c_lp1 = dm_q28(0.4513f), c_hp1 = dm_q28(0.5243f), c_hi = dm_q28(2.78f), c_raw = dm_q28(0.714f);
-    const int32_t c_ch_lp = dm_q28(0.776f), c_oh_lp = dm_q28(0.5686f), c_dc = dm_q28(0.9719f), c_fade = dm_q30(0.9925f);
+    const int32_t c_ch_lp = dm_q28(1.0f - dsp_exp(-2.0f * DSP_PI * tr808_ch2_cal[4] / EL_SAMPLE_RATE)), c_oh_lp = dm_q28(0.5686f), c_dc = dm_q28(0.9719f), c_fade = dm_q30(0.9925f);
     const int32_t quiet = dm_q30(1e-4f), gone = dm_q30(1e-3f), knee0 = 1 << 24, k059 = (int32_t)(0.59f * (1 << 24));
     const int32_t k12 = (int32_t)(1.2f * (1 << 24)), k06 = (int32_t)(0.6f * (1 << 24)), r24 = dm_q28(1.0f / 2.4f);
     const uint32_t cy_end = (uint32_t)MS(300.0f);

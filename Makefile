@@ -94,7 +94,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab
 
 # The fixed-point cymbal and hats (engine/tr808_metal_fixed.h, own platform)
 # against the float 808: single hits with several knob settings, each must
@@ -124,6 +124,15 @@ metal-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@for v in $(METAL_VARIANTS); do n=$${v%%:*}; f=$${v#*:}; f=$$(echo $$f | tr ':' ' '); \
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/metal_ab_$$n host/metal_ab.c $(ENGINE) -lm && \
 	  ./build/metal_ab_$$n build/wav/metal_$$n.wav && echo "build/wav/metal_$$n.wav"; done
+
+# Closed hat (docs/adr/0014): A as 8W8 (before), B fitted to four closed hats
+# of a real TR-808 (TR808_CH_FIT 1, host/calibration/fit_ch.py). Through
+# host/metal_ab.c (bars 1-4 the hats).
+ch-ab: host/metal_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in A:-DTR808_CH_FIT=0 B:-DTR808_CH_FIT=1; do n=$${v%%:*}; f=$${v#*:}; \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/ch_ab_$$n host/metal_ab.c $(ENGINE) -lm && \
+	  ./build/ch_ab_$$n build/wav/ch_$$n.wav && echo "build/wav/ch_$$n.wav"; done
 
 # Hand clap for listening (docs/adr/0008): A as before, B the circuit's
 # envelope, C also the circuit's filter and rectified noise, D fitted to

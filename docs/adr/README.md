@@ -19,7 +19,7 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0011](0011-live-effekte.md) | Live-Effekte auf den schwarzen Tasten 5–11 | angenommen | 2026-11-06 |
 | [0012](0012-cowbell.md) | Cowbell an die echte Cowbell der Aufnahme angepasst | angenommen | 2026-10-29 |
 | [0013](0013-gated-reverb.md) | Gated Reverb: echter Hall mit Gate (Variante C), Clap trocken | angenommen | 2026-10-29 |
-| [0014](0014-hats.md) | Hi-Hats in X0X-/8W8-Bauweise (Variante D) | angenommen | 2026-10-29 |
+| [0014](0014-hats.md) | Hi-Hats in X0X-/8W8-Bauweise (Variante D); CH-Nachkalibrierung zur Wahl | angenommen (CH-Abgleich vorgeschlagen) | 2026-11-06 |
 | [0015](0015-snare.md) | Snare: A bleibt, Körper länger | angenommen | 2026-10-29 |
 | [0016](0016-drum-tonart.md) | Drum-Tonart: tonale Drums auf eine Tonart gestimmt | angenommen | 2026-10-29 |
 | [0017](0017-zap.md) | Zap nach der Referenz des Nutzers (Modell 3), ohne Bass | angenommen | 2026-10-29 |
