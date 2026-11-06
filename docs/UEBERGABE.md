@@ -29,7 +29,7 @@ Urheber, Herkunft, Lizenz).
 - 4. Build vom 06.11.: PO-12 vorberechnet, MKS Saw 2–4 schneller Weg, OPTIONS zeigt PEAK/MAX/C1/LATE BLOCKS,
   **CY/OH/CH als unser Modell in Festkomma** (`engine/tr808_metal_fixed.h`, `make metal-fixed-check`). Repeat wie
   früher (die Änderung „nur solange Weiß gehalten“ hat der Nutzer zurückgenommen). Noch nicht auf dem Gerät.
-- **BD in Festkomma** (`engine/tr808_bd_fixed.h`) fertig. **Nächste Stimmen:** SD, Toms, RS, CP, CB.
+- **Die ganze 808 in Festkomma** (`engine/tr808_metal_fixed.h`, `tr808_bd_fixed.h`, `tr808_rest_fixed.h`; `make metal-fixed-check`, 36 Fälle). Emulator: Kern 0 mit Groove 91 % (mit Feluccas Stimmen 71 %). **Nächster Schritt:** Last am Gerät messen (OPTIONS-Zeilen), dann billiger machen (Filter-Koeffizienten seltener, Hüllkurven pro Block, ungenutzte Felucca-Teile raus) oder Drums teils auf Kern 1. Danach Abgleich an den Aufnahmen des Nutzers (BD, OH, Becken, SD) als A/B.
 - **Referenzaufnahmen** einer echten 808: Dropbox-Ordner des Nutzers „808 best of“ (BD, SD, HH = Open Hats, Cymbal,
   Low Tom/Conga), per Dropbox-Erweiterung zu finden; Download als ZIP über den geteilten Link (`dl=1`) braucht
   uneingeschränktes Netz (danach wieder einschränken). Closed Hats: vier AIF-Dateien vom Nutzer (CH-Abgleich, ADR 0014). Vorgehen

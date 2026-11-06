@@ -99,7 +99,7 @@ clean:
 # The fixed-point cymbal and hats (engine/tr808_metal_fixed.h, own platform)
 # against the float 808: single hits with several knob settings, each must
 # stay within -40 dB of the float model (docs/adr/0022).
-METAL_CASES = cy cy_acc cy_dark cy_bright oh oh_acc oh_long oh_tune ch ch_acc ch_tune oh_choke bd bd_acc bd_short bd_long bd_tune bd_tone bd_punch bd_drive bd_retrig
+METAL_CASES = cy cy_acc cy_dark cy_bright oh oh_acc oh_long oh_tune ch ch_acc ch_tune oh_choke bd bd_acc bd_short bd_long bd_tune bd_tone bd_punch bd_drive bd_retrig sd sd_acc sd_tone sd_early lt ht_acc lt_conga ht_tune rs rs_clave cp cp_acc cp_maracas cb cb_tune
 metal-fixed-check: host/metal_fixed_check.c host/metal_fixed_cmp.py $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/mfc_0 build/mfc_1
 	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DTR808_FIXED=$$fx -o build/mfc_bin_$$fx host/metal_fixed_check.c $(ENGINE) -lm && ./build/mfc_bin_$$fx build/mfc_$$fx || exit 1; done

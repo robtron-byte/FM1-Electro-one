@@ -96,18 +96,23 @@ EL_DSP_CODE int tr808_active(const tr808_t *t);
  * ducking), the rest of the kit in stereo, and the effect sends. */
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames);
-/* TR808_METAL_FIXED: with TR808_FIXED, cymbal and hats are our own model in
+/* TR808_METAL_FIXED: with TR808_FIXED, cymbal, hats and cowbell are our own model in
  * fixed point (engine/tr808_metal_fixed.h), not Felucca's (docs/adr/0022). */
 #ifndef TR808_METAL_FIXED
 #define TR808_METAL_FIXED TR808_FIXED
 #endif
-#define TR808_METAL_PART(p) (TR808_METAL_FIXED && ((p) == D8_CY || (p) == D8_OH || (p) == D8_CH))
+#define TR808_METAL_PART(p) (TR808_METAL_FIXED && ((p) == D8_CY || (p) == D8_OH || (p) == D8_CH || (p) == D8_CB))
 /* TR808_BD_FIXED: with TR808_FIXED, the bass drum is our own model in fixed
  * point (engine/tr808_bd_fixed.h). TR808_OWN_PART: parts of ours in fixed point. */
 #ifndef TR808_BD_FIXED
 #define TR808_BD_FIXED TR808_FIXED
 #endif
-#define TR808_OWN_PART(p) (TR808_METAL_PART(p) || (TR808_BD_FIXED && (p) == D8_BD))
+/* TR808_REST_FIXED: snare, toms, rim shot and clap (engine/tr808_rest_fixed.h). */
+#ifndef TR808_REST_FIXED
+#define TR808_REST_FIXED TR808_FIXED
+#endif
+#define TR808_REST_PART(p) (TR808_REST_FIXED && (p) >= D8_SD && (p) <= D8_CP)
+#define TR808_OWN_PART(p) (TR808_METAL_PART(p) || (TR808_BD_FIXED && (p) == D8_BD) || TR808_REST_PART(p))
 #if TR808_FIXED   /* engine/dr_fixed.c */
 void drf_init(void);
 void drf_silence(void);
