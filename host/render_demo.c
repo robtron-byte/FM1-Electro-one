@@ -55,26 +55,47 @@ static uint32_t par_arg;
 static int par_run_now(void (*job)(uint32_t), uint32_t arg) { par_job = job; par_arg = arg; return 1; }
 static int par_wait_now(void) { par_job(par_arg); return 0; }
 static void pipe_groove(el_engine_t *e, int two_cores);
+extern int el_test_bus_mode;   /* engine/electro.c: 0 by the times, else where the bus runs + 1 */
 static int pipeline_test(void)
 {
     static el_engine_t e;
     enum { BLOCKS = 1400 };
-    static float out[2][BLOCKS * EL_BLOCK * 2];
-    for (int two = 0; two < 2; ++two) {
+    static float out[4][BLOCKS * EL_BLOCK * 2];
+    /* One core, then two with the effects and master of the block before on
+     * the first core, split (sends and distortion on the second) and on the
+     * second core; with the distortion on and a reverb throw. */
+    for (int run = 0; run < 4; ++run) {
         el_init(&e);
-        pipe_groove(&e, two);
-        for (int b = 0; b < BLOCKS; ++b) el_render_float(&e, out[two] + b * EL_BLOCK * 2, EL_BLOCK);
+        el_test_bus_mode = run;
+        pipe_groove(&e, run > 0);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_BEAT, 90);
+        el_post(&e, EL_CMD_FX, FX_DIST_SEND_STRINGS, 70);
+        el_post(&e, EL_CMD_FX, FX_DIST_MODE, 2);
+        for (int b = 0; b < BLOCKS; ++b) {
+            /* (two cores: the effects of a block run during the next one, so
+             * the throw starts a block later there for the same audio) */
+            if (b == 400 + (run > 0)) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 1, 0, 0);
+            if (b == 700 + (run > 0)) el_post3(&e, EL_CMD_PUNCH, EL_PUNCH_THROW, 0, 0, 0);
+            el_render_float(&e, out[run] + b * EL_BLOCK * 2, EL_BLOCK);
+        }
     }
+    el_test_bus_mode = 0;
     el_init(&e);   /* (the pipeline's state back to one core for the other tests) */
     float diff = 0, peak = 0;
-    for (int i = 0; i < (BLOCKS - 1) * EL_BLOCK * 2; ++i) {
-        float d = fabsf(out[1][i + EL_BLOCK * 2] - out[0][i]);
-        if (d > diff) diff = d;
-        if (fabsf(out[0][i]) > peak) peak = fabsf(out[0][i]);
+    for (int run = 1; run < 4; ++run) {
+        int first = -1; float rd = 0;
+        for (int i = 0; i < (BLOCKS - 1) * EL_BLOCK * 2; ++i) {
+            float d = fabsf(out[run][i + EL_BLOCK * 2] - out[0][i]);
+            if (d > 1e-6f && first < 0) first = i;
+            if (d > rd) rd = d;
+            if (fabsf(out[0][i]) > peak) peak = fabsf(out[0][i]);
+        }
+        if (rd > diff) diff = rd;
+        if (rd >= 1e-6f) printf("  run %d: max %.2g, first at block %d\n", run, rd, first / (EL_BLOCK * 2));
     }
     int ok = diff < 1e-6f && peak > 0.05f;
-    printf("two cores: effects one block later, %d blocks, max difference %.2g (peak %.2f): %s\n", BLOCKS, diff, peak,
-           ok ? "ok" : "FAIL");
+    printf("two cores: effects one block later (first core, split, second core; distortion, throw), %d blocks, max difference %.2g (peak %.2f): %s\n",
+           BLOCKS, diff, peak, ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }
 

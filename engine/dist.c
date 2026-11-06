@@ -87,7 +87,10 @@ static inline EL_DSP_HELPER float dist_curve(float x, int mode)
  * taps in Q30; filled by dist_init_tables (el_init). */
 enum { DIST_TAB = 3073 };
 static int32_t dist_tabq[4][DIST_TAB + 1] __attribute__((section(".pool")));   /* (+1: the quadratic's third point) */
-static int32_t half_band_q[12];
+#define HBQ(x) ((int32_t)((x) * 1073741824.0))
+static const int32_t half_band_q[12] = {   /* half_band in Q30, constants: the unrolled loops take them as immediates */
+    HBQ(0.3163647824f), HBQ(-0.1003918960f), HBQ(0.0545327660f), HBQ(-0.0334618158f), HBQ(0.0211372679f), HBQ(-0.0132048055f),
+    HBQ(0.0079527640f), HBQ(-0.0045132248f), HBQ(0.0023474055f), HBQ(-0.0010708521f), HBQ(0.0003905110f), HBQ(-0.0000820879f)};
 static uint8_t dist_tab_ready;
 void dist_init_tables(void)
 {
@@ -95,7 +98,6 @@ void dist_init_tables(void)
     for (int m = 1; m <= 4; ++m)
         for (int i = 0; i <= DIST_TAB; ++i)
             dist_tabq[m - 1][i] = (int32_t)(dist_clip(-12.0f + (float)i * (1.0f / 128.0f), m) * 16777216.0f);
-    for (int k = 0; k < 12; ++k) half_band_q[k] = (int32_t)(half_band[k] * 1073741824.0f);
     dist_tab_ready = 1;
 }
 #define dist_curve dist_clip
@@ -146,16 +148,19 @@ static inline EL_DSP_HELPER int32_t dist_oversampled_q(el_dist_ch_t *c, unsigned
     c->qin[ip] = c->qin[ip + 32u] = x18;
     const int32_t *in = c->qin + ip + 32u;
     int32_t even = in[-12];
+    /* each pair halved, then summed: one product per pair (x18 up to 2^31) */
     int64_t acc = 0;
-    for (unsigned k = 0; k < 12; ++k) acc += (int64_t)half_band_q[k] * ((int64_t)in[-12 - (int)k] + in[-11 + (int)k]);
-    int64_t od = acc >> 29;                       /* x 2 */
+#pragma clang loop unroll(full)
+    for (unsigned k = 0; k < 12; ++k) acc += (int64_t)half_band_q[k] * ((in[-12 - (int)k] >> 1) + (in[-11 + (int)k] >> 1));
+    int64_t od = acc >> 28;                       /* x 2 */
     int32_t odd = od > INT32_MAX ? INT32_MAX : od < -INT32_MAX ? -INT32_MAX : (int32_t)od;
     unsigned newest = op + 1u;
     c->qos[op] = c->qos[op + 64u] = dist_curve_q(even, mode);
     c->qos[newest] = c->qos[newest + 64u] = dist_curve_q(odd, mode);
     const int32_t *os = c->qos + newest + 64u - 25u;
     int64_t y = (int64_t)os[0] << 29;             /* 0.5 x the centre */
-    for (unsigned k = 0; k < 12; ++k) y += (int64_t)half_band_q[k] * (os[2 * (int)k + 1] + os[-2 * (int)k - 1]);
+#pragma clang loop unroll(full)
+    for (unsigned k = 0; k < 12; ++k) y += (int64_t)half_band_q[k] * (int32_t)(os[2 * (int)k + 1] + os[-2 * (int)k - 1]);   /* (Q24 curves: the pair fits) */
     return (int32_t)(y >> 30);
 }
 

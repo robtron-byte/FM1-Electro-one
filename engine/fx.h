@@ -107,6 +107,12 @@ const char *fx_dist_mode_name(int value);
 /* The distortion send: send (mono, frames <= EL_BLOCK) is distorted in
  * place and added to left/right. Skipped while all sends are at 0. */
 EL_DSP_CODE void fx_distortion(el_fx_t *fx, float *send, float *left, float *right, int frames);
+/* The same in two parts (two cores, electro.c): process turns send into the
+ * wet signal in place and returns 1 when there is one to mix (then mix adds
+ * it, with the fade, to left and right). The mode is read again in mix: the
+ * type must not change between the two (commands apply between blocks). */
+EL_DSP_CODE int fx_distortion_process(el_fx_t *fx, float *send, int frames);
+EL_DSP_CODE void fx_distortion_mix(el_fx_t *fx, const float *wet, float *left, float *right, int frames);
 /* Punch-ins borrowing the buffers (FX_USE_*): borrow clears the user's
  * region (all of it for the first user), release gives them back. */
 void fx_borrow(el_fx_t *fx, unsigned use);

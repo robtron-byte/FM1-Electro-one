@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 13. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 14. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 13. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 14. Build:
+- **Verzerrung entlastet** (13. Build auf dem Gerät: FX 34 %, PEAK 104 %, LATE BLOCKS 140): Sie rechnet jetzt auf dem zweiten Kern vor den Synths, parallel zu den Drums; Hall, Delay und Master bleiben auf dem ersten. Jeder Block wählt die Aufteilung, die am schnellsten fertig ist. Die Verzerrung selbst rechnet ein Drittel weniger. Bei Steps (jede 16tel) laufen Effekte und Master im längeren Teil des Blocks. Klang bitgleich. Emulator: mit Verzerrung PEAK 96 → 83 %, ohne 83 → 74 %.
+
+Aus dem 13. Build:
 - **Jeder Pattern-Platz behält seinen Sound** (ADR 0024): in BEAT Kit und alle Drum-Regler, in RHYTHM, STRINGS und BASS der Synth-Sound. Von A nach B und zurück ist A wieder so eingestellt wie vorher; die Drum-Einstellungen setzen sich beim Platzwechsel nicht mehr zurück. Was du einstellst, gilt für den Platz, der gerade spielt. Drum-Tonart und FOLLOW gelten weiter für den ganzen Bereich. Der gespeicherte Stand wird übernommen: Jeder Platz startet mit dem bisherigen Sound.
 - Last unverändert (Emulator mit strengem Taktmodell: PEAK 84 %, MAX 89 %, LATE BLOCKS 0).
 
@@ -23,7 +26,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `9ed283b0fcdca81bf170a16d812aeb90703172bf6e1cd0ecf5b9afab6ef8eea5`
+SHA-256: `5757786130895afe0a631d657941cc6fbeb2a7fbad7c9a2ee31c647a657873df`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
