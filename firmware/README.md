@@ -1,8 +1,13 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 16. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 17. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 16. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 17. Build (alles bitgleicher Klang):
+- **Synths sparsamer:** Die Rechenfunktionen (exp2, log2, Wurzel) riefen bei jeder Umwandlung ein langsames Kopierprogramm im Flash auf; die Hüllkurven-Zeiten werden pro Stimme gemerkt. Emulator: DARK STR STRINGS 45 → 39 %, Kern 1 81 → 68 %; JX STRINGS 38 → 32 %. Master, RHYTHM und BASS profitieren auch.
+- **Hall, Delay, Gated Reverb sparsamer:** jeder Effekt in eigener Schleife, ohne Funktionsaufrufe pro Sample. Emulator: FX 18 → 15 %.
+- Kitwechsel rechnet das Werks-Kit nicht mehr im Audio-Interrupt aus.
+
+Aus dem 16. Build:
 - **DARK STR, DARK DRONE, MACHINE PD** rechnen deutlich weniger (gleicher Klang, bitgleich): Ihre Saw-Form 5 lief über den langsamen allgemeinen Weg der Oszillatoren. Emulator: STRINGS 54–61 % → 45 %, Kern 1 89 % → 81 %. Alle anderen STRINGS-Sounds lagen schon bei 32–44 %.
 
 Aus dem 15. Build:
@@ -34,7 +39,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `b12c94e4f9a1076c11438a1b2c8a77b567cf2cf7b21bdf41994389bbf64df5c7`
+SHA-256: `0632ca549e041798d52a565e7a324fe6a201055d4e73b94b851bf6b5bb47ffc0`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

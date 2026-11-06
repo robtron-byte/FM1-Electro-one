@@ -61,15 +61,28 @@ int dr_note_part(unsigned note)
     }
 }
 
+/* The factory kits' sounds, worked out once before audio (dr_init): a kit
+ * change in the audio interrupt only copies (the parameter tables are read
+ * from the flash, slow there; MAX 66 -> 80 % on a kit change, strict
+ * emulator). */
+static tr808_sound_t kit_sounds[DR_KITS];
+static uint8_t kit_sounds_ok;
+static void kit_sounds_init(void)
+{
+    if (kit_sounds_ok) return;
+    for (unsigned k = 0; k < DR_KITS; ++k) {
+        tr808_sound_default(&kit_sounds[k]);
+        for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[k][i].part != 255; ++i)
+            tr808_sound_set(&kit_sounds[k], kits[k][i].part, kits[k][i].param, kits[k][i].value);
+    }
+    kit_sounds_ok = 1;
+}
+
 EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index)
 {
-    static tr808_sound_t defaults;   /* every knob at its default, made once */
-    static uint8_t defaults_ok;
-    if (!defaults_ok) { tr808_sound_default(&defaults); defaults_ok = 1; }
-    *s = defaults;
-    if (index >= DR_KITS) return;
-    for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[index][i].part != 255; ++i)
-        tr808_sound_set(s, kits[index][i].part, kits[index][i].param, kits[index][i].value);
+    const uint8_t *from = (const uint8_t *)&kit_sounds[index < DR_KITS ? index : 0];
+    uint8_t *to = (uint8_t *)s;
+    for (unsigned i = 0; i < sizeof *s; ++i) to[i] = from[i];   /* (no library memcpy: it is in the flash) */
 }
 
 /* The playing slot takes kit index's factory sound. */
@@ -83,6 +96,7 @@ static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index)
 
 void dr_init(dr_machine_t *m)
 {
+    kit_sounds_init();
     memset(m, 0, sizeof *m);
     el_queue_init(&m->queue);
     /* Slot A a groove to start from, B-D empty in its kit and swing. */
