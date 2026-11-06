@@ -74,3 +74,4 @@ github.com/aroum/fm1-custom-fw.
 - 808-Quellen des Nutzers für spätere Abgleiche: `docs/TR808.md`, letzter Abschnitt (Mz808 ist AGPL: nur vergleichen, nicht übernehmen).
 - 15. Build: Step-Varianz (ADR 0025; Drums `dr_machine_t.cond` Bitebenen, Synths Flag-Bits 3–5, Store-Version 22; Bedienung: Step halten + PRESETS), Tape-Stop-Standard 1/4, Regler-Beschleunigung in `edit_knob` (nur bei mehr als 16 Werten). ReplicantTr8s laut Nutzer für den 808-Klang verwenden (`docs/TR808.md`), aber keine Roland-Daten ins Repo.
 - 16. Build: `MKS_CHOP_GRID` (Raster-Weg für Saw 5 / Sub 1–3, 5; `make chop-grid-check` bitgleich). Messung aller STRINGS-Sounds: Skript-Idee in ADR 0019 (PRESETS-Rasten per `e6:+1` nach ENV, dann HOME+SAVE). Teuerste jetzt ST45; Gerät liegt ~10 % über dem Emulator.
+- Überlastschutz (bei hoher Last sparsamer rechnen): auf Wunsch des Nutzers vorerst nicht bauen (06.11.2026). Last weiter über Optimierungen ohne Klangänderung senken.
