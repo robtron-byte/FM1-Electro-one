@@ -21,8 +21,14 @@ void el_init(el_engine_t *e)
     dr_init(&e->drums);
     fx_init(&e->fx);
     mb_init(&e->mix);
-    /* Voices per area: RHYTHM 3, STRINGS 4, BASS 1 (always monophonic). */
+    /* Voices per area: RHYTHM 3, STRINGS 4, BASS 1 (always monophonic).
+     * On the own platform STRINGS 3 for now: the device is overloaded with 4
+     * (docs/adr/0021, measured 2026-11-06). */
+#if defined(EL_PLATFORM)
+    static const uint8_t voices[EL_TRACKS] = {3, 3, 1};
+#else
     static const uint8_t voices[EL_TRACKS] = {3, 4, 1};
+#endif
     for (unsigned i = 0; i < EL_TRACKS; ++i) st_init(&e->track[i], i + 1u, voices[i], 0x51ed270bu * (i + 1u));
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
