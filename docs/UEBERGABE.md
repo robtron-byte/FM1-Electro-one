@@ -22,7 +22,11 @@ Urheber, Herkunft, Lizenz).
   PO-12 unverändert.
 - **STRINGS 3 Stimmen** auf der Plattform (`engine/electro.c`).
 - **MKS-50:** Filter mit halber Rate (`MKS_VCF_DECIM` 2 auf der Plattform), Pulse 2/3 als ein Gatter (gleicher Klang).
-  Dieser letzte Stand ist **noch nicht als Firmware gebaut/gemessen**.
+- **Tasten-LEDs** (ADR 0020): inaktive Bereichstasten gedimmt (`fm1_led_bg`, 8 µs Puls), OCT blinkt am Ende der Oktave.
+- `firmware/FM1_ELECTRO_PLATTFORM.fwsc` vom 06.11. (2. Build des Tages) enthält MKS-50 und LEDs; Hardware-Prüfung im
+  Emulator ok, **noch nicht auf dem Gerät gemessen**.
+- **Cloud-Umgebung „FM1-Electro-one“** erlaubt pkgman.jieliapp.com, jl-update.oss-cn-shenzhen.aliyuncs.com (Toolchain) und
+  gitee.com (AC79-SDK, reicht `--sparse` mit `cpu/wl82/tools`). fm1-emu: von GitHub klonen, `0bebe54`, Patch anwenden.
 
 ## Messungen auf dem Gerät (OPTIONS, Groove ROTHER läuft)
 
@@ -38,7 +42,7 @@ Jetzt bremst Kern 1 (STRINGS 55 %).
 
 ## Nächste Schritte
 
-1. Firmware mit dem letzten Stand bauen, im Emulator prüfen, Nutzer testen lassen (Foto der OPTIONS-Zeile).
+1. Nutzer testet den Build vom 06.11. (Foto der OPTIONS-Zeile, Helligkeit der gedimmten Tasten).
 2. STRINGS (MKS-50 `render_voice` in `engine/mks.c`) weiter verbilligen nach FM-106 (github.com/patttf/fm-106: Juno-Filter
    mit 11 kHz, 6 Stimmen ~30 %): Hüllkurve pro Block, Filter ¼ Rate prüfen, Sättigung billiger; ggf. Saw 2/3/5 ohne
    `chop_general`.

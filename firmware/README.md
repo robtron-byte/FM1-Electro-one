@@ -1,5 +1,17 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026)
+
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, Drums in Festkomma (ADR 0022), STRINGS mit 3 Stimmen und dem MKS-50-Filter in halber Rate. Neu in diesem Build:
+- Die Bereichstasten FX/SEL/ENV/LFO und HOME: Die gewählte leuchtet voll, die anderen etwa halb so hell (ADR 0020).
+- OCT− / OCT+ blinken, wenn die Tastatur-Oktave am Ende ist.
+
+Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen. Bitte ein Foto der OPTIONS-Zeile (HOME + SAVE) mit laufendem Groove schicken und sagen, ob die gedimmten Tasten passen.
+
+SHA-256: `379ce8b78bd49010ae22defc7718c708a8e89e4ace4d4443350cf258ada9b655`
+
+## Älterer SDK-Build `FM1_ELECTRO.fwsc`
+
 `FM1_ELECTRO.fwsc` ist ein Testbuild vom Stand 05.11.2026, im selben Commit wie diese Zeile.
 
 **Neu in diesem Build (Messbuild, ADR 0019):** Der Build vom 04.11. startet, ist aber beim Spielen etwa dreifach überlastet (Sequencer zu langsam und stumm). Dieser Build behebt das noch nicht vollständig. Er zeigt, wie viel Rechenzeit das Gerät wirklich hat:
