@@ -1,9 +1,33 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Minimal libc for the WebAssembly panel simulator: the few string
  * functions the firmware uses and a small snprintf (%s %c %d %u %x, width,
- * zero padding, '+', '-', '%%'). */
+ * zero padding, '+', '-', '%%'), and a malloc/free for the store buffer. */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+/* fm1/el_store.c takes its buffer from the heap only while it reads or
+ * writes a record (the device saves SRAM that way, docs/adr/0019). Here a
+ * static pool is enough: allocations are bumped from it, and the pool
+ * starts over once every block is given back, which happens after each
+ * store call. */
+static _Alignas(16) unsigned char heap_pool[64 * 1024];
+static size_t heap_used, heap_live;
+
+void *malloc(size_t n)
+{
+    n = (n + 15u) & ~(size_t)15u;
+    if (n == 0 || n > sizeof heap_pool - heap_used) return 0;
+    void *p = heap_pool + heap_used;
+    heap_used += n;
+    ++heap_live;
+    return p;
+}
+
+void free(void *p)
+{
+    if (p && heap_live && --heap_live == 0) heap_used = 0;
+}
 
 void *memset(void *d, int c, size_t n) { unsigned char *p = d; while (n--) *p++ = (unsigned char)c; return d; }
 void *memcpy(void *d, const void *s, size_t n) { unsigned char *p = d; const unsigned char *q = s; while (n--) *p++ = *q++; return d; }
