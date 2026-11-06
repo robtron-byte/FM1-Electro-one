@@ -12,8 +12,14 @@
 /* Everything called from the audio interrupt must live in internal SRAM on
  * the device (see FM1_AUDIO_CODE in the SDK). Host builds ignore placement. */
 /* EL_PLATFORM: the build on our own platform (platform/, docs/adr/0021): the
- * code runs from flash through the cache, as the platform's apps do. */
-#if defined(FM1_HOST_TEST) || defined(EL_PLATFORM)
+ * audio code in SRAM too (.dsp_text, copied at boot: a taken branch costs half
+ * there of what it costs from the flash's cache, CPU test 2026-11-05). */
+#if defined(EL_PLATFORM)
+#define EL_DSP_CODE __attribute__((section(".dsp_text"), noinline, used))
+#define EL_DSP_DATA __attribute__((section(".dsp_rodata"), aligned(4)))
+#define EL_DSP_HELPER __attribute__((section(".dsp_text")))
+#define EL_DSP_VOICE __attribute__((section(".dsp_text"), noinline))
+#elif defined(FM1_HOST_TEST)
 #define EL_DSP_CODE
 #define EL_DSP_DATA
 #define EL_DSP_HELPER

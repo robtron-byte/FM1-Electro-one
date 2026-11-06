@@ -462,7 +462,11 @@ void fm1_cstart(void)
     for (d = _bss_start; d < _bss_end; d++) *d = 0;
     for (d = _pool_start; d < _pool_end; d++) *d = 0;
     for (s = _data_load, d = _data_start; d < _data_end; s++, d++) *d = *s;
-    for (s = _rt_load, d = _rt_start; d < _rt_end; s++, d++) *d = *s;
+    {   /* FM1-Electro: .ram_text + .c1_text, then the audio code (app.ld .dsp_text) */
+        extern uint32_t _rt_copy_end[], _dsp_start[], _dsp_end[], _dsp_load[];
+        for (s = _rt_load, d = _rt_start; d < _rt_copy_end; s++, d++) *d = *s;
+        for (s = _dsp_load, d = _dsp_start; d < _dsp_end; s++, d++) *d = *s;
+    }
     fm1_mailbox_clear();
     fm1_guard_enable(FM1_GUARD_STACK | FM1_GUARD_WRITE | FM1_GUARD_BUS | FM1_GUARD_PC);
     fm1_boot.p3_rst = (uint8_t)p3;

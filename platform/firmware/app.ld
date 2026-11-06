@@ -25,10 +25,17 @@ SECTIONS
      * flash driver's RAM code, copied with it at boot; the guard's RAM code window covers both */
     .c1_text : { _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4); _c1_end = .; } > RAMTEXT AT > XIP
     _c1_load = LOADADDR(.c1_text);
-    _rt_end = _c1_end;
+    _rt_copy_end = _c1_end;
     .data : { . = ALIGN(4); _data_start = .; *(.data*) *(.sdata*) . = ALIGN(4); _data_end = .; } > RAM AT > XIP
     _data_load = LOADADDR(.data);
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
+    /* FM1-Electro: the audio code and its constants (engine/el_config.h EL_DSP_*, .dsp_text /
+     * .dsp_rodata) at the start of the pool's SRAM, copied at boot: a taken branch costs half
+     * there of what it costs from the flash's cache. The guard's RAM code window runs from
+     * .ram_text to its end (so it takes in .data/.bss: the window is one range). */
+    .dsp_text : { . = ALIGN(4); _dsp_start = .; KEEP(*(.dsp_text*)) *(.dsp_rodata*) . = ALIGN(4); _dsp_end = .; } > POOL AT > XIP
+    _dsp_load = LOADADDR(.dsp_text);
+    _rt_end = _dsp_end;
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL
     .noinit (NOLOAD) : { *(.noinit) *(.noinit.*) } > NOINIT
     _guard0 = 0x01C74000; _ustack_lo = 0x01C74100; _ustack_top = 0x01C7A000;

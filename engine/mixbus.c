@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Device build: the constants of this file sit in internal SRAM; its audio
  * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
-#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
+#if defined(EL_PLATFORM)   /* own platform: the constants in SRAM with the audio code */
+#pragma const_seg(".dsp_rodata")
+#elif !defined(FM1_HOST_TEST)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "mixbus.h"

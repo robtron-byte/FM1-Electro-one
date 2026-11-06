@@ -59,14 +59,15 @@ def build_app():
 
 
 def finish(elf):
-    """platform/tools/build.py's build_app after its link, unchanged."""
+    """platform/tools/build.py's build_app after its link, with FM1-Electro's .c1_text and .dsp_text."""
     out = b.OUT
-    for sect in ("text.bin", "data.bin", "ramtext.bin", "c1text.bin"):
+    for sect in ("text.bin", "data.bin", "ramtext.bin", "c1text.bin", "dsptext.bin"):
         (out / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = b.tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, out / "text.bin"),
                                  ("common/bin/objcopy", "-O", "binary", "-j", ".data", elf, out / "data.bin"),
                                  ("common/bin/objcopy", "-O", "binary", "-j", ".ram_text", elf, out / "ramtext.bin"),
                                  ("common/bin/objcopy", "-O", "binary", "-j", ".c1_text", elf, out / "c1text.bin"),
+                                 ("common/bin/objcopy", "-O", "binary", "-j", ".dsp_text", elf, out / "dsptext.bin"),
                                  ("common/bin/objdump", "-t", elf),
                                  ("common/bin/objdump", "-d", elf),
                                  ("common/bin/objdump", "-d", "-j", ".ram_text", elf))
@@ -76,7 +77,7 @@ def finish(elf):
     def symv(name):
         return int(re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M).group(1), 16)
     img = bytearray((out / "text.bin").read_bytes())
-    for sect, lname in (("ramtext.bin", "_rt_load"), ("c1text.bin", "_c1_load"), ("data.bin", "_data_load")):
+    for sect, lname in (("ramtext.bin", "_rt_load"), ("c1text.bin", "_c1_load"), ("data.bin", "_data_load"), ("dsptext.bin", "_dsp_load")):
         load = symv(lname)
         blob = (out / sect).read_bytes() if (out / sect).exists() else b""
         if blob:

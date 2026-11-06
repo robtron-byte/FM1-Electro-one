@@ -1,15 +1,19 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception */
 /* Device build: all code and constants of this file run in internal SRAM,
  * like FM1 Open's own DSP (safe while Flash is written). */
-#if !defined(FM1_HOST_TEST) && !defined(EL_PLATFORM)   /* FM1 Open SDK build */
+#if defined(EL_PLATFORM)   /* own platform: the constants in SRAM with the audio code */
+#pragma const_seg(".dsp_rodata")
+#elif !defined(FM1_HOST_TEST)   /* FM1 Open SDK build */
 #pragma const_seg(".volatile_ram.fm1")
 #endif
 #include "electro.h"
 #include "dsp_math.h"
 #include <string.h>
 
+static void bus_reset(void);
 void el_init(el_engine_t *e)
 {
+    bus_reset();
     memset(e, 0, sizeof *e);
     el_transport_init(&e->transport);
     el_queue_init(&e->queue);
@@ -368,11 +372,38 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     }
 }
 
-/* Buses, static so the audio interrupt's stack stays small. */
-static float kick[EL_BLOCK], drum_l[EL_BLOCK], drum_r[EL_BLOCK], bass_l[EL_BLOCK], bass_r[EL_BLOCK];
-static float synth_l[EL_BLOCK], synth_r[EL_BLOCK], rev[EL_BLOCK], gate[EL_BLOCK], dly[EL_BLOCK];
-static float left[EL_BLOCK], right[EL_BLOCK];
-static float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK], dist_send[EL_BLOCK];
+/* Buses, static so the audio interrupt's stack stays small. With two cores
+ * (par_run set) there are two sets: the sources of block n go to one while
+ * the first core runs the effects and master of block n-1 on the other,
+ * meanwhile the second renders the synths (one block, 2.9 ms, later;
+ * docs/adr/0021). One core: one set, in order, as before. */
+typedef struct {
+    float kick[EL_BLOCK], drum_l[EL_BLOCK], drum_r[EL_BLOCK], bass_l[EL_BLOCK], bass_r[EL_BLOCK];
+    float synth_l[EL_BLOCK], synth_r[EL_BLOCK], rev[EL_BLOCK], gate[EL_BLOCK], dly[EL_BLOCK];
+    float left[EL_BLOCK], right[EL_BLOCK];
+    float rhythm_l[EL_BLOCK], rhythm_r[EL_BLOCK];
+    float syn_rev[EL_BLOCK], syn_dly[EL_BLOCK];   /* the synths' sends (the drums write rev / dly meanwhile) */
+    unsigned frames;
+    int stutter_sync;   /* a step fired at this frame (-1: none): the punch-ins' grid */
+    uint32_t sync_step;
+} el_bus_t;
+#if defined(FM1_HOST_TEST) || defined(EL_PLATFORM)
+#define EL_BUS_SETS 2u
+#else
+#define EL_BUS_SETS 1u   /* FM1 Open's SDK: one core, and its heap is tight */
+#endif
+static el_bus_t bus_set[EL_BUS_SETS];
+static float dist_send[EL_BLOCK];
+static el_bus_t *bus_out = &bus_set[0];   /* the set whose left / right el_render reads */
+static unsigned bus_next;                 /* the set the next block's sources go to */
+static el_bus_t *bus_pending;             /* two cores: sources done, effects and master not yet */
+static void bus_reset(void)
+{
+    memset(bus_set, 0, sizeof bus_set);
+    bus_out = &bus_set[0];
+    bus_next = 0;
+    bus_pending = 0;
+}
 
 /* Stage timing: the SDK's audio time base (0x1EEF0F0, counting 0..PERIOD
  * at 0x1EEF0F4) on the device; nothing on the host. */
@@ -403,38 +434,45 @@ static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32
  * renders the drums (docs/adr/0021), else after them. Their reverb and delay
  * sends go to buffers of their own (the drums write rev / dly meanwhile);
  * render_bus adds them. */
-static float syn_rev[EL_BLOCK], syn_dly[EL_BLOCK];
-static struct { el_engine_t *e; int pos, n; } synth_args;
-static EL_DSP_CODE void render_synths(el_engine_t *e, int pos, int n)
+static struct { el_engine_t *e; el_bus_t *b; int pos, n; } synth_args;
+static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
     uint32_t pt = prof_now();
     float bpm = e->transport.bpm;
     /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
-        float *l = i == EL_AREA_BASS - 1u ? bass_l : i == EL_AREA_RHYTHM - 1u ? rhythm_l : synth_l;
-        float *r = i == EL_AREA_BASS - 1u ? bass_r : i == EL_AREA_RHYTHM - 1u ? rhythm_r : synth_r;
-        st_render(&e->track[i], l + pos, r + pos, syn_dly + pos, syn_rev + pos, n, bpm);
+        float *l = i == EL_AREA_BASS - 1u ? b->bass_l : i == EL_AREA_RHYTHM - 1u ? b->rhythm_l : b->synth_l;
+        float *r = i == EL_AREA_BASS - 1u ? b->bass_r : i == EL_AREA_RHYTHM - 1u ? b->rhythm_r : b->synth_r;
+        st_render(&e->track[i], l + pos, r + pos, b->syn_dly + pos, b->syn_rev + pos, n, bpm);
         prof_add(e, EL_PROF_RHYTHM + i, &pt);
     }
 }
 static EL_DSP_CODE void synth_job(uint32_t arg)
 {
     (void)arg;
-    render_synths(synth_args.e, synth_args.pos, synth_args.n);
+    render_synths(synth_args.e, synth_args.b, synth_args.pos, synth_args.n);
 }
 
-static EL_DSP_CODE void render_sources(el_engine_t *e, int pos, int n)
+static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b);
+static EL_DSP_CODE void render_sources(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
     /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
     e->drums.kit.key_shift = e->track[EL_AREA_BASS - 1].transpose;
     synth_args.e = e;
+    synth_args.b = b;
     synth_args.pos = pos;
     synth_args.n = n;
     int par = e->par_run && e->par_run(synth_job, 0);
     uint32_t pt = prof_now();
-    dr_render(&e->drums, kick + pos, drum_l + pos, drum_r + pos, rev + pos, gate + pos, dly + pos, n);
+    dr_render(&e->drums, b->kick + pos, b->drum_l + pos, b->drum_r + pos, b->rev + pos, b->gate + pos, b->dly + pos, n);
     prof_add(e, EL_PROF_DRUMS, &pt);
-    if (!par || e->par_wait()) render_synths(e, pos, n);   /* one core, or the second gave up */
+    if (bus_pending) {   /* two cores: the effects and master of the block before, meanwhile */
+        el_bus_t *done = bus_pending;
+        bus_pending = 0;
+        bus_stage(e, done);
+        bus_out = done;
+    }
+    if (!par || e->par_wait()) render_synths(e, b, pos, n);   /* one core, or the second gave up */
 }
 
 /* Note values of the punch-ins (white keys while one is held): length in
@@ -471,8 +509,11 @@ static EL_DSP_CODE int on_grid(const el_engine_t *e, unsigned i, unsigned div)
  * which would thump in a big room; darkened to about 2.5 kHz). Then only
  * the hall stays. Let go: the dry mix is back in 20 ms, the hall rings out
  * (fx.c). */
-static EL_DSP_CODE void punch_throw(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_throw(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *kick = b->kick, *drum_l = b->drum_l, *drum_r = b->drum_r, *bass_l = b->bass_l, *bass_r = b->bass_r;
+    float *synth_l = b->synth_l, *synth_r = b->synth_r, *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r;
+    float *rev = b->rev, *gate = b->gate, *dly = b->dly;
     int on = (e->punch & EL_PUNCH_THROW) != 0;
     if (!on && e->dry_gain >= 1.0f) return;
     float beat = 60.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
@@ -493,8 +534,9 @@ static EL_DSP_CODE void punch_throw(el_engine_t *e, unsigned frames)
 /* Stutter (held): the finished mix gated at the chosen note value (1/16
  * unless a white key chose another), open for the first half of each, with
  * 1.5 ms edges, on the grid of the steps. */
-static EL_DSP_CODE void punch_stutter(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_stutter(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *left = b->left, *right = b->right;
     unsigned which = e->punch & EL_PUNCH_STUTTER, div = e->punch_div[0];
     if (!which && e->stutter_gain >= 1.0f) return;
     float sixteenth = 15.0f / dsp_max(e->transport.bpm, 30.0f) * EL_SAMPLE_RATE;
@@ -526,8 +568,9 @@ static EL_DSP_CODE float tape_read(const int16_t *m, float rp, uint32_t cap)
     return (m[k] + (m[k1] - m[k]) * (rp - (float)k)) * (1.0f / 32767.0f);
 }
 
-static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_tape(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *left = b->left, *right = b->right;
     el_fx_t *fx = &e->fx;
     int held = (e->punch & EL_PUNCH_TAPE) != 0;
     const uint32_t cap = FX_TAPE_REGION;
@@ -592,8 +635,9 @@ static EL_DSP_CODE void punch_tape(el_engine_t *e, unsigned frames)
  * round. A new note value glides there like a tape echo. Let go: nothing
  * more goes in, the echoes ring out; the region is given back once they are
  * gone. */
-static EL_DSP_CODE void punch_delay(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_delay(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *left = b->left, *right = b->right;
     el_fx_t *fx = &e->fx;
     int held = (e->punch & EL_PUNCH_DELAY) != 0;
     const uint32_t cap = FX_DELAY_REGION;
@@ -637,8 +681,9 @@ static EL_DSP_CODE void punch_delay(el_engine_t *e, unsigned frames)
 
 /* Bitcrusher (held): fewer bits and a lower rate (white keys: 12 bit and
  * every sample .. 4 bit and every 8th), 5 ms in and out. */
-static EL_DSP_CODE void punch_crush(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_crush(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *left = b->left, *right = b->right;
     static const float levels[EL_PUNCH_DIVS] = {2048.0f, 512.0f, 128.0f, 32.0f, 16.0f, 8.0f};
     static const uint8_t hold[EL_PUNCH_DIVS] = {1, 2, 3, 4, 6, 8};
     int held = (e->punch & EL_PUNCH_CRUSH) != 0;
@@ -663,8 +708,9 @@ static EL_DSP_CODE void punch_crush(el_engine_t *e, unsigned frames)
  * once per chosen length (white keys: 1/4 .. 8 bars, a bar unless chosen),
  * the sides a quarter turn apart, some feedback. It starts at the bottom of
  * its sweep; 10 ms in and out. */
-static EL_DSP_CODE void punch_phaser(el_engine_t *e, unsigned frames)
+static EL_DSP_CODE void punch_phaser(el_engine_t *e, el_bus_t *b, unsigned frames)
 {
+    float *left = b->left, *right = b->right;
     static const float lengths[EL_PUNCH_DIVS] = {4.0f, 8.0f, 16.0f, 32.0f, 64.0f, 128.0f};
     int held = (e->punch & EL_PUNCH_PHASER) != 0;
     if (!held && e->ph_mix <= 0.0f) return;
@@ -705,6 +751,10 @@ static EL_DSP_CODE void punch_phaser(el_engine_t *e, unsigned frames)
 
 static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
 {
+    el_bus_t *b = &bus_set[bus_next];
+    float *kick = b->kick, *drum_l = b->drum_l, *drum_r = b->drum_r, *bass_l = b->bass_l, *bass_r = b->bass_r;
+    float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *gate = b->gate, *dly = b->dly;
+    float *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r, *syn_rev = b->syn_rev, *syn_dly = b->syn_dly;
     el_cmd_t c;
     while (el_queue_pop(&e->queue, &c)) apply(e, &c);
     while (el_queue_pop(&e->midi_queue, &c)) apply(e, &c);
@@ -715,17 +765,18 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         kick[i] = drum_l[i] = drum_r[i] = bass_l[i] = bass_r[i] = synth_l[i] = synth_r[i] = rev[i] = gate[i] = dly[i] =
             rhythm_l[i] = rhythm_r[i] = syn_rev[i] = syn_dly[i] = 0.0f;
     unsigned pos = 0, guard = 0;
-    e->stutter_sync = -1;
+    b->stutter_sync = -1;
+    b->frames = frames;
     while (pos < frames && guard++ < 64) {
         int n = (int)(frames - pos);
         n = el_transport_frames_until(t, n);
         n = dr_frames_until(&e->drums, n);
         for (unsigned i = 0; i < EL_TRACKS; ++i) n = st_frames_until(&e->track[i], n);
-        render_sources(e, (int)pos, n);
+        render_sources(e, b, (int)pos, n);
         uint32_t step;
         if (el_transport_advance(t, n, &step)) {
-            e->stutter_sync = (int)(pos + (unsigned)n);   /* the punch-ins' grid starts on the steps */
-            e->sync_step = step;
+            b->stutter_sync = (int)(pos + (unsigned)n);   /* the punch-ins' grid starts on the steps */
+            b->sync_step = step;
             if (e->punch & EL_PUNCH_REPEAT) {
                 /* Repeat (held): every 16th the chosen step of the bar (white
                  * keys 1-16; it starts with one) plays again in
@@ -740,12 +791,37 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
         }
         pos += (unsigned)n;
     }
-    if (pos < frames) render_sources(e, (int)pos, (int)(frames - pos));
+    if (pos < frames) render_sources(e, b, (int)pos, (int)(frames - pos));
+    if (bus_pending) {   /* (no stretch took it) */
+        el_bus_t *done = bus_pending;
+        bus_pending = 0;
+        bus_stage(e, done);
+        bus_out = done;
+    }
+    if (e->par_run && EL_BUS_SETS > 1u) {   /* two cores: its effects and master during the next block */
+        bus_pending = b;
+        bus_next = (bus_next + 1u) % EL_BUS_SETS;
+        return;
+    }
+    bus_stage(e, b);
+    bus_out = b;
+}
+
+/* Effects, master and punch-ins of one block's buses (b->left / right). */
+static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b)
+{
+    unsigned frames = b->frames;
+    float *kick = b->kick, *drum_l = b->drum_l, *drum_r = b->drum_r, *bass_l = b->bass_l, *bass_r = b->bass_r;
+    float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *gate = b->gate, *dly = b->dly;
+    float *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r, *syn_rev = b->syn_rev, *syn_dly = b->syn_dly;
+    el_transport_t *t = &e->transport;
+    e->stutter_sync = b->stutter_sync;
+    e->sync_step = b->sync_step;
     for (unsigned i = 0; i < frames; ++i) { rev[i] += syn_rev[i]; dly[i] += syn_dly[i]; }
     /* BASS always in mono (its chorus and unison spread fold to the middle). */
     for (unsigned i = 0; i < frames; ++i) bass_l[i] = bass_r[i] = 0.5f * (bass_l[i] + bass_r[i]);
     uint32_t pt = prof_now();
-    punch_throw(e, frames);
+    punch_throw(e, b, frames);
     /* Distortion send per area (mono), its return on the drum bus. */
     const uint8_t *fv = e->fx.v;
     float sb = fv[FX_DIST_SEND_BEAT] / 127.0f, sr = fv[FX_DIST_SEND_RHYTHM] / 127.0f;
@@ -770,13 +846,13 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     /* Effect returns sit with the synths (high-passed, gently ducked). */
     fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
     prof_add(e, EL_PROF_FX, &pt);
-    mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, left, right, (int)frames);
+    mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, b->left, b->right, (int)frames);
     prof_add(e, EL_PROF_MASTER, &pt);
-    punch_delay(e, frames);
-    punch_crush(e, frames);
-    punch_phaser(e, frames);
-    punch_stutter(e, frames);
-    punch_tape(e, frames);
+    punch_delay(e, b, frames);
+    punch_crush(e, b, frames);
+    punch_phaser(e, b, frames);
+    punch_stutter(e, b, frames);
+    punch_tape(e, b, frames);
     prof_add(e, EL_PROF_PUNCH, &pt);
     ++e->blocks;
 }
@@ -787,8 +863,8 @@ EL_DSP_CODE void el_render(el_engine_t *e, int32_t *output, unsigned frames)
     render_bus(e, frames);
     float g = e->master;
     for (unsigned i = 0; i < frames; ++i) {
-        output[2 * i] = (int32_t)(el_clampf(g * left[i], -1.0f, 1.0f) * 8388607.0f);
-        output[2 * i + 1] = (int32_t)(el_clampf(g * right[i], -1.0f, 1.0f) * 8388607.0f);
+        output[2 * i] = (int32_t)(el_clampf(g * bus_out->left[i], -1.0f, 1.0f) * 8388607.0f);
+        output[2 * i + 1] = (int32_t)(el_clampf(g * bus_out->right[i], -1.0f, 1.0f) * 8388607.0f);
     }
 }
 
@@ -798,7 +874,7 @@ EL_DSP_CODE void el_render_float(el_engine_t *e, float *output, unsigned frames)
     render_bus(e, frames);
     float g = e->master;
     for (unsigned i = 0; i < frames; ++i) {
-        output[2 * i] = g * left[i];
-        output[2 * i + 1] = g * right[i];
+        output[2 * i] = g * bus_out->left[i];
+        output[2 * i + 1] = g * bus_out->right[i];
     }
 }

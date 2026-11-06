@@ -47,6 +47,37 @@ static float *render(el_engine_t *e, float bpm, unsigned steps, size_t *frames_o
     return out;
 }
 
+/* Two cores (docs/adr/0021): with par_run set the effects and master of a
+ * block run during the next one. Here the "second core" runs the job at
+ * once: the sound must be the same, one block later. */
+static void (*par_job)(uint32_t);
+static uint32_t par_arg;
+static int par_run_now(void (*job)(uint32_t), uint32_t arg) { par_job = job; par_arg = arg; return 1; }
+static int par_wait_now(void) { par_job(par_arg); return 0; }
+static void pipe_groove(el_engine_t *e, int two_cores);
+static int pipeline_test(void)
+{
+    static el_engine_t e;
+    enum { BLOCKS = 1400 };
+    static float out[2][BLOCKS * EL_BLOCK * 2];
+    for (int two = 0; two < 2; ++two) {
+        el_init(&e);
+        pipe_groove(&e, two);
+        for (int b = 0; b < BLOCKS; ++b) el_render_float(&e, out[two] + b * EL_BLOCK * 2, EL_BLOCK);
+    }
+    el_init(&e);   /* (the pipeline's state back to one core for the other tests) */
+    float diff = 0, peak = 0;
+    for (int i = 0; i < (BLOCKS - 1) * EL_BLOCK * 2; ++i) {
+        float d = fabsf(out[1][i + EL_BLOCK * 2] - out[0][i]);
+        if (d > diff) diff = d;
+        if (fabsf(out[0][i]) > peak) peak = fabsf(out[0][i]);
+    }
+    int ok = diff < 1e-6f && peak > 0.05f;
+    printf("two cores: effects one block later, %d blocks, max difference %.2g (peak %.2f): %s\n", BLOCKS, diff, peak,
+           ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static void slug(char *dst, const char *name)
 {
     for (; *name; ++name) *dst++ = (*name == ' ') ? '_' : (char)((*name >= 'A' && *name <= 'Z') ? *name + 32 : *name);
@@ -119,6 +150,14 @@ static unsigned groove_steps(const el_engine_t *e, unsigned slot)
     if (strings > bars * 16u) bars = (strings + 15u) / 16u;
     (void)e->drums.pattern[slot].length;
     return bars * 16u;
+}
+
+static void style_groove(el_engine_t *e, unsigned style, uint32_t seed);
+static void pipe_groove(el_engine_t *e, int two_cores)
+{
+    style_groove(e, 6, 0x2545f497u);
+    if (two_cores) { e->par_run = par_run_now; e->par_wait = par_wait_now; }
+    el_post(e, EL_CMD_START, 0, 0);
 }
 
 /* A groove in a style in slot A of every area (the engine is idle). */
@@ -473,7 +512,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
+    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

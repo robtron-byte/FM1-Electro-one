@@ -9,7 +9,9 @@
 /* FM1-Electro: on the device the larger math helpers stay out of line (one
  * copy per file in SRAM instead of one per call site in Flash and SRAM). */
 #ifndef DSP_MATH_FN
-#if defined(FM1_HOST_TEST) || defined(EL_PLATFORM)
+#if defined(EL_PLATFORM)
+#define DSP_MATH_FN static __attribute__((section(".dsp_text"), noinline, unused))
+#elif defined(FM1_HOST_TEST)
 #define DSP_MATH_FN static FM1_DSP_CODE inline
 #else
 #define DSP_MATH_FN static __attribute__((section(".volatile_ram_code"), noinline, unused))
