@@ -70,6 +70,11 @@ typedef struct {
     float hz1, hz2;                 /* HPF state */
     float hpf_fc, hpf_b0, hpf_a1;   /* HPF modes 2, 3: corner at most the voice's fundamental */
     mks_env_t env;
+    /* env_settings as last worked out, and what they came from (the knobs,
+     * pitch and drift): recomputed only when one of these changes */
+    mks_env_settings_t es;
+    float es_pitch, es_drift;
+    uint8_t es_key[9], es_ok;
 } mks_voice_t;
 
 typedef struct {

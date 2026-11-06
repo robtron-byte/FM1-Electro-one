@@ -39,14 +39,14 @@ const char *fx_dist_mode_name(int value) { return dist_names[el_clampi(value, 0,
 const char *fx_param_name(unsigned param) { return param < FX_PARAMS ? names[param] : ""; }
 const char *fx_delay_division_name(int value) { return division_names[el_clampi(value, 0, 11)]; }
 
-static inline float soft(float x)
+static inline __attribute__((always_inline)) float soft(float x)
 {
     x = dsp_clamp(x, -3.0f, 3.0f);
     return x * (27.0f + x * x) / (27.0f + 9.0f * x * x);
 }
 
 /* Linear read from a third-rate 16-bit line, position in third-rate frames. */
-static inline float delay_read(const int16_t *line, unsigned write, float back)
+static inline __attribute__((always_inline)) float delay_read(const int16_t *line, unsigned write, float back)
 {
     float pos = (float)write - back;
     int i = (int)pos;
@@ -356,162 +356,255 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         }
     int gate_on = !fx->gate_sleep;
     float delay_peak = 0, reverb_peak = 0, gate_peak = 0;
-    for (int n = 0; n < frames; ++n) {
-        if (delay_on) {
-            fx->time += (target - fx->time) * 0.0002f;
+    /* One loop per effect (each only when it runs): no tests between them
+     * every frame. Each adds to left / right in the same order as before. */
+    /* (the states in locals during the loops: left / right are floats, so the
+     * compiler would reload every fx field each frame; the same arithmetic) */
+    if (delay_on) {
+        float time = fx->time, hp = fx->dly_hp[0], lp0 = fx->lp[0], lp1 = fx->lp[1], acc0 = fx->acc[0], acc1 = fx->acc[1];
+        unsigned half = fx->half, dw = fx->dw;
+        int16_t *line0 = fx->mem.b.delay[0], *line1 = fx->mem.b.delay[1];
+        for (int n = 0; n < frames; ++n) {
+            time += (target - time) * 0.0002f;
             /* Read between the stored frames by the step within the current
              * one, so the echoes are interpolated, not held. */
-            float back = fx->time - (float)fx->half * (1.0f / 3.0f);
-            float yl = delay_read(fx->mem.b.delay[0], fx->dw, back), yr = delay_read(fx->mem.b.delay[1], fx->dw, back);
+            float back = time - (float)half * (1.0f / 3.0f);
+            float yl = delay_read(line0, dw, back), yr = delay_read(line1, dw, back);
             /* Ping-pong: the input enters left, each side feeds the other.
              * The send is high-passed (about 200 Hz) to keep the echoes off
              * the kick and bass. */
-            fx->dly_hp[0] += (dly[n] - fx->dly_hp[0]) * 0.0281f;
-            float in = dly[n] - fx->dly_hp[0];
+            hp += (dly[n] - hp) * 0.0281f;
+            float in = dly[n] - hp;
             float wl = soft(in + fb * yr), wr = soft(fb * yl);
-            fx->lp[0] += (wl - fx->lp[0]) * tone;
-            fx->lp[1] += (wr - fx->lp[1]) * tone;
-            fx->acc[0] += fx->lp[0];
-            fx->acc[1] += fx->lp[1];
-            if (++fx->half >= 3u) { /* every third frame: store the averaged three */
-                fx->half = 0;
-                fx->mem.b.delay[0][fx->dw] = (int16_t)(dsp_clamp(fx->acc[0] * (1.0f / 3.0f), -1, 1) * 32767.0f);
-                fx->mem.b.delay[1][fx->dw] = (int16_t)(dsp_clamp(fx->acc[1] * (1.0f / 3.0f), -1, 1) * 32767.0f);
-                fx->acc[0] = fx->acc[1] = 0;
-                fx->dw = fx->dw + 1u < FX_DELAY_CAP ? fx->dw + 1u : 0u;
+            lp0 += (wl - lp0) * tone;
+            lp1 += (wr - lp1) * tone;
+            acc0 += lp0;
+            acc1 += lp1;
+            if (++half >= 3u) { /* every third frame: store the averaged three */
+                half = 0;
+                line0[dw] = (int16_t)(dsp_clamp(acc0 * (1.0f / 3.0f), -1, 1) * 32767.0f);
+                line1[dw] = (int16_t)(dsp_clamp(acc1 * (1.0f / 3.0f), -1, 1) * 32767.0f);
+                acc0 = acc1 = 0;
+                dw = dw + 1u < FX_DELAY_CAP ? dw + 1u : 0u;
             }
             left[n] += yl * dret;
             right[n] += yr * dret;
             delay_peak = dsp_max(delay_peak, dsp_max(dsp_abs(yl), dsp_abs(yr)));
         }
-        if (reverb_on) {
-            /* High-passed send (about 300 Hz): a clean low end under the hall. */
-            fx->rev_hp[0] += (rev[n] - fx->rev_hp[0]) * 0.0418f;
-            float x = rev[n] - fx->rev_hp[0];
+        fx->time = time; fx->dly_hp[0] = hp; fx->lp[0] = lp0; fx->lp[1] = lp1; fx->acc[0] = acc0; fx->acc[1] = acc1;
+        fx->half = half; fx->dw = dw;
+    }
+    if (reverb_on) {
+        float hp = fx->rev_hp[0], lfo[4], dmp[4], inc[4];
+        unsigned rw = fx->rw, fw = fx->fw;
+        for (int i = 0; i < 4; ++i) { lfo[i] = fx->lfo[i]; dmp[i] = fx->damp[i]; inc[i] = (0.23f + 0.17f * (float)i) / rev_rate; }
 #if FX_REVERB_HALF
-            fx->rev_acc += x;
-            fx->rev_half ^= 1u;
-            if (fx->rev_half) {   /* the frame between: halfway to the last output */
-                left[n] += 0.5f * (fx->rev_out[0][0] + fx->rev_out[0][1]) * rret;
-                right[n] += 0.5f * (fx->rev_out[1][0] + fx->rev_out[1][1]) * rret;
-            } else {
-            x = fx->rev_acc * 0.5f;
-            fx->rev_acc = 0.0f;
+        float acc = fx->rev_acc, o00 = fx->rev_out[0][0], o01 = fx->rev_out[0][1], o10 = fx->rev_out[1][0], o11 = fx->rev_out[1][1];
+        unsigned half = fx->rev_half;
 #endif
+        for (int n = 0; n < frames; ++n) {
+            /* High-passed send (about 300 Hz): a clean low end under the hall. */
+            hp += (rev[n] - hp) * 0.0418f;
+            float x = rev[n] - hp;
+#if FX_REVERB_HALF
+            acc += x;
+            half ^= 1u;
+            if (half) {   /* the frame between: halfway to the last output */
+                left[n] += 0.5f * (o00 + o01) * rret;
+                right[n] += 0.5f * (o10 + o11) * rret;
+                continue;
+            }
+            x = acc * 0.5f;
+            acc = 0.0f;
+#endif
+#pragma clang loop unroll(full)
             for (int d = 0; d < 2; ++d) {
-                float delayed = fx->mem.b.diff[d][(fx->fw - dsize[d]) & (FX_DIFF_CAP - 1)] * (1.0f / FX_LINE_SCALE);
+                float delayed = fx->mem.b.diff[d][(fw - dsize[d]) & (FX_DIFF_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 float w = x + diffusion * delayed;
-                fx->mem.b.diff[d][fx->fw & (FX_DIFF_CAP - 1)] = line_store(w);
+                fx->mem.b.diff[d][fw & (FX_DIFF_CAP - 1)] = line_store(w);
                 x = delayed - diffusion * w;
             }
             float y[4], sum = 0;
+#pragma clang loop unroll(full)
             for (int i = 0; i < 4; ++i) {
-                fx->lfo[i] += (0.23f + 0.17f * (float)i) / rev_rate;
-                if (fx->lfo[i] >= 1.0f) fx->lfo[i] -= 1.0f;
-                float p = fx->lfo[i], tri = p < 0.5f ? 4 * p - 1 : 3 - 4 * p;
-                float pos = (float)fx->rw - (lengths[i] + mod * tri);
+                lfo[i] += inc[i];
+                if (lfo[i] >= 1.0f) lfo[i] -= 1.0f;
+                float p = lfo[i], tri = p < 0.5f ? 4 * p - 1 : 3 - 4 * p;
+                float pos = (float)rw - (lengths[i] + mod * tri);
                 int k = (int)pos;
                 if ((float)k > pos) --k;
                 float frac = pos - (float)k;
                 float a = fx->mem.b.lines[i][(unsigned)k & (FX_REVERB_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 float b = fx->mem.b.lines[i][(unsigned)(k + 1) & (FX_REVERB_CAP - 1)] * (1.0f / FX_LINE_SCALE);
-                fx->damp[i] += (a + (b - a) * frac - fx->damp[i]) * damp;
-                y[i] = fx->damp[i];
+                dmp[i] += (a + (b - a) * frac - dmp[i]) * damp;
+                y[i] = dmp[i];
                 sum += y[i] * gains[i];
             }
             sum *= 0.5f; /* Householder: 2 / N */
+#pragma clang loop unroll(full)
             for (int i = 0; i < 4; ++i)
-                fx->mem.b.lines[i][fx->rw & (FX_REVERB_CAP - 1)] = line_store(y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f));
-            fx->rw = (fx->rw + 1u) & (FX_REVERB_CAP - 1);
-            fx->fw = (fx->fw + 1u) & (FX_DIFF_CAP - 1);
+                fx->mem.b.lines[i][rw & (FX_REVERB_CAP - 1)] = line_store(y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f));
+            rw = (rw + 1u) & (FX_REVERB_CAP - 1);
+            fw = (fw + 1u) & (FX_DIFF_CAP - 1);
 #if FX_REVERB_HALF
-            fx->rev_out[0][0] = fx->rev_out[0][1];
-            fx->rev_out[1][0] = fx->rev_out[1][1];
-            fx->rev_out[0][1] = 0.6f * (y[0] - y[2] + 0.5f * y[1]);
-            fx->rev_out[1][1] = 0.6f * (y[1] - y[3] + 0.5f * y[0]);
-            left[n] += fx->rev_out[0][1] * rret;
-            right[n] += fx->rev_out[1][1] * rret;
-            reverb_peak = dsp_max(reverb_peak, dsp_abs(y[0]) + dsp_abs(y[1]) + dsp_abs(y[2]) + dsp_abs(y[3]));
-            }
+            o00 = o01;
+            o10 = o11;
+            o01 = 0.6f * (y[0] - y[2] + 0.5f * y[1]);
+            o11 = 0.6f * (y[1] - y[3] + 0.5f * y[0]);
+            left[n] += o01 * rret;
+            right[n] += o11 * rret;
 #else
             left[n] += 0.6f * (y[0] - y[2] + 0.5f * y[1]) * rret;
             right[n] += 0.6f * (y[1] - y[3] + 0.5f * y[0]) * rret;
+#endif
             reverb_peak = dsp_max(reverb_peak, dsp_abs(y[0]) + dsp_abs(y[1]) + dsp_abs(y[2]) + dsp_abs(y[3]));
-#endif
         }
-        if (!gate_on) continue;
-        /* Gated reverb: diffused input at half rate, flat tap cluster. */
-        fx->gate_hp[0] += (gate[n] - fx->gate_hp[0]) * 0.0418f;
-        fx->gate_acc += gate[n] - fx->gate_hp[0];
-        fx->gate_half ^= 1u;
-        if (!fx->gate_half) {
-            float x = fx->gate_acc * 0.5f;
-            fx->gate_acc = 0;
-#if FX_GATE_DENSE == 2
-            float in = x;   /* before the diffusers: the gate's onset detector */
+        fx->rev_hp[0] = hp; fx->rw = rw; fx->fw = fw;
+        for (int i = 0; i < 4; ++i) { fx->lfo[i] = lfo[i]; fx->damp[i] = dmp[i]; }
+#if FX_REVERB_HALF
+        fx->rev_acc = acc; fx->rev_half = (uint8_t)half;
+        fx->rev_out[0][0] = o00; fx->rev_out[0][1] = o01; fx->rev_out[1][0] = o10; fx->rev_out[1][1] = o11;
 #endif
-#if FX_GATE_DENSE == 1
-            /* 10.9 / 9.0 / 7.1 / 5.1 ms: the taps smear into one surface */
-            static const unsigned sizes[4] = {241, 199, 157, 113};
-            const float k = FX_GATE_K;
-#else
-            static const unsigned sizes[2] = {142, 107};
-            const float k = 0.6f;
-#endif
-            for (int d = 0; d < FX_GATE_DIFFS; ++d) {
-                float delayed = fx->gate_diff[d][(fx->gfw - sizes[d]) & 255u] * (1.0f / FX_LINE_SCALE);
-                float w = x + k * delayed;
-                fx->gate_diff[d][fx->gfw & 255u] = line_store(w);
-                x = delayed - k * w;
-            }
-            fx->gfw = (fx->gfw + 1u) & 255u;
-            float gl = 0, gr = 0;
+    }
 #if FX_GATE_DENSE == 2
-            {
+    /* (as delay and hall: the states in locals; the same arithmetic) */
+    if (gate_on) {
+        float hp = fx->gate_hp[0], acc = fx->gate_acc, lp0 = fx->gate_lp[0], lp1 = fx->gate_lp[1];
+        float ef = fx->gate_ef, es = fx->gate_es, gain = fx->gate_gain, dmp[4];
+        unsigned half = fx->gate_half, hold = fx->gate_hold, gw = fx->gw, gfw = fx->gfw;
+        for (int i = 0; i < 4; ++i) dmp[i] = fx->gate_damp[i];
+        int16_t *line = fx->mem.b.gate;
+        for (int n = 0; n < frames; ++n) {
+            /* Gated reverb: diffused input at half rate, flat tap cluster. */
+            hp += (gate[n] - hp) * 0.0418f;
+            acc += gate[n] - hp;
+            half ^= 1u;
+            if (!half) {
+                float x = acc * 0.5f;
+                acc = 0;
+                float in = x;   /* before the diffusers: the gate's onset detector */
+                static const unsigned sizes[2] = {142, 107};
+                const float k = 0.6f;
+#pragma clang loop unroll(full)
+                for (int d = 0; d < FX_GATE_DIFFS; ++d) {
+                    float delayed = fx->gate_diff[d][(gfw - sizes[d]) & 255u] * (1.0f / FX_LINE_SCALE);
+                    float w = x + k * delayed;
+                    fx->gate_diff[d][gfw & 255u] = line_store(w);
+                    x = delayed - k * w;
+                }
+                gfw = (gfw + 1u) & 255u;
                 float a = dsp_abs(in);
-                fx->gate_ef += (a - fx->gate_ef) * 0.045f;    /* ~1 ms */
-                fx->gate_es += (a - fx->gate_es) * 0.0009f;   /* ~50 ms */
-                if (fx->gate_ef > 3.0f * fx->gate_es + 2e-3f && fx->gate_hold + GATE_REFRACT < GATE_HOLD) fx->gate_hold = GATE_HOLD;
-                float target = fx->gate_hold ? 1.0f : 0.0f;
-                if (fx->gate_hold) --fx->gate_hold;
-                fx->gate_gain += (target - fx->gate_gain) * (target > fx->gate_gain ? 0.045f : 0.0035f);
-                int16_t *line = fx->mem.b.gate;
-                unsigned w = fx->gw & (GATE_LINE - 1u);
+                ef += (a - ef) * 0.045f;    /* ~1 ms */
+                es += (a - es) * 0.0009f;   /* ~50 ms */
+                if (ef > 3.0f * es + 2e-3f && hold + GATE_REFRACT < GATE_HOLD) hold = GATE_HOLD;
+                float target = hold ? 1.0f : 0.0f;
+                if (hold) --hold;
+                gain += (target - gain) * (target > gain ? 0.045f : 0.0035f);
+                unsigned w = gw & (GATE_LINE - 1u);
                 float y[4];
+#pragma clang loop unroll(full)
                 for (int i = 0; i < 4; ++i) {
                     float r = line[i * GATE_LINE + ((w - gate_len[i]) & (GATE_LINE - 1u))] * (1.0f / 8191.0f);
-                    fx->gate_damp[i] += (r - fx->gate_damp[i]) * 0.8f;   /* ~5.6 kHz per pass */
-                    y[i] = fx->gate_damp[i];
+                    dmp[i] += (r - dmp[i]) * 0.8f;   /* ~5.6 kHz per pass */
+                    y[i] = dmp[i];
                 }
-                float g = 0.5f * FX_GATE_FB * fx->gate_gain;
+                float g = 0.5f * FX_GATE_FB * gain;
                 float h[4] = {y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]};
+#pragma clang loop unroll(full)
                 for (int i = 0; i < 4; ++i)
                     line[i * GATE_LINE + w] = (int16_t)(dsp_clamp((i & 1 ? -x : x) + g * h[i], -3.9998f, 3.9998f) * 8191.0f);
-                gl = (y[0] - y[2]) * fx->gate_gain * FX_GATE_OUT;
-                gr = (y[1] - y[3]) * fx->gate_gain * FX_GATE_OUT;
+                float gl = (y[0] - y[2]) * gain * FX_GATE_OUT;
+                float gr = (y[1] - y[3]) * gain * FX_GATE_OUT;
+                gw = (gw + 1u) % FX_GATE_CAP;
+                /* Gentle low-pass (about 9 kHz at the half rate) on the return. */
+                lp0 += (gl - lp0) * 0.7f;
+                lp1 += (gr - lp1) * 0.7f;
+                gate_peak = dsp_max(gate_peak, dsp_abs(gl) + dsp_abs(gr) + dsp_abs(x));
             }
-#elif FX_GATE_DENSE == 1
-            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
-            for (int t = 0; t < GATE_DENSE_TAPS; ++t) {
-                float s = gate_read(fx->mem.b.gate, fx->gw, gate_dense_taps[t]) * gate_dense_gains[t];
-                if (gate_dense_right[t]) gr += s; else gl += s;
-            }
-#else
-            fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
-            for (int t = 0; t < 15; ++t) {
-                float s = gate_read(fx->mem.b.gate, fx->gw, gate_taps[t]) * gate_gains[t];
-                if (t & 1) gr += s; else gl += s;
-            }
-#endif
-            fx->gw = (fx->gw + 1u) % FX_GATE_CAP;
-            /* Gentle low-pass (about 9 kHz at the half rate) on the return. */
-            fx->gate_lp[0] += (gl - fx->gate_lp[0]) * 0.7f;
-            fx->gate_lp[1] += (gr - fx->gate_lp[1]) * 0.7f;
-            gate_peak = dsp_max(gate_peak, dsp_abs(gl) + dsp_abs(gr) + dsp_abs(x));
+            left[n] += lp0 * 0.5f;
+            right[n] += lp1 * 0.5f;
         }
-        left[n] += fx->gate_lp[0] * 0.5f;
-        right[n] += fx->gate_lp[1] * 0.5f;
+        fx->gate_hp[0] = hp; fx->gate_acc = acc; fx->gate_lp[0] = lp0; fx->gate_lp[1] = lp1;
+        fx->gate_ef = ef; fx->gate_es = es; fx->gate_gain = gain;
+        fx->gate_half = (uint8_t)half; fx->gate_hold = (uint16_t)hold; fx->gw = gw; fx->gfw = gfw;
+        for (int i = 0; i < 4; ++i) fx->gate_damp[i] = dmp[i];
     }
+#else
+    if (gate_on)
+        for (int n = 0; n < frames; ++n) {
+            /* Gated reverb: diffused input at half rate, flat tap cluster. */
+            fx->gate_hp[0] += (gate[n] - fx->gate_hp[0]) * 0.0418f;
+            fx->gate_acc += gate[n] - fx->gate_hp[0];
+            fx->gate_half ^= 1u;
+            if (!fx->gate_half) {
+                float x = fx->gate_acc * 0.5f;
+                fx->gate_acc = 0;
+    #if FX_GATE_DENSE == 2
+                float in = x;   /* before the diffusers: the gate's onset detector */
+    #endif
+    #if FX_GATE_DENSE == 1
+                /* 10.9 / 9.0 / 7.1 / 5.1 ms: the taps smear into one surface */
+                static const unsigned sizes[4] = {241, 199, 157, 113};
+                const float k = FX_GATE_K;
+    #else
+                static const unsigned sizes[2] = {142, 107};
+                const float k = 0.6f;
+    #endif
+                for (int d = 0; d < FX_GATE_DIFFS; ++d) {
+                    float delayed = fx->gate_diff[d][(fx->gfw - sizes[d]) & 255u] * (1.0f / FX_LINE_SCALE);
+                    float w = x + k * delayed;
+                    fx->gate_diff[d][fx->gfw & 255u] = line_store(w);
+                    x = delayed - k * w;
+                }
+                fx->gfw = (fx->gfw + 1u) & 255u;
+                float gl = 0, gr = 0;
+    #if FX_GATE_DENSE == 2
+                {
+                    float a = dsp_abs(in);
+                    fx->gate_ef += (a - fx->gate_ef) * 0.045f;    /* ~1 ms */
+                    fx->gate_es += (a - fx->gate_es) * 0.0009f;   /* ~50 ms */
+                    if (fx->gate_ef > 3.0f * fx->gate_es + 2e-3f && fx->gate_hold + GATE_REFRACT < GATE_HOLD) fx->gate_hold = GATE_HOLD;
+                    float target = fx->gate_hold ? 1.0f : 0.0f;
+                    if (fx->gate_hold) --fx->gate_hold;
+                    fx->gate_gain += (target - fx->gate_gain) * (target > fx->gate_gain ? 0.045f : 0.0035f);
+                    int16_t *line = fx->mem.b.gate;
+                    unsigned w = fx->gw & (GATE_LINE - 1u);
+                    float y[4];
+                    for (int i = 0; i < 4; ++i) {
+                        float r = line[i * GATE_LINE + ((w - gate_len[i]) & (GATE_LINE - 1u))] * (1.0f / 8191.0f);
+                        fx->gate_damp[i] += (r - fx->gate_damp[i]) * 0.8f;   /* ~5.6 kHz per pass */
+                        y[i] = fx->gate_damp[i];
+                    }
+                    float g = 0.5f * FX_GATE_FB * fx->gate_gain;
+                    float h[4] = {y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]};
+                    for (int i = 0; i < 4; ++i)
+                        line[i * GATE_LINE + w] = (int16_t)(dsp_clamp((i & 1 ? -x : x) + g * h[i], -3.9998f, 3.9998f) * 8191.0f);
+                    gl = (y[0] - y[2]) * fx->gate_gain * FX_GATE_OUT;
+                    gr = (y[1] - y[3]) * fx->gate_gain * FX_GATE_OUT;
+                }
+    #elif FX_GATE_DENSE == 1
+                fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
+                for (int t = 0; t < GATE_DENSE_TAPS; ++t) {
+                    float s = gate_read(fx->mem.b.gate, fx->gw, gate_dense_taps[t]) * gate_dense_gains[t];
+                    if (gate_dense_right[t]) gr += s; else gl += s;
+                }
+    #else
+                fx->mem.b.gate[fx->gw] = (int16_t)(dsp_clamp(x, -1, 1) * 32767.0f);
+                for (int t = 0; t < 15; ++t) {
+                    float s = gate_read(fx->mem.b.gate, fx->gw, gate_taps[t]) * gate_gains[t];
+                    if (t & 1) gr += s; else gl += s;
+                }
+    #endif
+                fx->gw = (fx->gw + 1u) % FX_GATE_CAP;
+                /* Gentle low-pass (about 9 kHz at the half rate) on the return. */
+                fx->gate_lp[0] += (gl - fx->gate_lp[0]) * 0.7f;
+                fx->gate_lp[1] += (gr - fx->gate_lp[1]) * 0.7f;
+                gate_peak = dsp_max(gate_peak, dsp_abs(gl) + dsp_abs(gr) + dsp_abs(x));
+            }
+            left[n] += fx->gate_lp[0] * 0.5f;
+            right[n] += fx->gate_lp[1] * 0.5f;
+        }
+#endif
     /* Quiet long enough: longer than the longest line, so nothing is still
      * on its way through. */
     const float quiet = 1e-6f;   /* -120 dB */

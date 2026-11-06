@@ -108,7 +108,7 @@ static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0,
 #define MKS_CHOP_GRID 1
 #endif
 
-static inline int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
+static inline __attribute__((always_inline)) int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
 
 static inline EL_DSP_HELPER float chop_naive(const mks_chop_t *c, float p)
 {
@@ -217,6 +217,8 @@ static EL_DSP_CODE float chop_general(const mks_chop_t *c, float p, float dt)
 
 static void chop_set(mks_chop_t *c, float ramp, float m0, float w0, float m1, float w1)
 {
+    /* (every control block: unchanged, nothing to work out) */
+    if (c->ramp == ramp && c->m0 == m0 && c->w0 == w0 && c->m1 == m1 && c->w1 == w1 && c->m2 == 0) return;
     c->ramp = ramp; c->m0 = m0; c->w0 = w0; c->m1 = m1; c->w1 = w1; c->m2 = 0; c->w2 = 0.5f;
     /* the fast path for a ramp under one square of a multiple of its rate */
     c->gated_ramp = ramp > 0 && m0 > 0 && m1 <= 0 && w0 > 0.0f && w0 < 1.0f && (m0 / ramp) == (float)(int)(m0 / ramp);
@@ -529,13 +531,27 @@ static inline float env_scale(const mks_part_t *p, const mks_voice_t *v, float p
     return scale;
 }
 
-static EL_DSP_HELPER void env_settings(const mks_part_t *p, const mks_voice_t *v, float pitch, mks_env_settings_t *s)
+static EL_DSP_HELPER void env_settings(const mks_part_t *p, mks_voice_t *v, float pitch, mks_env_settings_t *s)
 {
-    float k = env_scale(p, v, pitch);
-    s->t1 = env_seconds(p->v[MP_T1], 1) * k; s->l1 = p->v[MP_L1] / 127.0f;
-    s->t2 = env_seconds(p->v[MP_T2], 2) * k; s->l2 = p->v[MP_L2] / 127.0f;
-    s->t3 = env_seconds(p->v[MP_T3], 3) * k; s->l3 = p->v[MP_L3] / 127.0f;
-    s->t4 = env_seconds(p->v[MP_T4], 4) * k;
+    /* Worked out again only when the knobs, the pitch or the drift changed
+     * (else the same numbers as before, without exp2 / log2 every block). */
+    static const uint8_t keys[9] EL_DSP_DATA = {MP_T1, MP_L1, MP_T2, MP_L2, MP_T3, MP_L3, MP_T4, MP_ENV_KEY, MP_DRIFT};
+    mks_env_settings_t *m = &v->es;
+    int same = v->es_ok && v->es_pitch == pitch && v->es_drift == v->drift_env;
+    for (unsigned i = 0; i < 9u && same; ++i) same = v->es_key[i] == p->v[keys[i]];
+    if (!same) {
+        for (unsigned i = 0; i < 9u; ++i) v->es_key[i] = p->v[keys[i]];
+        v->es_pitch = pitch;
+        v->es_drift = v->drift_env;
+        v->es_ok = 1;
+        float k = env_scale(p, v, pitch);
+        m->t1 = env_seconds(p->v[MP_T1], 1) * k; m->l1 = p->v[MP_L1] / 127.0f;
+        m->t2 = env_seconds(p->v[MP_T2], 2) * k; m->l2 = p->v[MP_L2] / 127.0f;
+        m->t3 = env_seconds(p->v[MP_T3], 3) * k; m->l3 = p->v[MP_L3] / 127.0f;
+        m->t4 = env_seconds(p->v[MP_T4], 4) * k;
+    }
+    s->t1 = m->t1; s->l1 = m->l1; s->t2 = m->t2; s->l2 = m->l2;
+    s->t3 = m->t3; s->l3 = m->l3; s->t4 = m->t4;
 }
 
 static float last_pitch_of(const mks_part_t *p)
