@@ -939,7 +939,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             /* HOME: nothing on OCT */
         } else if (synth_area(ui) && !ui->step_mode[ui->area]) {
             release_keys(ui, ~0u);
-            ui->octave[ui->area] = (int8_t)el_clampi(ui->octave[ui->area] + (up ? 1 : -1), -3, 2);
+            ui->octave[ui->area] = (int8_t)el_clampi(ui->octave[ui->area] + (up ? 1 : -1), EL_OCT_MIN, EL_OCT_MAX);
         } else if (!ui->overview) {
             unsigned length = ui->area == EL_AREA_BEAT ? m->pattern[m->current].length
                                                        : track_of(ui)->pattern[track_of(ui)->current].length;
@@ -1211,6 +1211,14 @@ static void mark_dirty(el_ui_t *ui)
 
 /* ---- LEDs ---------------------------------------------------------------------- */
 
+/* fm1_led_set(key, EL_LED_DIM): about half bright. Our platform dims
+ * (fm1/el_app.c); FM1 Open's SDK knows only on and off, there it is on. */
+#if defined(EL_PLATFORM) || defined(FM1_HOST_TEST)
+#define EL_LED_DIM 2
+#else
+#define EL_LED_DIM 1
+#endif
+
 static void update_leds(el_ui_t *ui)
 {
     el_engine_t *e = ui->engine;
@@ -1220,8 +1228,10 @@ static void update_leds(el_ui_t *ui)
      * state that is on blinks instead (the LEDs know only on and off):
      * PLAY with the quarter notes, REC fast, ARP / SEQ / EDIT and the page
      * shown on OCT- / OCT+ slowly, SAVE fast while a sound is being named.
-     * The area shows on the screen. */
-    uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0;
+     * The area buttons (FX / SEL / ENV / LFO, HOME): the chosen one full,
+     * the others dimmed to about half; OCT- / OCT+ blink when the keys'
+     * octave is at its end. */
+    uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0, dim = 0;
     int slow = (ui->now / 400u) & 1u, fast = (ui->now / 125u) & 1u;
     if (playing) {
         uint32_t step = e->transport.step ? e->transport.step - 1u : 0u;   /* the step sounding now */
@@ -1233,6 +1243,12 @@ static void update_leds(el_ui_t *ui)
         blink |= 1ull << BTN_SEQ;
     if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
+    dim = (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
+          ~(1ull << (ui->overview ? BTN_HOME : BTN_FX + ui->area));
+    if (!ui->overview && synth_area(ui) && !ui->step_mode[ui->area] && slow) {
+        if (ui->octave[ui->area] <= EL_OCT_MIN) blink |= 1ull << BTN_OCT_DOWN;
+        if (ui->octave[ui->area] >= EL_OCT_MAX) blink |= 1ull << BTN_OCT_UP;
+    }
     if (ui->overview) {
         /* The slot each area plays; the one it switches to blinks. While a
          * punch-in with a value is held: its value instead. */
@@ -1293,10 +1309,12 @@ static void update_leds(el_ui_t *ui)
         }
     }
     leds &= ~blink;
-    uint64_t changed = ui->leds_valid ? leds ^ ui->leds : ~0ull;
+    dim &= leds;
+    uint64_t changed = ui->leds_valid ? (leds ^ ui->leds) | (dim ^ ui->leds_dim) : ~0ull;
     for (unsigned i = 0; i < 14u + UI_KEYS; ++i)
-        if (changed & (1ull << i)) fm1_led_set(i, (int)((leds >> i) & 1u));
+        if (changed & (1ull << i)) fm1_led_set(i, (dim >> i) & 1u ? EL_LED_DIM : (int)((leds >> i) & 1u));
     ui->leds = leds;
+    ui->leds_dim = dim;
     ui->leds_valid = 1;
 }
 

@@ -524,6 +524,29 @@ int main(int argc, char **argv)
     /* Outside it every function button is lit (ADR 0020), EDIT too. */
     ed_ok = ed_ok && !ui.editor && leds[BTN_EDIT] && leds[BTN_FX] && leds[BTN_GLO] && leds[BTN_HOME];
     printf("editor: all parameters, navigation, keys, leave %s\n", ed_ok ? "ok" : "FAIL");
+    /* Area buttons: the chosen one full, the others dimmed (2); at the end
+     * of the keys' octave its OCT button blinks, the other stays lit. */
+    int led_ok = ui.area == EL_AREA_BASS && leds[BTN_LFO] == 1 && leds[BTN_FX] == 2 && leds[BTN_SEL] == 2 &&
+                 leds[BTN_ENV] == 2 && leds[BTN_HOME] == 2 && leds[BTN_GLO] == 1;
+    int step_was = ui.step_mode[EL_AREA_BASS], oct_was = ui.octave[EL_AREA_BASS];
+    if (step_was) tap_button(BTN_SEQ);
+    int down_seen[3] = {0}, up_seen[3] = {0};
+    for (int i = 0; i < 20 && !down_seen[0]; ++i) { run(50); down_seen[leds[BTN_OCT_DOWN]] = 1; }
+    led_ok = led_ok && !down_seen[0];              /* not at the end: lit */
+    for (int i = 0; i < 6; ++i) tap_button(BTN_OCT_DOWN);
+    down_seen[0] = down_seen[1] = 0;
+    for (int i = 0; i < 20; ++i) { run(50); down_seen[leds[BTN_OCT_DOWN]] = 1; up_seen[leds[BTN_OCT_UP]] = 1; }
+    led_ok = led_ok && ui.octave[EL_AREA_BASS] == EL_OCT_MIN && down_seen[0] && down_seen[1] && !up_seen[0];
+    for (int i = ui.octave[EL_AREA_BASS]; i < oct_was; ++i) tap_button(BTN_OCT_UP);
+    if (step_was) tap_button(BTN_SEQ);
+    run(20);
+    led_ok = led_ok && ui.octave[EL_AREA_BASS] == oct_was && ui.step_mode[EL_AREA_BASS] == step_was;
+    tap_button(BTN_HOME);
+    run(20);
+    led_ok = led_ok && ui.overview && leds[BTN_HOME] == 1 && leds[BTN_FX] == 2 && leds[BTN_LFO] == 2;
+    tap_button(BTN_LFO);
+    run(20);
+    printf("leds: area buttons dimmed, octave end blinks %s\n", led_ok ? "ok" : "FAIL");
     /* User sounds: SAVE in the editor, rename, slot 3, SAVE stores; PRESETS
      * finds it after the factory sounds; another button cancels; the groove
      * keeps pointing at it over a restart. */
@@ -566,5 +589,5 @@ int main(int argc, char **argv)
             !memcmp(syn_values(&reboot.track[2].part), got.v, syn_value_count(got.engine));
     printf("sounds: user slot 3 \"%s\" (%s) stored, found, cancel, restart %s\n", got.name, syn_engine_names[got.engine],
            us_ok ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok && ed_ok && us_ok ? 0 : 1;
+    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok ? 0 : 1;
 }

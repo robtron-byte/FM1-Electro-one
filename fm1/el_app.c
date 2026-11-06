@@ -53,11 +53,30 @@ int el_platform_cpu1_wait(void)
 uint32_t fm1_millis(void) { return fm1_ms; }
 
 /* ---- LEDs: 0..13 the buttons (the same order as the platform's BTN_*),
- * 14..40 the 27 note keys */
+ * 14..40 the 27 note keys. on: 0 off, 1 lit, 2 dimmed (docs/adr/0020): the
+ * HAL's backlight layer, a pulse of EL_LED_DIM_NS a frame (a lit LED ~95 us;
+ * the eye is logarithmic, ~1/12 the time reads as about half; the user
+ * judges on the device). Only the part longer than the column's shift makes
+ * the scan tick wait. */
+#ifndef EL_LED_DIM_NS
+#define EL_LED_DIM_NS 8000u
+#endif
+static void led_bg(uint32_t id, int on)
+{
+    for (uint32_t p = 0; p < FM1_NCOL; p++)
+        for (uint32_t r = 1; r < 5u; r++)
+            if (FM1_KEYMAP[r][p] == (int8_t)id) {
+                if (on) fm1_led_bg[p] |= (uint8_t)(1u << r);
+                else fm1_led_bg[p] &= (uint8_t)~(1u << r);
+            }
+}
 void fm1_led_set(unsigned key, int on)
 {
-    if (key < 14u) fm1_led_key(key, on);
-    else if (key < 41u) fm1_led_key(KEY_LED(key - 14u), on);
+    if (key >= 41u) return;
+    uint32_t id = key < 14u ? key : KEY_LED(key - 14u);
+    fm1_led_bg_ns = EL_LED_DIM_NS;
+    led_bg(id, on == 2);
+    fm1_led_key(id, on == 1);
 }
 
 /* ---- screen: FM1-Electro paints 8-row bands of native RGB565 and sends them

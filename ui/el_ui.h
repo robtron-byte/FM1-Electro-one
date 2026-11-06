@@ -15,6 +15,7 @@ enum {
     BTN_OCT_DOWN, BTN_OCT_UP, BTN_FX, BTN_SEL, BTN_ENV, BTN_LFO, BTN_EDIT,
     BTN_GLO, BTN_HOME, BTN_SAVE, BTN_ARP, BTN_SEQ, BTN_PLAY, BTN_REC, BTN_COUNT
 };
+enum { EL_OCT_MIN = -3, EL_OCT_MAX = 2 };   /* the keys' octave per synth area */
 enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5 };
 
 typedef struct {
@@ -62,7 +63,7 @@ typedef struct {
     uint32_t shadow_time[4];
     const char *notice;
     uint32_t notice_until, notice_id, hold;
-    uint64_t leds;
+    uint64_t leds, leds_dim;   /* lit, and of those dimmed (docs/adr/0020) */
     uint8_t leds_valid;
     uint32_t sig[3];                    /* header, main, footer as last painted */
     uint32_t dirty;                     /* bands waiting to be painted (bit per band) */
