@@ -97,7 +97,7 @@ static inline float env_seconds(float raw, int segment)
 
 /* ---- DCO (MB87123 chop model) ------------------------------------------- */
 
-static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f};
+static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0};
 
 static inline int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
 
@@ -125,6 +125,26 @@ static inline __attribute__((always_inline)) float chop_render(const mks_chop_t 
             float t = wrap01(p * c->m0), d = dt * c->m0, w = c->w0;
             float out = t >= w ? 1.0f : -1.0f;
             out += polyblep(wrap01(t - w), d) - polyblep(t, d);
+            return out;
+        }
+        if (c->gated_ramp && dt * c->m0 < 0.5f) {
+            /* Saw 2 / 3 / 4: the ramp, open only while a square of m0 (a
+             * multiple of the ramp, so the ramp resets where the square
+             * shuts) is high. Edges: the square opens at w0 (a jump up by
+             * the ramp there), it shuts at 0 (down by the ramp just before;
+             * 1 where the ramp resets). As chop_general, without its seven
+             * edge tests. */
+            float t = wrap01(p * c->m0), d = dt * c->m0, w = c->w0, r = c->ramp;
+            float out = t >= w ? 2.0f * wrap01(p * r) - 1.0f : -1.0f;
+            float xo = wrap01(t - w);
+            if (xo < d || xo > 1.0f - d) {
+                float e = p - (xo < 0.5f ? xo : xo - 1.0f) / c->m0;
+                out += wrap01((e + 1e-5f) * r) * polyblep(xo, d);
+            }
+            if (t < d || t > 1.0f - d) {
+                float e = p - (t < 0.5f ? t : t - 1.0f) / c->m0;
+                out -= wrap01((e - 1e-5f) * r) * polyblep(t, d);
+            }
             return out;
         }
     }
@@ -174,6 +194,8 @@ static EL_DSP_CODE float chop_general(const mks_chop_t *c, float p, float dt)
 static void chop_set(mks_chop_t *c, float ramp, float m0, float w0, float m1, float w1)
 {
     c->ramp = ramp; c->m0 = m0; c->w0 = w0; c->m1 = m1; c->w1 = w1; c->m2 = 0; c->w2 = 0.5f;
+    /* the fast path for a ramp under one square of a multiple of its rate */
+    c->gated_ramp = ramp > 0 && m0 > 0 && m1 <= 0 && w0 > 0.0f && w0 < 1.0f && (m0 / ramp) == (float)(int)(m0 / ramp);
 }
 
 /* DCOSettings.configure: pulse on the pulse phase (1 = main), saw/sub on the

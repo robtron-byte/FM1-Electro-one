@@ -39,6 +39,7 @@ typedef struct {
      * the last step (legato), TRANSPOSE mode per area (GLO + SEQ). */
     uint8_t rec_fresh, rec_key, rec_note, transpose_mode[EL_AREAS];
     uint8_t punch_key[EL_PUNCHES];      /* key + 1 holding each punch-in (black keys 5-11) */
+    uint8_t repeat_key;                 /* white key + 1 holding the repeat's step (0: none) */
     uint8_t punch_last;                 /* the punch-in pressed last: its value on the white keys */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
@@ -80,6 +81,13 @@ typedef struct {
     /* Average share of a block per render stage (EL_PROF_*), percent;
      * prof_valid 0: none measured (host). */
     uint8_t prof[EL_PROF_STAGES], prof_valid;
+    /* Own platform (docs/adr/0021): the slowest audio callback since the
+     * start (percent of its time), the slowest synth stage of the last half
+     * second (percent of a block, the second core), whether that core still
+     * runs, and the callbacks that took longer than their time (a crackle). */
+    uint16_t load_max;
+    uint8_t c1_peak, cpu1_on, plat;
+    uint32_t drops;
     /* Clock registers (device only, ADR 0019): PLL and system clock in MHz
      * as X0X reads them, the system clock source code, the timer clock. */
     uint16_t clk_pll, clk_sys, clk_timer;

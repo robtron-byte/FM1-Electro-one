@@ -1,7 +1,7 @@
 # 0011: Live-Effekte auf den schwarzen Tasten 5–11
 
 - **Status:** angenommen
-- **Stand:** 2026-10-26
+- **Stand:** 2026-11-06
 
 ## Kontext
 
@@ -11,7 +11,7 @@ In HOME sollen Live-Effekte (Punch-ins) spielbar sein, ohne die Mute-Tasten zu v
 
 - Schwarze Tasten 1–4: Mute der vier Bereiche. 5–11: STUTTER, THROW (Hall-Wurf, der Hauptklang blendet aus, der Hall bleibt), TAPE (Bandstopp), REPEAT, DELAY, CRUSH, PHASER.
 - Effekte sind kombinierbar. Solange einer gehalten wird, wählen die weißen Tasten seinen Wert (z. B. 8tel/16tel). TAPE: 1/16 bis 1/2 Takt.
-- REPEAT wiederholt einen Schritt (1–16, immer 16tel) und startet erst, wenn eine weiße Taste gedrückt wird; die Abspielköpfe laufen darunter weiter.
+- REPEAT wiederholt einen Schritt (1–16, immer 16tel), aber nur, solange zusätzlich eine weiße Taste gehalten wird. Lässt man sie los, übernimmt eine noch gehaltene weiße Taste; sonst endet die Wiederholung, und alles ist wieder im Takt. Die Abspielköpfe laufen darunter weiter.
 - Hoch- und Tiefpass wurden verworfen.
 - Die Effekte teilen sich einen gemeinsamen Speicher (`fx_memory_t`) mit Hall und Delay.
 
@@ -22,3 +22,4 @@ In HOME sollen Live-Effekte (Punch-ins) spielbar sein, ohne die Mute-Tasten zu v
 ## Verlauf
 
 - 2026-10-26: angelegt (Stand der Umsetzung)
+- 2026-11-06: REPEAT nur, solange die weiße Taste gehalten wird (vorher lief es bis zum Loslassen der schwarzen Taste weiter), auf Wunsch des Nutzers

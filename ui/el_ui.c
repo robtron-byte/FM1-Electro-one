@@ -956,6 +956,24 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->punch_key[i] = 0;
         if (ui->punch_key[i]) punch_held |= BIT(i);
     }
+    /* Repeat plays only while a white key holds its step: let go, another
+     * white key still held takes over, else it ends (all in time again). */
+    unsigned rep = 3u;   /* EL_PUNCH_REPEAT's index */
+    if (!ui->punch_key[rep]) ui->repeat_key = 0;
+    else if (ui->repeat_key && !(c->keys & BIT(ui->repeat_key - 1u))) {
+        int next = -1;
+        for (unsigned i = 0; i < UI_WHITE && next < 0; ++i)
+            if (c->keys & BIT(white_keys[i])) next = (int)i;
+        if (next >= 0) {
+            if (el_post3(e, EL_CMD_PUNCH_RATE, EL_PUNCH_REPEAT, (uint8_t)next, 0, 0) == 0) {
+                ui->repeat_key = (uint8_t)(white_keys[next] + 1u);
+                punch_notice(ui, rep, (unsigned)next);
+            }
+        } else if (el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 0, 0, 0) == 0) {
+            ui->repeat_key = 0;
+            notice(ui, "REPEAT: WHITE KEY = STEP");
+        }
+    }
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
@@ -975,7 +993,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
                 if (bits && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)bits, (uint8_t)w, 0, 0) == 0) {
                     punch_notice(ui, shown, (unsigned)w);
                     /* Repeat only starts with its step chosen. */
-                    if (bits & EL_PUNCH_REPEAT) el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
+                    if ((bits & EL_PUNCH_REPEAT) && el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0) == 0)
+                        ui->repeat_key = (uint8_t)(key + 1u);
                 }
             } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
@@ -1616,6 +1635,11 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             el_snprintf(l3, sizeof l3, "IA%u.%u IM%u.%u M64 %u.%u FA%u.%u IM4 %u.%u", NS(EL_BENCH_RIADD), NS(EL_BENCH_RIMUL),
                         NS(EL_BENCH_RMUL64), NS(EL_BENCH_RFADD), NS(EL_BENCH_RIMUL4));
 #undef NS
+            if (ui->plat) {   /* own platform: peaks and gaps instead of the SDK build's CPU test */
+                el_snprintf(l2, sizeof l2, "PEAK %u%% MAX %u%% C1 %u%%%s", (unsigned)(ui->load < 0 ? 0 : ui->load),
+                            (unsigned)ui->load_max, (unsigned)ui->c1_peak, ui->cpu1_on ? "" : " 1CORE");
+                el_snprintf(l3, sizeof l3, "LATE BLOCKS %u", (unsigned)ui->drops);
+            }
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);
             gfx_text(b, 4, GFX_H - 12, l3, ACCENT, 1);

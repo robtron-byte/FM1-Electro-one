@@ -443,7 +443,7 @@ static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32
 static struct { el_engine_t *e; el_bus_t *b; int pos, n; } synth_args;
 static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
-    uint32_t pt = prof_now();
+    uint32_t pt = prof_now(), t0 = pt;
     float bpm = e->transport.bpm;
     /* RHYTHM on its own pair until its distortion send is taken. */
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
@@ -452,6 +452,7 @@ static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int 
         st_render(&e->track[i], l + pos, r + pos, b->syn_dly + pos, b->syn_rev + pos, n, bpm);
         prof_add(e, EL_PROF_RHYTHM + i, &pt);
     }
+    if (pt - t0 > e->synth_peak) e->synth_peak = pt - t0;
 }
 static EL_DSP_CODE void synth_job(uint32_t arg)
 {

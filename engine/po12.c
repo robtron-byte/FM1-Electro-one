@@ -64,6 +64,21 @@ EL_DSP_CODE void po_trigger(po_voice_t *v, unsigned sound, float velocity, float
     v->b = dsp_exp2(4.0f * (b - 0.5f));          /* length x0.25 .. x4 */
     v->velocity = velocity;
     v->choke = 0;
+    /* Everything below stays the same for the whole hit: worked out once
+     * here (docs/adr/0022: the PO-12 kit took more than a core on the FM-1
+     * with its exp / tan / tanh every sample), the same arithmetic. */
+    const float *p = po_sounds[v->sound];
+    float len = v->b;
+    v->c_pitch = coef_ms(p[POP_PITCH_MS] * len);
+    v->c_odec = coef_ms(p[POP_OSC_DECAY] * len);
+    v->c_ndec = coef_ms(p[POP_NOISE_DECAY] * len);
+    v->g = dsp_tan(DSP_PI * dsp_min(p[POP_NOISE_HZ] * v->a, 19000.0f) / EL_SAMPLE_RATE);
+    v->k = 1.0f / dsp_max(p[POP_NOISE_Q], 0.3f);
+    v->h = 1.0f / (1.0f + v->g * (v->k + v->g));
+    v->c_lp = 1.0f - dsp_exp(-2.0f * DSP_PI * dsp_min(p[POP_OUT_LP_HZ], 20000.0f) / EL_SAMPLE_RATE);
+    v->drive = p[POP_DRIVE] > 0 ? 1.0f + p[POP_DRIVE] : 0.0f;
+    v->drive_inv = p[POP_DRIVE] > 0 ? 1.0f / dsp_tanh(v->drive) : 0.0f;
+    v->gain = p[POP_GAIN] * (0.6f + 0.4f * velocity);
 }
 
 EL_DSP_CODE float po_tick(po_voice_t *v)
@@ -73,7 +88,7 @@ EL_DSP_CODE float po_tick(po_voice_t *v)
     float ms = (float)v->age * (1000.0f / EL_SAMPLE_RATE), len = v->b;
     /* Oscillator: exponential glide from f_start to f_end, optional FM. */
     float f = (p[POP_F_END] + (p[POP_F_START] - p[POP_F_END]) * v->pitch) * v->a;
-    v->pitch *= coef_ms(p[POP_PITCH_MS] * len);
+    v->pitch *= v->c_pitch;
     float dt = dsp_min(f, 18000.0f) * (1.0f / EL_SAMPLE_RATE);
     float mod = 0;
     if (p[POP_FM_INDEX] > 0) {
@@ -97,7 +112,7 @@ EL_DSP_CODE float po_tick(po_voice_t *v)
     float att = p[POP_OSC_ATTACK], hold = p[POP_OSC_HOLD] * len;
     if (ms < att) v->a_env = ms / att;
     else if (ms < att + hold) v->a_env = 1.0f;
-    else v->a_env *= coef_ms(p[POP_OSC_DECAY] * len);
+    else v->a_env *= v->c_odec;
     /* Noise: state-variable filter, rise then decay, optional clap bursts. */
     float n = rnd(&v->rng), ne = v->n_env, osc = p[POP_OSC_LEVEL] * o * v->a_env;
     /* Noise envelope first: rise, then decay; optional clap bursts. */
@@ -105,7 +120,7 @@ EL_DSP_CODE float po_tick(po_voice_t *v)
     if (ms < natt) v->n_env = ms / natt;
     else {
         if (v->n_env < 1.0f && ms - natt < 1.0f) v->n_env = 1.0f;
-        v->n_env *= coef_ms(p[POP_NOISE_DECAY] * len);
+        v->n_env *= v->c_ndec;
     }
     ne = v->n_env;
     int bursts = (int)p[POP_BURSTS];
@@ -114,22 +129,21 @@ EL_DSP_CODE float po_tick(po_voice_t *v)
         if (ms < span) { float in = ms - p[POP_BURST_MS] * (float)(int)(ms / p[POP_BURST_MS]); ne = dsp_max(ne, 1.0f - in / p[POP_BURST_MS]); }
     }
     float into = p[POP_NOISE_LEVEL] * n * ne + p[POP_OSC_FILTER] * osc;
-    float g = dsp_tan(DSP_PI * dsp_min(p[POP_NOISE_HZ] * v->a, 19000.0f) / EL_SAMPLE_RATE), k = 1.0f / dsp_max(p[POP_NOISE_Q], 0.3f);
-    float hp = (into - (k + g) * v->s1 - v->s2) / (1.0f + g * (k + g)), bp = g * hp + v->s1, lpo = g * bp + v->s2;
+    float g = v->g, k = v->k;
+    float hp = (into - (k + g) * v->s1 - v->s2) * v->h, bp = g * hp + v->s1, lpo = g * bp + v->s2;
     v->s1 = g * hp + bp; v->s2 = g * bp + lpo;
     int mode = (int)p[POP_NOISE_MODE];
     float nf = mode == 0 ? lpo : mode == 1 ? bp * k : hp;
     float y = nf + (1.0f - p[POP_OSC_FILTER]) * osc;
-    if (p[POP_DRIVE] > 0) { float d = 1.0f + p[POP_DRIVE]; y = dsp_tanh(y * d) / dsp_tanh(d); }
+    if (v->drive > 0) y = dsp_tanh(y * v->drive) * v->drive_inv;
     /* Lo-fi: sample-and-hold at a low rate. */
     if (p[POP_CRUSH_HZ] > 0) {
         v->crush_phase += p[POP_CRUSH_HZ] * (1.0f / EL_SAMPLE_RATE);
         if (v->crush_phase >= 1.0f) { v->crush_phase -= 1.0f; v->crush_val = y; }
         y = v->crush_val;
     }
-    float c = 1.0f - dsp_exp(-2.0f * DSP_PI * dsp_min(p[POP_OUT_LP_HZ], 20000.0f) / EL_SAMPLE_RATE);
-    v->lp += (y - v->lp) * c;
-    y = v->lp * p[POP_GAIN] * (0.6f + 0.4f * v->velocity);
+    v->lp += (y - v->lp) * v->c_lp;
+    y = v->lp * v->gain;
     /* End: the gate (hard, as on the recordings, but over 1 ms), or fade
      * out once both envelopes are down. */
     float gate = p[POP_GATE_MS] * len;

@@ -23,8 +23,11 @@ Urheber, Herkunft, Lizenz).
 - **STRINGS 3 Stimmen** auf der Plattform (`engine/electro.c`).
 - **MKS-50:** Filter mit halber Rate (`MKS_VCF_DECIM` 2 auf der Plattform), Pulse 2/3 als ein Gatter (gleicher Klang).
 - **Tasten-LEDs** (ADR 0020): inaktive Bereichstasten gedimmt (`fm1_led_bg`, 8 µs Puls), OCT blinkt am Ende der Oktave.
-- `firmware/FM1_ELECTRO_PLATTFORM.fwsc` vom 06.11. (2. Build des Tages) enthält MKS-50 und LEDs; Hardware-Prüfung im
-  Emulator ok, **noch nicht auf dem Gerät gemessen**.
+- Gerät, 2. Build vom 06.11.: DR13 RH4 ST43 BA3 FX20 MB15, läuft viel besser, aber noch Knackser (Überlastung, sagt der
+  Nutzer). PO-12-Kit 120 %. **Becken und Closed Hat klingen nicht wie die 808**: Der Nutzer will das kalibrierte Modell
+  (ADR 0006); Feluccas Stimmen (ADR 0022) waren gegen diese Regel Standard geworden.
+- 3. Build vom 06.11.: PO-12 vorberechnet, MKS Saw 2–4 schneller Weg, Repeat nur solange Weiß gehalten,
+  OPTIONS zeigt PEAK/MAX/C1/LATE BLOCKS. Noch nicht auf dem Gerät.
 - **Cloud-Umgebung „FM1-Electro-one“** erlaubt pkgman.jieliapp.com, jl-update.oss-cn-shenzhen.aliyuncs.com (Toolchain) und
   gitee.com (AC79-SDK, reicht `--sparse` mit `cpu/wl82/tools`). fm1-emu: von GitHub klonen, `0bebe54`, Patch anwenden.
 

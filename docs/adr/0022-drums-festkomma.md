@@ -38,3 +38,4 @@ Vorgeschlagen, auf Wunsch des Nutzers („start“, 2026-11-06):
 ## Verlauf
 
 - 2026-11-06: angelegt nach der Messung `DR67` auf dem Gerät
+- 2026-11-06: Rückmeldung des Nutzers am Gerät: Becken und Closed Hat klingen nicht wie die 808. Gegen ADR 0006 (das kalibrierte Modell bleibt die Grundlage, Klangänderungen erst als A/B mit Standard aus) war dieser Record gleich als Standard eingeschaltet worden. Der Nutzer will den Klang des kalibrierten Modells; offen ist, wie die Last dafür sinkt (eigenes Modell in Festkomma oder verbilligt)

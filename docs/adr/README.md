@@ -16,7 +16,7 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0008](0008-clap.md) | Clap: Ausklang nach dem Original (gefittete Variante D) | angenommen | 2026-10-29 |
 | [0009](0009-808-metall.md) | 808-Metall: wandernde Oszillatoren, linearer Open Hat (Variante D) | angenommen | 2026-10-29 |
 | [0010](0010-bd-ausklang.md) | Bassdrum-Ausklang: Oktav-Körper (Variante C) | angenommen | 2026-10-26 |
-| [0011](0011-live-effekte.md) | Live-Effekte auf den schwarzen Tasten 5–11 | angenommen | 2026-10-26 |
+| [0011](0011-live-effekte.md) | Live-Effekte auf den schwarzen Tasten 5–11 | angenommen | 2026-11-06 |
 | [0012](0012-cowbell.md) | Cowbell an die echte Cowbell der Aufnahme angepasst | angenommen | 2026-10-29 |
 | [0013](0013-gated-reverb.md) | Gated Reverb: echter Hall mit Gate (Variante C), Clap trocken | angenommen | 2026-10-29 |
 | [0014](0014-hats.md) | Hi-Hats in X0X-/8W8-Bauweise (Variante D) | angenommen | 2026-10-29 |

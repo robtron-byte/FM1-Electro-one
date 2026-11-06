@@ -1,14 +1,19 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 3. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, Drums in Festkomma (ADR 0022), STRINGS mit 3 Stimmen und dem MKS-50-Filter in halber Rate. Neu in diesem Build:
-- Die Bereichstasten FX/SEL/ENV/LFO und HOME: Die gewählte leuchtet voll, die anderen etwa halb so hell (ADR 0020).
-- OCT− / OCT+ blinken, wenn die Tastatur-Oktave am Ende ist.
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in diesem Build:
+- **PO-12-Kit** rechnet viel weniger (die Werte, die sich während eines Schlags nicht ändern, einmal pro Schlag statt pro Sample; Klang gleich).
+- **STRINGS:** Saw-Formen 2–4 über einen schnellen Weg (gleiche Welle).
+- **Repeat** (schwarze Taste 8) läuft nur, solange eine weiße Taste gehalten wird.
+- **OPTIONS** (HOME + SAVE) zeigt bei laufendem Groove unten: `PEAK` (langsamster Audio-Block der letzten halben Sekunde, % seiner Zeit), `MAX` (seit dem Start), `C1` (langsamster Block auf Kern 1), `1CORE` falls Kern 1 ausgefallen ist, und `LATE BLOCKS` (zu spät gerechnete Blöcke seit dem Start = Knackser).
+- Bereichstasten gedimmt, OCT blinkt am Ende der Oktave (ADR 0020).
 
-Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen. Bitte ein Foto der OPTIONS-Zeile (HOME + SAVE) mit laufendem Groove schicken und sagen, ob die gedimmten Tasten passen.
+Noch offen: Die Drums laufen weiter über Feluccas Stimmen (ADR 0022), Becken und Hats klingen deshalb nicht wie unsere 808.
 
-SHA-256: `379ce8b78bd49010ae22defc7718c708a8e89e4ace4d4443350cf258ada9b655`
+Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
+
+SHA-256: `48c87190085e874169c768f1c1af54cd8e3e383c3b1f35c1412466eb4cda9ec3`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -18,6 +18,7 @@ static volatile uint8_t ready;
 #define TICKS_PER_FRAME_Q8 (24000000ull * 256u / 44100u)
 static volatile uint32_t load_peak, load_frames;
 static uint32_t load_at, prof_blocks;
+static volatile uint32_t drops;
 
 static float block[2 * EL_BLOCK];
 
@@ -54,6 +55,7 @@ void el_glue_render(int32_t *out, unsigned frames)
     }
     uint32_t used = el_platform_ticks() - start;
     if (used > load_peak) load_peak = used;
+    if (used > (uint32_t)(TICKS_PER_FRAME_Q8 * frames / 256u)) drops++;   /* later than the other half: a gap */
     load_frames = frames;
 }
 
@@ -71,6 +73,10 @@ void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
         load_peak = 0;
         load_at = now_ms;
         ui.load = (int16_t)((uint64_t)peak * 100u / budget);
+        if (ui.load > (int16_t)ui.load_max) ui.load_max = (uint16_t)ui.load;
+        ui.drops = drops;
+        ui.cpu1_on = (uint8_t)el_platform_cpu1_ok();
+        ui.plat = 1;
         ui.load_drops = 0;
         /* stage shares: their ticks against the engine blocks rendered meanwhile */
         uint32_t blocks = engine.blocks, n = blocks - prof_blocks;
@@ -83,6 +89,10 @@ void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
             ui.prof[i] = (uint8_t)(pct > 255u ? 255u : pct);
         }
         ui.prof_valid = n != 0;
+        uint32_t sp = engine.synth_peak;
+        engine.synth_peak = 0;
+        uint64_t c1 = (uint64_t)sp * 100u / per_block;
+        ui.c1_peak = (uint8_t)(c1 > 255u ? 255u : c1);
         ui.bench[0] = 1;   /* show the stage line in OPTIONS (the CPU test is the SDK build's) */
     }
     el_ui_control(&ui, controls, now_ms);

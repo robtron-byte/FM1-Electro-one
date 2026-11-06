@@ -36,6 +36,8 @@ typedef struct {
     uint32_t age, rng;
     float phase, mphase, pitch, a_env, n_env, n_rise, hold, fade;
     float s1, s2, lp, crush_phase, crush_val, a, b, velocity;
+    /* Per hit (po_trigger): what po_tick once worked out every sample. */
+    float c_pitch, c_odec, c_ndec, dt_end, dt_span, g, k, h, c_lp, drive, drive_inv, gain;
 } po_voice_t;
 
 /* a, b: the knobs, 0..1 with 0.5 = as recorded (a: pitch /2..x2, b: length /4..x4). */
