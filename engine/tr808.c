@@ -1058,10 +1058,6 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     return y * v->env3 * (1.0f + 0.6f * v->accent);
 }
 
-#include "tr808_metal_fixed.h"   /* cymbal and hats in fixed point (own platform) */
-#include "tr808_bd_fixed.h"      /* the bass drum in fixed point (own platform) */
-#include "tr808_rest_fixed.h"    /* snare, toms, rim shot, clap in fixed point (own platform) */
-
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
  * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
  * Tone drives it into a soft-clipped square; accent opens it further. */
@@ -1254,6 +1250,10 @@ static EL_DSP_VOICE float pulse(tr808_t *t, tr_voice_t *v)
     if (age > width + MS(50.0f)) v->active = 0;
     return (y - v->lp1) * 1.49f * (0.75f + 0.25f * v->volts);
 }
+
+#include "tr808_metal_fixed.h"   /* cymbal and hats in fixed point (own platform) */
+#include "tr808_bd_fixed.h"      /* the bass drum in fixed point (own platform) */
+#include "tr808_rest_fixed.h"    /* snare, toms, rim shot, clap, zap, pulse in fixed point (own platform) */
 
 /* ---- render ------------------------------------------------------------------------- */
 

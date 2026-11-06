@@ -108,11 +108,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
 #ifndef TR808_BD_FIXED
 #define TR808_BD_FIXED TR808_FIXED
 #endif
-/* TR808_REST_FIXED: snare, toms, rim shot and clap (engine/tr808_rest_fixed.h). */
+/* TR808_REST_FIXED: snare, toms, rim shot, clap, zap (model 3) and pulse (engine/tr808_rest_fixed.h). */
 #ifndef TR808_REST_FIXED
 #define TR808_REST_FIXED TR808_FIXED
 #endif
-#define TR808_REST_PART(p) (TR808_REST_FIXED && (p) >= D8_SD && (p) <= D8_CP)
+#define TR808_REST_PART(p) (TR808_REST_FIXED && (((p) >= D8_SD && (p) <= D8_CP) || (p) == D8_ZP || (p) == D8_PU))
 #define TR808_OWN_PART(p) (TR808_METAL_PART(p) || (TR808_BD_FIXED && (p) == D8_BD) || TR808_REST_PART(p))
 #if TR808_FIXED   /* engine/dr_fixed.c */
 void drf_init(void);

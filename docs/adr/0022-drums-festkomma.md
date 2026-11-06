@@ -47,3 +47,4 @@ Vorgeschlagen, auf Wunsch des Nutzers („start“, 2026-11-06):
 - 2026-11-06: BD in Festkomma nachgebaut (der Nutzer: „die BD war vorher besser“). Referenzaufnahmen des Nutzers („808 best of“, Dropbox, nicht im Repository): BD-Grundton dieser 808 fällt von ~62 auf 48,4–51 Hz (unser Modell: 44,5–46 Hz, kalibriert an anderen Aufnahmen), DECAY-Stufen −40 dB nach 0,29 / 0,45 / 0,9 / 1,5 s. Ein Abgleich daran käme als A/B-Schalter.
 - 2026-11-06: alle übrigen Stimmen in Festkomma nachgebaut (auf Wunsch des Nutzers erst alle, dann die Last am Gerät testen)
 - 2026-11-06: Last am Gerät gemessen (DR49, LATE BLOCKS 11), Nachbau ohne Klangänderung verbilligt (Emulator 91 → 82 %)
+- 2026-11-06: auch ZAP (Modell 3) und PULSE in Festkomma (`tr808_rest_fixed.h`): ZAP fällt innerhalb von 16 Samples exakt geometrisch, also eine Multiplikation pro Sample statt `exp2`, Sinus und tanh aus Tabellen; `make metal-fixed-check` jetzt 44 Fälle (ZAP −60 bis −62 dB, PULSE −51 bis −52 dB)

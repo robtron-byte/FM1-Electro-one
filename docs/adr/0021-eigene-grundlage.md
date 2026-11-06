@@ -76,3 +76,4 @@ Vorgeschlagen, das Projekt startet auf Zustimmung des Nutzers:
 ## Verlauf
 
 - 2026-11-05: angelegt nach der Prüfung von Dinghy, SLOOP und X0X, auf Wunsch des Nutzers (Weg B)
+- 2026-11-06: Effekte und Master (des vorigen Blocks) laufen auf dem Kern, der im vorigen Block weniger zu tun hatte: auf Kern 1 nach den Synths, wenn diese weniger Zeit brauchten als die Drums auf Kern 0 (nur Drums, dichtes Kit), sonst wie bisher auf Kern 0 (`engine/electro.c` `render_sources`). Bitgleich (Emulator-Aufnahme). Emulator, nur Drums: Kern 0 64 → 42 %

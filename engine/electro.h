@@ -135,6 +135,10 @@ typedef struct {
      * audio time base summed since the control task last took them. */
     volatile uint32_t prof[EL_PROF_STAGES];
     volatile uint32_t synth_peak;   /* the slowest synth stage (one call, ticks) since it was read */
+    /* Two cores: the synth (second core) and drum (first core) ticks of this
+     * block and of the block before; they decide which core takes the
+     * effects and master of the block before (electro.c render_sources). */
+    volatile uint32_t syn_ticks, drum_ticks, prev_syn_ticks, prev_drum_ticks;
     /* Second core (docs/adr/0021): the platform's hand-over of a job and the
      * wait for it (0 = done; else run it here). NULL: one core. */
     int (*par_run)(void (*job)(uint32_t), uint32_t arg);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
- * The 808's snare, toms / congas, rim shot / claves and hand clap /
- * maracas of tr808.c in fixed point, for the own platform (docs/adr/0022,
+ * The 808's snare, toms / congas, rim shot / claves, hand clap / maracas,
+ * zap and pulse of tr808.c in fixed point, for the own platform (docs/adr/0022,
  * 0006: the calibrated model stays the sound). Included by tr808.c after
  * tr808_metal_fixed.h (its helpers). The default models only (snare 0,
  * clap 3).
@@ -12,8 +12,8 @@
  * render call and, where the float code sets a filter every 8 samples, at
  * those points (the float svf_set). */
 #if TR808_FIXED && TR808_REST_FIXED
-#if TR808_SD_MODEL != 0 || TR808_CP_MODEL != 3
-#error "tr808_rest_fixed.h: only the default snare (0) and clap (3) models"
+#if TR808_SD_MODEL != 0 || TR808_CP_MODEL != 3 || TR808_ZP_MODEL != 3
+#error "tr808_rest_fixed.h: only the default snare (0), clap (3) and zap (3) models"
 #endif
 
 #define DR_ONE20 (1 << 20)
@@ -30,23 +30,24 @@ static inline EL_DSP_HELPER int32_t dr_sin(uint32_t ph)
 
 typedef struct {
     dm_svf_t r1, r2, r3;
-    int32_t env, env2, env3, pitch, aux, out_lp, lag1, lag2, pulse_lp, dc_x, dc_y, click;
+    int32_t env, env2, env3, pitch, aux, out_lp, lag1, lag2, pulse_lp, dc_x, dc_y, click, lp1;
     uint32_t age, phase;
+    int32_t hzq, lhq, early, fadeq;   /* zap: Hz (Q12), log2 Hz (Q24), the early boost (Q30) */
     float r_hz, r_q;            /* the snare's resonators as last set (skip when they do not move) */
     tr_memo_t memo[DM_MEMOS];
     uint8_t active, opening;
 } dr_voice_t;
 
 static struct {
-    dr_voice_t v[D8_CP + 1];   /* SD, LT, HT, RS, CP (index = part) */
+    dr_voice_t v[D8_NUM];      /* SD, LT, HT, RS, CP, ZP, PU (index = part) */
     uint8_t init;
 } dr;
-static float dr_y[D8_CP + 1][EL_BLOCK];
+static float dr_y[D8_NUM][EL_BLOCK];
 
 static void dr_reset(void)
 {
     memset(&dr, 0, sizeof dr);
-    for (int p = 0; p <= D8_CP; ++p) dm_memo_init(dr.v[p].memo, DM_MEMOS);
+    for (int p = 0; p < D8_NUM; ++p) dm_memo_init(dr.v[p].memo, DM_MEMOS);
     for (int i = 0; i <= 1024; ++i) {
         dr_sin_tab[i] = dr_q20(dsp_sin(2.0f * DSP_PI * (float)i * (1.0f / 1024.0f)));
     }
@@ -88,7 +89,7 @@ static inline EL_DSP_HELPER int32_t dr_ramp(uint32_t age, int32_t step_q30)
 
 static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
 {
-    static const uint8_t parts[] = {D8_SD, D8_LT, D8_HT, D8_RS, D8_CP};
+    static const uint8_t parts[] = {D8_SD, D8_LT, D8_HT, D8_RS, D8_CP, D8_ZP, D8_PU};
     unsigned live = 0;
     for (unsigned i = 0; i < sizeof parts; ++i) {
         int part = parts[i];
@@ -246,6 +247,83 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
                 y = DM30(y, v->env);
                 if (v->age > end) v->active = 0;
                 out[n] = dr_f20(y);
+                ++v->age;
+            }
+        } else if (part == D8_ZP) {
+            /* ---- zap_ref() (model 3). Within 16 samples (pitch held) the octaves
+             * rise linearly with the time: Hz falls by a constant factor a
+             * sample and its log2 by a constant step. Worked out at each 16th
+             * sample as the float code does, stepped in between. */
+            if (fresh) {
+                tv->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));
+                tv->aux2 = 1.0f / spread(t, part, P_SNAPPY);
+                tv->lag2 = 11.0f - 5.0f * knob(t, part, P_SOUND);   /* (the phase runs on, as the float one) */
+            }
+            const float ms_step = (1000.0f / EL_SAMPLE_RATE) * tv->aux2;
+            const int32_t hz_step = dm_q30(dsp_exp2(-0.0419f * ms_step)), lh_step = (int32_t)(-0.0419f * ms_step * 16777216.0f);
+            const int32_t lh_max = (int32_t)(dsp_log2(18000.0f) * 16777216.0f), hz_lim = 18000 << 12;
+            const int32_t floor_q = (int32_t)(tv->lag2 * 16777216.0f), fade_g = dm_q30(1.0f / 0.7f);
+            float tone = knob(t, part, P_TONE), dd = 1.0f + 8.0f * tone;
+            const int32_t c_drive = dm_q28(dd), c_dnorm = dm_q30(tone > 0.0f ? 1.0f / dsp_tanh(dd) : 1.0f);
+            const int32_t c_env = dm_q30(m_decay(&v->memo[0], MS(150.0f * spread(t, part, P_DECAY))));
+            const int32_t att_step = dm_q30(1.0f / MS(0.3f)), g = dm_q28(0.35f + 0.65f * tv->volts);
+            const uint32_t settle = (uint32_t)MS(5.0f);
+            for (int n = 0; n < frames; ++n) {
+                dr_noise(&ns);
+                if (!v->active) { out[n] = 0; continue; }
+                if ((v->age & 15u) == 0) {
+                    float ms = (float)v->age * (1000.0f / EL_SAMPLE_RATE) * tv->aux2;
+                    float pitch = dsp_exp(-ms * (1.0f / 19.0f));
+                    float oct = 0.0419f * ms + 1.585f * (1.0f - pitch);
+                    float hz = tv->aux * dsp_exp2(-oct);
+                    v->hzq = hz < 400000.0f ? (int32_t)(hz * 4096.0f) : 400000 << 12;
+                    v->lhq = (int32_t)((dsp_log2(dsp_max(tv->aux, 1.0f)) - oct) * 16777216.0f);
+                    v->early = dm_q30(0.447f + 0.553f * pitch * pitch);
+                } else {
+                    v->hzq = DM30(v->hzq, hz_step);
+                    v->lhq += lh_step;
+                }
+                int32_t hzc = v->hzq < hz_lim ? v->hzq : hz_lim;
+                v->phase += (uint32_t)(((uint64_t)(uint32_t)hzc * 1558265u) >> 16);   /* Hz Q12 x 2^36 / 44100 / 2^16 = Hz / 44100 x 2^32 */
+                int32_t y = dr_sin(v->phase);
+                if (tone > 0.0f) y = DM30(dr_tanh(DM28(y, c_drive)), c_dnorm);
+                int32_t lh = v->lhq < lh_max ? v->lhq : lh_max;       /* log2 of the clamped Hz */
+                int32_t above = DM30(lh - floor_q, fade_g);
+                int32_t fade = above <= 0 ? 0 : above >= (1 << 24) ? (1 << 24) : above;   /* Q24 */
+                v->env = DM30(v->env, c_env);
+                int32_t attack = dr_ramp(v->age, att_step);
+                if (fade <= 0 && v->age > settle) v->active = 0;
+                int32_t a = dm_mul(dm_mul(y, fade, 24), fade, 24);
+                a = DM30(DM30(DM30(a, v->early), v->env), attack);
+                out[n] = dr_f20(DM28(a, g));
+                ++v->age;
+            }
+        } else if (part == D8_PU) {
+            /* ---- pulse(): the trigger out through the coupling and three high-passes */
+            if (fresh) {
+                float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
+                dm_svf_set(&v->r1, 341.0f * tune, 0.65f);
+                dm_svf_set(&v->r2, 250.0f * tune, 0.7f * ring);
+                dm_svf_set(&v->r3, 250.0f * tune, 0.55f * ring);
+            }
+            float width = MS(15.15f) * m_exp2(&v->memo[0], 4.0f * (knob(t, part, P_SNAPPY) - 0.5f));
+            const uint32_t w_end = dr_ceil(width), g_start = dr_ceil(width - MS(0.05f)), end = (uint32_t)(width + MS(50.0f));
+            const int32_t up = dm_q30(0.0719f), down = dm_q30(0.6415f), glitch = dr_q20(0.233f);
+            const int32_t c_coup = dm_q30(1.0f - m_decay(&v->memo[1], MS(0.216f) * spread(t, part, P_DECAY) * spread(t, part, P_DECAY)));
+            const int32_t c_dc = dm_q30(0.0043f), g = dm_q28(1.49f * (0.75f + 0.25f * tv->volts));
+            for (int n = 0; n < frames; ++n) {
+                dr_noise(&ns);
+                if (!v->active) { out[n] = 0; continue; }
+                uint32_t age = v->age;
+                int on = age < w_end;
+                v->aux += DM30((on ? DR_ONE20 : 0) - v->aux, on ? up : down);   /* (v->aux: the trigger voltage) */
+                int32_t x = v->aux + (on && age >= g_start ? glitch : 0);
+                int32_t dy = x - v->dc_x;                 /* input coupling, 1-pole HP */
+                v->dc_x += DM30(dy, c_coup);
+                int32_t y = dm_hp(&v->r3, dm_hp(&v->r2, dm_hp(&v->r1, dy)));
+                v->lp1 += DM30(y - v->lp1, c_dc);         /* 30 Hz DC block */
+                if (age > end) v->active = 0;
+                out[n] = dr_f20(DM28(y - v->lp1, g));
                 ++v->age;
             }
         } else {

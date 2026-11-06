@@ -441,7 +441,8 @@ static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32
  * renders the drums (docs/adr/0021), else after them. Their reverb and delay
  * sends go to buffers of their own (the drums write rev / dly meanwhile);
  * render_bus adds them. */
-static struct { el_engine_t *e; el_bus_t *b; int pos, n; } synth_args;
+static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b);
+static struct { el_engine_t *e; el_bus_t *b, *bus; int pos, n; } synth_args;
 static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
     uint32_t pt = prof_now(), t0 = pt;
@@ -454,14 +455,15 @@ static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int 
         prof_add(e, EL_PROF_RHYTHM + i, &pt);
     }
     if (pt - t0 > e->synth_peak) e->synth_peak = pt - t0;
+    e->syn_ticks += pt - t0;
 }
 static EL_DSP_CODE void synth_job(uint32_t arg)
 {
     (void)arg;
     render_synths(synth_args.e, synth_args.b, synth_args.pos, synth_args.n);
+    if (synth_args.bus) bus_stage(synth_args.e, synth_args.bus);   /* the block before's effects and master */
 }
 
-static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b);
 static EL_DSP_CODE void render_sources(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
     /* Drum key, Follow BASS: the BASS area's transposition (docs/adr/0016). */
@@ -470,17 +472,27 @@ static EL_DSP_CODE void render_sources(el_engine_t *e, el_bus_t *b, int pos, int
     synth_args.b = b;
     synth_args.pos = pos;
     synth_args.n = n;
+    /* Two cores: the effects and master of the block before run meanwhile,
+     * on the core that had less to do in that block: the second after its
+     * synths when they took less time than the drums (only drums playing,
+     * a dense kit), else the first after the drums. They touch only the
+     * block before's buses and the effects' and master's own state. */
+    el_bus_t *done = bus_pending;
+    int bus_c1 = done && e->par_run && e->prev_syn_ticks < e->prev_drum_ticks;
+    if (done) bus_pending = 0;
+    synth_args.bus = bus_c1 ? done : 0;
     int par = e->par_run && e->par_run(synth_job, 0);
-    uint32_t pt = prof_now();
+    if (!par) { bus_c1 = 0; synth_args.bus = 0; }
+    uint32_t pt = prof_now(), t0 = pt;
     dr_render(&e->drums, b->kick + pos, b->drum_l + pos, b->drum_r + pos, b->rev + pos, b->gate + pos, b->dly + pos, n);
     prof_add(e, EL_PROF_DRUMS, &pt);
-    if (bus_pending) {   /* two cores: the effects and master of the block before, meanwhile */
-        el_bus_t *done = bus_pending;
-        bus_pending = 0;
-        bus_stage(e, done);
-        bus_out = done;
+    e->drum_ticks += pt - t0;
+    if (done && !bus_c1) bus_stage(e, done);
+    if (!par || e->par_wait()) {             /* one core, or the second gave up */
+        render_synths(e, b, pos, n);
+        if (bus_c1) bus_stage(e, done);
     }
-    if (!par || e->par_wait()) render_synths(e, b, pos, n);   /* one core, or the second gave up */
+    if (done) bus_out = done;
 }
 
 /* Note values of the punch-ins (white keys while one is held): length in
@@ -764,6 +776,8 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *gate = b->gate, *dly = b->dly;
     float *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r, *syn_rev = b->syn_rev, *syn_dly = b->syn_dly;
     el_cmd_t c;
+    e->prev_syn_ticks = e->syn_ticks; e->prev_drum_ticks = e->drum_ticks;   /* (render_sources) */
+    e->syn_ticks = e->drum_ticks = 0;
     while (el_queue_pop(&e->queue, &c)) apply(e, &c);
     while (el_queue_pop(&e->midi_queue, &c)) apply(e, &c);
     dr_process_commands(&e->drums);
