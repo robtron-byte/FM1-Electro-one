@@ -62,6 +62,7 @@ typedef struct {
      * pitch ratio against their stock pitch (key on). */
     int8_t key_shift;
     uint8_t key_on;
+    uint8_t key_sig[12], key_sig_ok;          /* key_update's inputs as last worked out (tr808.c) */
     float key_r[D8_NUM], key_cb_hi;
     tr_voice_t v[D8_NUM];
     po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */

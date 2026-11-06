@@ -20,16 +20,6 @@
 static inline EL_DSP_HELPER int32_t dr_q20(float x) { return (int32_t)(x * 1048576.0f); }
 static inline EL_DSP_HELPER float dr_f20(int32_t x) { return (float)x * (1.0f / DR_ONE20); }
 
-/* tanh over +-8 (Q20 in and out): 1/128 steps */
-static int32_t dr_tanh_tab[1025];
-static inline EL_DSP_HELPER int32_t dr_tanh(int32_t x)
-{
-    int32_t a = x < 0 ? -x : x;
-    if (a >= (8 << 20)) return x < 0 ? -DR_ONE20 : DR_ONE20;
-    int32_t i = a >> 13, f = a & 0x1fff;
-    int32_t y = dr_tanh_tab[i] + (((dr_tanh_tab[i + 1] - dr_tanh_tab[i]) * f) >> 13);
-    return x < 0 ? -y : y;
-}
 /* sin of a 32-bit phase (Q20): 1024 steps a cycle */
 static int32_t dr_sin_tab[1025];
 static inline EL_DSP_HELPER int32_t dr_sin(uint32_t ph)
@@ -42,6 +32,8 @@ typedef struct {
     dm_svf_t r1, r2, r3;
     int32_t env, env2, env3, pitch, aux, out_lp, lag1, lag2, pulse_lp, dc_x, dc_y, click;
     uint32_t age, phase;
+    float r_hz, r_q;            /* the snare's resonators as last set (skip when they do not move) */
+    tr_memo_t memo[DM_MEMOS];
     uint8_t active, opening;
 } dr_voice_t;
 
@@ -54,8 +46,8 @@ static float dr_y[D8_CP + 1][EL_BLOCK];
 static void dr_reset(void)
 {
     memset(&dr, 0, sizeof dr);
+    for (int p = 0; p <= D8_CP; ++p) dm_memo_init(dr.v[p].memo, DM_MEMOS);
     for (int i = 0; i <= 1024; ++i) {
-        dr_tanh_tab[i] = dr_q20(dsp_tanh((float)i * (1.0f / 128.0f)));
         dr_sin_tab[i] = dr_q20(dsp_sin(2.0f * DSP_PI * (float)i * (1.0f / 1024.0f)));
     }
 }
@@ -131,10 +123,10 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
             float tone = knob(t, part, P_TONE);
             float early = t->pot[part][P_SOUND] ? 1.384f : 1.0f;
             float knock0 = 0.04f + 0.04f * acc;
-            const int32_t g_low = dm_q28((1.0f - tone) * k[0]), g_high = dm_q28(k[1] * dsp_exp2(1.79f * tone));
-            const int32_t c_env = dm_q30(decay_coef(MS(k[5]) * decay)), c_env2 = dm_q30(decay_coef(MS(k[6]) * decay));
+            const int32_t g_low = dm_q28((1.0f - tone) * k[0]), g_high = dm_q28(k[1] * m_exp2(&v->memo[0], 1.79f * tone));
+            const int32_t c_env = dm_q30(m_decay(&v->memo[1], MS(k[5]) * decay)), c_env2 = dm_q30(m_decay(&v->memo[2], MS(k[6]) * decay));
             const int32_t c_pitch = dm_q30(0.99623f), att_step = dm_q30(1.0f / MS(0.5f));
-            const int32_t c_lp = dm_q30(1.0f - dsp_exp(-2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE));
+            const int32_t c_lp = dm_q30(1.0f - m_exp(&v->memo[3], -2.0f * DSP_PI * k[9] / EL_SAMPLE_RATE));
             const int32_t mix1 = dm_q30(1.0f - k[7]), mix2 = dm_q30(k[7]), g_n = dm_q28(k[4]), g_snap = dm_q28(k[10]);
             float snappy_f = dsp_clamp((knob(t, part, P_SNAPPY) - 0.26f) * (1.0f / 0.74f), 0.0f, 1.0f);
             const int32_t snappy = dm_q30(snappy_f), c09 = dm_q28(0.9f), c09i = dm_q28(1.0f / 0.9f), c055 = dm_q28(0.55f);
@@ -145,9 +137,15 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
                 int32_t pulse = dr_pulse(v, volts, pulse_len, c_plp, clamp);
                 v->pitch = DM30(v->pitch, c_pitch);
                 if ((v->age & 7u) == 0) {
+                    /* as the float code, but only when the knock moves the pitch by more
+                     * than 2e-6 (it settles within ~60 ms) */
                     float knock = 1.0f + knock0 * ((float)v->pitch * (1.0f / DM_ONE30));
-                    dm_svf_set(&v->r1, 172.0f * early * tune * knock, k[2] * decay);
-                    dm_svf_set(&v->r2, 339.0f * early * 1.016f * tune * knock, k[3] * decay);
+                    float hz = 172.0f * early * tune * knock, dhz = hz - v->r_hz;
+                    if (decay != v->r_q || dhz > 2e-6f * hz || dhz < -2e-6f * hz) {
+                        dm_svf_set(&v->r1, hz, k[2] * decay);
+                        dm_svf_set(&v->r2, 339.0f * early * 1.016f * tune * knock, k[3] * decay);
+                        v->r_hz = hz; v->r_q = decay;
+                    }
                 }
                 int32_t in = pulse * 3;
                 int32_t body = DM28(dr_bp_raw(&v->r1, in), g_low) + DM28(dr_bp_raw(&v->r2, in), g_high);
@@ -168,8 +166,9 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
         } else if (part == D8_LT || part == D8_HT) {
             /* ---- tom(): toms and congas */
             int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-            float f0 = tom_hz[idx] * (t->key_on ? t->key_r[part] : dsp_exp2(0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f));
-            float scale = dsp_sqrt(93.0f / f0);
+            float f0 = tom_hz[idx] * (t->key_on ? t->key_r[part] : m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f));
+            if (f0 != v->memo[1].x) { v->memo[1].x = f0; v->memo[1].y = dsp_sqrt(93.0f / f0); }
+            float scale = v->memo[1].y;
             if (fresh) {
                 v->lag2 = v->lag1;               /* what still rings fades out instead of clicking */
                 v->phase = 0;                    /* the hit starts on -cos */
@@ -180,12 +179,12 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
             float base_f = f0 * (1.0f / EL_SAMPLE_RATE) * 4294967296.0f;
             const uint32_t base = (uint32_t)base_f;
             const int32_t bend_inc = (int32_t)(base_f * bend * (1.0f / 4.0f));   /* /4: Q30 pitch, shift 28 */
-            const int32_t c_pitch = dm_q30(decay_coef(MS(42.9f * scale)));
-            const int32_t c_env = dm_q30(decay_coef(MS(74.9f * scale * (conga ? 0.65f : 1.0f) * dsp_exp2((t->pot[part][P_DECAY] - 64) / 48.0f))));
+            const int32_t c_pitch = dm_q30(m_decay(&v->memo[2], MS(42.9f * scale)));
+            const int32_t c_env = dm_q30(m_decay(&v->memo[4], MS(74.9f * scale * (conga ? 0.65f : 1.0f) * m_exp2(&v->memo[3], (t->pot[part][P_DECAY] - 64) / 48.0f))));
             const int32_t c_env3 = dm_q30(tom_env3_c), c_env2 = dm_q30(tom_env2_c), c_lag2 = dm_q30(tom_lag2_c);
             const int32_t att_step = dm_q30(1.0f / MS(0.5f));
-            const int32_t amount = dm_q28(2.0f * 0.014f * dsp_exp2((t->pot[part][P_TONE] - 64) / 16.0f));
-            const int32_t c_click = dm_q30(dsp_exp(-1.0f / MS(0.3f))), c_clp = dm_q28(0.133f), g_click = dm_q28(0.03f);
+            const int32_t amount = dm_q28(2.0f * 0.014f * m_exp2(&v->memo[5], (t->pot[part][P_TONE] - 64) / 16.0f));
+            const int32_t c_click = dm_q30(m_exp(&v->memo[6], -1.0f / MS(0.3f))), c_clp = dm_q28(0.133f), g_click = dm_q28(0.03f);
             float soft = tv->volts * 14.0f / (4.0f + 10.0f * acc);
             const int32_t g_in = dm_q28(0.76f * (1.0f + 1.2f * acc) * soft), bias_in = dr_q20(0.76f * 0.0025f);
             const int32_t bias = dr_q20(tom_bias), g_out = dm_q28(1.0f + 0.5f * acc), tiny = dr_q20(1e-5f);
@@ -278,10 +277,10 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
                     v->opening = 0;
                 }
                 const uint32_t gap = (uint32_t)MS(k[4]), on = (uint32_t)MS(k[5]);
-                const int32_t tooth = dm_q30(k[2]), c_tooth = dm_q30(decay_coef(MS(k[3])));
+                const int32_t tooth = dm_q30(k[2]), c_tooth = dm_q30(m_decay(&v->memo[0], MS(k[3])));
                 const int32_t rise = dm_q30(1.0f / dsp_max(1.0f, MS(k[6])));
-                const int32_t c_main = dm_q30(decay_coef(MS(k[7]) * decay)), c_floor = dm_q30(decay_coef(MS(k[9]) * decay));
-                const int32_t c_lp = dm_q30(1.0f - dsp_exp(-2.0f * DSP_PI * k[10] / EL_SAMPLE_RATE));
+                const int32_t c_main = dm_q30(m_decay(&v->memo[1], MS(k[7]) * decay)), c_floor = dm_q30(m_decay(&v->memo[2], MS(k[9]) * decay));
+                const int32_t c_lp = dm_q30(1.0f - m_exp(&v->memo[3], -2.0f * DSP_PI * k[10] / EL_SAMPLE_RATE));
                 const int32_t g_loud = dm_q28(tv->volts * k[11] * k[12]), g_floor = dm_q28(k[8] * tv->volts * k[11]);
                 const int32_t g_out = dm_q28(1.0f / (k[12] * (1.2f / 1.4f)));
                 const int32_t floor_quiet = dm_q30(3e-5f / k[8]);

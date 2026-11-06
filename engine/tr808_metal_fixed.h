@@ -23,6 +23,24 @@ static inline EL_DSP_HELPER int32_t dm_mul(int32_t a, int32_t b, int s) { return
 static inline EL_DSP_HELPER int32_t dm_q28(float x) { return (int32_t)(x * 268435456.0f); }
 static inline EL_DSP_HELPER int32_t dm_q30(float x) { return (int32_t)(x * 1073741824.0f); }
 
+/* tanh over +-8 (Q20 in and out): 1/128 steps */
+static int32_t dr_tanh_tab[1025];
+static inline EL_DSP_HELPER int32_t dr_tanh(int32_t x)
+{
+    int32_t a = x < 0 ? -x : x;
+    if (a >= (8 << 20)) return x < 0 ? -DM_ONE20 : DM_ONE20;
+    int32_t i = a >> 13, f = a & 0x1fff;
+    int32_t y = dr_tanh_tab[i] + (((dr_tanh_tab[i + 1] - dr_tanh_tab[i]) * f) >> 13);
+    return x < 0 ? -y : y;
+}
+/* the same as a float (DRIVE in tr808_render, the bass drum's) */
+static inline EL_DSP_HELPER float dm_tanhf(float x)
+{
+    if (x >= 8.0f) return 1.0f;
+    if (x <= -8.0f) return -1.0f;
+    return (float)dr_tanh((int32_t)(x * 1048576.0f)) * (1.0f / DM_ONE20);
+}
+
 /* TPT state-variable filter: tr808.c's svf_set worked out in float, the
  * coefficients in Q28, the states Q20. */
 typedef struct { int32_t ic1, ic2, a1, a2, a3, k; } dm_svf_t;
@@ -50,13 +68,27 @@ static inline EL_DSP_HELPER int32_t dm_hp(dm_svf_t *f, int32_t x)
 /* A bank of the six oscillators: phases and steps as 32-bit fractions of a
  * cycle (the float phase times 2^32). The shared bank, and one per hat
  * whose TUNE is off centre (copied from the shared one at its hit). */
-typedef struct { uint32_t ph[6], inc[6]; float rinc[6], tune; uint8_t on; } dm_bank_t;
+/* quiet[i]: samples to come in which oscillator i meets no edge (it only
+ * steps; its level stays yc[i]), worked out after each edge; 0: look. */
+typedef struct { uint32_t ph[6], inc[6], quiet[6]; int32_t yc[6]; float rinc[6], tune; uint8_t on; } dm_bank_t;
 #define DM_DUTY ((uint32_t)(METAL_DUTY * 4294967296.0))
 enum { DM_CY, DM_OH, DM_CH, DM_CB, DM_VOICES };
+
+/* Coefficients remembered with their argument (as tr808.c's m_decay /
+ * m_exp / m_exp2): the transcendental functions run only when a knob
+ * moves, not at every render call. DM_MEMOS a voice; x starts at -1e30. */
+enum { DM_MEMOS = 10 };
+static inline EL_DSP_HELPER float m_powf(tr_memo_t *m, float a, float b)
+{
+    if (a != m->x) { m->x = a; m->y = powf_approx(a, b); }
+    return m->y;
+}
+static void dm_memo_init(tr_memo_t *m, int n) { for (int i = 0; i < n; ++i) m[i].x = -1e30f; }
 
 typedef struct {
     int32_t env, env2, env3, att, lag1, lag2, lp1, hp1, out_lp, pink[3], dc_x, dc_y;
     dm_svf_t r1, r2, r3;
+    tr_memo_t memo[DM_MEMOS];
     uint32_t age;
     uint8_t active;
 } dm_voice_t;
@@ -71,13 +103,19 @@ static struct {
 } dm;
 static float dm_y[DM_VOICES][EL_BLOCK];
 
-static void dm_reset(void) { memset(&dm, 0, sizeof dm); }   /* with tr808_init: set up on the next render */
+static void dm_reset(void)   /* with tr808_init: set up on the next render */
+{
+    memset(&dm, 0, sizeof dm);
+    for (int k = 0; k < DM_VOICES; ++k) dm_memo_init(dm.v[k].memo, DM_MEMOS);
+    for (int i = 0; i <= 1024; ++i) dr_tanh_tab[i] = (int32_t)(dsp_tanh((float)i * (1.0f / 128.0f)) * 1048576.0f);
+}
 
 static EL_DSP_HELPER void dm_step_set(tr808_t *t, dm_bank_t *b, int i)
 {
     float dt = metal_hz[i] * metal_tol[i] * b->tune * t->metal_mod[i] * (1.0f / EL_SAMPLE_RATE);
     b->inc[i] = (uint32_t)(dt * 4294967296.0f);
     b->rinc[i] = b->inc[i] ? 1.0f / (float)b->inc[i] : 0.0f;
+    b->quiet[i] = 0;
 }
 static EL_DSP_HELPER void dm_retune(tr808_t *t, int i)   /* an oscillator's wandering changed: every bank */
 {
@@ -99,7 +137,15 @@ static EL_DSP_HELPER int32_t dm_bank_tick(tr808_t *t, dm_bank_t *b, int32_t *cow
 {
     int32_t sum = 0, cb = 0;
     for (int i = 0; i < 6; ++i) {
-        uint32_t inc = b->inc[i], p = b->ph[i] + inc;
+        uint32_t inc = b->inc[i];
+        if (b->quiet[i]) {                      /* far from both edges: the same level, no wrap */
+            --b->quiet[i];
+            b->ph[i] += inc;
+            sum += b->yc[i];
+            if (i >= 4) cb += b->yc[i];
+            continue;
+        }
+        uint32_t p = b->ph[i] + inc;
         float rinc = b->rinc[i];
         int wrapped = p < b->ph[i];
         b->ph[i] = p;
@@ -109,11 +155,20 @@ static EL_DSP_HELPER int32_t dm_bank_tick(tr808_t *t, dm_bank_t *b, int32_t *cow
             dm_retune(t, i);
         }
         int32_t y = p < DM_DUTY ? DM_ONE20 : 0;
-        if (p < inc || p > 0u - inc) y += dm_half_blep(p, inc, rinc);
+        int near = 0;
+        if (p < inc || p > 0u - inc) { y += dm_half_blep(p, inc, rinc); near = 1; }
         uint32_t down = p - DM_DUTY;
-        if (down < inc || down > 0u - inc) y -= dm_half_blep(down, inc, rinc);
+        if (down < inc || down > 0u - inc) { y -= dm_half_blep(down, inc, rinc); near = 1; }
         sum += y;
         if (i >= 4) cb += y;
+        /* the samples until the next one within a step of an edge (with the step
+         * from now on: the wandering may just have changed it) */
+        uint32_t ni = b->inc[i];
+        if (!near && ni) {
+            uint32_t d0 = (0u - ni + 1u) - p, d1 = (DM_DUTY - ni + 1u) - p, d = d0 < d1 ? d0 : d1;
+            b->quiet[i] = (d - 1u) / ni;
+            b->yc[i] = p < DM_DUTY ? DM_ONE20 : 0;
+        }
     }
     if (cowbell) *cowbell = 2 * cb - 2 * DM_ONE20;   /* 2 (r4 + r5) - 2 */
     return DM28(sum, dm_q28(1.0f / 3.0f)) - DM_ONE20;
@@ -159,6 +214,7 @@ static EL_DSP_HELPER void dm_idle(tr808_t *t, int frames)
         float x = metal_hz[i] * metal_tol[i] * tune;
         x -= (float)(int)x;
         b->ph[i] += (uint32_t)(x * 4294967296.0f);
+        b->quiet[i] = 0;
     }
 }
 
@@ -213,7 +269,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
                 dm_svf_set(&v->r2, ck[15], 1.0f);
                 dm_svf_set(&v->r3, ck[16], 5.64f);
             } else {
-                float g = dsp_sqrt(spread(t, part, P_TUNE));
+                float g = dsp_sqrt(spread(t, part, P_TUNE));   /* (at a hit only) */
                 if (part == D8_CH) { const float *c = tr808_ch2_cal; dm_svf_set(&v->r2, c[0] * g, c[1]); dm_svf_set(&v->r3, c[2] * g, c[3]); }
                 else { dm_svf_set(&v->r2, 6200.0f * g, 0.9f); dm_svf_set(&v->r3, 5200.0f * g, 0.8f); }
             }
@@ -227,8 +283,8 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
                 dm_svf_set(&v->r2, cb[3] * tune, 0.7071f);
             }
             float decay = spread(t, part, P_DECAY);
-            c_env[k] = dm_q30(decay_coef(MS(cb[5]) * decay));
-            cb_env2 = dm_q30(decay_coef(MS(cb[6]) * decay));
+            c_env[k] = dm_q30(m_decay(&v->memo[0], MS(cb[5]) * decay));
+            cb_env2 = dm_q30(m_decay(&v->memo[1], MS(cb[6]) * decay));
             cb_att = dm_q30(1.0f / MS(0.7f));
             cb_mix1 = dm_q30(cb[4]); cb_mix2 = dm_q30(1.0f - cb[4]);
             cb_edge = dm_q28(cb[2]);
@@ -249,29 +305,29 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
         }
         if (k == DM_CY) {
             float decay = knob(t, part, P_DECAY), kt = knob(t, part, P_TONE);
-            float tone = powf_approx(kt, ck[14]);
-            c_env[k] = dm_q30(decay_coef(MS(ck[8] + ck[9] * decay)));
-            c_env2 = dm_q30(decay_coef(MS(ck[10] + ck[11] * decay)));
-            c_env3 = dm_q30(decay_coef(MS(ck[4])));
+            float tone = m_powf(&v->memo[0], kt, ck[14]);
+            c_env[k] = dm_q30(m_decay(&v->memo[1], MS(ck[8] + ck[9] * decay)));
+            c_env2 = dm_q30(m_decay(&v->memo[2], MS(ck[10] + ck[11] * decay)));
+            c_env3 = dm_q30(m_decay(&v->memo[3], MS(ck[4])));
             c_lag1 = dm_q30(1.0f / MS(ck[12]));
             c_lag2 = dm_q30(1.0f / MS(ck[13]));
             d_low = dm_q28(ck[0]);
             d_high = dm_q28(ck[0] * 1.14f);
-            g_low = dm_q28(ck[1] * dsp_exp2(-ck[6] * (tone - 0.5f)));
-            g_mid = dm_q28(ck[2] * dsp_exp2(ck[7] * (tone - 0.5f)));
-            g_hi = dm_q28(ck[3] * dsp_exp2(ck[5] * (tone - 0.5f)));
-            c_out = dm_q30(1.0f - dsp_exp(-2.0f * DSP_PI * ck[17] / EL_SAMPLE_RATE));
+            g_low = dm_q28(ck[1] * m_exp2(&v->memo[4], -ck[6] * (tone - 0.5f)));
+            g_mid = dm_q28(ck[2] * m_exp2(&v->memo[5], ck[7] * (tone - 0.5f)));
+            g_hi = dm_q28(ck[3] * m_exp2(&v->memo[6], ck[5] * (tone - 0.5f)));
+            c_out = dm_q30(1.0f - m_exp(&v->memo[7], -2.0f * DSP_PI * ck[17] / EL_SAMPLE_RATE));
             out_gain[k] = dm_q28(1.0f + 0.6f * acc);
             kv[k] = dm_q28(0.5f + 0.5f * acc);        /* the reservoirs' height (aux) */
         } else {
-            if (part == D8_CH) c_env[k] = dm_q30(decay_coef(MS(tr808_ch2_cal[5]) * spread(t, part, P_DECAY)));
+            if (part == D8_CH) c_env[k] = dm_q30(m_decay(&v->memo[0], MS(tr808_ch2_cal[5]) * spread(t, part, P_DECAY)));
             else {
                 float len = MS(442.0f) * spread(t, part, P_DECAY);
                 oh_start = (uint32_t)(0.3f * len);
                 oh_step = dm_q30(1.0f / (0.7f * len));
-                c_att = dm_q30(dsp_exp(-1.0f / MS(6.0f)));
+                c_att = dm_q30(m_exp(&v->memo[1], -1.0f / MS(6.0f)));
             }
-            if (tv->aux2 > 0) c_choke[k] = dm_q30(decay_coef(MS(7.0f)));
+            if (tv->aux2 > 0) c_choke[k] = dm_q30(m_decay(&v->memo[2], MS(7.0f)));
             kv[k] = dm_q28(4.0f + 3.3f * acc);
             /* the chain's x8 / x5 and the calibration after the (linear) DC block */
             out_gain[k] = dm_q28(part == D8_CH ? 8.0f * tr808_hh2_cal[0] * tr808_ch2_cal[6] : 5.0f * tr808_hh2_cal[1]);
@@ -288,7 +344,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
         for (int i = 0; i < 6; ++i) dm_step_set(t, b, i);
     }
     const int32_t c_lp1 = dm_q28(0.4513f), c_hp1 = dm_q28(0.5243f), c_hi = dm_q28(2.78f), c_raw = dm_q28(0.714f);
-    const int32_t c_ch_lp = dm_q28(1.0f - dsp_exp(-2.0f * DSP_PI * tr808_ch2_cal[4] / EL_SAMPLE_RATE)), c_oh_lp = dm_q28(0.5686f), c_dc = dm_q28(0.9719f), c_fade = dm_q30(0.9925f);
+    const int32_t c_ch_lp = dm_q28(1.0f - m_exp(&dm.v[DM_CH].memo[3], -2.0f * DSP_PI * tr808_ch2_cal[4] / EL_SAMPLE_RATE)), c_oh_lp = dm_q28(0.5686f), c_dc = dm_q28(0.9719f), c_fade = dm_q30(0.9925f);
     const int32_t quiet = dm_q30(1e-4f), gone = dm_q30(1e-3f), knee0 = 1 << 24, k059 = (int32_t)(0.59f * (1 << 24));
     const int32_t k12 = (int32_t)(1.2f * (1 << 24)), k06 = (int32_t)(0.6f * (1 << 24)), r24 = dm_q28(1.0f / 2.4f);
     const uint32_t cy_end = (uint32_t)MS(300.0f);
@@ -303,7 +359,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
             dm_bank_t *b = &dm.bank[1 + h];
             dm_voice_t *v = &dm.v[h ? DM_CH : DM_OH];
             if (!b->on || !v->active) continue;
-            if (v->age == 0) memcpy(b->ph, sb->ph, sizeof b->ph);
+            if (v->age == 0) { memcpy(b->ph, sb->ph, sizeof b->ph); memset(b->quiet, 0, sizeof b->quiet); }
             hat_src[h] = DM28(dm_bank_tick(t, b, 0), c_raw);
         }
         /* ---- cowbell: tr808.c's cowbell_fitted() (model 1) */

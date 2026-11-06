@@ -1286,6 +1286,14 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
     if (!t->key_on) return;
     int pc = (t->kit[4] - 1 + (t->kit[5] ? t->key_shift : 0)) % 12;
     if (pc < 0) pc += 12;
+    /* Only when an input moved (the key, a TUNE, a sound switch): a log2 and
+     * two exp2 for eight parts at every render call cost more than the drums' math. */
+    uint8_t sig[12] = {(uint8_t)pc, t->pot[D8_BD][P_TUNE], t->pot[D8_SD][P_TUNE], t->pot[D8_LT][P_TUNE], t->pot[D8_HT][P_TUNE],
+                       t->pot[D8_RS][P_TUNE], t->pot[D8_CB][P_TUNE], t->pot[D8_ZP][P_TUNE], t->pot[D8_PU][P_TUNE],
+                       (uint8_t)(t->pot[D8_SD][P_SOUND] | t->pot[D8_LT][P_SOUND] << 2 | t->pot[D8_HT][P_SOUND] << 4 | t->pot[D8_RS][P_SOUND] << 6), 0, 0};
+    if (t->key_sig_ok && !memcmp(sig, t->key_sig, sizeof sig)) return;
+    memcpy(t->key_sig, sig, sizeof sig);
+    t->key_sig_ok = 1;
     static const uint8_t deg[D8_NUM] = {0, 0, 7, 0, 7, 0, 0, 0, 0, 0, 0, 0};   /* semitones above the root */
     for (int part = 0; part < D8_NUM; ++part) {
         float base;
@@ -1356,6 +1364,53 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
 #endif
 #if TR808_FIXED && TR808_REST_FIXED
     dr_render(t, frames);   /* snare, toms, rim shot, clap of this call into dr_y */
+#endif
+#if TR808_FIXED
+    /* Our parts in fixed point: mixed a part at a time, a short loop each
+     * (level, pan, sends folded into one gain each); only the float parts
+     * (ZAP, PULSE, the PO-12 kit) stay in the per-sample loop below. */
+    {
+        int keep = 0;
+        for (int i = 0; i < count; ++i) {
+            int part = list[i];
+            const float *y = 0;
+            if (!po_engine(t, part)) {
+#if TR808_METAL_FIXED
+                if (TR808_METAL_PART(part)) y = dm_y[part == D8_CB ? DM_CB : part - D8_CY];
+#endif
+#if TR808_BD_FIXED
+                if (part == D8_BD) y = db_y;
+#endif
+#if TR808_REST_FIXED
+                if (TR808_REST_PART(part)) y = dr_y[part];
+#endif
+            }
+            if (!y) { list[keep++] = part; continue; }
+            t->v[part].age += (uint32_t)frames;
+            float g = trim[part] * lv[part] * level, gl = g * t->pan_l[part], gr = g * t->pan_r[part];
+            float gs = g * send_r[part], gd = g * send_d[part];
+            float *send = part == D8_SD || part == D8_CP || part == D8_RS ? gate : rev;
+            if (drive[part] > 0) {               /* DRIVE: the tanh per sample, as below */
+                float dn = 1.0f / drive_norm[part];
+                for (int n = 0; n < frames; ++n) {
+                    float x = dm_tanhf(y[n] * drive[part]) * dn;   /* the table (< -100 dB from dsp_tanh) */
+                    left[n] += x * gl; right[n] += x * gr; send[n] += x * gs; dly[n] += x * gd;
+                }
+            } else if (part == D8_BD) {
+                for (int n = 0; n < frames; ++n) { float x = y[n]; kick[n] += x * g; send[n] += x * gs; dly[n] += x * gd; }
+            } else {
+                for (int n = 0; n < frames; ++n) {
+                    float x = y[n];
+                    left[n] += x * gl; right[n] += x * gr; send[n] += x * gs; dly[n] += x * gd;
+                }
+            }
+        }
+        count = keep;
+        if (!count && !metal_on) {               /* nothing in float: only the shared noise runs on */
+            for (int n = 0; n < frames; ++n) t->noise_now = noise(&t->noise);
+            return;
+        }
+    }
 #endif
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0, raw = 0;

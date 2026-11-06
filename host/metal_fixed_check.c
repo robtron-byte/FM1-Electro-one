@@ -42,6 +42,7 @@ static const hit_t cases[] = {
     {"cp", D8_CP, 100, 64, 64, 64, -1}, {"cp_acc", D8_CP, 127, 64, 100, 90, -1},
     {"cp_maracas", D8_CP, 100, 64, 64, 64, -1, 5, 1},
     {"cb", D8_CB, 100, 64, 64, 64, -1}, {"cb_tune", D8_CB, 127, 90, 100, 64, -1},
+    {"ch_drive", D8_CH, 100, 64, 64, 64, -1, 4, 80}, {"cp_drive", D8_CP, 100, 64, 64, 64, -1, 4, 100},
 };
 int main(int argc, char **argv)
 {

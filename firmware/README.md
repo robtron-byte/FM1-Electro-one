@@ -1,6 +1,6 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 7. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 8. Build)
 
 Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in diesem Build:
 - **PO-12-Kit** rechnet viel weniger (die Werte, die sich während eines Schlags nicht ändern, einmal pro Schlag statt pro Sample; Klang gleich).
@@ -10,11 +10,11 @@ Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Au
 - **OPTIONS** (HOME + SAVE) zeigt bei laufendem Groove unten: `PEAK` (langsamster Audio-Block der letzten halben Sekunde, % seiner Zeit), `MAX` (seit dem Start), `C1` (langsamster Block auf Kern 1), `1CORE` falls Kern 1 ausgefallen ist, und `LATE BLOCKS` (zu spät gerechnete Blöcke seit dem Start = Knackser).
 - Bereichstasten gedimmt, OCT blinkt am Ende der Oktave (ADR 0020).
 
-**Last:** Der Nachbau rechnet genauer und damit mehr als Feluccas Stimmen (Emulator: Kern 0 mit Groove 71 % → 91 %). Knackser sind wahrscheinlich. Bitte in OPTIONS (HOME + SAVE) bei laufendem Groove die Zeilen `DR… RH… ST…` und `PEAK … MAX … C1 …` / `LATE BLOCKS` fotografieren.
+**Last:** Gegenüber dem 7. Build (Gerät: DR49, PEAK 100 %, MAX 103 %, LATE BLOCKS 11) rechnen die Drums sparsamer, bei gleichem Klang: Mischung blockweise, Koeffizienten nur bei Reglerbewegung, Oszillatoren springen über die Strecken ohne Kante, DRIVE über eine Tabelle. Emulator: Kern 0 mit Groove 91 % → 82 %. Bitte wieder die OPTIONS-Zeilen fotografieren (HOME + SAVE, Groove läuft).
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `029268de5366d1a1151dcd61e9f75557de5a25794ce46628ea7ce9096e5e5c2c`
+SHA-256: `e2d99a1bad556eb3a16c04c7baf9fff5be8e50014a1a42868a37d78ce02b12a1`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
