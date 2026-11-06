@@ -38,4 +38,13 @@
 
 static inline int el_clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 static inline float el_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
+/* The BEAT kit in fixed point (engine/dr_fixed.c, docs/adr/0022): on the own
+ * platform; the host and FM1 Open's SDK keep the float 808. */
+#ifndef TR808_FIXED
+#if defined(EL_PLATFORM)
+#define TR808_FIXED 1
+#else
+#define TR808_FIXED 0
+#endif
+#endif
 #endif

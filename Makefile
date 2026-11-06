@@ -6,7 +6,7 @@ CPPFLAGS += -DFM1_HOST_TEST -DFM1_OPEN_WEB -Iengine -Iui -Ifm1 -Ithird_party/dai
 ENGINE = engine/transport.c engine/drums.c engine/drum_factory.c engine/electro.c \
          engine/tr808.c engine/mks.c engine/mixbus.c engine/mks_presets.c engine/synth_track.c engine/fx.c \
          engine/synth.c engine/jp6.c engine/jp6_presets.c engine/dist.c engine/po12.c \
-         engine/arp.c
+         engine/arp.c engine/dr_fixed.c
 
 build/fmt_test: host/fmt_test.c ui/el_fmt.c ui/el_fmt.h
 	@mkdir -p build
@@ -54,7 +54,7 @@ build/jp6_test: host/jp6_test.c engine/jp6.c engine/jp6_presets.c engine/jp6.h e
 
 build/hit_render: host/hit_render.c engine/tr808.c engine/tr808.h engine/po12.c engine/po12.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/hit_render.c engine/tr808.c engine/po12.c -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/hit_render.c engine/tr808.c engine/dr_fixed.c engine/po12.c -lm
 
 build/po_render: host/po_render.c engine/po12.c engine/po12.h
 	@mkdir -p build

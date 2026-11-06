@@ -18,7 +18,7 @@ MEMORY
 }
 SECTIONS
 {
-    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*e_arp.o *e_dist.o *e_drums.o *e_electro.o *e_fx.o *e_jp6.o *e_mixbus.o *e_mks.o *e_po12.o *e_synth.o *e_synth_track.o *e_tr808.o *e_transport.o) .text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
+    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*e_arp.o *e_dist.o *e_dr_fixed.o *e_drums.o *e_electro.o *e_fx.o *e_jp6.o *e_mixbus.o *e_mks.o *e_po12.o *e_synth.o *e_synth_track.o *e_tr808.o *e_transport.o) .text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4); } > RAMTEXT AT > XIP
     _rt_load = LOADADDR(.ram_text);
     /* FM1-Electro (from SLOOP 2.8.5 app.ld): the second core's waiting loop (hal/fm1_cpu1.h) right after the
@@ -33,7 +33,7 @@ SECTIONS
      * .dsp_rodata), with all code of the engine's sound files (FM1-Electro's build names them e_*.o), at the start of the pool's SRAM, copied at boot: a taken branch costs half
      * there of what it costs from the flash's cache. The guard's RAM code window runs from
      * .ram_text to its end (so it takes in .data/.bss: the window is one range). */
-    .dsp_text : { . = ALIGN(4); _dsp_start = .; KEEP(*(.dsp_text*)) *e_arp.o(.text*) *e_dist.o(.text*) *e_drums.o(.text*) *e_electro.o(.text*) *e_fx.o(.text*) *e_jp6.o(.text*) *e_mixbus.o(.text*) *e_mks.o(.text*) *e_po12.o(.text*) *e_synth.o(.text*) *e_synth_track.o(.text*) *e_tr808.o(.text*) *e_transport.o(.text*) *(.dsp_rodata*) . = ALIGN(4); _dsp_end = .; } > POOL AT > XIP
+    .dsp_text : { . = ALIGN(4); _dsp_start = .; KEEP(*(.dsp_text*)) *e_arp.o(.text*) *e_dist.o(.text*) *e_dr_fixed.o(.text*) *e_drums.o(.text*) *e_electro.o(.text*) *e_fx.o(.text*) *e_jp6.o(.text*) *e_mixbus.o(.text*) *e_mks.o(.text*) *e_po12.o(.text*) *e_synth.o(.text*) *e_synth_track.o(.text*) *e_tr808.o(.text*) *e_transport.o(.text*) *(.dsp_rodata*) . = ALIGN(4); _dsp_end = .; } > POOL AT > XIP
     _dsp_load = LOADADDR(.dsp_text);
     _rt_end = _dsp_end;
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL

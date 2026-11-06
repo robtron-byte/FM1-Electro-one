@@ -27,5 +27,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0019](0019-rechenlast.md) | Rechenlast: Lastanzeige, CPU-Test, Master schläft bei Stille | vorgeschlagen | 2026-11-05 |
 | [0020](0020-tasten-leds.md) | Funktionstasten leuchten, aktive Zustände blinken | vorgeschlagen | 2026-11-05 |
 | [0021](0021-eigene-grundlage.md) | Eigene Grundlage ohne das SDK von FM1 Open (Felucca-Plattform, Dinghy) | vorgeschlagen | 2026-11-05 |
+| [0022](0022-drums-festkomma.md) | Drums in Festkomma auf der eigenen Plattform (Felucca-Drumstimmen) | vorgeschlagen | 2026-11-06 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

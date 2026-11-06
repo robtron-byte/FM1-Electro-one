@@ -95,4 +95,11 @@ EL_DSP_CODE int tr808_active(const tr808_t *t);
  * ducking), the rest of the kit in stereo, and the effect sends. */
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames);
+#if TR808_FIXED   /* engine/dr_fixed.c */
+void drf_init(void);
+void drf_silence(void);
+int drf_part(const tr808_t *t, int part);
+void drf_trigger(const tr808_t *t, int part, float velocity, float accent);
+void drf_render(tr808_t *t, float *kick, float *left, float *right, float *rev, float *gate, float *dly, int frames);
+#endif
 #endif

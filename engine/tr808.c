@@ -122,6 +122,9 @@ static float tom_env3_c, tom_env2_c, tom_lag2_c, tom_bias;
 void tr808_init(tr808_t *t)
 {
     memset(t, 0, sizeof *t);
+#if TR808_FIXED
+    drf_init();
+#endif
     for (int part = 0; part <= D8_KIT; ++part)
         for (int p = 0; p < params[part].count; ++p) tr808_set(t, part, p, params[part].desc[p].def);
     for (int i = 0; i < 128; ++i) spread_tab[i] = dsp_exp2((i - 64) / 64.0f);
@@ -263,11 +266,17 @@ EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
     if (part == D8_CH && t->kit[2] && t->v[D8_OH].active) t->v[D8_OH].aux2 = 1.0f;
     if (part == D8_OH && t->kit[2] == 2 && t->v[D8_CH].active) t->v[D8_CH].aux2 = 1.0f;
     /* Resonator and filter states are kept: no "machine gun" restart. */
+#if TR808_FIXED
+    drf_trigger(t, part, velocity, a);
+#endif
 }
 
 EL_DSP_CODE void tr808_silence(tr808_t *t)
 {
     for (int i = 0; i < D8_NUM; ++i) t->v[i].active = t->po[i].active = 0;
+#if TR808_FIXED
+    drf_silence();
+#endif
 }
 
 EL_DSP_CODE int tr808_active(const tr808_t *t)
@@ -1261,7 +1270,13 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames)
 {
+#if TR808_FIXED
+    /* the 808 parts in fixed point (dr_fixed.c); ZAP, PULSE and the PO-12 kit here */
+    int metal_on = 0;
+    drf_render(t, kick, left, right, rev, gate, dly, frames);
+#else
     int metal_on = t->v[D8_CY].active || t->v[D8_OH].active || t->v[D8_CH].active || t->v[D8_CB].active;
+#endif
     if (!metal_on) {
         /* The six oscillators never stop on the 808: they run on while
          * nothing metal sounds, so each hit starts at another phase. */
@@ -1279,6 +1294,9 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
     float lv[D8_NUM], send_r[D8_NUM], send_d[D8_NUM], drive[D8_NUM], drive_norm[D8_NUM];
     for (int part = 0; part < D8_NUM; ++part) {
         if (po_engine(t, part) ? !t->po[part].active : !t->v[part].active) continue;
+#if TR808_FIXED
+        if (!po_engine(t, part) && drf_part(t, part)) continue;
+#endif
         list[count++] = part;
         lv[part] = t->pot[part][P_LEVEL] / 100.0f;
         send_r[part] = knob(t, part, P_REV);
@@ -1310,7 +1328,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         else if (TR808_HAT_MODEL) hat_src[0] = hat_src[1] = hat_band;
         for (int h = 0; h < 2; ++h) {
             int part = h ? D8_CH : D8_OH;
-            if (!t->v[part].active || t->pot[part][P_TUNE] == 64) continue;
+            if (!metal_on || !t->v[part].active || t->pot[part][P_TUNE] == 64) continue;
             if (t->v[part].age == 0) {
                 memcpy(t->hat_phase[h], t->metal_phase, sizeof t->metal_phase);
                 t->hat_bp[h] = TR808_HAT_MODEL ? t->hat_band : t->metal_bp2;
@@ -1320,7 +1338,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
             hat_src[h] = TR808_HAT_MODEL == 2 ? m * 0.714f : svf_bp(&t->hat_bp[h], m, 0);
         }
-        if (t->v[D8_CB].active && (t->key_on || t->pot[D8_CB][P_TUNE] != 64)) {
+        if (metal_on && t->v[D8_CB].active && (t->key_on || t->pot[D8_CB][P_TUNE] != 64)) {
             if (t->v[D8_CB].age == 0) memcpy(t->cb_phase, t->metal_phase + 4, sizeof t->cb_phase);
             if (t->key_on) cb_src = cowbell_osc(t->cb_phase, t->key_r[D8_CB], t->key_cb_hi);
             else {
