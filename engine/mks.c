@@ -182,8 +182,12 @@ static EL_DSP_CODE void dco_configure(mks_part_t *p, int pulse, int saw, int sub
 {
     switch (pulse) {
     case 1: chop_set(&p->pulse, 0, 1, 0.5f, 0, 0.5f); break;
-    case 2: chop_set(&p->pulse, 0, 1, 0.5f, 2, 0.5f); break;
-    case 3: chop_set(&p->pulse, 0, 1, 0.5f, 2, pw); break;
+    /* Pulse 2 / 3: the main square AND a double-rate one of width w is open
+     * only for p >= (1 + w) / 2: one gate of that width, the same wave and
+     * edges (the double-rate gate's other edges fall where the main one is
+     * shut), without chop_general's seven edge tests a sample. */
+    case 2: chop_set(&p->pulse, 0, 1, 0.75f, 0, 0.5f); break;
+    case 3: chop_set(&p->pulse, 0, 1, 0.5f + 0.5f * pw, 0, 0.5f); break;
     default: p->pulse = chop_off; break;
     }
     switch (saw) {
@@ -282,10 +286,22 @@ static inline EL_DSP_HELPER float env_next(mks_env_t *e, const mks_env_settings_
 
 /* ---- filters --------------------------------------------------------------- */
 
+/* MKS_VCF_DECIM: the ladder runs at the sample rate / this (FM-106 runs its
+ * Juno filter at 11 kHz): the mean of its input samples in, its output
+ * interpolated linearly (one ladder sample later). 2 on the own platform
+ * (docs/adr/0021: the strings took 55 % of a core there), 1 elsewhere. */
+#ifndef MKS_VCF_DECIM
+#if defined(EL_PLATFORM)
+#define MKS_VCF_DECIM 2
+#else
+#define MKS_VCF_DECIM 1
+#endif
+#endif
+#define VCF_RATE (EL_SAMPLE_RATE / (float)MKS_VCF_DECIM)
 static inline EL_DSP_HELPER void ladder_set(mks_voice_t *v, float cutoff, float resonance)
 {
-    float fc = dsp_clamp(cutoff, 8.0f, EL_SAMPLE_RATE * 0.45f);
-    v->g = dsp_tan(DSP_PI * fc / EL_SAMPLE_RATE);
+    float fc = dsp_clamp(cutoff, 8.0f, VCF_RATE * 0.45f);
+    v->g = dsp_tan(DSP_PI * fc / VCF_RATE);
     v->G = v->g / (1.0f + v->g);
     v->k = resonance * 3.8f;
     v->G2 = v->G * v->G;
@@ -718,7 +734,19 @@ static EL_DSP_CODE void render_voice(mks_part_t *p, mks_voice_t *v, const block_
             v->hz1 = -v->hpf_b0 * x - v->hpf_a1 * y;
             x = y;
         } else if (p->hpf_on) x = biquad(&p->hpf, &v->hz1, &v->hz2, x);
+#if MKS_VCF_DECIM > 1
+        v->vcf_acc += x;
+        if (++v->vcf_cnt >= MKS_VCF_DECIM) {
+            v->vcf_y0 = v->vcf_y1;
+            v->vcf_y1 = ladder(v, v->vcf_acc * (1.0f / MKS_VCF_DECIM));
+            v->vcf_acc = 0;
+            v->vcf_cnt = 0;
+        }
+        x = v->vcf_y0 + (v->vcf_y1 - v->vcf_y0) * ((float)(v->vcf_cnt + 1) * (1.0f / MKS_VCF_DECIM));
+        x *= b->gate_mode ? v->gate_amp : e;
+#else
         x = ladder(v, x) * (b->gate_mode ? v->gate_amp : e);
+#endif
         left[k] += x * gl;
         right[k] += x * gr;
     }

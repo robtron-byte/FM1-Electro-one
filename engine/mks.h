@@ -63,6 +63,8 @@ typedef struct {
     uint32_t rng, noise;
     float phase, pulse_phase, last_main;
     float s1, s2, s3, s4, g, G, k;  /* ladder */
+    float vcf_acc, vcf_y0, vcf_y1;  /* MKS_VCF_DECIM: the ladder's input sum, its last two outputs */
+    uint8_t vcf_cnt;
     float G2, G3, G4, inv, den;     /* its per-block coefficients (ladder_set) */
     float hz1, hz2;                 /* HPF state */
     float hpf_fc, hpf_b0, hpf_a1;   /* HPF modes 2, 3: corner at most the voice's fundamental */
