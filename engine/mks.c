@@ -97,7 +97,16 @@ static inline float env_seconds(float raw, int segment)
 
 /* ---- DCO (MB87123 chop model) ------------------------------------------- */
 
-static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0};
+static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0, 0};
+
+/* MKS_CHOP_GRID: shapes whose edges all fall on one grid (saw 5, sub 1-3
+ * and 5: ramps and half-open gates at whole multiples) look only at the
+ * nearest grid point instead of chop_general's seven edge families
+ * (DARK STR, saw 5: STRINGS 54 -> see docs/adr/0019). Same edges, same
+ * corrections; only the float rounding of where an edge lies differs. */
+#ifndef MKS_CHOP_GRID
+#define MKS_CHOP_GRID 1
+#endif
 
 static inline int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
 
@@ -148,6 +157,21 @@ static inline __attribute__((always_inline)) float chop_render(const mks_chop_t 
             return out;
         }
     }
+#if MKS_CHOP_GRID
+    if (c->grid > 0.0f && dt * c->grid < 0.5f) {
+        float l0 = c->m0 > 0 ? wrap01(p * c->m0) : 0, l1 = c->m1 > 0 ? wrap01(p * c->m1) : 0;
+        float lr = c->ramp > 0 ? wrap01(p * c->ramp) : 0;
+        int open = (c->m0 <= 0 || l0 >= c->w0) && (c->m1 <= 0 || l1 >= c->w1);
+        float out = open ? 2.0f * (c->ramp > 0 ? lr : 1.0f) - 1.0f : -1.0f;
+        float g = wrap01(p * c->grid), x = g < 0.5f ? g : g - 1.0f, d = x / c->grid;
+        if (d < dt && d > -dt) {   /* the one grid point within reach: an edge, if the wave jumps there */
+            float edge = p - d;
+            float h = chop_naive(c, wrap01(edge + 1e-5f)) - chop_naive(c, wrap01(edge - 1e-5f));
+            if (h != 0) out += h * polyblep(wrap01(d), dt);
+        }
+        return out;
+    }
+#endif
     return chop_general(c, p, dt);
 }
 
@@ -196,6 +220,21 @@ static void chop_set(mks_chop_t *c, float ramp, float m0, float w0, float m1, fl
     c->ramp = ramp; c->m0 = m0; c->w0 = w0; c->m1 = m1; c->w1 = w1; c->m2 = 0; c->w2 = 0.5f;
     /* the fast path for a ramp under one square of a multiple of its rate */
     c->gated_ramp = ramp > 0 && m0 > 0 && m1 <= 0 && w0 > 0.0f && w0 < 1.0f && (m0 / ramp) == (float)(int)(m0 / ramp);
+    /* the grid: whole rates, gates half open (edges at k / (2 m)); their
+     * least common multiple */
+    unsigned g = 1;
+    int ok = 1;
+    const float r[3] = {ramp, 2.0f * m0, 2.0f * m1};
+    const float w[3] = {0.5f, w0, w1};
+    for (int i = 0; i < 3; ++i) {
+        if (r[i] <= 0) continue;
+        unsigned n = (unsigned)r[i];
+        if ((float)n != r[i] || (i && w[i] != 0.5f) || n > 256u) { ok = 0; break; }
+        unsigned a = g, b = n;
+        while (b) { unsigned t = a % b; a = b; b = t; }
+        g = g / a * n;
+    }
+    c->grid = ok && g <= 256u ? (float)g : 0.0f;
 }
 
 /* DCOSettings.configure: pulse on the pulse phase (1 = main), saw/sub on the

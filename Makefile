@@ -103,6 +103,13 @@ mb-fixed-check: host/mb_fixed_check.c host/fixed_cmp.py engine/mixbus.c engine/m
 	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMB_FIXED=$$fx -o build/mbc_$$fx host/mb_fixed_check.c engine/mixbus.c -lm && ./build/mbc_$$fx build/mbc_$$fx.raw || exit 1; done
 	@python3 host/fixed_cmp.py build/mbc_0.raw build/mbc_1.raw 3 -60 "FX on" "FX off" "hot, limiter"
 
+# The MKS-50 oscillators' grid fast path (engine/mks.c, MKS_CHOP_GRID) against
+# chop_general: every MKS-50 sound, a chord low and high; within -90 dB.
+chop-grid-check: host/chop_grid_check.c host/fixed_cmp.py engine/mks.c engine/mks.h engine/mks_presets.c
+	@mkdir -p build
+	@for g in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMKS_CHOP_GRID=$$g -o build/cgc_$$g host/chop_grid_check.c engine/mks.c engine/mks_presets.c -lm && ./build/cgc_$$g > build/cgc_$$g.raw || exit 1; done
+	@python3 host/fixed_cmp.py build/cgc_0.raw build/cgc_1.raw 56 -90
+
 # The fixed-point distortion (engine/dist.c, DIST_FIXED, own platform) against
 # the float one: every type, five settings, each within -60 dB.
 dist-fixed-check: host/dist_fixed_check.c host/dist_fixed_cmp.py engine/dist.c engine/dist.h
