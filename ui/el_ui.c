@@ -1149,19 +1149,19 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         for (unsigned i = 0; i < EL_OPTIONS; ++i) mix(&sig[1], e->option[i] | i << 8);
         mix(&sig[1], (uint32_t)(int)(-e->mix.gain_reduction_db * 6.0f));
     }
-    mix(&sig[1], (uint32_t)(playing ? m->pos : 0xff) | (uint32_t)m->current << 8);
+    mix(&sig[1], (uint32_t)(playing ? ui->show_pos[0] : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
         mix(&sig[1], m->revision | m->mute << 8);
         for (unsigned a = 0; a < EL_AREAS; ++a) mix(&sig[1], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
         for (unsigned t = 0; t < EL_TRACKS; ++t) {
             mix(&sig[1], e->track[t].revision ^ e->track[t].preset << 20 ^ e->track[t].level_value << 12);
-            mix(&sig[1], e->track[t].pos);
+            mix(&sig[1], ui->show_pos[1 + t]);
         }
         mix(&sig[1], m->level_value);
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         mix(&sig[1], m->revision | (uint32_t)m->mute << 8 | (uint32_t)m->solo << 20);
-        mix(&sig[1], shown_step_page(ui, p->length, m->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->swing << 12);
+        mix(&sig[1], shown_step_page(ui, p->length, ui->show_pos[0], playing) | (uint32_t)p->length << 4 | (uint32_t)p->swing << 12);
     } else if (in_editor(ui)) {
         st_track_t *t = track_of(ui);
         unsigned section, page;
@@ -1178,8 +1178,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         st_track_t *t = track_of(ui);
         const st_pattern_t *p = &t->pattern[t->current];
         mix(&sig[1], t->revision ^ (uint32_t)t->preset << 20);
-        mix(&sig[1], (uint32_t)(playing ? t->pos : 0xff) | (uint32_t)t->current << 8 | (uint32_t)t->chord << 16);
-        mix(&sig[1], shown_step_page(ui, p->length, t->pos, playing) | (uint32_t)p->length << 4 | (uint32_t)p->gate << 12 | (uint32_t)p->rate << 24);
+        mix(&sig[1], (uint32_t)(playing ? ui->show_pos[ui->area] : 0xff) | (uint32_t)t->current << 8 | (uint32_t)t->chord << 16);
+        mix(&sig[1], shown_step_page(ui, p->length, ui->show_pos[ui->area], playing) | (uint32_t)p->length << 4 | (uint32_t)p->gate << 12 | (uint32_t)p->rate << 24);
         mix(&sig[1], ui->step_mode[ui->area] | (uint32_t)ui->cursor[ui->area] << 4 | (uint32_t)(ui->octave[ui->area] + 8) << 12);
         mix(&sig[1], t->arp.v[ARP_ON] | (uint32_t)t->arp.v[ARP_HOLD] << 1);
         for (unsigned s = 0; s < p->length; ++s)
@@ -1214,6 +1214,13 @@ static void mark_dirty(el_ui_t *ui)
         (uint32_t)(((1ull << (32 / GFX_BAND)) - 1u)),
         (uint32_t)(((1ull << (192 / GFX_BAND)) - 1u) & ~((1ull << (16 / GFX_BAND)) - 1u)),
         (uint32_t)(((1ull << GFX_BANDS) - 1u) & ~((1ull << (192 / GFX_BAND)) - 1u))};
+    /* The sequencer's steps for the screen: taken only when the main area
+     * has been painted completely. Painted band by band over several passes,
+     * a step that moved meanwhile would show the lower bands one step on. */
+    if (!(ui->dirty & bands[1])) {
+        ui->show_pos[0] = ui->engine->drums.pos;
+        for (unsigned t = 0; t < EL_TRACKS; ++t) ui->show_pos[1 + t] = (uint8_t)ui->engine->track[t].pos;
+    }
     signatures(ui, sig);
     for (unsigned i = 0; i < 3; ++i)
         if (sig[i] != ui->sig[i]) { ui->dirty |= bands[i]; ui->sig[i] = sig[i]; }
@@ -1372,7 +1379,7 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
     const dr_pattern_t *p = &m->pattern[m->current];
     unsigned base = ui->step_page[0] * 16u, shown = p->length > base ? p->length - base : 0;
     int playing = ui->engine->transport.running && m->playing;
-    unsigned pos = playing ? m->pos : 0xffu;
+    unsigned pos = playing ? ui->show_pos[0] : 0xffu;
     if (shown > 16) shown = 16;
     for (unsigned part = 0; part < DR_PARTS; ++part) {
         int y = GRID_Y + (int)part * CELL;
@@ -1409,7 +1416,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     uint16_t color = t->muted ? DIM : area_color[ui->area];
     char text[48];
     int playing = e->transport.running && t->playing;
-    unsigned base = ui->step_page[ui->area] * 16u, pos = playing ? t->pos : 0xffu;
+    unsigned base = ui->step_page[ui->area] * 16u, pos = playing ? ui->show_pos[ui->area] : 0xffu;
     unsigned shown = p->length > base ? p->length - base : 0;
     if (shown > 16) shown = 16;
     gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
@@ -1578,8 +1585,9 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
         gfx_fill(b, 170, y + 3, 64, 5, GRID);
         gfx_fill(b, 170, y + 3, (int)(level * 64u / 127u), 5, color);
         unsigned length, pos;
-        if (a == 0) { length = m->pattern[m->current].length; pos = m->pos; }
-        else { length = e->track[a - 1].pattern[e->track[a - 1].current].length; pos = e->track[a - 1].pos; }
+        if (a == 0) length = m->pattern[m->current].length;
+        else length = e->track[a - 1].pattern[e->track[a - 1].current].length;
+        pos = ui->show_pos[a];   /* held for the whole frame */
         unsigned base = playing && length > 16 ? (pos / 16u) * 16u : 0;
         for (unsigned i = 0; i < 16; ++i) {
             unsigned s = base + i;

@@ -12,7 +12,9 @@ enum { DIST_OFF, DIST_OD, DIST_DIST, DIST_RAT, DIST_TUBE, DIST_MODES };
 
 /* One channel's rings and filters; mono signals run only the left one. */
 typedef struct {
-    float in[32], os[64], dry[32];
+    /* in and os are rings of 32 and 64, each value written twice (at i and
+     * i + 32 / i + 64): the filters read them in one piece, no masking */
+    float in[64], os[128], dry[32];
     float pre, tight, dcx, dcy, lp1, lp2;
 } el_dist_ch_t;
 
@@ -27,6 +29,8 @@ typedef struct {
  * to right. Start from a zeroed el_dist_t with gain = 1, mono = 1. */
 /* The "tightening" high-pass each type has before its drive (Hz). */
 float dist_tight_hz(int mode);
+/* The curves as tables (own platform; nothing elsewhere): once, before the sound starts. */
+void dist_init_tables(void);
 EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frames, int mode, int drive, int tone,
                               int level, int mix, int stereo);
 #endif

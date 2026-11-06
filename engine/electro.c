@@ -13,6 +13,7 @@
 static void bus_reset(void);
 void el_init(el_engine_t *e)
 {
+    dist_init_tables();   /* (own platform: the distortion's curves as tables) */
     bus_reset();
     memset(e, 0, sizeof *e);
     el_transport_init(&e->transport);

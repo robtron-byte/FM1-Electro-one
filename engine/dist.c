@@ -43,19 +43,61 @@ static inline EL_DSP_HELPER float dist_clip(float x, int mode)
     }
 }
 
+/* DIST_TABLE (own platform, docs/adr/0019): the four curves above as
+ * tables, -12 .. +12 in steps of 1/128 with linear interpolation (beyond
+ * that they are flat); filled once by dist_init_tables (el_init, before
+ * the sound starts). Against the curves: OD -91 dB, DIST -85, TUBE -101,
+ * RAT -65 (only at its hard clip's corner). Each curve costs one or two
+ * tanh / exp / log2 and a division, twice a sample (2x oversampled). */
+#ifndef DIST_TABLE
+#if defined(EL_PLATFORM)
+#define DIST_TABLE 1
+#else
+#define DIST_TABLE 0
+#endif
+#endif
+#if DIST_TABLE
+enum { DIST_TAB = 3073 };
+static float dist_tab[4][DIST_TAB] __attribute__((section(".pool")));
+static uint8_t dist_tab_ready;
+void dist_init_tables(void)
+{
+    if (dist_tab_ready) return;
+    for (int m = 1; m <= 4; ++m)
+        for (int i = 0; i < DIST_TAB; ++i) dist_tab[m - 1][i] = dist_clip(-12.0f + (float)i * (1.0f / 128.0f), m);
+    dist_tab_ready = 1;
+}
+static inline EL_DSP_HELPER float dist_curve(float x, int mode)
+{
+    const float *t = dist_tab[mode - 1];
+    if (!dist_tab_ready) return dist_clip(x, mode);
+    if (x <= -12.0f) return t[0];
+    if (x >= 12.0f) return t[DIST_TAB - 1];
+    float p = (x + 12.0f) * 128.0f;
+    int i = (int)p;
+    if (i >= DIST_TAB - 1) i = DIST_TAB - 2;
+    return t[i] + (t[i + 1] - t[i]) * (p - (float)i);
+}
+#else
+void dist_init_tables(void) {}
+#define dist_curve dist_clip
+#endif
+
 /* 2x oversampled clipping of one sample (24 samples latency). */
 static inline float dist_oversampled(el_dist_ch_t *c, unsigned ip, unsigned op, float x, int mode)
 {
-    c->in[ip] = x;
-    float even = c->in[(ip - 12u) & 31u], odd = 0;
-    for (unsigned k = 0; k < 12; ++k) odd += half_band[k] * (c->in[(ip - 12u - k) & 31u] + c->in[(ip - 11u + k) & 31u]);
+    c->in[ip] = c->in[ip + 32u] = x;
+    const float *in = c->in + ip + 32u;          /* in[-j] = the sample j back */
+    float even = in[-12], odd = 0;
+    for (unsigned k = 0; k < 12; ++k) odd += half_band[k] * (in[-12 - (int)k] + in[-11 + (int)k]);
     odd *= 2.0f;
-    c->os[op] = dist_clip(even, mode);
-    unsigned newest = (op + 1u) & 63u;
-    c->os[newest] = dist_clip(odd, mode);
-    float y = 0.5f * c->os[(newest - 25u) & 63u];
+    unsigned newest = op + 1u;                    /* (op is even, below 64) */
+    c->os[op] = c->os[op + 64u] = dist_curve(even, mode);
+    c->os[newest] = c->os[newest + 64u] = dist_curve(odd, mode);
+    const float *os = c->os + newest + 64u - 25u; /* the centre tap */
+    float y = 0.5f * os[0];
     for (unsigned k = 0; k < 12; ++k)
-        y += half_band[k] * (c->os[(newest - 25u + 2u * k + 1u) & 63u] + c->os[(newest - 25u - 2u * k - 1u) & 63u]);
+        y += half_band[k] * (os[2 * (int)k + 1] + os[-2 * (int)k - 1]);
     return y;
 }
 
@@ -83,9 +125,9 @@ EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frame
             for (int n = 0; n < frames; ++n) {
                 c->dry[ip] = x[n];
                 x[n] = c->dry[(ip - DIST_LATENCY) & 31u];
-                c->in[ip] = 0;
-                c->os[op] = 0;
-                c->os[(op + 1u) & 63u] = 0;
+                c->in[ip] = c->in[ip + 32u] = 0;
+                c->os[op] = c->os[op + 64u] = 0;
+                c->os[op + 1u] = c->os[op + 65u] = 0;
                 ip = (ip + 1u) & 31u;
                 op = (op + 2u) & 63u;
             }
