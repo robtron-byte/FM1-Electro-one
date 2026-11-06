@@ -114,6 +114,9 @@ static const float metal_hz[6] EL_DSP_DATA = {205.3f, 304.4f, 369.6f, 522.7f, 54
 static const float metal_tol[6] EL_DSP_DATA = {1.012f, 0.991f, 1.006f, 0.988f, 1.0f, 1.0f};
 
 static inline void svf_set(tr_svf_t *f, float hz, float q);
+#if TR808_FIXED && TR808_METAL_FIXED
+static void dm_reset(void);   /* tr808_metal_fixed.h */
+#endif
 
 static inline float decay_coef(float samples);
 static float spread_tab[128];
@@ -124,6 +127,9 @@ void tr808_init(tr808_t *t)
     memset(t, 0, sizeof *t);
 #if TR808_FIXED
     drf_init();
+#endif
+#if TR808_FIXED && TR808_METAL_FIXED
+    dm_reset();
 #endif
     for (int part = 0; part <= D8_KIT; ++part)
         for (int p = 0; p < params[part].count; ++p) tr808_set(t, part, p, params[part].desc[p].def);
@@ -1022,6 +1028,8 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
     return y * v->env3 * (1.0f + 0.6f * v->accent);
 }
 
+#include "tr808_metal_fixed.h"   /* cymbal and hats in fixed point (own platform) */
+
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
  * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
  * Tone drives it into a soft-clipped square; accent opens it further. */
@@ -1308,6 +1316,9 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
         }
     }
     if (metal_on) metal_wander(t, frames);
+#if TR808_FIXED && TR808_METAL_FIXED
+    dm_render(t, frames);   /* cymbal and hats of this call into dm_y */
+#endif
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0, raw = 0;
         if (metal_on) {
@@ -1363,6 +1374,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
                 dly[n] += d;
                 continue;
             }
+#if TR808_FIXED && TR808_METAL_FIXED
+            if (TR808_METAL_PART(part)) y = dm_y[part - D8_CY][n];   /* (its flag may be off already: the call's tail) */
+            else
+#endif
+            {
             if (!v->active) continue;
             switch (part) {
             case D8_BD: y = bass_drum(t, v); break;
@@ -1375,6 +1391,7 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             case D8_ZP: y = zap(t, v); break;
             case D8_PU: y = pulse(t, v); break;
             default: y = hat(t, v, part, hat_src[part == D8_CH]); break;
+            }
             }
             ++v->age;
             /* DRIVE on rim, clap, cowbell and the metal voices, as on the bass drum */

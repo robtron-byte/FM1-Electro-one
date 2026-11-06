@@ -15,7 +15,8 @@ Auf dem Gerät brauchte die Gleitkomma-808 (`engine/tr808.c`) allein 67 % eines 
 
 Vorgeschlagen, auf Wunsch des Nutzers („start“, 2026-11-06):
 
-- Auf der eigenen Plattform (`TR808_FIXED`, `engine/el_config.h`) spielen BD, SD, LT, HT, RS, CP, CB, CY, OH und CH über Feluccas `drum_voice.c` (`third_party/felucca/`, mit Herkunft):
+- **Seit 2026-11-06: Becken, Open Hat und Closed Hat sind unser kalibriertes Modell in Festkomma** (`engine/tr808_metal_fixed.h`, Schalter `TR808_METAL_FIXED`): dieselbe Rechnung wie `tr808.c` (sechs Oszillatoren mit PolyBLEP und ihrem Wandern, Bandpässe, Swing-VCAs, Hats-Modell 2), Signale Q20, Koeffizienten Q28, Hüllkurven Q30, Produkte 32 × 32 → 64 Bit (ein Befehl auf dem FM-1). Koeffizienten einmal pro Render-Aufruf aus den Gleitkomma-Funktionen von `tr808.c`. Prüfung `make metal-fixed-check`: zwölf Einzelschläge (Akzent, TUNE, DECAY, TONE, Choke) liegen 58–70 dB unter dem Signal neben dem Gleitkomma-Modell, Spektrum und Hüllkurve innerhalb 0,14 dB. Die übrigen Stimmen folgen auf demselben Weg (als Nächstes die BD).
+- Bis dahin spielen auf der eigenen Plattform (`TR808_FIXED`, `engine/el_config.h`) BD, SD, LT, HT, RS, CP und CB über Feluccas `drum_voice.c` (`third_party/felucca/`, mit Herkunft):
   - BD, SD, Toms, RS, CP, CB (Glocke), OH, CH: Feluccas Modell-Kit „80“;
   - CY: Feluccas eigenes Becken;
   - CONGA und CLAVE (Schalter SOUND): Feluccas eigene.
@@ -39,3 +40,4 @@ Vorgeschlagen, auf Wunsch des Nutzers („start“, 2026-11-06):
 
 - 2026-11-06: angelegt nach der Messung `DR67` auf dem Gerät
 - 2026-11-06: Rückmeldung des Nutzers am Gerät: Becken und Closed Hat klingen nicht wie die 808. Gegen ADR 0006 (das kalibrierte Modell bleibt die Grundlage, Klangänderungen erst als A/B mit Standard aus) war dieser Record gleich als Standard eingeschaltet worden. Der Nutzer will den Klang des kalibrierten Modells; offen ist, wie die Last dafür sinkt (eigenes Modell in Festkomma oder verbilligt)
+- 2026-11-06: Auf Wunsch des Nutzers wird unser Modell selbst in Festkomma nachgebaut, Stimme für Stimme; zuerst Becken und Hats (`engine/tr808_metal_fixed.h`)

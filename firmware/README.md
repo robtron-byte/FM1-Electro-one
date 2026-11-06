@@ -1,19 +1,19 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 3. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 4. Build)
 
 Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in diesem Build:
 - **PO-12-Kit** rechnet viel weniger (die Werte, die sich während eines Schlags nicht ändern, einmal pro Schlag statt pro Sample; Klang gleich).
 - **STRINGS:** Saw-Formen 2–4 über einen schnellen Weg (gleiche Welle).
-- **Repeat** (schwarze Taste 8) läuft nur, solange eine weiße Taste gehalten wird.
+- **Becken, Open Hat und Closed Hat** sind wieder unsere kalibrierte 808, jetzt in Festkomma nachgebaut (gleicher Klang wie das Gleitkomma-Modell, ADR 0022).
 - **OPTIONS** (HOME + SAVE) zeigt bei laufendem Groove unten: `PEAK` (langsamster Audio-Block der letzten halben Sekunde, % seiner Zeit), `MAX` (seit dem Start), `C1` (langsamster Block auf Kern 1), `1CORE` falls Kern 1 ausgefallen ist, und `LATE BLOCKS` (zu spät gerechnete Blöcke seit dem Start = Knackser).
 - Bereichstasten gedimmt, OCT blinkt am Ende der Oktave (ADR 0020).
 
-Noch offen: Die Drums laufen weiter über Feluccas Stimmen (ADR 0022), Becken und Hats klingen deshalb nicht wie unsere 808.
+Noch offen: BD, SD, Toms, Rim, Clap und Cowbell laufen noch über Feluccas Stimmen; sie werden als Nächstes nachgebaut, zuerst die BD.
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `48c87190085e874169c768f1c1af54cd8e3e383c3b1f35c1412466eb4cda9ec3`
+SHA-256: `84671bef6ae47e53d2f31488c5159e1b79e066fa8c2d72b55e777647357c7639`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -956,24 +956,6 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->punch_key[i] = 0;
         if (ui->punch_key[i]) punch_held |= BIT(i);
     }
-    /* Repeat plays only while a white key holds its step: let go, another
-     * white key still held takes over, else it ends (all in time again). */
-    unsigned rep = 3u;   /* EL_PUNCH_REPEAT's index */
-    if (!ui->punch_key[rep]) ui->repeat_key = 0;
-    else if (ui->repeat_key && !(c->keys & BIT(ui->repeat_key - 1u))) {
-        int next = -1;
-        for (unsigned i = 0; i < UI_WHITE && next < 0; ++i)
-            if (c->keys & BIT(white_keys[i])) next = (int)i;
-        if (next >= 0) {
-            if (el_post3(e, EL_CMD_PUNCH_RATE, EL_PUNCH_REPEAT, (uint8_t)next, 0, 0) == 0) {
-                ui->repeat_key = (uint8_t)(white_keys[next] + 1u);
-                punch_notice(ui, rep, (unsigned)next);
-            }
-        } else if (el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 0, 0, 0) == 0) {
-            ui->repeat_key = 0;
-            notice(ui, "REPEAT: WHITE KEY = STEP");
-        }
-    }
     release_keys(ui, ui->prev_keys & ~c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
@@ -993,8 +975,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
                 if (bits && el_post3(e, EL_CMD_PUNCH_RATE, (uint8_t)bits, (uint8_t)w, 0, 0) == 0) {
                     punch_notice(ui, shown, (unsigned)w);
                     /* Repeat only starts with its step chosen. */
-                    if ((bits & EL_PUNCH_REPEAT) && el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0) == 0)
-                        ui->repeat_key = (uint8_t)(key + 1u);
+                    if (bits & EL_PUNCH_REPEAT) el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
                 }
             } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));

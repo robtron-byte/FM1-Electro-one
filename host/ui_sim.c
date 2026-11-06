@@ -337,8 +337,8 @@ int main(int argc, char **argv)
     }
 
     /* HOME: black keys 5 and 6 punch in the stutter and the reverb throw
-     * while held; black 8 (repeat) plays step 2 while white key 2 is held
-     * (another held white key takes over, none: it ends) and changes no slot; black 9-11 are delay, bitcrusher, phaser. */
+     * while held; black 8 (repeat) starts with white key 2, step 2, and
+     * changes no slot; black 9-11 are delay, bitcrusher, phaser. */
     if (!ui.overview) tap_button(BTN_HOME);
     unsigned slot_before = engine.drums.current;
     panel.keys |= 1u << 10; run(30);          /* black 5 */
@@ -351,16 +351,8 @@ int main(int argc, char **argv)
     panel.keys |= 1u << 17; run(30);          /* black 8: repeat, waiting for its step */
     punched = punched && engine.punch == 0;
     panel.keys |= 1u << 2; run(30);           /* white 2: step 2, repeat starts */
+    panel.keys &= ~(1u << 2); run(30);
     punched = punched && engine.punch == EL_PUNCH_REPEAT && engine.punch_div[3] == 1 && engine.punch_div[0] == 3;
-    panel.keys |= 1u << 4; run(30);           /* white 3 as well: step 3 */
-    panel.keys &= ~(1u << 4); run(30);        /* let go: white 2 still held, step 2 */
-    punched = punched && engine.punch == EL_PUNCH_REPEAT && engine.punch_div[3] == 1;
-    panel.keys &= ~(1u << 2); run(30);        /* no white key: repeat ends, black 8 still held */
-    punched = punched && engine.punch == 0;
-    panel.keys |= 1u << 6; run(30);           /* white 4: step 4, again */
-    punched = punched && engine.punch == EL_PUNCH_REPEAT && engine.punch_div[3] == 3;
-    panel.keys &= ~(1u << 6); run(30);
-    punched = punched && engine.punch == 0;
     panel.keys &= ~(1u << 17); run(60);
     panel.keys |= 1u << 20 | 1u << 22 | 1u << 25; run(30);   /* black 9-11 */
     punched = punched && engine.punch == (EL_PUNCH_DELAY | EL_PUNCH_CRUSH | EL_PUNCH_PHASER);

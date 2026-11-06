@@ -26,8 +26,12 @@ Urheber, Herkunft, Lizenz).
 - Gerät, 2. Build vom 06.11.: DR13 RH4 ST43 BA3 FX20 MB15, läuft viel besser, aber noch Knackser (Überlastung, sagt der
   Nutzer). PO-12-Kit 120 %. **Becken und Closed Hat klingen nicht wie die 808**: Der Nutzer will das kalibrierte Modell
   (ADR 0006); Feluccas Stimmen (ADR 0022) waren gegen diese Regel Standard geworden.
-- 3. Build vom 06.11.: PO-12 vorberechnet, MKS Saw 2–4 schneller Weg, Repeat nur solange Weiß gehalten,
-  OPTIONS zeigt PEAK/MAX/C1/LATE BLOCKS. Noch nicht auf dem Gerät.
+- 4. Build vom 06.11.: PO-12 vorberechnet, MKS Saw 2–4 schneller Weg, OPTIONS zeigt PEAK/MAX/C1/LATE BLOCKS,
+  **CY/OH/CH als unser Modell in Festkomma** (`engine/tr808_metal_fixed.h`, `make metal-fixed-check`). Repeat wie
+  früher (die Änderung „nur solange Weiß gehalten“ hat der Nutzer zurückgenommen). Noch nicht auf dem Gerät.
+- **Nächste Stimmen in Festkomma:** BD (der Nutzer: „die BD war vorher besser“), dann SD, Toms, RS, CP, CB. Vorgehen
+  wie bei den Metall-Stimmen: gleiche Rechnung in Q20/Q28/Q30, Koeffizienten aus den Float-Funktionen, Vergleich je
+  Einzelschlag gegen den Float-Build.
 - **Cloud-Umgebung „FM1-Electro-one“** erlaubt pkgman.jieliapp.com, jl-update.oss-cn-shenzhen.aliyuncs.com (Toolchain) und
   gitee.com (AC79-SDK, reicht `--sparse` mit `cpu/wl82/tools`). fm1-emu: von GitHub klonen, `0bebe54`, Patch anwenden.
 

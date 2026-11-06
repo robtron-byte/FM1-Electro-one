@@ -95,6 +95,12 @@ EL_DSP_CODE int tr808_active(const tr808_t *t);
  * ducking), the rest of the kit in stereo, and the effect sends. */
 EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right,
                               float *rev, float *gate, float *dly, int frames);
+/* TR808_METAL_FIXED: with TR808_FIXED, cymbal and hats are our own model in
+ * fixed point (engine/tr808_metal_fixed.h), not Felucca's (docs/adr/0022). */
+#ifndef TR808_METAL_FIXED
+#define TR808_METAL_FIXED TR808_FIXED
+#endif
+#define TR808_METAL_PART(p) (TR808_METAL_FIXED && ((p) == D8_CY || (p) == D8_OH || (p) == D8_CH))
 #if TR808_FIXED   /* engine/dr_fixed.c */
 void drf_init(void);
 void drf_silence(void);

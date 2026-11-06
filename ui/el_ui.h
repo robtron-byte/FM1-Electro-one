@@ -39,7 +39,6 @@ typedef struct {
      * the last step (legato), TRANSPOSE mode per area (GLO + SEQ). */
     uint8_t rec_fresh, rec_key, rec_note, transpose_mode[EL_AREAS];
     uint8_t punch_key[EL_PUNCHES];      /* key + 1 holding each punch-in (black keys 5-11) */
-    uint8_t repeat_key;                 /* white key + 1 holding the repeat's step (0: none) */
     uint8_t punch_last;                 /* the punch-in pressed last: its value on the white keys */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
