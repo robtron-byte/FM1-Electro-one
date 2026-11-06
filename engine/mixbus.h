@@ -7,11 +7,22 @@
 #define EL_MIXBUS_H
 #include "el_config.h"
 
+/* MB_FIXED: the mix bus in fixed point. Off: in the emulator's strict cycle
+ * model (FM1_STRICT=1, it matches the device's MB load) the float bus costs
+ * MB14, the fixed one MB18 (ADR 0019, Verlauf). */
+#ifndef MB_FIXED
+#define MB_FIXED 0
+#endif
+
 typedef struct {
     float threshold_db, ratio, attack, release, knee_db, makeup_db; /* settings */
     float a_coef, r_coef, makeup, env_db, gain_db;                   /* state */
     float gain, gain_step;        /* detector runs every COMP_EVERY samples, gain glides between */
     uint8_t phase;
+#if MB_FIXED
+    int32_t qgain, qstep;         /* the glide in Q28 */
+    uint8_t qsync;                /* 1: take qgain from gain (after comp_set / a sleep) */
+#endif
 } mb_comp_t;
 
 typedef struct { float b0, b1, b2, a1, a2, z1[2], z2[2]; } mb_biquad_t;
@@ -43,6 +54,12 @@ typedef struct {
      * drum low / high shelf, synth high-pass, bass high-pass (mono),
      * master low / high shelf. */
     float lite[2][6];
+#if MB_FIXED
+    /* the same states in fixed point (mixbus.c mb_process_fixed): Q24
+     * signals, the limiter's gain Q30 */
+    int32_t q_lite[2][6], q_duck, q_dcx[2], q_dcy[2], q_lim[2][MB_LOOKAHEAD], q_lim_gain;
+    uint8_t q_init;
+#endif
 } el_mixbus_t;
 
 void mb_init(el_mixbus_t *mb);

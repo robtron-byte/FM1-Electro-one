@@ -84,7 +84,23 @@ typedef struct {
     float pan_l[D8_NUM], pan_r[D8_NUM];
 } tr808_t;
 
+/* A kit's settings on their own: what each pattern keeps (drums.h). The
+ * KIT parameters 4 and 5 (drum key, follow) belong to the machine, not to a
+ * sound: tr808_sound_apply leaves them alone. */
+typedef struct {
+    uint8_t pot[D8_NUM][TR_PARAMS];
+    uint8_t kit[TR_KIT_PARAMS];
+} tr808_sound_t;
+enum { TR_SOUND_KIT_PARAMS = 4 };   /* level, accent, choke, engine */
+
 void tr808_init(tr808_t *t);
+/* Every knob at its default. */
+void tr808_sound_default(tr808_sound_t *s);
+EL_DSP_CODE void tr808_sound_set(tr808_sound_t *s, int part, int parameter, int value);
+EL_DSP_CODE int tr808_sound_get(const tr808_sound_t *s, int part, int parameter);
+/* The kit's knobs into s / s into the kit (pans worked out where they change). */
+EL_DSP_CODE void tr808_sound_capture(const tr808_t *t, tr808_sound_t *s);
+EL_DSP_CODE void tr808_sound_apply(tr808_t *t, const tr808_sound_t *s);
 int tr808_nparams(int part);
 const fm1_param_t *tr808_param(int part, int parameter);
 EL_DSP_CODE void tr808_set(tr808_t *t, int part, int parameter, int value);

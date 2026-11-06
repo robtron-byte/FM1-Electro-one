@@ -118,6 +118,7 @@ void el_generate_all(el_engine_t *e, uint32_t seed)
         if (s >= 0) {
             syn_load(&t->part, SYN_MKS, syn_sound_values((unsigned)s));
             t->preset = (uint8_t)s;
+            st_keep_sound(t, 1);
         }
     }
     e->transport.swing = e->drums.pattern[e->drums.current].swing;
@@ -257,11 +258,13 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_TRACK_PARAM:
         syn_set(&t->part, c->b, c->value);
+        if (c->b < SYN_VALUES) t->sound[t->current].v[c->b] = syn_values(&t->part)[c->b];
         break;
     case EL_CMD_TRACK_PRESET:
         syn_load(&t->part, c->c, e->staged_patch);
         t->preset = c->b;
         if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
+        st_keep_sound(t, 0);
         EL_FENCE();
         ++e->staged_taken;
         break;
@@ -370,7 +373,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         if (c->a < EL_TRACKS && c->b < ST_PATTERNS) {
             st_track_t *tr = &e->track[c->a];
             tr->next = c->b;
-            if (c->c || !t->running) { tr->current = c->b; tr->playing = 0; }
+            if (c->c || !t->running) st_enter(tr, c->b);
             ++tr->revision;
         }
         break;

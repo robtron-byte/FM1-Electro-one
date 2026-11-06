@@ -32,9 +32,19 @@ typedef struct {
     st_step_t step[ST_STEPS];
 } st_pattern_t;
 
+/* A slot's sound: engine, what the area shows as its sound (factory index
+ * or EL_USER_SOUND + slot) and the values. */
+typedef struct {
+    uint8_t engine, preset;
+    uint8_t v[SYN_VALUES];
+} st_sound_t;
+
 typedef struct {
     syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */
     st_pattern_t pattern[ST_PATTERNS];
+    /* Each slot's sound: loaded when the slot starts, edits go to the slot
+     * that plays (docs/adr/0024). */
+    st_sound_t sound[ST_PATTERNS];
     uint8_t area, preset, current, pos, playing, muted, recording, level_value;
     uint8_t next;              /* slot to switch to at the next bar */
     int8_t transpose;          /* added to the notes of the steps (keys in TRANSPOSE) */
@@ -58,6 +68,11 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames);
  * instead, the playhead going on as if not; no slot change meanwhile. */
 EL_DSP_CODE void st_step_at(st_track_t *t, uint32_t step, float sixteenth_frames, unsigned target);
 EL_DSP_CODE void st_rewind(st_track_t *t);
+/* Switch to slot now and load its sound when another one is loaded. */
+EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot);
+/* The part's sound (as loaded and edited) into the playing slot; all = 1:
+ * into every slot. */
+EL_DSP_CODE void st_keep_sound(st_track_t *t, int all);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);
 /* Live note from the keys or MIDI: plays (with the live chord) and records

@@ -61,18 +61,24 @@ int dr_note_part(unsigned note)
     }
 }
 
+EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index)
+{
+    static tr808_sound_t defaults;   /* every knob at its default, made once */
+    static uint8_t defaults_ok;
+    if (!defaults_ok) { tr808_sound_default(&defaults); defaults_ok = 1; }
+    *s = defaults;
+    if (index >= DR_KITS) return;
+    for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[index][i].part != 255; ++i)
+        tr808_sound_set(s, kits[index][i].part, kits[index][i].param, kits[index][i].value);
+}
+
+/* The playing slot takes kit index's factory sound. */
 static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index)
 {
     if (index >= DR_KITS) return;
-    float level = m->level;
-    uint8_t key = m->kit.kit[4], follow = m->kit.kit[5];   /* the drum key stays (docs/adr/0016) */
-    tr808_init(&m->kit);
-    m->kit.kit[4] = key;
-    m->kit.kit[5] = follow;
-    for (unsigned i = 0; i < DR_KIT_ENTRIES && kits[index][i].part != 255; ++i)
-        tr808_set(&m->kit, kits[index][i].part, kits[index][i].param, kits[index][i].value);
+    dr_kit_sound(&m->sound[m->current], index);
+    tr808_sound_apply(&m->kit, &m->sound[m->current]);
     m->kit_index = (uint8_t)index;
-    m->level = level;
 }
 
 void dr_init(dr_machine_t *m)
@@ -90,7 +96,9 @@ void dr_init(dr_machine_t *m)
     m->level_value = 100;
     m->level = 100 / 127.0f;
     m->random = 0x2545f491u;
+    tr808_init(&m->kit);
     apply_kit(m, m->pattern[0].kit);
+    for (unsigned i = 1; i < DR_PATTERNS; ++i) m->sound[i] = m->sound[0];
 }
 
 int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value)
@@ -110,11 +118,13 @@ int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p)
     return 0;
 }
 
-/* A pattern brings its kit along (a Miami groove gets the boom kick). */
+/* A pattern brings its sound along: its kit (a Miami groove gets the boom
+ * kick) with the knobs as they were set in it (docs/adr/0024). */
 static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
 {
     m->current = (uint8_t)index;
-    if (m->pattern[index].kit != m->kit_index && m->pattern[index].kit < DR_KITS) apply_kit(m, m->pattern[index].kit);
+    tr808_sound_apply(&m->kit, &m->sound[index]);
+    if (m->pattern[index].kit < DR_KITS) m->kit_index = m->pattern[index].kit;
 }
 
 static EL_DSP_CODE void silence(dr_machine_t *m)
@@ -274,10 +284,22 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         }
         break;
     case DR_CMD_COPY:
-        if (part < DR_PATTERNS && step < DR_PATTERNS) m->pattern[step] = m->pattern[part];
+        if (part < DR_PATTERNS && step < DR_PATTERNS) {
+            m->pattern[step] = m->pattern[part];
+            m->sound[step] = m->sound[part];
+            if (step == m->current) enter(m, step);
+        }
         break;
     case DR_CMD_LOAD:
-        if (part < DR_PATTERNS) m->pattern[part] = m->staging;
+        if (part < DR_PATTERNS) {
+            /* Another kit: the slot starts from that kit's factory sound;
+             * the same kit keeps the slot's knobs. */
+            if (m->staging.kit != m->pattern[part].kit && m->staging.kit < DR_KITS) {
+                dr_kit_sound(&m->sound[part], m->staging.kit);
+                if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
+            }
+            m->pattern[part] = m->staging;
+        }
         EL_FENCE();
         ++m->staging_taken;
         break;
@@ -289,6 +311,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_PARAM:
         tr808_set(&m->kit, (int)part, (int)step, c->value);
+        tr808_sound_set(&m->sound[m->current], (int)part, (int)step, c->value);
         break;
     case DR_CMD_KIT:
         apply_kit(m, part);

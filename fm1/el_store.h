@@ -20,4 +20,7 @@ int el_store_save(el_engine_t *e);
 int el_sound_get(unsigned slot, el_sound_t *out);
 int el_sound_put(unsigned slot, const el_sound_t *in);
 uint32_t el_sound_address(unsigned which);
+#ifdef FM1_HOST_TEST
+int el_store_test_as_v20(void);   /* the newest record as version 20 wrote it */
+#endif
 #endif

@@ -94,7 +94,14 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check
+.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check mb-fixed-check
+
+# The fixed-point mix bus (engine/mixbus.c, MB_FIXED, own platform) against
+# the float one: MASTER FX on, off, and hot into the limiter; within -60 dB.
+mb-fixed-check: host/mb_fixed_check.c host/fixed_cmp.py engine/mixbus.c engine/mixbus.h
+	@mkdir -p build
+	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMB_FIXED=$$fx -o build/mbc_$$fx host/mb_fixed_check.c engine/mixbus.c -lm && ./build/mbc_$$fx build/mbc_$$fx.raw || exit 1; done
+	@python3 host/fixed_cmp.py build/mbc_0.raw build/mbc_1.raw 3 -60 "FX on" "FX off" "hot, limiter"
 
 # The fixed-point distortion (engine/dist.c, DIST_FIXED, own platform) against
 # the float one: every type, five settings, each within -60 dB.

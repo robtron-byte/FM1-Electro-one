@@ -62,6 +62,9 @@ static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack
     c->gain = c->makeup;
     c->gain_step = 0;
     c->phase = 0;
+#if MB_FIXED
+    c->qsync = 1;
+#endif
 }
 
 /* Feed-forward, log domain, soft knee; detector on the stereo peak. Returns
@@ -173,6 +176,10 @@ static EL_DSP_CODE void mb_settle(el_mixbus_t *mb)
     mb->duck_env = 0.0f;
     mb->dc_x[0] = mb->dc_x[1] = mb->dc_y[0] = mb->dc_y[1] = 0.0f;
     for (int i = 0; i < 6; ++i) mb->lite[0][i] = mb->lite[1][i] = 0.0f;
+#if MB_FIXED
+    mb->q_init = 0;   /* the fixed states from these on the next block */
+    for (unsigned i = 0; i < 2; ++i) cs[i]->qsync = 1;
+#endif
 }
 
 /* ---- setup ------------------------------------------------------------------ */
@@ -205,10 +212,181 @@ void mb_init(el_mixbus_t *mb)
 
 /* ---- processing ------------------------------------------------------------- */
 
+#if MB_FIXED && MB_LITE_EQ
+/* The same chain in fixed point: signals Q24, coefficients Q30, the
+ * compressors' detectors in float every COMP_EVERY samples as before
+ * (their gain glides in Q28), tape and tube's soft clip
+ * y (27 + y^2) / (27 + 9 y^2) from a table (-3 .. 3, quadratic), the
+ * limiter dividing only while it holds a peak. */
+static inline EL_DSP_HELPER int32_t mq(int32_t a, int32_t b, int s) { return (int32_t)(((int64_t)a * b) >> s); }
+static inline EL_DSP_HELPER int32_t mq30f(float x) { return (int32_t)(x * 1073741824.0f); }
+static inline EL_DSP_HELPER int32_t mq28f(float x) { return (int32_t)(x * 268435456.0f); }
+enum { MB_SOFT_TAB = 1537 };   /* -3 .. 3 in 1/256 */
+static int32_t mb_soft_tab[MB_SOFT_TAB + 1];
+static uint8_t mb_soft_ready;
+static void mb_soft_init(void)
+{
+    for (int i = 0; i <= MB_SOFT_TAB; ++i) {
+        float y = dsp_clamp(-3.0f + (float)i * (1.0f / 256.0f), -3.0f, 3.0f);
+        mb_soft_tab[i] = (int32_t)(y * (27.0f + y * y) / (27.0f + 9.0f * y * y) * 16777216.0f);
+    }
+    mb_soft_ready = 1;
+}
+/* y (27 + y^2) / (27 + 9 y^2) of a Q24 y, clamped to +-3 (tape(), tube()) */
+static inline EL_DSP_HELPER int32_t mb_soft(int32_t y)
+{
+    if (y <= -(3 << 24)) return mb_soft_tab[0];
+    if (y >= (3 << 24)) return mb_soft_tab[MB_SOFT_TAB - 1];
+    uint32_t p = (uint32_t)(y + (3 << 24)), i = p >> 16;
+    int32_t f = (int32_t)((p >> 4) & 4095u), ff = (f * (f - 4096)) >> 1;   /* Q12, f (f - 1) / 2 in Q24 */
+    int32_t t0 = mb_soft_tab[i], t1 = mb_soft_tab[i + 1], t2 = mb_soft_tab[i + 2];
+    return t0 + (int32_t)(((int64_t)(t1 - t0) * f) >> 12) + (int32_t)(((int64_t)(t2 - 2 * t1 + t0) * ff) >> 24);
+}
+/* comp_gain: the detector as before, the glide in Q28 */
+static inline EL_DSP_HELPER int32_t comp_gain_q(mb_comp_t *c, int32_t level24)
+{
+    if (c->qsync) { c->qgain = mq28f(c->gain); c->qstep = 0; c->qsync = 0; }
+    if (++c->phase >= COMP_EVERY) {
+        c->phase = 0;
+        float target = comp_detect(c, (float)level24 * (1.0f / 16777216.0f));
+        c->qstep = (mq28f(target) - c->qgain) / COMP_EVERY;
+    }
+    c->qgain += c->qstep;
+    c->gain = (float)c->qgain * (1.0f / 268435456.0f);
+    return c->qgain;
+}
+static inline EL_DSP_HELPER int32_t q_abs(int32_t x) { return x < 0 ? -x : x; }
+static inline EL_DSP_HELPER int32_t q_max(int32_t a, int32_t b) { return a > b ? a : b; }
+
+static EL_DSP_CODE void mb_process_fixed(el_mixbus_t *mb, const float *kick, float *drum_l, float *drum_r, float *bass_l,
+                                         float *bass_r, float *synth_l, float *synth_r, float *out_l, float *out_r, int frames)
+{
+    static int32_t ik[EL_BLOCK], idl[EL_BLOCK], idr[EL_BLOCK], ibl[EL_BLOCK], ibr[EL_BLOCK], isl[EL_BLOCK], isr[EL_BLOCK];
+    if (!mb_soft_ready) mb_soft_init();
+    mb_limiter_t *lim = &mb->limiter;
+    if (!mb->q_init) {   /* from the float states (start, after a sleep) */
+        for (int c = 0; c < 2; ++c) {
+            for (int i = 0; i < 6; ++i) mb->q_lite[c][i] = (int32_t)(mb->lite[c][i] * 16777216.0f);
+            mb->q_dcx[c] = (int32_t)(mb->dc_x[c] * 16777216.0f); mb->q_dcy[c] = (int32_t)(mb->dc_y[c] * 16777216.0f);
+            for (int i = 0; i < MB_LOOKAHEAD; ++i) mb->q_lim[c][i] = (int32_t)(lim->buffer[c][i] * 16777216.0f);
+        }
+        mb->q_duck = (int32_t)(mb->duck_env * 16777216.0f);
+        mb->q_lim_gain = mq30f(lim->gain);
+        mb->q_init = 1;
+    }
+    /* in: Q24, and the input's peak (the sleep) */
+    int32_t in_peak = 0;
+    for (int n = 0; n < frames; ++n) {
+        ik[n] = (int32_t)(kick[n] * 16777216.0f); idl[n] = (int32_t)(drum_l[n] * 16777216.0f); idr[n] = (int32_t)(drum_r[n] * 16777216.0f);
+        ibl[n] = (int32_t)(bass_l[n] * 16777216.0f); ibr[n] = (int32_t)(bass_r[n] * 16777216.0f);
+        isl[n] = (int32_t)(synth_l[n] * 16777216.0f); isr[n] = (int32_t)(synth_r[n] * 16777216.0f);
+        int32_t a = q_max(q_max(q_max(q_abs(ik[n]), q_abs(idl[n])), q_max(q_abs(idr[n]), q_abs(ibl[n]))),
+                          q_max(q_abs(ibr[n]), q_max(q_abs(isl[n]), q_abs(isr[n]))));
+        in_peak = q_max(in_peak, a);
+    }
+    const int32_t quiet = (int32_t)(MB_QUIET * 16777216.0f) + 1;   /* (1e-6: 16 in Q24) */
+    if (in_peak >= quiet) mb->sleep = 0;
+    else if (mb->sleep) {
+        for (int n = 0; n < frames; ++n) out_l[n] = out_r[n] = 0.0f;
+        mb->gain_reduction_db = 0.0f;
+        return;
+    }
+    const int32_t c_dl = mq30f(LITE_DRUM_LOW_C), g_dl = mq30f(LITE_DRUM_LOW_G), c_dh = mq30f(LITE_DRUM_HIGH_C), g_dh = mq30f(LITE_DRUM_HIGH_G);
+    const int32_t c_shp = mq30f(LITE_SYNTH_HP_C), c_bhp = mq30f(LITE_BASS_HP_C);
+    const int32_t c_ml = mq30f(LITE_MASTER_LOW_C), g_ml = mq30f(LITE_MASTER_LOW_G), c_mh = mq30f(LITE_MASTER_HIGH_C), g_mh = mq30f(LITE_MASTER_HIGH_G);
+    const int32_t d_drive = mq28f(mb->drum_drive), d_inv = mq28f(1.0f / mb->drum_drive);
+    const int32_t m_drive = mq28f(mb->master_drive), m_inv = mq28f(1.0f / mb->master_drive);
+    const int32_t c_att = mq30f(mb->duck_attack), c_rel = mq30f(mb->duck_release), c012 = mq30f(0.12f);
+    const int32_t c_dc = mq30f(0.9995f), c_kick = mq28f(MB_KICK_GAIN), c_hot = mq28f(1.19f);
+    const int32_t ceil = (int32_t)(lim->ceiling * 16777216.0f), c_lrel = mq30f(lim->release), c_quarter = mq30f(0.25f);
+    const int32_t c055 = mq30f(0.55f), c025 = mq30f(0.25f), c25 = mq28f(2.5f);
+    int32_t *ql = mb->q_lite[0], *qr = mb->q_lite[1];
+    float reduction = 0;
+    int32_t out_peak = 0;
+    for (int n = 0; n < frames; ++n) {
+        int32_t dl = idl[n], dr = idr[n], bl = ibl[n], br = ibr[n], sl = isl[n], sr = isr[n], l, r;
+        if (mb->enabled) {
+            /* drum bus: tilt EQ, compressor, tape */
+            ql[0] += mq(dl - ql[0], c_dl, 30); qr[0] += mq(dr - qr[0], c_dl, 30);
+            ql[1] += mq(dl - ql[1], c_dh, 30); qr[1] += mq(dr - qr[1], c_dh, 30);
+            dl += mq(ql[0], g_dl, 30) + mq(dl - ql[1], g_dh, 30);
+            dr += mq(qr[0], g_dl, 30) + mq(dr - qr[1], g_dh, 30);
+            int32_t g = comp_gain_q(&mb->drum_comp, q_max(q_abs(dl), q_abs(dr)));
+            dl = mq(mb_soft(mq(mq(dl, g, 28), d_drive, 28)), d_inv, 28);
+            dr = mq(mb_soft(mq(mq(dr, g, 28), d_drive, 28)), d_inv, 28);
+            /* kick-keyed ducking */
+            int32_t k = q_abs(ik[n]);
+            mb->q_duck += mq(k - mb->q_duck, k > mb->q_duck ? c_att : c_rel, 30);
+            int32_t duck = mq(mb->q_duck, c25, 28);
+            duck = duck < 0 ? 0 : duck > (1 << 24) ? (1 << 24) : duck;   /* Q24 */
+            int32_t bass_gain = (1 << 24) - mq(duck, c055, 30), synth_gain = (1 << 24) - mq(duck, c025, 30);
+            ql[3] += mq(bl - ql[3], c_bhp, 30);
+            bl = br = mq(bl - ql[3], bass_gain, 24);
+            ql[2] += mq(sl - ql[2], c_shp, 30); qr[2] += mq(sr - qr[2], c_shp, 30);
+            sl = mq(sl - ql[2], synth_gain, 24);
+            sr = mq(sr - qr[2], synth_gain, 24);
+        }
+#ifdef MB_KICK_THROUGH_MASTER
+        l = dl + bl + sl + ik[n]; r = dr + br + sr + ik[n];
+#else
+        l = dl + bl + sl; r = dr + br + sr;
+        if (!mb->enabled) { l += ik[n]; r += ik[n]; }
+#endif
+        if (mb->enabled) {
+            ql[4] += mq(l - ql[4], c_ml, 30); qr[4] += mq(r - qr[4], c_ml, 30);
+            ql[5] += mq(l - ql[5], c_mh, 30); qr[5] += mq(r - qr[5], c_mh, 30);
+            l += mq(ql[4], g_ml, 30) + mq(l - ql[5], g_mh, 30);
+            r += mq(qr[4], g_ml, 30) + mq(r - qr[5], g_mh, 30);
+            int32_t g = comp_gain_q(&mb->master_comp, q_max(q_abs(l), q_abs(r)));
+            reduction = dsp_min(reduction, mb->master_comp.gain_db);
+            /* tube: y + 0.12 y^2, then the soft clip */
+            int32_t yl = mq(mq(l, g, 28), m_drive, 28), yr = mq(mq(r, g, 28), m_drive, 28);
+            yl += mq(mq(yl, yl, 24), c012, 30); yr += mq(mq(yr, yr, 24), c012, 30);
+            l = mq(mb_soft(yl), m_inv, 28); r = mq(mb_soft(yr), m_inv, 28);
+#ifndef MB_KICK_THROUGH_MASTER
+            l += mq(ik[n], c_kick, 28); r += mq(ik[n], c_kick, 28);
+#endif
+            int32_t ol = l - mb->q_dcx[0] + mq(mb->q_dcy[0], c_dc, 30); mb->q_dcx[0] = l; mb->q_dcy[0] = ol; l = ol;
+            int32_t orr = r - mb->q_dcx[1] + mq(mb->q_dcy[1], c_dc, 30); mb->q_dcx[1] = r; mb->q_dcy[1] = orr; r = orr;
+            l = mq(l, c_hot, 28); r = mq(r, c_hot, 28);
+        }
+        /* look-ahead limiter: ceiling / peak only while a peak is over it */
+        int32_t peak = q_max(q_abs(l), q_abs(r)), target = 1 << 30;
+        if (peak > ceil) {
+            int sh = __builtin_clz((uint32_t)peak) - 16;   /* both to 16 bits, then one 32-bit division */
+            int32_t pn = sh >= 0 ? peak << sh : peak >> -sh, cn = sh >= 0 ? ceil << sh : ceil >> -sh;
+            target = (int32_t)(((uint32_t)cn << 15) / (uint32_t)pn) << 15;   /* Q15 -> Q30 */
+        }
+        mb->q_lim_gain += mq(target - mb->q_lim_gain, target < mb->q_lim_gain ? c_quarter : c_lrel, 30);
+        int32_t dlv = mb->q_lim[0][lim->pos], drv = mb->q_lim[1][lim->pos];
+        mb->q_lim[0][lim->pos] = l; mb->q_lim[1][lim->pos] = r;
+        if (++lim->pos >= MB_LOOKAHEAD) lim->pos = 0;
+        int32_t ol = mq(dlv, mb->q_lim_gain, 30), orr = mq(drv, mb->q_lim_gain, 30);
+        ol = ol > ceil ? ceil : ol < -ceil ? -ceil : ol;
+        orr = orr > ceil ? ceil : orr < -ceil ? -ceil : orr;
+        out_peak = q_max(out_peak, q_max(q_abs(ol), q_abs(orr)));
+        out_l[n] = (float)ol * (1.0f / 16777216.0f);
+        out_r[n] = (float)orr * (1.0f / 16777216.0f);
+    }
+    lim->gain = (float)mb->q_lim_gain * (1.0f / 1073741824.0f);
+    mb->duck_env = (float)mb->q_duck * (1.0f / 16777216.0f);
+    mb->gain_reduction_db = reduction;
+    if (in_peak < quiet && out_peak < quiet) {
+        mb->quiet += (uint32_t)frames;
+        if (mb->quiet >= MB_SLEEP_FRAMES) { mb_settle(mb); mb->sleep = 1; mb->quiet = 0; }
+    } else
+        mb->quiet = 0;
+}
+#endif
+
 EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
                             float *drum_l, float *drum_r, float *bass_l, float *bass_r,
                             float *synth_l, float *synth_r, float *out_l, float *out_r, int frames)
 {
+#if MB_FIXED && MB_LITE_EQ
+    mb_process_fixed(mb, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, out_l, out_r, frames);
+    return;
+#endif
     mb_limiter_t *lim = &mb->limiter;
     float reduction = 0, in_peak = 0, out_peak = 0;
     for (int n = 0; n < frames; ++n)

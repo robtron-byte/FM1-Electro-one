@@ -602,5 +602,48 @@ int main(int argc, char **argv)
             !memcmp(syn_values(&reboot.track[2].part), got.v, syn_value_count(got.engine));
     printf("sounds: user slot 3 \"%s\" (%s) stored, found, cancel, restart %s\n", got.name, syn_engine_names[got.engine],
            us_ok ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok ? 0 : 1;
+
+    /* A sound per slot (docs/adr/0024): A's knobs come back after B, also
+     * after a restart; a version 20 record gives every slot its one sound. */
+    int ps_ok = 1;
+    {
+        static el_engine_t ps, back, v20;
+        float audio[EL_BLOCK * 2];
+        el_init(&ps);
+        el_generate_all(&ps, 7);
+        dr_machine_t *m = &ps.drums;
+        st_track_t *st = &ps.track[1];
+        dr_post(m, DR_CMD_PARAM, D8_BD, 1, 0, 100);              /* A: BD tune 100 */
+        el_post3(&ps, EL_CMD_TRACK_PARAM, 1, MP_CUTOFF, 0, 17);  /* A: strings cutoff 17 */
+        el_render_float(&ps, audio, EL_BLOCK);
+        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[MP_CUTOFF] == 17;
+        dr_post(m, DR_CMD_SELECT, 1, 1, 0, 0);
+        el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 1, 1, 0);
+        el_render_float(&ps, audio, EL_BLOCK);
+        ps_ok = ps_ok && m->current == 1 && st->current == 1 &&
+                tr808_get(&m->kit, D8_BD, 1) == 64 && syn_values(&st->part)[MP_CUTOFF] != 17;
+        dr_post(m, DR_CMD_PARAM, D8_SD, 0, 0, 33);               /* B: SD level 33 */
+        el_render_float(&ps, audio, EL_BLOCK);
+        dr_post(m, DR_CMD_SELECT, 0, 1, 0, 0);
+        el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 0, 1, 0);
+        el_render_float(&ps, audio, EL_BLOCK);
+        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && tr808_get(&m->kit, D8_SD, 0) != 33 &&
+                syn_values(&st->part)[MP_CUTOFF] == 17;
+        int sv = el_store_save(&ps);
+        el_init(&back);
+        int lb = el_store_load(&back);
+        ps_ok = ps_ok && sv == 0 && lb == 0 && back.drums.current == 0 &&
+                tr808_get(&back.drums.kit, D8_BD, 1) == 100 && syn_values(&back.track[1].part)[MP_CUTOFF] == 17 &&
+                tr808_sound_get(&back.drums.sound[1], D8_SD, 0) == 33 && tr808_sound_get(&back.drums.sound[1], D8_BD, 1) == 64 &&
+                back.track[1].sound[1].v[MP_CUTOFF] != 17 && back.track[1].sound[0].v[MP_CUTOFF] == 17;
+        int dv = el_store_test_as_v20();
+        el_init(&v20);
+        int l20 = el_store_load(&v20);
+        ps_ok = ps_ok && dv == 0 && l20 == 0;
+        for (unsigned i = 0; i < DR_PATTERNS; ++i)
+            ps_ok = ps_ok && tr808_sound_get(&v20.drums.sound[i], D8_BD, 1) == 100 && v20.track[1].sound[i].v[MP_CUTOFF] == 17;
+        if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
+    }
+    printf("slots: a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
+    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok ? 0 : 1;
 }

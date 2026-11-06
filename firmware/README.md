@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 12. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 13. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in diesem Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 13. Build:
+- **Jeder Pattern-Platz behält seinen Sound** (ADR 0024): in BEAT Kit und alle Drum-Regler, in RHYTHM, STRINGS und BASS der Synth-Sound. Von A nach B und zurück ist A wieder so eingestellt wie vorher; die Drum-Einstellungen setzen sich beim Platzwechsel nicht mehr zurück. Was du einstellst, gilt für den Platz, der gerade spielt. Drum-Tonart und FOLLOW gelten weiter für den ganzen Bereich. Der gespeicherte Stand wird übernommen: Jeder Platz startet mit dem bisherigen Sound.
+- Last unverändert (Emulator mit strengem Taktmodell: PEAK 84 %, MAX 89 %, LATE BLOCKS 0).
+
+Aus dem 12. Build:
 - **PO-12-Kit** rechnet viel weniger (die Werte, die sich während eines Schlags nicht ändern, einmal pro Schlag statt pro Sample; Klang gleich).
 - **STRINGS:** Saw-Formen 2–4 über einen schnellen Weg (gleiche Welle).
 - **Becken, Open Hat und Closed Hat** sind wieder unsere kalibrierte 808, jetzt in Festkomma nachgebaut (gleicher Klang wie das Gleitkomma-Modell, ADR 0022). Die Closed Hat ist an vier Aufnahmen einer echten 808 nachkalibriert (Variante B, ADR 0014).
@@ -19,7 +23,7 @@ Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Au
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `e7da33f6282915a9f529d587ff4ac7bf2a2f4666f87d573ea944a4348ea30e63`
+SHA-256: `9ed283b0fcdca81bf170a16d812aeb90703172bf6e1cd0ecf5b9afab6ef8eea5`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

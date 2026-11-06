@@ -24,6 +24,34 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
         t->pattern[i].rate = area == MKS_AREA_STRINGS ? ST_RATE_BAR : ST_RATE_16TH;
         for (unsigned s = 0; s < ST_STEPS; ++s) t->pattern[i].step[s].note = t->last_note;
     }
+    st_keep_sound(t, 1);
+}
+
+EL_DSP_CODE void st_keep_sound(st_track_t *t, int all)
+{
+    const uint8_t *v = syn_values(&t->part);
+    unsigned n = syn_value_count(t->part.engine);
+    for (unsigned k = all ? 0u : t->current; k < (all ? (unsigned)ST_PATTERNS : t->current + 1u); ++k) {
+        st_sound_t *s = &t->sound[k];
+        s->engine = t->part.engine;
+        s->preset = t->preset;
+        for (unsigned i = 0; i < SYN_VALUES; ++i) s->v[i] = i < n ? v[i] : 0;
+    }
+}
+
+EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot)
+{
+    if (slot >= ST_PATTERNS) slot = 0;
+    t->current = (uint8_t)slot;
+    t->playing = 0;
+    const st_sound_t *s = &t->sound[slot];
+    t->preset = s->preset;
+    const uint8_t *v = syn_values(&t->part);
+    unsigned n = syn_value_count(s->engine), same = s->engine == t->part.engine;
+    for (unsigned i = 0; i < n && same; ++i) same = v[i] == s->v[i];
+    if (same) return;
+    syn_load(&t->part, s->engine, s->v);
+    if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
 }
 
 const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS"};
@@ -107,7 +135,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     t->arp.chord = t->chord;
     arp_play(t, arp_sync(&t->arp, step, sixteenth_frames));
     if (t->next >= ST_PATTERNS) t->next = 0;
-    if (t->next != t->current && (step % 16u == 0 || !t->playing)) { t->current = t->next; t->playing = 0; }
+    if (t->next != t->current && (step % 16u == 0 || !t->playing)) st_enter(t, t->next);
     const st_pattern_t *p = &t->pattern[t->current];
     unsigned ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0];
     if (t->playing && ++t->tick < ticks) return;

@@ -41,12 +41,13 @@ enum dr_command {
     DR_CMD_LENGTH,      /* b = 1..32 */
     DR_CMD_SWING,       /* b = 50..75 */
     DR_CMD_SELECT,      /* a = pattern; b = 1 switches immediately, else at loop end */
-    DR_CMD_COPY,        /* a = source pattern, b = destination */
-    DR_CMD_LOAD,        /* a = pattern slot: copy the staging pattern into it */
+    DR_CMD_COPY,        /* a = source pattern, b = destination (with its sound) */
+    DR_CMD_LOAD,        /* a = pattern slot: copy the staging pattern into it (another
+                           kit: the slot's sound becomes that kit's factory sound) */
     DR_CMD_MUTE,        /* a = part, b = on */
     DR_CMD_SOLO,        /* a = part, b = on */
     DR_CMD_PARAM,       /* a = part (D8_KIT for kit), b = parameter index, value */
-    DR_CMD_KIT,         /* a = kit preset */
+    DR_CMD_KIT,         /* a = kit preset (the playing slot's sound becomes its factory sound) */
     DR_CMD_LEVEL,       /* value = 0..127 */
     DR_CMD_RECORD,      /* b = on */
     DR_CMD_PANIC,
@@ -68,6 +69,9 @@ extern const dr_style_t dr_styles[DR_STYLES];
 typedef struct {
     tr808_t kit;
     dr_pattern_t pattern[DR_PATTERNS];
+    /* Each slot's sound (kit and knobs): set when the slot starts, edits go
+     * to the slot that plays (docs/adr/0024). */
+    tr808_sound_t sound[DR_PATTERNS];
     el_queue_t queue;
     float level;            /* output gain */
     float roll_countdown;   /* frames until the pending 32nd rolls fire */
@@ -95,6 +99,8 @@ extern const char *const dr_kit_names[DR_KITS];
 
 /* Control task, before audio starts. Loads the factory patterns and kit 0. */
 void dr_init(dr_machine_t *m);
+/* The factory sound of kit index (DR_KITS) into s. */
+EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index);
 /* Control task: queue an edit. Returns 0, or -1 when the queue is full. */
 int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value);
 /* Control task: replace a whole pattern. Returns 0, -1 queue full, -2 while

@@ -107,6 +107,43 @@ EL_DSP_CODE int tr808_get(const tr808_t *t, int part, int p)
     return part == D8_KIT ? t->kit[p] : t->pot[part][params[part].slot[p]];
 }
 
+void tr808_sound_default(tr808_sound_t *s)
+{
+    memset(s, 0, sizeof *s);
+    for (int part = 0; part <= D8_KIT; ++part)
+        for (int p = 0; p < params[part].count; ++p) tr808_sound_set(s, part, p, params[part].desc[p].def);
+}
+
+EL_DSP_CODE void tr808_sound_set(tr808_sound_t *s, int part, int p, int value)
+{
+    const fm1_param_t *d = tr808_param(part, p);
+    if (!d) return;
+    value = value < 0 ? 0 : value > d->max ? d->max : value;
+    if (part == D8_KIT) s->kit[p] = (uint8_t)value;
+    else s->pot[part][params[part].slot[p]] = (uint8_t)value;
+}
+
+EL_DSP_CODE int tr808_sound_get(const tr808_sound_t *s, int part, int p)
+{
+    if (!tr808_param(part, p)) return 0;
+    return part == D8_KIT ? s->kit[p] : s->pot[part][params[part].slot[p]];
+}
+
+EL_DSP_CODE void tr808_sound_capture(const tr808_t *t, tr808_sound_t *s)
+{
+    memcpy(s->pot, t->pot, sizeof s->pot);
+    memcpy(s->kit, t->kit, sizeof s->kit);
+}
+
+EL_DSP_CODE void tr808_sound_apply(tr808_t *t, const tr808_sound_t *s)
+{
+    for (int part = 0; part < D8_NUM; ++part) {
+        if (t->pot[part][P_PAN] != s->pot[part][P_PAN]) set_pan(t, part, s->pot[part][P_PAN]);
+        for (int i = 0; i < TR_PARAMS; ++i) t->pot[part][i] = s->pot[part][i];
+    }
+    for (int i = 0; i < TR_SOUND_KIT_PARAMS; ++i) t->kit[i] = s->kit[i];
+}
+
 /* Fixed per-unit component tolerance: the frequencies of a real 808 sit a
  * little off the nominal values, differently on every machine. */
 static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
