@@ -102,6 +102,12 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
 #define TR808_METAL_FIXED TR808_FIXED
 #endif
 #define TR808_METAL_PART(p) (TR808_METAL_FIXED && ((p) == D8_CY || (p) == D8_OH || (p) == D8_CH))
+/* TR808_BD_FIXED: with TR808_FIXED, the bass drum is our own model in fixed
+ * point (engine/tr808_bd_fixed.h). TR808_OWN_PART: parts of ours in fixed point. */
+#ifndef TR808_BD_FIXED
+#define TR808_BD_FIXED TR808_FIXED
+#endif
+#define TR808_OWN_PART(p) (TR808_METAL_PART(p) || (TR808_BD_FIXED && (p) == D8_BD))
 #if TR808_FIXED   /* engine/dr_fixed.c */
 void drf_init(void);
 void drf_silence(void);

@@ -117,6 +117,9 @@ static inline void svf_set(tr_svf_t *f, float hz, float q);
 #if TR808_FIXED && TR808_METAL_FIXED
 static void dm_reset(void);   /* tr808_metal_fixed.h */
 #endif
+#if TR808_FIXED && TR808_BD_FIXED
+static void db_reset(void);   /* tr808_bd_fixed.h */
+#endif
 
 static inline float decay_coef(float samples);
 static float spread_tab[128];
@@ -130,6 +133,9 @@ void tr808_init(tr808_t *t)
 #endif
 #if TR808_FIXED && TR808_METAL_FIXED
     dm_reset();
+#endif
+#if TR808_FIXED && TR808_BD_FIXED
+    db_reset();
 #endif
     for (int part = 0; part <= D8_KIT; ++part)
         for (int p = 0; p < params[part].count; ++p) tr808_set(t, part, p, params[part].desc[p].def);
@@ -1047,6 +1053,7 @@ static EL_DSP_VOICE float hat(tr808_t *t, tr_voice_t *v, int part, float src)
 }
 
 #include "tr808_metal_fixed.h"   /* cymbal and hats in fixed point (own platform) */
+#include "tr808_bd_fixed.h"      /* the bass drum in fixed point (own platform) */
 
 /* Zap: a sine whose pitch falls exponentially from Tune (300 Hz..6 kHz)
  * by Depth (up to 7 octaves) within Sweep (5..400 ms), the electro laser.
@@ -1337,6 +1344,9 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
 #if TR808_FIXED && TR808_METAL_FIXED
     dm_render(t, frames);   /* cymbal and hats of this call into dm_y */
 #endif
+#if TR808_FIXED && TR808_BD_FIXED
+    db_render(t, frames);   /* the bass drum of this call into db_y */
+#endif
     for (int n = 0; n < frames; ++n) {
         float low_src = 0, high_src = 0, cb_src = 0, hat_band = 0, raw = 0;
         if (metal_on) {
@@ -1394,6 +1404,10 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             }
 #if TR808_FIXED && TR808_METAL_FIXED
             if (TR808_METAL_PART(part)) y = dm_y[part - D8_CY][n];   /* (its flag may be off already: the call's tail) */
+            else
+#endif
+#if TR808_FIXED && TR808_BD_FIXED
+            if (part == D8_BD) y = db_y[n];
             else
 #endif
             {

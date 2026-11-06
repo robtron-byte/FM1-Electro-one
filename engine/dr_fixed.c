@@ -43,7 +43,7 @@ static struct {
 int drf_part(const tr808_t *t, int part)
 {
     (void)t;
-    return part >= D8_BD && part <= D8_CH && !TR808_METAL_PART(part);   /* cymbal and hats: tr808_metal_fixed.h */
+    return part >= D8_BD && part <= D8_CH && !TR808_OWN_PART(part);   /* ours: tr808_metal_fixed.h, tr808_bd_fixed.h */
 }
 
 void drf_init(void)

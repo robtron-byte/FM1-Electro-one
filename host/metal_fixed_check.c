@@ -21,7 +21,7 @@ static void wav(const char *path, const float *x, unsigned n)
     for (unsigned i = 0; i < 2 * n; ++i) { float y = x[i] < -1 ? -1 : x[i] > 1 ? 1 : x[i]; short q = (short)lrintf(y * 32767); fwrite(&q, 2, 1, f); }
     fclose(f);
 }
-typedef struct { const char *name; int part, velocity, tune, decay, tone, second; } hit_t;
+typedef struct { const char *name; int part, velocity, tune, decay, tone, second, slot, value; } hit_t;   /* slot / value: one more knob (tr808.c P_*) */
 static const hit_t cases[] = {
     {"cy", D8_CY, 100, 64, 64, 64, -1},     {"cy_acc", D8_CY, 127, 64, 64, 64, -1},
     {"cy_dark", D8_CY, 100, 64, 20, 10, -1}, {"cy_bright", D8_CY, 100, 90, 120, 120, -1},
@@ -29,6 +29,11 @@ static const hit_t cases[] = {
     {"oh_long", D8_OH, 100, 64, 120, 64, -1}, {"oh_tune", D8_OH, 100, 90, 64, 64, -1},
     {"ch", D8_CH, 100, 64, 64, 64, -1},     {"ch_acc", D8_CH, 127, 64, 64, 64, -1},
     {"ch_tune", D8_CH, 100, 30, 100, 64, -1}, {"oh_choke", D8_OH, 100, 64, 64, 64, D8_CH},
+    {"bd", D8_BD, 100, 64, 64, 64, -1},     {"bd_acc", D8_BD, 127, 64, 64, 64, -1},
+    {"bd_short", D8_BD, 100, 64, 0, 64, -1}, {"bd_long", D8_BD, 100, 64, 127, 64, -1},
+    {"bd_tune", D8_BD, 100, 100, 64, 64, -1}, {"bd_tone", D8_BD, 100, 64, 64, 127, -1},
+    {"bd_punch", D8_BD, 127, 64, 64, 64, -1, 5, 127}, {"bd_drive", D8_BD, 100, 64, 64, 64, -1, 4, 90},
+    {"bd_retrig", D8_BD, 100, 64, 100, 64, D8_BD},
 };
 int main(int argc, char **argv)
 {
@@ -42,6 +47,7 @@ int main(int argc, char **argv)
         e.drums.kit.pot[h->part][1] = (uint8_t)h->tune;    /* tr808.c P_TUNE, P_DECAY, P_TONE */
         e.drums.kit.pot[h->part][2] = (uint8_t)h->decay;
         e.drums.kit.pot[h->part][3] = (uint8_t)h->tone;
+        if (h->slot) e.drums.kit.pot[h->part][h->slot] = (uint8_t)h->value;
         unsigned total = 44100 * 2 / EL_BLOCK * EL_BLOCK;
         memset(out, 0, sizeof out);
         for (unsigned p = 0; p < total; p += EL_BLOCK) {

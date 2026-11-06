@@ -29,7 +29,10 @@ Urheber, Herkunft, Lizenz).
 - 4. Build vom 06.11.: PO-12 vorberechnet, MKS Saw 2–4 schneller Weg, OPTIONS zeigt PEAK/MAX/C1/LATE BLOCKS,
   **CY/OH/CH als unser Modell in Festkomma** (`engine/tr808_metal_fixed.h`, `make metal-fixed-check`). Repeat wie
   früher (die Änderung „nur solange Weiß gehalten“ hat der Nutzer zurückgenommen). Noch nicht auf dem Gerät.
-- **Nächste Stimmen in Festkomma:** BD (der Nutzer: „die BD war vorher besser“), dann SD, Toms, RS, CP, CB. Vorgehen
+- **BD in Festkomma** (`engine/tr808_bd_fixed.h`) fertig. **Nächste Stimmen:** SD, Toms, RS, CP, CB.
+- **Referenzaufnahmen** einer echten 808: Dropbox-Ordner des Nutzers „808 best of“ (BD, SD, HH = Open Hats, Cymbal,
+  Low Tom/Conga), per Dropbox-Erweiterung zu finden; Download als ZIP über den geteilten Link (`dl=1`) braucht
+  uneingeschränktes Netz (danach wieder einschränken). Closed Hats: vier AIF-Dateien vom Nutzer (CH-Abgleich, ADR 0014). Vorgehen
   wie bei den Metall-Stimmen: gleiche Rechnung in Q20/Q28/Q30, Koeffizienten aus den Float-Funktionen, Vergleich je
   Einzelschlag gegen den Float-Build.
 - **Cloud-Umgebung „FM1-Electro-one“** erlaubt pkgman.jieliapp.com, jl-update.oss-cn-shenzhen.aliyuncs.com (Toolchain) und
