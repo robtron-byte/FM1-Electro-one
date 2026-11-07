@@ -1,8 +1,20 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 36. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 37. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 36. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 37. Build (erste Runde deiner Auswahl, Feature-Nummern wie in `docs/FEATURES.md`):
+- **Speicher (B12):** Tom und Conga sind ganz entfernt, ~3,1 KB RAM frei. Deine gespeicherten Grooves werden beim ersten Start umgerechnet (Speicherversion 26). Tipp: vorher nichts tun, nach dem Start einmal SAVE.
+- **Kits merken sich deine Einstellungen (N1):** Kit wechseln und zurück bringt dein eingestelltes Kit. EDIT + PRESETS holt den Werksklang des Kits zurück.
+- **Fill-ins (N12):** In BEAT spielt SEQ tippen im nächsten Takt den Fill, SEQ halten wiederholt ihn. GLO + SEQ: automatisch alle 8 / 16 / 32 Takte (Countdown unten), noch mal: AUS. EDIT + SEQ: Fill bearbeiten (Step-Tasten 1–16, EDIT = Akzent, GLO = Roll), EDIT + SEQ: fertig. Neue Grooves bringen einen Fill mit.
+- **Mute-Modus (N13):** GLO kurz tippen in BEAT, dann schalten die Instrumenten-Tasten stumm/laut. Tasten: voll = spielt, gedimmt = nichts aufgenommen, blinkend = stumm. GLO noch mal tippen: aus.
+- **STRINGS-Live-Aufnahme (N6, S8):** Auf ein leeres Pattern: der Notenanfang rastet auf die nächste Achtel, die Note klingt so lange wie gehalten. Nach REC wird das Pattern auf die genutzten ganzen Takte gekürzt (1–4).
+- **EDIT kurz tippen (N8):** öffnet den Editor des Bereichs, noch mal tippen: zurück. Im Editor blättern SELECT und ALGORITHM im Kreis (N9).
+- **Pattern-Länge (N11):** GLO + ALGORITHM ändert in ganzen Takten, die Taktzahl steht groß im Display. Einzelne Steps nur im STEP-Modus der Synths.
+- **REC gedimmt (N5),** solange nichts aufgenommen wird.
+
+Emulator (Groove ROTHER, Zufalls-Kit und -Sounds): PEAK 65 %, MAX 67 %.
+
+Aus dem 36. Build:
 - **Gedrehter Wert** (U3): Name und Wert stehen 0,5 s auf einer Amber-Fläche, dunkle Schrift.
 
 Aus dem 35. Build:
@@ -87,7 +99,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `c48380ad689056ec54933ad6495d57e9fc910013c9bd481001839030064cb06c`
+SHA-256: `6b1bc27bbeee1204bcacfed2b1f2f67f9e455d52a27936a9aa46e3751367039c`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
