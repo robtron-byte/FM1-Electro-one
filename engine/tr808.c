@@ -1328,8 +1328,11 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
     uint8_t sig[12] = {(uint8_t)pc, t->pot[D8_BD][P_TUNE], t->pot[D8_SD][P_TUNE], t->pot[D8_LT][P_TUNE], t->pot[D8_HT][P_TUNE],
                        t->pot[D8_RS][P_TUNE], t->pot[D8_CB][P_TUNE], t->pot[D8_ZP][P_TUNE], t->pot[D8_PU][P_TUNE],
                        (uint8_t)(t->pot[D8_SD][P_SOUND] | t->pot[D8_LT][P_SOUND] << 2 | t->pot[D8_HT][P_SOUND] << 4 | t->pot[D8_RS][P_SOUND] << 6), 0, 0};
-    if (t->key_sig_ok && !memcmp(sig, t->key_sig, sizeof sig)) return;
-    memcpy(t->key_sig, sig, sizeof sig);
+    /* (loops: the library's memcmp / memcpy run from the flash) */
+    int same = t->key_sig_ok;
+    for (unsigned i = 0; i < sizeof sig && same; ++i) same = sig[i] == t->key_sig[i];
+    if (same) return;
+    for (unsigned i = 0; i < sizeof sig; ++i) t->key_sig[i] = sig[i];
     t->key_sig_ok = 1;
     static const uint8_t deg[D8_NUM] = {0, 0, 7, 0, 7, 0, 0, 0, 0, 0, 0, 0};   /* semitones above the root */
     for (int part = 0; part < D8_NUM; ++part) {

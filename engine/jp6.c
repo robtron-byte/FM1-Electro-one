@@ -224,7 +224,7 @@ typedef struct {
     env_settings_t env[2];
 } derived_t;
 
-static inline float vco_tick(jp6_voice_t *v, const derived_t *d, float raw_dt1, float dt2, float pw, float xmod)
+static inline __attribute__((always_inline)) float vco_tick(jp6_voice_t *v, const derived_t *d, float raw_dt1, float dt2, float pw, float xmod)
 {
     float o1, o2;
     if (d->sync == 2) {
@@ -259,7 +259,7 @@ typedef struct { float g1, g2, h1, h2, r, input_gain, makeup; int hp1, hp2; } vc
 
 /* LPF: LP -> LP, BPF: HP -> LP (+6 dB makeup), HPF: HP -> HP. Exponential
  * damping 0.85 -> 0.18, input attenuation with resonance, 3 % mismatch. */
-static inline void vcf_set(vcf_t *f, float cutoff, const derived_t *d)
+static inline __attribute__((always_inline)) void vcf_set(vcf_t *f, float cutoff, const derived_t *d)
 {
     const float limit = EL_SAMPLE_RATE * 0.45f;
     f->g1 = dsp_tan(DSP_PI * dsp_clamp(cutoff, 5.0f, limit) * (1.0f / EL_SAMPLE_RATE));
@@ -283,7 +283,7 @@ static inline float svf_section(float x, float *a, float *b, float g, float h, f
     return high ? hp : lp;
 }
 
-static inline float vcf(jp6_voice_t *v, const vcf_t *f, float input)
+static inline __attribute__((always_inline)) float vcf(jp6_voice_t *v, const vcf_t *f, float input)
 {
     float x = 2.0f * soft_clip(input * f->input_gain);
     float y = svf_section(x, &v->a1, &v->b1, f->g1, f->h1, f->r, f->hp1);
