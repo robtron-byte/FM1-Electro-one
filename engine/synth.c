@@ -11,11 +11,25 @@
 
 const char *const syn_engine_names[SYN_ENGINES] = {"MKS-50", "JP-6"};
 
-unsigned syn_sound_count(void) { return mks_preset_count + jp6_preset_count; }
-unsigned syn_sound_engine(unsigned s) { return s < mks_preset_count ? SYN_MKS : SYN_JP6; }
+unsigned syn_sound_count(void) { return mks_preset_count + jp6_preset_count + syn_extra_count; }
+
+/* Own sounds come after both engines': index into syn_extras, or -1. */
+static int extra_index(unsigned s)
+{
+    unsigned base = mks_preset_count + jp6_preset_count;
+    return s >= base && s - base < syn_extra_count ? (int)(s - base) : -1;
+}
+static int is_extra(unsigned s) { return s >= mks_preset_count + jp6_preset_count; }
+
+unsigned syn_sound_engine(unsigned s)
+{
+    if (is_extra(s)) { int e = extra_index(s); return e >= 0 ? syn_extras[e].engine : SYN_MKS; }
+    return s < mks_preset_count ? SYN_MKS : SYN_JP6;
+}
 
 unsigned syn_sound_area(unsigned s)
 {
+    if (is_extra(s)) { int e = extra_index(s); return e >= 0 ? syn_extras[e].area : 0; }
     if (s < mks_preset_count) return mks_presets[s].area;
     s -= mks_preset_count;
     return s < jp6_preset_count ? jp6_presets[s].area : 0;
@@ -23,6 +37,7 @@ unsigned syn_sound_area(unsigned s)
 
 const char *syn_sound_name(unsigned s)
 {
+    if (is_extra(s)) { int e = extra_index(s); return e >= 0 ? syn_extras[e].name : "?"; }
     if (s < mks_preset_count) return mks_presets[s].name;
     s -= mks_preset_count;
     return s < jp6_preset_count ? jp6_presets[s].name : "?";
@@ -30,6 +45,7 @@ const char *syn_sound_name(unsigned s)
 
 const uint8_t *syn_sound_values(unsigned s)
 {
+    if (is_extra(s)) { int e = extra_index(s); return syn_extras[e >= 0 ? e : 0].v; }
     if (s < mks_preset_count) return mks_presets[s].v;
     s -= mks_preset_count;
     return jp6_presets[s < jp6_preset_count ? s : 0].v;

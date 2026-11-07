@@ -431,6 +431,49 @@ int main(int argc, char **argv)
         }
     }
 
+    /* STRINGS (docs/adr/0027): a live take on an empty pattern records in
+     * 8ths, a step take keeps the step length; steps run up to 8 bars. */
+    {
+        tap_button(BTN_ENV);
+        st_track_t *str = &engine.track[1];
+        engine.option[EL_OPT_REC_STEP] &= (uint8_t)~2u;   /* live */
+        hold(BTN_EDIT, 1); tap_button(BTN_REC); hold(BTN_EDIT, 0);   /* clear the pattern */
+        el_post3(&engine, EL_CMD_TRACK_RATE, 1, ST_RATE_BAR, 0, 0);
+        run(20);
+        tap_button(BTN_REC);
+        run(20);
+        int live_8th = str->recording && str->pattern[str->current].rate == ST_RATE_8TH && str->pattern[str->current].length == ST_STEPS;
+        tap_button(BTN_REC);
+        run(20);
+        engine.option[EL_OPT_REC_STEP] |= 2u;   /* step */
+        el_post3(&engine, EL_CMD_TRACK_RATE, 1, ST_RATE_BAR, 0, 0);
+        run(20);
+        tap_button(BTN_REC);
+        run(20);
+        int step_kept = str->recording && str->pattern[str->current].rate == ST_RATE_BAR;
+        tap_button(BTN_REC);
+        run(20);
+        engine.option[EL_OPT_REC_STEP] &= (uint8_t)~2u;
+        /* A step of 8 bars lasts 128 sixteenths. */
+        static st_track_t slow;
+        st_init(&slow, MKS_AREA_STRINGS, 3, 5);
+        st_pattern_t *sp = &slow.pattern[0];
+        sp->rate = ST_RATE_8BARS;
+        sp->length = 2;
+        sp->step[0].flags = sp->step[1].flags = ST_ON;
+        unsigned moves = 0, first = 0, second = 0;
+        for (unsigned i = 0; i < 256; ++i) {
+            unsigned before = slow.pos;
+            st_step(&slow, i, 1000.0f);
+            if (i && slow.pos != before) { ++moves; if (moves == 1) first = i; else second = i; }
+        }
+        int long_ok = moves == 1 && first == 128;   /* the second change would come at 256 */
+        printf("strings: live take in 8ths, step take keeps its steps, 8-bar steps change at 128 sixteenths %s\n",
+               live_8th && step_kept && long_ok ? "ok" : "FAIL");
+        if (!(live_8th && step_kept && long_ok))
+            printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);
+    }
+
     /* Arpeggiator in BASS: tap ARP, hold two keys. */
     if (!engine.transport.running) tap_button(BTN_PLAY);
     tap_button(BTN_LFO);
@@ -563,7 +606,7 @@ int main(int argc, char **argv)
     run(20);
     printf("leds: area buttons dimmed, octave end blinks %s\n", led_ok ? "ok" : "FAIL");
     /* User sounds: SAVE in the editor, rename, slot 3, SAVE stores; PRESETS
-     * finds it after the factory sounds; another button cancels; the groove
+     * finds it before the factory sounds, GLO + PRESETS straight away; another button cancels; the groove
      * keeps pointing at it over a restart. */
     hold(BTN_EDIT, 1);
     tap_button(BTN_LFO);
@@ -586,10 +629,21 @@ int main(int argc, char **argv)
     us_ok = us_ok && !ui.sound_save && gr == 0 && got.used && got.engine == bass->part.engine && got.name[0] == typed &&
             !memcmp(got.v, syn_values(&bass->part), syn_value_count(got.engine)) && bass->preset == EL_USER_SOUND + 2;
     shot(dir, "21_sound_saved");
-    turn(6, -1);                          /* back to the factory sounds */
+    turn(6, 1);                           /* the user sounds come first: on to the factory sounds */
     run(300);
     us_ok = us_ok && bass->preset < EL_USER_SOUND;
-    turn(6, 200);                         /* to the end: the user slot */
+    turn(6, 200);                         /* to the end of the factory sounds */
+    run(300);
+    us_ok = us_ok && bass->preset < EL_USER_SOUND;
+    hold(BTN_GLO, 1);
+    turn(6, 1);                           /* GLO + PRESETS: straight to the user sounds */
+    hold(BTN_GLO, 0);
+    run(300);
+    us_ok = us_ok && bass->preset == EL_USER_SOUND + 2;
+    turn(6, 1);                           /* on to the first factory sound */
+    run(300);
+    us_ok = us_ok && bass->preset < EL_USER_SOUND;
+    turn(6, -1);                          /* one click left of it: the user sound */
     run(300);
     us_ok = us_ok && bass->preset == EL_USER_SOUND + 2;
     tap_button(BTN_SAVE);                 /* cancel with another button */
@@ -604,6 +658,24 @@ int main(int argc, char **argv)
             !memcmp(syn_values(&reboot.track[2].part), got.v, syn_value_count(got.engine));
     printf("sounds: user slot 3 \"%s\" (%s) stored, found, cancel, restart %s\n", got.name, syn_engine_names[got.engine],
            us_ok ? "ok" : "FAIL");
+
+    /* Own factory sounds (docs/adr/0027): after both engines' sounds, found by
+     * name, in the area they were made for, with the values of the table. */
+    {
+        unsigned base = mks_preset_count + jp6_preset_count;
+        int ex_ok = syn_extra_count >= 20 && syn_sound_count() == base + syn_extra_count && base + syn_extra_count < EL_USER_SOUND;
+        unsigned in_area[4] = {0, 0, 0, 0};
+        for (unsigned i = 0; i < syn_extra_count; ++i) {
+            const syn_extra_t *x = &syn_extras[i];
+            int id = syn_sound_find(x->engine, x->name);
+            ex_ok = ex_ok && id == (int)(base + i) && syn_sound_area((unsigned)id) == x->area && syn_sound_engine((unsigned)id) == x->engine &&
+                    !strcmp(syn_sound_name((unsigned)id), x->name) && syn_sound_values((unsigned)id) == x->v && x->area >= 1 && x->area <= 3;
+            if (x->area <= 3) ++in_area[x->area];
+        }
+        ex_ok = ex_ok && in_area[1] >= 6 && in_area[2] >= 6 && in_area[3] >= 6;
+        printf("extras: %u own sounds (rhythm %u, strings %u, bass %u) after the factory ones %s\n", syn_extra_count, in_area[1],
+               in_area[2], in_area[3], ex_ok ? "ok" : "FAIL");
+    }
 
     /* A sound per slot (docs/adr/0024): A's knobs come back after B, also
      * after a restart; a version 20 record gives every slot its one sound. */

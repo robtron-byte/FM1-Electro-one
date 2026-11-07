@@ -44,9 +44,10 @@
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32, GLO + SELECT step.
  *         KNOB 1 note, 2 octave, 3 chord (STRINGS) or accent, 4 inversion
  *         (STRINGS) or tie.
- *   KNOB 1-4 sound page, PRESETS sound (MKS-50 sounds, then JP-6; EDIT +
- *   PRESETS switches the engine), EDIT + ALGORITHM note length (STRINGS: step
- *   length 1/16 .. 2 bars for long chord sequences). After the five sound
+ *   KNOB 1-4 sound page, PRESETS sound (your own first, then MKS-50, JP-6 and
+ *   the own factory sounds; EDIT + PRESETS switches the engine, GLO + PRESETS
+ *   steps through your own only), EDIT + ALGORITHM note length (STRINGS: step
+ *   length 1/16 .. 8 bars for long chord sequences). After the five sound
  *   pages: ARP (mode, rate, octaves, gate).
  *   EDIT + area button: synth editor for that area, every parameter of the
  *   engine in the sections of the original panel (EDIT LED on). SELECT
@@ -533,8 +534,10 @@ static int load_sound_id(el_ui_t *ui, unsigned id)
     return el_load_sound(ui->engine, track, id, s.engine, s.v);
 }
 
-/* One step through the area's factory sounds (MKS-50, then JP-6), then the
- * user slots (all of them, whatever area they were made in). */
+/* One step through the sounds of the area. The user sounds come first, then
+ * the factory sounds (MKS-50, then JP-6): the sound a new area starts with
+ * is the first factory one, so the user sounds are one click to the left
+ * (docs/adr/0026). User slots hold sounds of every area. */
 static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
 {
     int count = (int)syn_sound_count();
@@ -543,20 +546,40 @@ static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
         int i = (int)id;
         do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
         if (i >= 0 && i < count) return (unsigned)i;
-        if (dir > 0)
-            for (unsigned u = 0; u < EL_USER_SOUNDS; ++u) if (ui->user_used[u]) return EL_USER_SOUND + u;
+        if (dir < 0)
+            for (int u = EL_USER_SOUNDS - 1; u >= 0; --u) if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
         return id;
     }
     for (int u = (int)(id - EL_USER_SOUND) + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
         if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
-    if (dir < 0)
-        for (int i = count - 1; i >= 0; --i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
+    if (dir > 0)
+        for (int i = 0; i < count; ++i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
     return id;
+}
+
+/* GLO + PRESETS: only the user sounds, round and round. From a factory
+ * sound the first step lands on the first (right) or last (left) one. */
+static unsigned next_user_sound(el_ui_t *ui, unsigned id, int dir)
+{
+    user_cache(ui);
+    int n = 0, first = -1, last = -1, pos = -1;
+    for (int u = 0; u < EL_USER_SOUNDS; ++u) {
+        if (!ui->user_used[u]) continue;
+        if (first < 0) first = u;
+        last = u;
+        ++n;
+        if (id >= EL_USER_SOUND && (unsigned)u == id - EL_USER_SOUND) pos = u;
+    }
+    if (!n) return id;
+    if (pos < 0) return EL_USER_SOUND + (unsigned)(dir > 0 ? first : last);
+    for (int u = pos + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
+        if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
+    return EL_USER_SOUND + (unsigned)(dir > 0 ? first : last);
 }
 
 /* PRESETS steps through the sounds; EDIT + PRESETS jumps to the other
  * engine's first factory sound. */
-static void browse_preset(el_ui_t *ui, int delta, int other_engine)
+static void browse_preset(el_ui_t *ui, int delta, int other_engine, int user_only)
 {
     st_track_t *t = track_of(ui);
     unsigned id = t->preset;
@@ -568,7 +591,7 @@ static void browse_preset(el_ui_t *ui, int delta, int other_engine)
         moves = 0;
     }
     while (moves--) {
-        unsigned n = next_sound(ui, id, dir);
+        unsigned n = user_only ? next_user_sound(ui, id, dir) : next_sound(ui, id, dir);
         if (n == id) break;
         id = n;
     }
@@ -1002,11 +1025,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             notice(ui, "PATTERN CLEARED");
         } else {
             int armed = ui->area == EL_AREA_BEAT ? m->recording : track_of(ui)->recording;
+            int grid = !armed && ui->area != EL_AREA_BEAT && !rec_step_mode(ui) &&
+                       st_live_grid_needed(&track_of(ui)->pattern[track_of(ui)->current], track_of(ui)->area, 1);
             el_post3(e, EL_CMD_RECORD_AREA, ui->area, (uint8_t)!armed, 0, 0);
             ui->cursor[ui->area] = 0;
             ui->rec_key = ui->rec_note = 0xff;
             ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
             if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
+            else if (grid) notice(ui, "STRINGS REC IN 8THS");
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
@@ -1204,7 +1230,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             /* The beat's "sound" is its kit, as a synth area's is its sound. */
             dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + (presets > 0 ? 1 : -1), 0, DR_KITS - 1), 0, 0, 0);
         } else {
-            browse_preset(ui, presets, (hold & HOLD_EDIT) != 0);
+            browse_preset(ui, presets, (hold & HOLD_EDIT) != 0, (hold & HOLD_GLO) != 0);
         }
     }
     ui->prev_buttons = c->buttons;
@@ -1589,7 +1615,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
         if (ST_PROB(st)) { size_t l = 0; while (text[l]) ++l; el_snprintf(text + l, sizeof text - l, " %d%%", el_prob_percent(ST_PROB(st))); }
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
-        static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
+        static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32, 64, 128};
         unsigned sixteenths = p->length * ticks[p->rate < ST_RATES ? p->rate : 0];
         el_snprintf(text, sizeof text, "%u x %s = %u BARS  CHORD %s", p->length, st_rate_names[p->rate < ST_RATES ? p->rate : 0],
                  (sixteenths + 15u) / 16u, t->chord ? mks_chord_names[ST_CHORD_TYPE(t->chord) - 1] : "OFF");

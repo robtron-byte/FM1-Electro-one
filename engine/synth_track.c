@@ -56,8 +56,8 @@ EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot)
     if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
 }
 
-const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS"};
-static const uint8_t rate_ticks[ST_RATES] EL_DSP_DATA = {1, 2, 4, 8, 16, 32};
+const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS", "4 BARS", "8 BARS"};
+static const uint8_t rate_ticks[ST_RATES] EL_DSP_DATA = {1, 2, 4, 8, 16, 32, 64, 128};
 
 EL_DSP_HELPER unsigned st_chord_notes(int root, unsigned chord, int16_t *out)
 {
@@ -233,7 +233,7 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
 /* ---- generator (control side), after the iOS app's SequenceGenerator ----- */
 
 static const char *const style_names[2][ST_STYLES] = {
-    {"KRAFT", "ROTHER", "ROBOT", "ACID", "MIAMI"}, {"PADS", "SLOW", "PULSE", "STABS", ""}};
+    {"KRAFT", "ROTHER", "ROBOT", "ACID", "MIAMI"}, {"PADS", "SLOW", "PULSE", "STABS", "LONG"}};
 
 unsigned st_styles(unsigned area) { return area == MKS_AREA_STRINGS ? ST_STRING_STYLES : ST_STYLES; }
 
@@ -483,7 +483,8 @@ static void strings(st_pattern_t *out, unsigned style, unsigned density, uint32_
     switch (style) {
     case 0:   /* PADS: held chords, one step per bar */
     case 1:   /* SLOW: the same at two bars per step */
-        out->rate = style ? ST_RATE_2BARS : ST_RATE_BAR;
+    case 4:   /* LONG: four bars per step, 16 bars or more (docs/adr/0027) */
+        out->rate = style == 4 ? ST_RATE_4BARS : style ? ST_RATE_2BARS : ST_RATE_BAR;
         out->gate = 100;
         for (unsigned k = 0; k < 4; ++k)
             for (unsigned b = 0; b < bars[k]; ++b, ++step) set(&out->step[step], roots[k], 0, k == 0 && b == 0, step + 1u < total, chords[k]);
