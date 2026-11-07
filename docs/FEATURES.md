@@ -15,7 +15,7 @@ Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
-| N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.) | ○ | – |
+| N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
 
 ## Umgesetzt
 
