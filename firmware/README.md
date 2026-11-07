@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 33. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 34. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 33. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 34. Build:
+- **Zweiter Takttest:** OPTIONS zeigt unten `ADD … IND …/US`. ADD = abhängige Additionen (Gerät bisher 335), IND = vier unabhängige Ketten. IND etwa doppelt so hoch wie ADD: der Chip macht zwei Additionen pro Takt, läuft also nur mit ~165 MHz (dann lohnt 320 MHz). IND etwa gleich ADD: eine pro Takt, er läuft schon mit ~335 MHz. Bitte fotografieren.
+- **Velocity-Sperre** (Drum-Step halten, KNOB 2) startet bei der gespielten Stufe (Akzent 7, normal 5), links leiser.
+
+Aus dem 33. Build:
 - **Takt-Messung:** OPTIONS zeigt unten `ADDS …/US`, gemessene Additionen pro Mikrosekunde (der Chip schafft zwei pro Takt). Etwa 490 ≙ 240 MHz, 650 ≙ 320 MHz, 730 ≙ 360 MHz. Bitte fotografieren.
 
 Aus dem 32. Build:
@@ -76,7 +80,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `0c6407dc20997adf90bac91c42eec1e0019e01a24e4af157834b35e8acd89eb2`
+SHA-256: `c6619b6c9fd6c09d6e25a4a722d31ceef5911e31e898f5cde8b93efe9d7ecfdc`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
