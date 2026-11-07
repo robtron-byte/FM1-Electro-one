@@ -35,7 +35,7 @@
  *         set steps. EDIT + white accent, GLO + white roll, EDIT + black clear,
  *         GLO + black mute. KNOB 1-4 drum sound, PRESETS kit, GLO + SELECT
  *         instrument, EDIT + ALGORITHM swing. A step key held: PRESETS passes,
- *         ALGORITHM chance, SELECT pitch (semitones), KNOB 1 level (docs/adr/0028).
+ *         ALGORITHM chance, KNOB 1 pitch (semitones), KNOB 2 velocity (docs/adr/0028).
  * RHYTHM / STRINGS / BASS
  *   KEYS  (SEQ off) all keys play the sound, OCT -/+ octave. REC while running
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
@@ -682,6 +682,19 @@ static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, i
     ui->sh_vol = 0;
 }
 
+/* A pitch lock for the panel: +3, -12, 0. */
+static void pitch_text(char *out, size_t size, int semitones)
+{
+    if (semitones) el_snprintf(out, size, "%+d", semitones);
+    else el_snprintf(out, size, "0");
+}
+
+/* A drum step is held: KNOB 1 and 2 are its pitch and velocity, the footer says so. */
+static int lock_knobs(const el_ui_t *ui)
+{
+    return ui->sh_key && ui->sh_area == EL_AREA_BEAT && !ui->overview && !ui->options;
+}
+
 /* Hear the held drum step as it is now (after its pitch or level changed). */
 static void step_audition(el_ui_t *ui)
 {
@@ -692,9 +705,9 @@ static void step_audition(el_ui_t *ui)
 
 /* The held step: PRESETS sets its passes (1:1, 1:2 .. 4:4), ALGORITHM its
  * chance (100 .. 10 %, left rarer); the big readout shows the one turned
- * last. On a drum step also SELECT sets its pitch (semitones, the tuned
- * instruments only) and KNOB 1 its level (7 steps, one per turn; docs/adr/0028);
- * both are used up here. Other encoders keep their jobs; any turn keeps the
+ * last. On a drum step also KNOB 1 sets its pitch (semitones, the tuned
+ * instruments only) and KNOB 2 its velocity (7 steps, one per turn;
+ * docs/adr/0028); both are used up here. Other encoders keep their jobs; any turn keeps the
  * step. Returns what is left of PRESETS; *algo is used up likewise. */
 static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
 {
@@ -703,25 +716,25 @@ static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
     el_engine_t *e = ui->engine;
     int beat = ui->sh_area == EL_AREA_BEAT;
     uint8_t track = (uint8_t)(ui->sh_area - 1u);
-    if (beat && enc[ENC_SELECT]) {
+    if (beat && enc[ENC_KNOB1]) {
         if (dr_pitch_slot(ui->sh_part) >= 0) {
-            int semis = el_clampi(ui->sh_pitch + enc[ENC_SELECT], -12, 12);
+            int semis = el_clampi(ui->sh_pitch + enc[ENC_KNOB1], -12, 12);
             if (dr_post(&e->drums, DR_CMD_PITCH, ui->sh_part, ui->sh_step, 0, (int16_t)semis) == 0) {
                 ui->sh_pitch = (int8_t)semis;
                 step_audition(ui);
             }
         }
         ui->sh_lock = 1;
-        enc[ENC_SELECT] = 0;
+        enc[ENC_KNOB1] = 0;
     }
-    if (beat && enc[ENC_KNOB1]) {
-        int level = el_clampi((int)ui->sh_vol + (enc[ENC_KNOB1] > 0 ? 1 : -1), 0, 7);
+    if (beat && enc[ENC_KNOB1 + 1]) {
+        int level = el_clampi((int)ui->sh_vol + (enc[ENC_KNOB1 + 1] > 0 ? 1 : -1), 0, 7);
         if (dr_post(&e->drums, DR_CMD_VOL, ui->sh_part, ui->sh_step, 0, (int16_t)level) == 0) {
             ui->sh_vol = (uint8_t)level;
             step_audition(ui);
         }
         ui->sh_lock = 2;
-        enc[ENC_KNOB1] = 0;
+        enc[ENC_KNOB1 + 1] = 0;
     }
     if (*algo) {
         unsigned prob = (unsigned)el_clampi((int)ui->sh_prob - *algo, 0, EL_PROBS - 1);   /* a detent: 10 % */
@@ -1372,6 +1385,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         knob_t k = knob(ui, i);
         mix(&sig[2], (uint32_t)k.value | (uint32_t)(ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u) << 31);
     }
+    mix(&sig[2], lock_knobs(ui) ? 0x40000000u | (uint32_t)((ui->sh_pitch + 16) & 31) | (uint32_t)ui->sh_vol << 5 : 0u);
     unsigned a = ui->overview ? 0 : ui->area;
     mix(&sig[2], ui->gen_style[a] | (uint32_t)ui->gen_density[a] << 8 | (uint32_t)ui->gen_keep << 16);
     if (synth_area(ui))
@@ -1864,8 +1878,20 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     } else {
         for (unsigned i = 0; i < 4; ++i) {
             knob_t k = knob(ui, i);
-            if (!k.name) continue;
             int x = 4 + (int)i * 59;
+            if (i < 2 && lock_knobs(ui)) {
+                /* the held step's pitch and velocity (docs/adr/0028) on the first two knobs */
+                int pitch = i == 0, turning = ui->sh_lock == (pitch ? 1u : 2u);
+                if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x31a6);
+                gfx_text(b, x, FOOT_Y, pitch ? "PITCH" : "VELOCITY", turning ? TEXT : DIM, 1);
+                if (pitch && dr_pitch_slot(ui->sh_part) < 0) el_snprintf(value, sizeof value, "---");
+                else if (pitch) pitch_text(value, sizeof value, ui->sh_pitch);
+                else if (ui->sh_vol) el_snprintf(value, sizeof value, "%d%%", dr_vol_percent(ui->sh_vol));
+                else el_snprintf(value, sizeof value, "AUTO");
+                gfx_text(b, x, FOOT_Y + 12, value, part_color[ui->sh_part], 2);
+                continue;
+            }
+            if (!k.name) continue;
             /* the value being turned: a light panel behind it, its name bright */
             int turning = ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u;
             if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x31a6);
@@ -1926,6 +1952,49 @@ static int step_overlay(const el_ui_t *ui)
     return ui->sh_key && !ui->options && !ui->overview && (ui->sh_used || ui->now - ui->sh_at >= 250u);
 }
 
+/* The held drum step's pitch (KNOB 1) and velocity (KNOB 2) side by side,
+ * the one turned last framed in the instrument's colour: the value big, its
+ * scale under it (docs/adr/0028). */
+static void draw_lock_panels(const el_ui_t *ui, gfx_band_t *b, int ox, int oy, int ow)
+{
+    enum { PH = 74, PW = 88 };
+    uint16_t color = part_color[ui->sh_part % DR_PARTS];
+    int tuned = dr_pitch_slot(ui->sh_part) >= 0;
+    char text[16];
+    for (unsigned k = 0; k < 2; ++k) {
+        int x = ox + 8 + (int)k * (ow - 16 - PW), y = oy + 18, active = ui->sh_lock == k + 1u;
+        int off = k == 0 && !tuned;
+        gfx_frame(b, x, y, PW, PH, active ? color : FAINT);
+        if (active) gfx_frame(b, x + 1, y + 1, PW - 2, PH - 2, color);
+        gfx_text(b, x + 7, y + 6, k == 0 ? "PITCH" : "VELOCITY", active ? TEXT : DIM, 1);
+        if (k == 0) {
+            if (off) el_snprintf(text, sizeof text, "---");
+            else pitch_text(text, sizeof text, ui->sh_pitch);
+        } else if (ui->sh_vol) el_snprintf(text, sizeof text, "%d%%", dr_vol_percent(ui->sh_vol));
+        else el_snprintf(text, sizeof text, "AUTO");
+        gfx_text(b, x + (PW - gfx_text_width(text, 3)) / 2, y + 17, text, off ? FAINT : active ? AMBER : TEXT, 3);
+        int bx = x + 8, by = y + 47, bw = PW - 16;
+        if (k == 0) {
+            /* a bar around the middle: left down, right up */
+            gfx_frame(b, bx, by, bw, 12, off ? FAINT : DIM);
+            gfx_fill(b, bx + bw / 2, by - 2, 1, 16, off ? FAINT : DIM);
+            int half = bw / 2 - 2, w = off ? 0 : half * ui->sh_pitch / 12;
+            if (w) gfx_fill(b, w > 0 ? bx + bw / 2 + 1 : bx + bw / 2 + w, by + 2, w > 0 ? w : -w, 8, color);
+            gfx_text(b, bx, by + 15, off ? "NOT TUNED" : "-12", FAINT, 1);
+            if (!off) gfx_text(b, bx + bw - gfx_text_width("+12", 1), by + 15, "+12", FAINT, 1);
+        } else {
+            /* seven steps, rising: filled up to the level */
+            static const uint8_t height[7] = {3, 4, 6, 7, 9, 10, 12};
+            for (unsigned i = 0; i < 7; ++i) {
+                int h = height[i];
+                gfx_fill(b, bx + (int)i * 10, by + 12 - h, 8, h, i < ui->sh_vol ? color : GRID);
+            }
+            gfx_text(b, bx, by + 15, "SOFT", FAINT, 1);
+            gfx_text(b, bx + bw - gfx_text_width("LOUD", 1), by + 15, "LOUD", FAINT, 1);
+        }
+    }
+}
+
 static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
 {
     enum { OX = 20, OY = 50, OW = 200, OH = 120 };
@@ -1934,28 +2003,11 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
     gfx_fill(b, OX, OY, OW, OH, BACK);
     gfx_frame(b, OX, OY, OW, OH, color);
     char text[24];
-    el_snprintf(text, sizeof text, "STEP %u", ui->sh_step + 1u);
+    el_snprintf(text, sizeof text, ui->sh_area == EL_AREA_BEAT ? "STEP %u  %s" : "STEP %u", ui->sh_step + 1u, dr_part_names[ui->sh_part % DR_PARTS]);
     gfx_text(b, OX + 8, OY + 6, text, DIM, 1);
     unsigned cond = ui->sh_cond % EL_CONDS;
-    if (ui->sh_lock == 1) {
-        /* pitch: the semitones big, a bar around the middle */
-        if (dr_pitch_slot(ui->sh_part) < 0) el_snprintf(text, sizeof text, "NO PITCH");
-        else el_snprintf(text, sizeof text, "%+d ST", ui->sh_pitch);
-        gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 22, text, AMBER, 4);
-        gfx_frame(b, OX + 20, OY + 66, OW - 40, 24, DIM);
-        gfx_fill(b, OX + OW / 2 - 1, OY + 62, 2, 32, DIM);
-        int half = (OW - 44) / 2, w = half * ui->sh_pitch / 12;
-        if (dr_pitch_slot(ui->sh_part) >= 0 && w) gfx_fill(b, w > 0 ? OX + OW / 2 : OX + OW / 2 + w, OY + 68, w > 0 ? w : -w, 20, color);
-    } else if (ui->sh_lock == 2) {
-        /* level: the percent big, seven steps */
-        if (ui->sh_vol) el_snprintf(text, sizeof text, "%d%%", dr_vol_percent(ui->sh_vol));
-        else el_snprintf(text, sizeof text, "AS SET");
-        gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 22, text, AMBER, 4);
-        for (unsigned i = 1; i <= 7; ++i) {
-            int x = OX + 20 + (int)(i - 1u) * 26;
-            gfx_frame(b, x, OY + 66, 22, 24, DIM);
-            if (i <= ui->sh_vol) gfx_fill(b, x + 2, OY + 68, 18, 20, color);
-        }
+    if (ui->sh_lock) {
+        draw_lock_panels(ui, b, OX, OY, OW);
     } else if (ui->sh_show_prob) {
         /* chance: the percent big, a bar */
         int pct = el_prob_percent(ui->sh_prob);
@@ -1975,7 +2027,18 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
         }
     }
     gfx_text(b, OX + 8, OY + OH - 14, "PRESETS: PASSES  ALGO: CHANCE", DIM, 1);
-    if (ui->sh_area == EL_AREA_BEAT) gfx_text(b, OX + 8, OY + OH - 25, "SELECT: PITCH  KNOB 1: LEVEL", DIM, 1);
+    if (ui->sh_area == EL_AREA_BEAT) {
+        if (ui->sh_lock) gfx_text(b, OX + 8, OY + OH - 25, "KNOB 1: PITCH  KNOB 2: VELOCITY", DIM, 1);
+        else {
+            /* the locks in a line while the passes or the chance are shown */
+            if (dr_pitch_slot(ui->sh_part) < 0) el_snprintf(text, sizeof text, "K1 NO PITCH");
+            else { char n[8]; pitch_text(n, sizeof n, ui->sh_pitch); el_snprintf(text, sizeof text, "K1 PITCH %s", n); }
+            gfx_text(b, OX + 8, OY + OH - 25, text, DIM, 1);
+            if (ui->sh_vol) el_snprintf(text, sizeof text, "K2 VELOCITY %d%%", dr_vol_percent(ui->sh_vol));
+            else el_snprintf(text, sizeof text, "K2 VELOCITY AUTO");
+            gfx_text(b, OX + 98, OY + OH - 25, text, DIM, 1);
+        }
+    }
 }
 
 void el_ui_draw_band(el_ui_t *ui, unsigned band)

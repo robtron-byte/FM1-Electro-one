@@ -54,7 +54,7 @@ typedef struct {
     uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
     uint8_t sh_show_prob;               /* the big readout shows the chance (else the passes) */
     /* Parameter locks of the held drum step (docs/adr/0028): pitch in
-     * semitones (SELECT), fixed level 0..7 (KNOB 1); sh_lock = which the
+     * semitones (KNOB 1), fixed velocity 0..7 (KNOB 2); sh_lock = which the
      * big readout shows: 0 passes / chance, 1 pitch, 2 level. */
     int8_t sh_pitch;
     uint8_t sh_vol, sh_lock;

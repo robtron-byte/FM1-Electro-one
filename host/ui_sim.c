@@ -847,16 +847,16 @@ int main(int argc, char **argv)
         run(30);
         const unsigned step = 14, key = 24;                                        /* white key 24 = step 15 */
         if (!((m->pattern[m->current].hit[D8_BD] >> step) & 1u)) { tap_key(key); run(30); }
-        /* hold the step: SELECT three semitones up, KNOB 1 three levels up */
+        /* hold the step: KNOB 1 three semitones up, KNOB 2 three velocity steps up */
         panel.keys |= 1u << key; run(30);
-        panel.encoders[0] = 3; run(10);
+        panel.encoders[2] = 3; run(10);
         shot(dir, "24_step_pitch");
-        panel.encoders[2] = 1; run(10); panel.encoders[2] = 1; run(10); panel.encoders[2] = 5; run(10);   /* (one level a turn, whatever the count) */
+        panel.encoders[3] = 1; run(10); panel.encoders[3] = 1; run(10); panel.encoders[3] = 5; run(10);   /* (one step a turn, whatever the count) */
         shot(dir, "23_step_locks");
         int pitch = dr_pitch(m, m->current, D8_BD, step), level = (int)dr_vol(m, m->current, D8_BD, step);
-        panel.encoders[0] = -20; run(10);                                      /* far down: stops at -12 */
+        panel.encoders[2] = -20; run(10);                                      /* far down: stops at -12 */
         int low = dr_pitch(m, m->current, D8_BD, step);
-        panel.encoders[0] = 9; run(10);
+        panel.encoders[2] = 9; run(10);
         panel.keys &= ~(1u << key); run(30);
         lk_ok = lk_ok && pitch == 3 && level == 3 && low == -12 && dr_pitch(m, m->current, D8_BD, step) == -3 &&
                 ((m->pattern[m->current].hit[D8_BD] >> step) & 1u);                   /* the step stays on */
@@ -864,8 +864,8 @@ int main(int argc, char **argv)
         ui.part = D8_CH;
         if (!((m->pattern[m->current].hit[D8_CH] >> step) & 1u)) { tap_key(key); run(30); }
         panel.keys |= 1u << key; run(30);
-        panel.encoders[0] = 4; run(10);
-        panel.encoders[2] = -1; run(10); panel.encoders[2] = 1; run(10); panel.encoders[2] = 1; run(10);
+        panel.encoders[2] = 4; run(10);
+        panel.encoders[3] = -1; run(10); panel.encoders[3] = 1; run(10); panel.encoders[3] = 1; run(10);
         panel.keys &= ~(1u << key); run(30);
         lk_ok = lk_ok && dr_pitch(m, m->current, D8_CH, step) == 0 && dr_vol(m, m->current, D8_CH, step) == 2;
         /* the hit: pitch and level reach the kit; a step switched off forgets them */
@@ -951,7 +951,7 @@ int main(int argc, char **argv)
         tap_key(22); run(30);
         lk_ok = lk_ok && ui.part == D8_PU;
         ui.part = D8_BD;
-        printf("locks: step pitch and level (SELECT / KNOB 1), stored, copied, cleared; no toms or congas %s\n", lk_ok ? "ok" : "FAIL");
+        printf("locks: step pitch and velocity (KNOB 1 / KNOB 2), stored, copied, cleared; no toms or congas %s\n", lk_ok ? "ok" : "FAIL");
     }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }
