@@ -44,7 +44,7 @@ Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ✓ (Gerät 07.11.) | – |
 | Y1 | Synths | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
 | Y2 | Synths | BASS einstimmig, mono | ✓ | 0007 |
-| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ Gerät: keine eigenen Sounds in PRESETS – erscheinen erst, wenn einer gespeichert ist (EDIT, SAVE …); Rückfrage beim Nutzer | 0026 |
+| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ 39. Build: im Emulator geprüft (EDIT tippen, SAVE, SAVE → U01 in PRESETS); ohne eigene Sounds zeigt PRESETS links den Hinweis, wie man einen anlegt | 0026 |
 | Y4 | Synths | 23 zusätzliche schlichte Sounds/Pads | ✓ (Gerät 07.11.) | 0027 |
 | F1 | Effekte/Master | Punch-in-Effekte (Stutter, Hall-Wurf, Tape-Stop, Repeat, Delay, Crusher, Phaser) | ✓ | 0011 |
 | F2 | Effekte/Master | Tape-Stop Standard 1/4 | ✓ (Gerät 07.11.) | – |

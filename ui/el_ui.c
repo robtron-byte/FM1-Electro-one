@@ -618,6 +618,13 @@ static void browse_preset(el_ui_t *ui, int delta, int other_engine, int user_onl
     }
     if (id != t->preset && load_sound_id(ui, id) == 0 && other_engine)
         notice(ui, syn_engine_names[sound_engine_of(ui, id)]);
+    /* where the own sounds would be, but none is stored yet: how to make one */
+    if (id == t->preset && (user_only || (dir < 0 && id < EL_USER_SOUND))) {
+        int any = 0;
+        user_cache(ui);
+        for (unsigned u = 0; u < EL_USER_SOUNDS; ++u) any |= ui->user_used[u];
+        if (!any) notice(ui, "NO OWN SOUNDS YET: EDIT, THEN SAVE");
+    }
 }
 
 /* SAVE in the editor: pick a user slot (PRESETS or SELECT), name it (KNOB 1
@@ -1125,7 +1132,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
     /* GLO tapped alone in BEAT: the mute mode on / off (N13); held it stays the shift key. */
     if (pressed & BIT(BTN_GLO)) ui->glo_tap = 1;
-    if ((pressed & ~BIT(BTN_GLO)) || keys_down || (c->buttons & ~BIT(BTN_GLO))) ui->glo_tap = 0;
+    if ((pressed & ~BIT(BTN_GLO)) || keys_down) ui->glo_tap = 0;   /* as ARP: anything else pressed meanwhile (the device's word has more bits held) */
     for (unsigned i = 0; i < UI_ENCODERS; ++i) if (c->encoders[i]) ui->glo_tap = 0;
     if ((ui->prev_buttons & ~c->buttons & BIT(BTN_GLO)) && ui->glo_tap) {
         ui->glo_tap = 0;
@@ -1136,7 +1143,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     }
     /* EDIT tapped alone: the editor of the area shown, again: back (N8). */
     if (pressed & BIT(BTN_EDIT)) ui->edit_tap = 1;
-    if ((pressed & ~BIT(BTN_EDIT)) || keys_down || (c->buttons & ~BIT(BTN_EDIT))) ui->edit_tap = 0;
+    if ((pressed & ~BIT(BTN_EDIT)) || keys_down) ui->edit_tap = 0;   /* as ARP: anything else pressed meanwhile (the device's word has more bits held) */
     for (unsigned i = 0; i < UI_ENCODERS; ++i) if (c->encoders[i]) ui->edit_tap = 0;
     if ((ui->prev_buttons & ~c->buttons & BIT(BTN_EDIT)) && ui->edit_tap) {
         ui->edit_tap = 0;
@@ -1834,7 +1841,8 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     unsigned shown = p->length > base ? p->length - base : 0;
     if (shown > 16) shown = 16;
     gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
-    gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
+    if (4 + gfx_text_width(sound_label(ui, t->preset), 2) < 130)   /* a long name (U01 ...) keeps the room */
+        gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
     if (ui->step_mode[ui->area]) el_snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
     else el_snprintf(text, sizeof text, "%s O%+d", t->arp.v[ARP_ON] ? (t->arp.v[ARP_HOLD] ? "ARP-H" : "ARP") : "KEYS",
                   ui->octave[ui->area]);
@@ -1962,7 +1970,8 @@ static void draw_editor(el_ui_t *ui, gfx_band_t *b)
     if (gfx_touches(b, 35, 16)) {
         gfx_text(b, 4, 35, sound_label(ui, t->preset), color, 2);
         const char *engine = syn_engine_names[t->part.engine];
-        gfx_text(b, GFX_W - 4 - gfx_text_width(engine, 1), 39, engine, AMBER, 1);
+        if (4 + gfx_text_width(sound_label(ui, t->preset), 2) < GFX_W - 8 - gfx_text_width(engine, 1))
+            gfx_text(b, GFX_W - 4 - gfx_text_width(engine, 1), 39, engine, AMBER, 1);
     }
     if (!ui->sound_save) {
         ed_draw(b, &t->part, section, page, color, 56, FOOT_Y - 6 - 56);
