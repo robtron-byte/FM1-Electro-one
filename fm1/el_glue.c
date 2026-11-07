@@ -78,7 +78,13 @@ void el_glue_start(void)
     /* The grooves come back from flash; only the very first start (nothing
      * stored) plays the generated factory set. */
     /* nothing stored: empty patterns, a random kit and random sounds */
-    if (el_store_load(&engine) == 1) el_blank_start(&engine, el_platform_ticks() * 2654435761u + 1u);
+    if (el_store_load(&engine) == 1) el_blank_start(&engine,
+#ifdef EL_FIXED_SEED   /* emulator measurements: the same kit and sounds every time */
+                                                    EL_FIXED_SEED
+#else
+                                                    el_platform_ticks() * 2654435761u + 1u
+#endif
+                                                    );
     clk_mhz = clock_mhz();
     clk_ind = clock_par();
     el_ui_init(&ui, &engine);

@@ -1416,7 +1416,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
     for (unsigned i = 0; i < 4; ++i) {
         knob_t k = knob(ui, i);
-        mix(&sig[2], (uint32_t)k.value | (uint32_t)(ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u) << 31);
+        mix(&sig[2], (uint32_t)k.value | (uint32_t)(ui->knob_at[i] && ui->now - ui->knob_at[i] < 1000u) << 31);
     }
     mix(&sig[2], lock_knobs(ui) ? 0x40000000u | (uint32_t)((ui->sh_pitch + 16) & 31) | (uint32_t)ui->sh_vol << 5 : 0u);
     unsigned a = ui->overview ? 0 : ui->area;
@@ -1928,11 +1928,12 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             }
             if (!k.name) continue;
             /* the value being turned: a light panel behind it, its name bright */
-            int turning = ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u;
-            if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x31a6);
-            gfx_text(b, x, FOOT_Y, k.name, turning ? TEXT : DIM, 1);
-            if (k.text) gfx_text(b, x, FOOT_Y + 14, k.text, k.color, 1);
-            else { el_snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, k.color, 2); }
+            int turning = ui->knob_at[i] && ui->now - ui->knob_at[i] < 1000u;
+            /* the value being turned (U3): a lit frame around it, name and value in amber */
+            if (turning) { gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x4208); gfx_frame(b, x - 3, FOOT_Y - 2, 57, 30, AMBER); }
+            gfx_text(b, x, FOOT_Y, k.name, turning ? AMBER : DIM, 1);
+            if (k.text) gfx_text(b, x, FOOT_Y + 14, k.text, turning ? AMBER : k.color, 1);
+            else { el_snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, turning ? AMBER : k.color, 2); }
         }
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;

@@ -38,7 +38,8 @@ def build_app():
              *INC, "-DEL_PLATFORM=1",
              "-DLCD_BAUD=1"]   # display SPI 60 / 2 = 30 MHz (the platform's 12 MHz: ~77 ms a frame; ST7789 up to ~60 MHz)
     eng = ["-O2", "-ffunction-sections", "-fdata-sections", "-fno-common", "-fno-builtin", *FPU, *INC,
-           "-DEL_PLATFORM=1", "-isystem", str(tc / "pi32v2" / "include")]
+           "-DEL_PLATFORM=1", "-isystem", str(tc / "pi32v2" / "include"),
+           *os.environ.get("EL_EXTRA_CFLAGS", "").split()]   # e.g. A/B switches for a measurement
     cmds = [("cc", "-c", fw / "crt0.S", "-o", out / "crt0.o"),
             ("cc", "-c", fw / "hal" / "fm1_vec.S", "-o", out / "fm1_vec.o"),
             ("cc", "-c", fw / "hal" / "fm1_isr.S", "-o", out / "fm1_isr.o"),
