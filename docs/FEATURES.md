@@ -6,7 +6,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B17, S12, Y5, F11, U9, P11, N14).
 
-Stand: 35. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
+Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
 
 ## Offen und angefangen
 
@@ -72,7 +72,7 @@ Stand: 35. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | F7 | Effekte/Master | COMP MIX (Parallel-Kompression) | ✓ (Gerät 07.11.) | 0031 |
 | U1 | Bedienung/Display | Tasten-LEDs: inaktive Bereiche gedimmt, OCT blinkt am Ende | ✓ | 0020 |
 | U2 | Bedienung/Display | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ✓ (Gerät 07.11.) | – |
-| U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ Gerät: Hervorhebung geht noch nicht (Fehler suchen) | – |
+| U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ 36. Build: Amber-Fläche, 0,5 s (Wunsch 07.11.) | – |
 | U4 | Bedienung/Display | Display 30 MHz, Bild in einem Zug | ✓ (Gerät 07.11.) | – |
 | U6 | Bedienung/Display | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
 | U8 | Bedienung/Display | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ✓ (Gerät 07.11.) | 0031 |

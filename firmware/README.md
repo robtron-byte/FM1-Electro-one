@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 35. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 36. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 35. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 36. Build:
+- **Gedrehter Wert** (U3): Name und Wert stehen 0,5 s auf einer Amber-Fläche, dunkle Schrift.
+
+Aus dem 35. Build:
 - **Gedrehter Wert hervorgehoben** (U3): Der Regler, den du gerade drehst, bekommt unten einen Rahmen in Amber, Name und Wert leuchten 1 s in Amber.
 - **Leise Releases enden früher** (P10): Abgeklungene MKS-50-Stimmen werden schneller frei, besonders bei vollen STRINGS-Akkorden. Bitte auf Knackser achten.
 
@@ -84,7 +87,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `2399e1b442221e5811f4d8909acbdc17f57578a64a5bbf013222c4134e6c1988`
+SHA-256: `c48380ad689056ec54933ad6495d57e9fc910013c9bd481001839030064cb06c`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
