@@ -31,7 +31,6 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | N11 | Neu | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
 | N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ | – |
 | N13 | Neu | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ○ | – |
-| P9 | Plattform/Leistung | STRINGS sparsamer: Chorus mit halber Rate, leise Releases enden früher (Schalter, `make chorus-ab`; Emulator Kern 1 −2,7 Punkte) | ◐ wartet aufs Anhören (A/B) | 0019 |
 
 ## Umgesetzt
 
@@ -92,3 +91,4 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | F10 | Effekte/Master | Master in Festkomma (gebaut, langsamer, aus) | ✗ | 0019 |
 | P6 | Plattform/Leistung | Auf 320 MHz umstellen: nicht nötig, das Gerät läuft schon mit 320–360 MHz | ✗ (nicht nötig) | 0019 |
 | P7 | Plattform/Leistung | Überlastschutz (sparsamer rechnen bei Überlast) | ✗ (auf Wunsch) | – |
+| P9 | Plattform/Leistung | STRINGS sparsamer: Chorus mit halber Rate, leise Releases enden früher (Schalter, `make chorus-ab`; Emulator Kern 1 −2,7 Punkte) | ✗ (Knackser in B, Nutzer 07.11.; Schalter bleiben aus) | 0019 |
