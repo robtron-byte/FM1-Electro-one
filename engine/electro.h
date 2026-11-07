@@ -52,7 +52,8 @@ enum el_command {
     EL_CMD_PUNCH,        /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
     EL_CMD_PUNCH_RATE,   /* a = EL_PUNCH_* bits, b = white key 0..5 (repeat 0..15; el_punch_value_name) */
     EL_CMD_STEP_COND,    /* b = step, value = EL_COND_* (docs/adr/0025) */
-    EL_CMD_STEP_PROB     /* b = step, value = 0..EL_PROBS-1, 0 = always (docs/adr/0025) */
+    EL_CMD_STEP_PROB,    /* b = step, value = 0..EL_PROBS-1, 0 = always (docs/adr/0025) */
+    EL_CMD_BLANK         /* S11: stop, then the empty start (el_blank_start) with seed value */
 };
 /* Punch-in effects, active while held (HOME, black keys 5-11, in this
  * order). The bit of effect n is 1 << n. */

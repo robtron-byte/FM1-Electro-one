@@ -13,7 +13,6 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
-| S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
@@ -83,6 +82,7 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | B16 | Beat/Drums | Open Hat und Closed Hat auf demselben Step wie bei der TR-808: Statt dass die CH die OH abwürgt, klingt eine kurze OH (Nutzerwunsch 07.11.) | ◐ umgesetzt (38. Build): kurze OH (90 ms), dann abgewürgt | – |
 | N4 | Neu | PLAY leuchtet grün, solange der Groove läuft – die LEDs können keine Farbe; Entscheidung Nutzer 07.11.: PLAY gedimmt bei Stopp, beim Spielen voll und im Viertel blinkend | ◐ umgesetzt (38. Build): PLAY gedimmt bei Stopp | – |
 | N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ◐ umgesetzt (38. Build): OCT+ Vorschau an/aus (gedimmt = aus), OCT− Seiten | – |
+| S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ◐ umgesetzt (38. Build): HOME, ARP + 16. weiße Taste zweimal | – |
 
 ## Gestrichen
 

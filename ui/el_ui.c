@@ -463,7 +463,7 @@ static void run_jobs(el_ui_t *ui)
 }
 
 /* Generator keys need a second press: the first only asks. */
-enum { ASK_NONE, ASK_VARY, ASK_NEW };
+enum { ASK_NONE, ASK_VARY, ASK_NEW, ASK_BLANK };
 
 static int confirmed(el_ui_t *ui, unsigned ask, const char *question)
 {
@@ -477,10 +477,21 @@ static int confirmed(el_ui_t *ui, unsigned ask, const char *question)
     return 0;
 }
 
+static void release_keys(el_ui_t *ui, uint32_t released);
 /* ARP held + white key 1: variation, key 2: new (in HOME for all areas). */
 static void generator_key(el_ui_t *ui, unsigned key)
 {
     int w = key_white(key);
+    if (w == UI_WHITE - 1 && ui->overview) {
+        /* S11: HOME, ARP + the last white key (twice): everything back to an empty start */
+        if (!confirmed(ui, ASK_BLANK, "EMPTY START, ALL ERASED? KEY 16 AGAIN")) return;
+        if (el_post(ui->engine, EL_CMD_BLANK, 0, (int16_t)(ui->now & 0x7fff)) == 0) {
+            release_keys(ui, ~0u);
+            ui->fill_edit = 0;
+            notice(ui, "EMPTY START (SAVE KEEPS IT)");
+        }
+        return;
+    }
     if (w != 0 && w != 1) { ui->ask = ASK_NONE; return; }
     int all = ui->overview;
     if (w == 0) {

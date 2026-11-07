@@ -140,6 +140,13 @@ void el_blank_start(el_engine_t *e, uint32_t seed)
     m->current = m->next = 0;
     tr808_sound_apply(&m->kit, &m->sound[0]);
     m->kit_index = (uint8_t)kit;
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) memset(&m->fill[i], 0, sizeof m->fill[i]);
+    m->fill_auto = m->fill_req = m->fill_now = m->fill_edit = 0;
+    m->kit_mem_used = 0;
+    memset(m->cond, 0, sizeof m->cond);
+    memset(m->prob, 0, sizeof m->prob);
+    memset(m->pitch, 0, sizeof m->pitch);
+    memset(m->vol, 0, sizeof m->vol);
     e->transport.swing = m->pattern[0].swing;
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
@@ -383,6 +390,16 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
                 rt->grow = 1;   /* cut to the bars the take uses when REC ends (N6) */
             }
         }
+        break;
+    case EL_CMD_BLANK:
+        /* S11: back to an empty start (on the audio side between blocks, like a sound load) */
+        el_transport_stop(t);
+        dr_rewind(&e->drums);
+        for (unsigned i = 0; i < EL_TRACKS; ++i) st_rewind(&e->track[i]);
+        tr808_silence(&e->drums.kit);
+        el_blank_start(e, (uint32_t)(uint16_t)c->value * 2654435761u + 1u);
+        ++e->drums.revision;
+        for (unsigned i = 0; i < EL_TRACKS; ++i) ++e->track[i].revision;
         break;
     case EL_CMD_START:
         /* MIDI Start hands the clock to the sender; PLAY on the panel takes

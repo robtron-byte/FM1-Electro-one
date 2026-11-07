@@ -1205,6 +1205,21 @@ int main(int argc, char **argv)
         el_store_save(sim);
         printf("comp mix: stored (version 25), an older CLUB record keeps its 30 %% dry %s\n", cm_ok ? "ok" : "FAIL");
     }
+    {
+        /* S11: HOME, ARP + the last white key twice: everything empty again, stopped. */
+        if (!ui.overview) tap_button(BTN_HOME);
+        hold(BTN_ARP, 1);
+        tap_key(26); tap_key(26);
+        hold(BTN_ARP, 0);
+        run(60);
+        el_engine_t *ee = ui.engine;
+        int empty = !ee->transport.running;
+        for (unsigned i = 0; i < DR_PATTERNS; ++i)
+            for (unsigned k = 0; k < DR_PARTS; ++k) empty = empty && !ee->drums.pattern[i].hit[k];
+        for (unsigned t = 0; t < EL_TRACKS; ++t)
+            for (unsigned i = 0; i < ST_PATTERNS; ++i) empty = empty && st_pattern_empty(&ee->track[t].pattern[i]);
+        printf("reset: HOME, ARP + key 16 twice -> empty start (S11) %s\n", empty ? "ok" : "FAIL");
+    }
     }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }
