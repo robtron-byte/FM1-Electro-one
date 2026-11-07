@@ -1865,7 +1865,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                 el_snprintf(l2, sizeof l2, "PEAK %u%% MAX %u%% C1 %u%%%s", (unsigned)(ui->load < 0 ? 0 : ui->load),
                             (unsigned)ui->load_max, (unsigned)ui->c1_peak, ui->cpu1_on ? "" : " 1CORE");
                 /* with the clock as the chip reports it (PLL, source, system clock in MHz) */
-                el_snprintf(l3, sizeof l3, "LATE %u  ADDS %u/US  S%u", (unsigned)ui->drops, ui->clk_timer, ui->clk_src);
+                el_snprintf(l3, sizeof l3, "LATE %u ADD %u IND %u/US", (unsigned)ui->drops, ui->clk_timer, ui->clk_ind);
             }
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);

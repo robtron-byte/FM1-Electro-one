@@ -112,7 +112,7 @@ typedef struct {
     uint32_t drops;
     /* Clock registers (device only, ADR 0019): PLL and system clock in MHz
      * as X0X reads them, the system clock source code, the timer clock. */
-    uint16_t clk_pll, clk_sys, clk_timer;
+    uint16_t clk_pll, clk_sys, clk_timer, clk_ind;   /* clk_ind: independent adds per us */
     uint8_t clk_src;
     gfx_band_t band;
 } el_ui_t;

@@ -38,6 +38,29 @@ static EL_DSP_CODE uint32_t clk_chain(unsigned rounds, int wide)
     __asm__ volatile("" : : "r"(x));
     return t;
 }
+/* The same with four independent chains (x y z w, 8 adds each a block): a
+ * core that issues two adds a cycle runs these twice as fast as the chain. */
+static EL_DSP_CODE uint32_t clk_par(unsigned rounds, int wide)
+{
+    uint32_t x = 1u, y = 2u, z = 3u, w = 4u, t0 = el_platform_ticks();
+    for (unsigned r = 0; r < rounds; ++r) {
+        CLK_ADD8(x); CLK_ADD8(y); CLK_ADD8(z); CLK_ADD8(w);
+        if (wide) { CLK_ADD8(x); CLK_ADD8(y); CLK_ADD8(z); CLK_ADD8(w); }
+    }
+    uint32_t t = el_platform_ticks() - t0;
+    __asm__ volatile("" : : "r"(x), "r"(y), "r"(z), "r"(w));
+    return t;
+}
+
+static uint16_t clock_par(void)
+{
+    enum { ROUNDS = 20000 };
+    clk_par(100, 1);
+    uint32_t t64 = clk_par(ROUNDS, 1), t32 = clk_par(ROUNDS, 0);
+    if (t64 <= t32) return 0;
+    return (uint16_t)(32ull * ROUNDS * 24u / (t64 - t32));
+}
+
 static uint16_t clock_mhz(void)
 {
     enum { ROUNDS = 20000 };
@@ -48,7 +71,7 @@ static uint16_t clock_mhz(void)
     return (uint16_t)(32ull * ROUNDS * 24u / (t64 - t32));
 }
 
-static uint16_t clk_mhz;
+static uint16_t clk_mhz, clk_ind;
 void el_glue_start(void)
 {
     el_init(&engine);
@@ -57,6 +80,7 @@ void el_glue_start(void)
     /* nothing stored: empty patterns, a random kit and random sounds */
     if (el_store_load(&engine) == 1) el_blank_start(&engine, el_platform_ticks() * 2654435761u + 1u);
     clk_mhz = clock_mhz();
+    clk_ind = clock_par();
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
     ui.prepare = el_store_prepare;
@@ -119,6 +143,7 @@ void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
             ui.clk_src = (uint8_t)src;
             ui.clk_sys = (uint16_t)(src == 6u ? pll * 2u / 3u : 0u);
             ui.clk_timer = clk_mhz;
+            ui.clk_ind = clk_ind;
         }
         ui.load_drops = 0;
         /* stage shares: their ticks against the engine blocks rendered meanwhile */
