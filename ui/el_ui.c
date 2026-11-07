@@ -1065,6 +1065,22 @@ static unsigned bar_length(el_ui_t *ui, unsigned length, unsigned spb, unsigned 
     return bars * spb;
 }
 
+/* STRINGS (feedback 07.11.): 1, 2, 4, 8 ... bars, never odd ones: the length
+ * in steps doubles or halves (a step shorter than a bar: whole bars of it). */
+static unsigned strings_length(el_ui_t *ui, const st_pattern_t *p, int delta)
+{
+    unsigned spb = bar_steps(p->rate), len = p->length ? p->length : 1u, unit = spb, n = 1;
+    while (n * unit < len && n * unit < ST_STEPS) n <<= 1;   /* the power of two at or above */
+    int exact = n * unit == len;   /* an odd length (older patterns) goes to the next power of two first */
+    if (delta > 0 && exact && n * unit * 2u <= ST_STEPS) n <<= 1;
+    else if (delta < 0 && n > 1u) n >>= 1;
+    if (n * unit > ST_STEPS) n = ST_STEPS / unit;
+    unsigned steps = n * unit, ticks = 1u << (p->rate < ST_RATES ? p->rate : 0);
+    ui->bars_shown = (uint8_t)el_clampi((int)(steps * ticks / 16u), 1, 255);
+    ui->bars_at = ui->now | 1u;
+    return steps;
+}
+
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 {
     el_engine_t *e = ui->engine;
@@ -1381,7 +1397,9 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         } else {
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
             uint8_t track = (uint8_t)(ui->area - 1u);
-            if ((hold & HOLD_GLO) && ui->step_mode[ui->area])   /* odd lengths only here */
+            if ((hold & HOLD_GLO) && ui->area == EL_AREA_STRINGS)   /* 1, 2, 4, 8 ... bars only */
+                el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)strings_length(ui, p, algo), 0, 0);
+            else if ((hold & HOLD_GLO) && ui->step_mode[ui->area])   /* odd lengths only here */
                 el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)el_clampi(p->length + algo, 1, ST_STEPS), 0, 0);
             else if (hold & HOLD_GLO)
                 el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)bar_length(ui, p->length, bar_steps(p->rate), ST_STEPS, algo), 0, 0);

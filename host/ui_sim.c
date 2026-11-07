@@ -223,6 +223,28 @@ int main(int argc, char **argv)
         printf("punch tiles: a tile per held effect (N10) %s\n", ok ? "ok" : "FAIL");
     }
     {
+        /* STRINGS lengths (feedback): GLO + ALGORITHM 3 bars -> 4 -> 8, back -> 4 -> 2: powers of two only */
+        if (ui.overview) tap_button(BTN_HOME);
+        tap_button(BTN_ENV);
+        if (ui.area != EL_AREA_STRINGS) tap_button(BTN_ENV);
+        if (ui.step_mode[EL_AREA_STRINGS]) tap_button(BTN_SEQ);
+        if (ui.editor) tap_button(BTN_EDIT);
+        el_post3(ui.engine, EL_CMD_TRACK_RATE, 1, ST_RATE_BAR, 0, 0);
+        el_post3(ui.engine, EL_CMD_TRACK_LENGTH, 1, 3, 0, 0);
+        run(30);
+        const st_track_t *sx = &ui.engine->track[1];
+        unsigned seq[4];
+        hold(BTN_GLO, 1);
+        turn(1, 1); seq[0] = sx->pattern[sx->current].length;
+        turn(1, 1); seq[1] = sx->pattern[sx->current].length;
+        turn(1, -1); seq[2] = sx->pattern[sx->current].length;
+        turn(1, -1); seq[3] = sx->pattern[sx->current].length;
+        hold(BTN_GLO, 0);
+        int ok = ui.area == EL_AREA_STRINGS && seq[0] == 4 && seq[1] == 8 && seq[2] == 4 && seq[3] == 2;
+        printf("strings length: 3 -> %u -> %u -> %u -> %u bars, powers of two %s\n", seq[0], seq[1], seq[2], seq[3], ok ? "ok" : "FAIL");
+        tap_button(BTN_FX);
+    }
+    {
         /* STRINGS with ARP on: the sequence's chords are arpeggiated (no key held). */
         static el_engine_t ar;
         float buf[EL_BLOCK * 2];
@@ -663,7 +685,7 @@ int main(int argc, char **argv)
             printf("strings: live take, note on the nearest 8th, held 1.5 bars -> len %u 32nds, pattern %u steps (N6, S8) %s\n",
                    st1->len, np->length, n6_ok ? "ok" : "FAIL");
             /* N7: a take past 4 bars goes on in quarters up to 8 bars: an 8th
-             * note in bar 1, a note at bar 6 held one bar -> 6 bars of quarters. */
+             * note in bar 1, a note at bar 6 held one bar -> 8 bars of quarters (1, 2, 4, 8 only). */
             static el_engine_t n7;
             el_init(&n7);
             el_post3(&n7, EL_CMD_TRACK_CLEAR, 1, 0, 0, 0);
@@ -681,9 +703,9 @@ int main(int argc, char **argv)
             el_render_float(&n7, buf, EL_BLOCK);
             #undef N7_TO
             const st_pattern_t *q = &n7.track[1].pattern[n7.track[1].current];
-            int n7_ok = q->rate == ST_RATE_QUARTER && q->length == 24 && (q->step[1].flags & ST_ON) && q->step[1].note == 62 &&
+            int n7_ok = q->rate == ST_RATE_QUARTER && q->length == 32 && (q->step[1].flags & ST_ON) && q->step[1].note == 62 &&
                         (q->step[20].flags & ST_ON) && q->step[20].note == 65 && q->step[20].len >= 31 && q->step[20].len <= 33;
-            printf("strings: a take past 4 bars in quarters, 6 bars kept (N7) %s\n", n7_ok ? "ok" : "FAIL");
+            printf("strings: a take past 4 bars in quarters, 6 bars used -> 8 bars (N7, no odd lengths) %s\n", n7_ok ? "ok" : "FAIL");
         }
         if (!(live_8th && step_kept && long_ok))
             printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);

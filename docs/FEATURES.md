@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S12, Y6, F11, U11, P11, N15).
+Neue Nummern: im Bereich die nächste freie (B17, S13, Y6, F11, U11, P11, N15).
 
 Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -87,6 +87,7 @@ Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | U9 | Bedienung/Display | Speichern beim Spielen ohne Hänger: die nächste Kopie wird schon beim Einschalten gelöscht (Feedback 07.11.) | ◐ umgesetzt (39. Build) | 0023 |
 | Y5 | Synths | Arpeggiator in STRINGS arpeggiert die Akkorde der laufenden Sequenz (ohne gehaltene Taste; Tasten haben Vorrang) (Feedback 07.11.) | ◐ umgesetzt (39. Build) | – |
 | U10 | Bedienung/Display | Akzente in der Lauflicht-Leiste: BEAT Akzent ohne Schlag gedimmt; STEP-Modus akzentuierte Steps voll, andere gedimmt (Feedback 07.11.) | ◐ umgesetzt (39. Build) | – |
+| S12 | Sequencer | STRINGS-Patterns nur 1, 2, 4, 8 … Takte (GLO + ALGORITHM, auch im STEP-Modus; Live-Aufnahmen runden auf) (Feedback 07.11.) | ◐ umgesetzt (39. Build) | 0027 |
 
 ## Gestrichen
 

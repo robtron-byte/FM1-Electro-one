@@ -135,8 +135,9 @@ EL_DSP_CODE void st_take_end(st_track_t *t)
             if (e > end) end = e;
         }
     if (!end) return;   /* nothing played: as it was */
-    unsigned bars = (end + 31u) / 32u;
-    p->length = (uint8_t)(32u / unit * (bars < 1u ? 1u : bars > most ? most : bars));
+    unsigned bars = (end + 31u) / 32u, pow2 = 1;
+    while (pow2 < bars) pow2 <<= 1;   /* 1, 2, 4, 8 bars (STRINGS: no odd lengths) */
+    p->length = (uint8_t)(32u / unit * (pow2 > most ? most : pow2));
     ++t->revision;
 }
 
