@@ -1,112 +1,93 @@
 # FM1-Electro: Feature-Liste
 
-Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; sie wird nie neu vergeben (gestrichene behalten ihre Nummer mit Status ✗). Ansprechen einfach mit der Nummer, z. B. „S7 streichen“, „N3 umsetzen“.
+Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; sie wird nie neu vergeben und nichts wird gelöscht: Umgesetztes wandert nach „Umgesetzt“, Gestrichenes nach „Gestrichen“. Ansprechen einfach mit der Nummer, z. B. „S7 streichen“, „N3 umsetzen“.
 
-**Status:** ✓ umgesetzt · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ○ offen (vorgeschlagen) · ✗ gestrichen
-**Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu, noch nicht eingeordnet
+**Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
+**Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
+Neue Nummern: im Bereich die nächste freie (B16, S12, Y5, F11, U9, P9, N14).
 
-Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
+Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
 
-## B – Beat / Drums
+## Offen und angefangen
 
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| B1 | Kalibriertes 808-Modell (BD, SD, RS, CP, CB, CY, OH, CH), in Festkomma auf dem Gerät | ✓ | 0006, 0022 |
-| B2 | Clap-Ausklang nach Original (D) | ✓ | 0008 |
-| B3 | Metall: wandernde Oszillatoren, linearer Open Hat | ✓ | 0009 |
-| B4 | Bassdrum-Ausklang mit Oktav-Körper | ✓ | 0010 |
-| B5 | Cowbell nach Aufnahme | ✓ | 0012 |
-| B6 | Hi-Hats X0X/8W8-Bauweise, Closed Hat an echter 808 kalibriert | ✓ | 0014 |
-| B7 | Snare mit längerem Körper | ✓ | 0015 |
-| B8 | Drum-Tonart (tonale Drums gestimmt, FOLLOW BASS) | ✓ | 0016 |
-| B9 | ZAP nach Referenz, PULSE | ✓ | 0017 |
-| B10 | 5 Kits inkl. PO-12 | ✓ | – |
-| B11 | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ◐ | 0028 |
-| B12 | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht, wartet auf „los“ |
-| B13 | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ◐ | 0028 |
-| B14 | Akzent-Zeile über die 11. schwarze Taste | ◐ | – |
-| B15 | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
+| Nr | Bereich | Feature | Status | ADR |
+|---|---|---|---|---|
+| B12 | Beat/Drums | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht (nach Rechenlast und Gerätetests) | – |
+| B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
+| S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ | – |
+| F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
+| U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
+| U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
+| N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ | – |
+| N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ | – |
+| N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ | – |
+| N4 | Neu | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ (die LEDs können keine Farbe: nur hell/blinkend möglich) | – |
+| N5 | Neu | REC gedimmt, solange nicht aufgenommen wird; voll (blinkend) beim Aufnehmen | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
+| N6 | Neu | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ○ | – |
+| N7 | Neu | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) | – |
+| N8 | Neu | Kurzer Druck auf EDIT (ohne etwas anderes) öffnet den Editor des gerade aktiven Bereichs, noch ein kurzer Druck geht zurück. EDIT gehalten bleibt die Umschalttaste wie bisher (EDIT + …) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
+| N9 | Neu | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
+| N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ | – |
+| N11 | Neu | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
+| N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ | – |
+| N13 | Neu | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ○ | – |
 
-## S – Sequencer
+## Umgesetzt
 
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| S1 | 4 Plätze A–D je Bereich, Wechsel am Takt | ✓ | – |
-| S2 | Generator (Variation / neu) je Bereich und für alles | ✓ | – |
-| S3 | Jeder Platz behält seinen Sound (Kit, Regler, Synth-Sound) | ◐ | 0024 |
-| S4 | Step-Varianz 1:2 … 4:4 (PRESETS bei gehaltenem Step) | ◐ | 0025 |
-| S5 | Step-Wahrscheinlichkeit 100 … 10 % (ALGORITHM bei gehaltenem Step) | ◐ | 0025 |
-| S6 | Große Anzeige beim Halten eines Steps (nach ¼ s) | ◐ | 0025 |
-| S7 | Step-Aufnahme SH-101: Pause mit der letzten Taste | ◐ | – |
-| S8 | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ | 0027 |
-| S9 | Repeat-Punch-in nur solange gehalten | ✗ (zurückgenommen) | 0011 |
-| S10 | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ◐ | – |
-| S11 | Zurücksetzen auf leeren Start per Tastenkombination | ○ | – |
+| Nr | Bereich | Feature | Status | ADR |
+|---|---|---|---|---|
+| B1 | Beat/Drums | Kalibriertes 808-Modell (BD, SD, RS, CP, CB, CY, OH, CH), in Festkomma auf dem Gerät | ✓ | 0006, 0022 |
+| B2 | Beat/Drums | Clap-Ausklang nach Original (D) | ✓ | 0008 |
+| B3 | Beat/Drums | Metall: wandernde Oszillatoren, linearer Open Hat | ✓ | 0009 |
+| B4 | Beat/Drums | Bassdrum-Ausklang mit Oktav-Körper | ✓ | 0010 |
+| B5 | Beat/Drums | Cowbell nach Aufnahme | ✓ | 0012 |
+| B6 | Beat/Drums | Hi-Hats X0X/8W8-Bauweise, Closed Hat an echter 808 kalibriert | ✓ | 0014 |
+| B7 | Beat/Drums | Snare mit längerem Körper | ✓ | 0015 |
+| B8 | Beat/Drums | Drum-Tonart (tonale Drums gestimmt, FOLLOW BASS) | ✓ | 0016 |
+| B9 | Beat/Drums | ZAP nach Referenz, PULSE | ✓ | 0017 |
+| B10 | Beat/Drums | 5 Kits inkl. PO-12 | ✓ | – |
+| B11 | Beat/Drums | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ◐ | 0028 |
+| B13 | Beat/Drums | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ◐ | 0028 |
+| B14 | Beat/Drums | Akzent-Zeile über die 11. schwarze Taste | ◐ | – |
+| S1 | Sequencer | 4 Plätze A–D je Bereich, Wechsel am Takt | ✓ | – |
+| S2 | Sequencer | Generator (Variation / neu) je Bereich und für alles | ✓ | – |
+| S3 | Sequencer | Jeder Platz behält seinen Sound (Kit, Regler, Synth-Sound) | ◐ | 0024 |
+| S4 | Sequencer | Step-Varianz 1:2 … 4:4 (PRESETS bei gehaltenem Step) | ◐ | 0025 |
+| S5 | Sequencer | Step-Wahrscheinlichkeit 100 … 10 % (ALGORITHM bei gehaltenem Step) | ◐ | 0025 |
+| S6 | Sequencer | Große Anzeige beim Halten eines Steps (nach ¼ s) | ◐ | 0025 |
+| S7 | Sequencer | Step-Aufnahme SH-101: Pause mit der letzten Taste | ◐ | – |
+| S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ | 0027 |
+| S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ◐ | – |
+| Y1 | Synths | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
+| Y2 | Synths | BASS einstimmig, mono | ✓ | 0007 |
+| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ | 0026 |
+| Y4 | Synths | 23 zusätzliche schlichte Sounds/Pads | ◐ | 0027 |
+| F1 | Effekte/Master | Punch-in-Effekte (Stutter, Hall-Wurf, Tape-Stop, Repeat, Delay, Crusher, Phaser) | ✓ | 0011 |
+| F2 | Effekte/Master | Tape-Stop Standard 1/4 | ◐ | – |
+| F3 | Effekte/Master | Gated Reverb (echter Hall mit Gate) | ✓ | 0013 |
+| F4 | Effekte/Master | Verzerrung als Send (OD, DIST, RAT, TUBE), phasengleich | ◐ | 0030 |
+| F5 | Effekte/Master | Send-Regler gesperrt bei Verzerrung OFF | ◐ | 0031 |
+| F6 | Effekte/Master | Master-Kompressor CLUB | ◐ | 0029 |
+| F7 | Effekte/Master | COMP MIX (Parallel-Kompression) | ◐ | 0031 |
+| U1 | Bedienung/Display | Tasten-LEDs: inaktive Bereiche gedimmt, OCT blinkt am Ende | ✓ | 0020 |
+| U2 | Bedienung/Display | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ◐ | – |
+| U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ | – |
+| U4 | Bedienung/Display | Display 30 MHz, Bild in einem Zug | ◐ | – |
+| U6 | Bedienung/Display | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
+| U8 | Bedienung/Display | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ◐ | 0031 |
+| P1 | Plattform/Leistung | Eigene Plattform ohne SDK, zwei Kerne | ✓ | 0021 |
+| P2 | Plattform/Leistung | Bus dynamisch auf beide Kerne (Verzerrung auf Kern 1) | ✓ | 0021 |
+| P3 | Plattform/Leistung | Speichern ohne Aussetzer (vorab löschen, Autosave bei STOP) | ◐ | 0023 |
+| P4 | Plattform/Leistung | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
+| P5 | Plattform/Leistung | Takt messen (`ADDS …/US` in OPTIONS): Gerät ADD 336, IND 348/µs: eine Addition je Takt, also etwa 340 MHz | ✓ | 0019 |
+| P8 | Plattform/Leistung | Web-Simulator | ✓ | – |
 
-## Y – Synths
+## Gestrichen
 
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| Y1 | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
-| Y2 | BASS einstimmig, mono | ✓ | 0007 |
-| Y3 | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ | 0026 |
-| Y4 | 23 zusätzliche schlichte Sounds/Pads | ◐ | 0027 |
-
-## F – Effekte / Master
-
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| F1 | Punch-in-Effekte (Stutter, Hall-Wurf, Tape-Stop, Repeat, Delay, Crusher, Phaser) | ✓ | 0011 |
-| F2 | Tape-Stop Standard 1/4 | ◐ | – |
-| F3 | Gated Reverb (echter Hall mit Gate) | ✓ | 0013 |
-| F4 | Verzerrung als Send (OD, DIST, RAT, TUBE), phasengleich | ◐ | 0030 |
-| F5 | Send-Regler gesperrt bei Verzerrung OFF | ◐ | 0031 |
-| F6 | Master-Kompressor CLUB | ◐ | 0029 |
-| F7 | COMP MIX (Parallel-Kompression) | ◐ | 0031 |
-| F8 | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
-| F9 | Hall-Modulation seltener rechnen (gebaut, bringt nichts, aus) | ✗ | 0019 |
-| F10 | Master in Festkomma (gebaut, langsamer, aus) | ✗ | 0019 |
-
-## U – Bedienung / Display
-
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| U1 | Tasten-LEDs: inaktive Bereiche gedimmt, OCT blinkt am Ende | ✓ | 0020 |
-| U2 | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ◐ | – |
-| U3 | Gerade gedrehter Wert hervorgehoben | ◐ | – |
-| U4 | Display 30 MHz, Bild in einem Zug | ◐ | – |
-| U5 | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
-| U6 | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
-| U7 | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
-| U8 | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ◐ | 0031 |
-
-## P – Plattform / Leistung
-
-| Nr | Feature | Status | ADR |
-|---|---|---|---|
-| P1 | Eigene Plattform ohne SDK, zwei Kerne | ✓ | 0021 |
-| P2 | Bus dynamisch auf beide Kerne (Verzerrung auf Kern 1) | ✓ | 0021 |
-| P3 | Speichern ohne Aussetzer (vorab löschen, Autosave bei STOP) | ◐ | 0023 |
-| P4 | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
-| P5 | Takt messen (`ADDS …/US` in OPTIONS): Gerät ADD 336, IND 348/µs: eine Addition je Takt, also etwa 340 MHz | ✓ | 0019 |
-| P6 | Auf 320 MHz umstellen: nicht nötig, das Gerät läuft schon mit 320–360 MHz | ✗ (nicht nötig) | 0019 |
-| P7 | Überlastschutz (sparsamer rechnen bei Überlast) | ✗ (auf Wunsch) | – |
-| P8 | Web-Simulator | ✓ | – |
-
-## N – Neu (noch einzuordnen)
-
-| Nr | Feature | Status |
-|---|---|---|
-| N1 | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ |
-| N2 | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ |
-| N3 | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ |
-| N4 | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ |
-| N5 | REC gedimmt, solange nicht aufgenommen wird; voll (blinkend) beim Aufnehmen | ○ |
-| N6 | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ○ |
-| N7 | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) |
-| N8 | Kurzer Druck auf EDIT (ohne etwas anderes) öffnet den Editor des gerade aktiven Bereichs, noch ein kurzer Druck geht zurück. EDIT gehalten bleibt die Umschalttaste wie bisher (EDIT + …) | ○ |
-| N9 | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ○ |
-| N10 | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ |
-| N11 | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ○ |
-| N12 | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ |
-| N13 | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ○ |
+| Nr | Bereich | Feature | Status | ADR |
+|---|---|---|---|---|
+| S9 | Sequencer | Repeat-Punch-in nur solange gehalten | ✗ (zurückgenommen) | 0011 |
+| F9 | Effekte/Master | Hall-Modulation seltener rechnen (gebaut, bringt nichts, aus) | ✗ | 0019 |
+| F10 | Effekte/Master | Master in Festkomma (gebaut, langsamer, aus) | ✗ | 0019 |
+| P6 | Plattform/Leistung | Auf 320 MHz umstellen: nicht nötig, das Gerät läuft schon mit 320–360 MHz | ✗ (nicht nötig) | 0019 |
+| P7 | Plattform/Leistung | Überlastschutz (sparsamer rechnen bei Überlast) | ✗ (auf Wunsch) | – |
