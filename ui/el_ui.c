@@ -1359,7 +1359,10 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
                     (int16_t)el_clampi(e->fx.v[(hold & HOLD_GLO) ? FX_DELAY_RETURN : FX_REVERB_RETURN] + presets * 2, 0, 127));
         } else if (ui->area == EL_AREA_BEAT) {
             /* The beat's "sound" is its kit, as a synth area's is its sound. */
-            dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + (presets > 0 ? 1 : -1), 0, DR_KITS - 1), 0, 0, 0);
+            /* the kit as you last set it (N1); EDIT + PRESETS: its factory sound */
+            if (hold & HOLD_EDIT) {
+                if (dr_post(m, DR_CMD_KIT, m->kit_index, 1, 0, 0) == 0) notice(ui, "KIT: FACTORY SOUND");
+            } else dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + (presets > 0 ? 1 : -1), 0, DR_KITS - 1), 0, 0, 0);
         } else {
             browse_preset(ui, presets, (hold & HOLD_EDIT) != 0, (hold & HOLD_GLO) != 0);
         }

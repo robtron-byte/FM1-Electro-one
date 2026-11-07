@@ -88,11 +88,21 @@ EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index)
     for (unsigned i = 0; i < sizeof *s; ++i) to[i] = from[i];   /* (no library memcpy: it is in the flash) */
 }
 
-/* The playing slot takes kit index's factory sound. */
-static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index)
+EL_DSP_CODE void dr_kit_recall(const dr_machine_t *m, tr808_sound_t *s, unsigned index)
+{
+    if (index < DR_KITS && (m->kit_mem_used >> index) & 1u) {
+        const uint8_t *from = (const uint8_t *)&m->kit_mem[index];
+        uint8_t *to = (uint8_t *)s;
+        for (unsigned i = 0; i < sizeof *s; ++i) to[i] = from[i];
+    } else dr_kit_sound(s, index);
+}
+
+/* The playing slot takes kit index as last set (factory: its factory sound, the settings forgotten). */
+static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index, int factory)
 {
     if (index >= DR_KITS) return;
-    dr_kit_sound(&m->sound[m->current], index);
+    if (factory) m->kit_mem_used &= (uint8_t)~(1u << index);
+    dr_kit_recall(m, &m->sound[m->current], index);
     tr808_sound_apply(&m->kit, &m->sound[m->current]);
     m->kit_index = (uint8_t)index;
 }
@@ -114,7 +124,7 @@ void dr_init(dr_machine_t *m)
     m->level = 100 / 127.0f;
     m->random = 0x2545f491u;
     tr808_init(&m->kit);
-    apply_kit(m, m->pattern[0].kit);
+    apply_kit(m, m->pattern[0].kit, 0);
     for (unsigned i = 1; i < DR_PATTERNS; ++i) m->sound[i] = m->sound[0];
 }
 
@@ -386,7 +396,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
             /* Another kit: the slot starts from that kit's factory sound;
              * the same kit keeps the slot's knobs. */
             if (m->staging.kit != m->pattern[part].kit && m->staging.kit < DR_KITS) {
-                dr_kit_sound(&m->sound[part], m->staging.kit);
+                dr_kit_recall(m, &m->sound[part], m->staging.kit);
                 if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
             }
             m->pattern[part] = m->staging;
@@ -410,9 +420,13 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_PARAM:
         tr808_set(&m->kit, (int)part, (int)step, c->value);
         tr808_sound_set(&m->sound[m->current], (int)part, (int)step, c->value);
+        if (m->kit_index < DR_KITS) {   /* the kit remembers it (N1) */
+            m->kit_mem[m->kit_index] = m->sound[m->current];
+            m->kit_mem_used |= (uint8_t)(1u << m->kit_index);
+        }
         break;
     case DR_CMD_KIT:
-        apply_kit(m, part);
+        apply_kit(m, part, step == 1);
         p->kit = (uint8_t)m->kit_index;   /* the pattern keeps the chosen kit */
         break;
     case DR_CMD_LEVEL:

@@ -49,7 +49,7 @@ enum dr_command {
     DR_CMD_MUTE,        /* a = part, b = on */
     DR_CMD_SOLO,        /* a = part, b = on */
     DR_CMD_PARAM,       /* a = part (D8_KIT for kit), b = parameter index, value */
-    DR_CMD_KIT,         /* a = kit preset (the playing slot's sound becomes its factory sound) */
+    DR_CMD_KIT,         /* a = kit preset: the playing slot takes that kit as last set (N1); b = 1: its factory sound (forgets the settings) */
     DR_CMD_LEVEL,       /* value = 0..127 */
     DR_CMD_RECORD,      /* b = on */
     DR_CMD_PANIC,
@@ -109,6 +109,10 @@ typedef struct {
     uint8_t muted;          /* whole area muted */
     uint8_t kit_index;
     uint8_t level_value;
+    /* Each kit as last set (N1): choosing a kit again brings it back like
+     * this, not its factory sound; bit n of kit_mem_used: kit n was edited. */
+    tr808_sound_t kit_mem[DR_KITS];
+    uint8_t kit_mem_used;
     volatile uint32_t revision; /* bumps on every applied edit, for the UI */
 } dr_machine_t;
 
@@ -119,6 +123,8 @@ extern const char *const dr_kit_names[DR_KITS];
 void dr_init(dr_machine_t *m);
 /* The factory sound of kit index (DR_KITS) into s. */
 EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index);
+/* Kit index as last set (N1), or its factory sound when it was never edited. */
+EL_DSP_CODE void dr_kit_recall(const dr_machine_t *m, tr808_sound_t *s, unsigned index);
 /* Control task: queue an edit. Returns 0, or -1 when the queue is full. */
 int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value);
 /* Control task: replace a whole pattern. Returns 0, -1 queue full, -2 while

@@ -152,6 +152,25 @@ int main(int argc, char **argv)
         mm = mm && !ui.mute_mode;
         printf("mute mode: GLO tap on / off, key mutes, LED blinks while muted (N13) %s\n", mm ? "ok" : "FAIL");
     }
+    {
+        /* N1: a kit keeps what was set: edit, another kit and back brings it; EDIT + PRESETS: factory. */
+        dr_machine_t *dm = &engine.drums;
+        unsigned k0 = dm->kit_index;
+        if (k0 + 1u >= DR_KITS) { turn(6, -1); run(50); k0 = dm->kit_index; }
+        int part = ui.part;
+        uint8_t was = dm->sound[dm->current].pot[part][0];
+        turn(2, was > 60 ? -6 : 6);         /* KNOB 1 */
+        run(200);
+        uint8_t set = dm->sound[dm->current].pot[part][0];
+        turn(6, 1); run(50);                /* next kit */
+        turn(6, -1); run(50);               /* back */
+        int n1 = dm->kit_index == k0 && set != was && dm->sound[dm->current].pot[part][0] == set;
+        tr808_sound_t f;
+        dr_kit_sound(&f, k0);
+        hold(BTN_EDIT, 1); turn(6, 1); hold(BTN_EDIT, 0); run(50);
+        n1 = n1 && dm->kit_index == k0 && !memcmp(&dm->sound[dm->current].pot, &f.pot, sizeof f.pot);
+        printf("kits: a kit keeps its settings, EDIT + PRESETS factory (N1) %s\n", n1 ? "ok" : "FAIL");
+    }
     shot(dir, "02b_beat_pulse");
     turn(6, -1);
     hold(BTN_GLO, 1);
