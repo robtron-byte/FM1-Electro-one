@@ -39,3 +39,4 @@ Messung (`make bass-check`, Bässe bei C2 = MIDI 36): Die Bässe der Apps spiele
 ## Verlauf
 
 - 2026-11-07: angelegt; `make test` (Test „extras“ und „strings“) und `make web` laufen.
+- 2026-11-07: Gerätetest S8: Die Live-Aufnahme soll nur den Anfang auf 1/8 rastern, nicht die Länge. Umgesetzt mit N6: Eine Live-Aufnahme in STRINGS auf ein leeres Pattern läuft in Achteln über 4 Takte; jede Note beginnt auf der nächsten Achtel und behält ihre Haltedauer (in 32steln, im Step gespeichert, Speicherversion 26); sie klingt so lange neben den anderen Steps. Beim Ende von REC wird das Pattern auf die genutzten ganzen Takte gekürzt (1–4)

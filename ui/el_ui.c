@@ -1164,7 +1164,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->rec_key = ui->rec_note = 0xff;
             ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
             if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
-            else if (grid) notice(ui, "STRINGS REC IN 8THS");
+            else if (grid) notice(ui, "STRINGS REC: 8THS, NOTES AS LONG AS HELD");
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
@@ -1445,7 +1445,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         mix(&sig[1], ui->step_mode[ui->area] | (uint32_t)ui->cursor[ui->area] << 4 | (uint32_t)(ui->octave[ui->area] + 8) << 12);
         mix(&sig[1], t->arp.v[ARP_ON] | (uint32_t)t->arp.v[ARP_HOLD] << 1);
         for (unsigned s = 0; s < p->length; ++s)
-            mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16);
+            mix(&sig[1], p->step[s].note | (uint32_t)p->step[s].flags << 8 | (uint32_t)p->step[s].chord << 16 | (uint32_t)p->step[s].len << 24);
     }
     mix(&sig[2], ui->area | ui->overview << 3 | ui->hold << 4 | (uint32_t)ui->part << 8 | (uint32_t)ui->page[ui->area] << 16 |
                  (uint32_t)ui->editor << 24 | (uint32_t)ui->ed_section[ui->area] << 25);
@@ -1742,6 +1742,11 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
             for (unsigned k = 0; k < count; ++k) {
                 int y = ROLL_Y + ROLL_H - 1 - (notes[k] - lo) * ROLL_H / range - 3;
                 int w = (st->flags & ST_TIE) ? col : col - 2;
+                if (st->len) {   /* a recorded note as long as it was held (N6), up to the roll's end */
+                    w = (int)st->len * col / (2 << (p->rate < ST_RATES ? p->rate : 0)) - 1;
+                    if (w < 2) w = 2;
+                    if (x + w > GRID_X + 16 * CELL - 2) w = GRID_X + 16 * CELL - 2 - x;
+                }
                 /* Root bright when accented, chord tones and plain notes dimmer. */
                 uint16_t c = k == 0 && (st->flags & ST_ACCENT) ? color : (uint16_t)((color >> 1) & 0x7bef);
                 gfx_fill(b, x, y, w, 5, c);

@@ -520,6 +520,43 @@ int main(int argc, char **argv)
         int long_ok = moves == 1 && first == 128;   /* the second change would come at 256 */
         printf("strings: live take in 8ths, step take keeps its steps, 8-bar steps change at 128 sixteenths %s\n",
                live_8th && step_kept && long_ok ? "ok" : "FAIL");
+        /* N6 / S8: a live STRINGS take starts on the nearest 8th, keeps the
+         * length the key was held and the pattern ends after the whole bars
+         * the take used (here 1.5 bars held from the 2nd 8th: 2 bars). */
+        {
+            static el_engine_t n6;
+            float buf[EL_BLOCK * 2];
+            el_init(&n6);
+            el_post3(&n6, EL_CMD_TRACK_CLEAR, 1, 0, 0, 0);
+            el_post3(&n6, EL_CMD_RECORD_AREA, 2, 1, 0, 0);
+            el_post(&n6, EL_CMD_START, 0, 0);
+            float sixteenth = 44100.0f * 60.0f / (n6.transport.bpm * 4.0f);
+            unsigned blocks_per = 0, done = 0;
+            /* wait an 8th and a bit (onto the 2nd 8th, just after it) */
+            while (done < (unsigned)(sixteenth * 2.2f)) { el_render_float(&n6, buf, EL_BLOCK); done += EL_BLOCK; }
+            el_post3(&n6, EL_CMD_NOTE, 1, 60, 0, 100);
+            done = 0;
+            while (done < (unsigned)(sixteenth * 24.0f)) { el_render_float(&n6, buf, EL_BLOCK); done += EL_BLOCK; ++blocks_per; }
+            el_post3(&n6, EL_CMD_NOTE, 1, 60, 0, 0);
+            el_render_float(&n6, buf, EL_BLOCK);
+            el_post3(&n6, EL_CMD_RECORD_AREA, 2, 0, 0, 0);
+            el_render_float(&n6, buf, EL_BLOCK);
+            const st_pattern_t *np = &n6.track[1].pattern[n6.track[1].current];
+            const st_step_t *st1 = &np->step[1];
+            int n6_ok = (st1->flags & ST_ON) && st1->note == 60 && st1->len >= 47 && st1->len <= 49 && np->length == 16 &&
+                        np->rate == ST_RATE_8TH && !(np->step[0].flags & ST_ON);
+            /* played back: from its 8th it sounds 1.5 bars, then stops */
+            const st_track_t *tr = &n6.track[1];
+            unsigned guard = 0;
+            while (!(tr->pos == 1 && tr->long_count) && guard++ < 4000) el_render_float(&n6, buf, EL_BLOCK);
+            done = 0;
+            while (done < (unsigned)(sixteenth * 22.0f)) { el_render_float(&n6, buf, EL_BLOCK); done += EL_BLOCK; }
+            int still = tr->long_count == 1;
+            while (done < (unsigned)(sixteenth * 26.0f)) { el_render_float(&n6, buf, EL_BLOCK); done += EL_BLOCK; }
+            n6_ok = n6_ok && guard < 4000 && still && tr->long_count == 0;
+            printf("strings: live take, note on the nearest 8th, held 1.5 bars -> len %u 32nds, pattern %u steps (N6, S8) %s\n",
+                   st1->len, np->length, n6_ok ? "ok" : "FAIL");
+        }
         if (!(live_8th && step_kept && long_ok))
             printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);
     }

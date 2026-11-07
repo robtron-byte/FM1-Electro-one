@@ -24,7 +24,8 @@
  * after the first twelve (the compressor's parallel share, docs/adr/0031);
  * 26 the drums without toms and congas (B12: ten parts, older records are
  * mapped part by part), every option in one array, no separate copy of the
- * playing kit (each slot has its sound), each kit as last set (N1). */
+ * playing kit (each slot has its sound), each kit as last set (N1), a length
+ * per synth step (N6). */
 enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
@@ -38,6 +39,20 @@ typedef struct {
  * CH ZP PU. Their patterns and tables in that layout, and where each old
  * part went (-1: the toms, gone). */
 enum { OLD_PARTS = 12 };
+/* Up to version 25 a synth step had no length (N6: version 26). */
+typedef struct { uint8_t note, flags, chord; } st_step_v25_t;
+typedef struct { uint8_t length, gate, rate; st_step_v25_t step[ST_STEPS]; } st_pattern_v25_t;
+typedef struct {
+    st_pattern_v25_t pattern[ST_PATTERNS];
+    uint8_t v[SYN_VALUES];
+    uint8_t engine, preset, level, muted, chord, current;
+} track_payload_v25_t;
+static void pattern_from_v25(const st_pattern_v25_t *o, st_pattern_t *n)
+{
+    memset(n, 0, sizeof *n);
+    n->length = o->length; n->gate = o->gate; n->rate = o->rate;
+    for (unsigned k = 0; k < ST_STEPS; ++k) { n->step[k].note = o->step[k].note; n->step[k].flags = o->step[k].flags; n->step[k].chord = o->step[k].chord; }
+}
 typedef struct {
     char name[DR_NAME + 1];
     uint8_t length, swing, kit, style;
@@ -53,7 +68,7 @@ static int new_part(unsigned old) { return old < 2u ? (int)old : old < 4u ? -1 :
     uint8_t kit_params[KIT_PARAMS];        \
     uint8_t kit, level, current, muted;    \
     uint16_t bpm_x10, reserved;            \
-    track_payload_t track[EL_TRACKS];      \
+    track_payload_v25_t track[EL_TRACKS];  \
     uint8_t fx[FX_PARAMS];                 \
     uint8_t arp[EL_TRACKS][ARP_PARAMS];    \
     uint8_t midi_channel[EL_AREAS];        \
@@ -122,7 +137,7 @@ typedef struct {
  * to them. Each version is its own struct, so the sizes include the
  * compiler's padding exactly as that version wrote them. */
 typedef struct {
-    st_pattern_t pattern[OLD_SLOTS];
+    st_pattern_v25_t pattern[OLD_SLOTS];
     uint8_t v[SYN_VALUES];
     uint8_t engine, preset, level, muted, chord;
 } old_track_t;
@@ -350,7 +365,13 @@ static void from_v25(const payload_v25_t *o, unsigned version, payload_t *d)
     }
     d->kit = o->kit; d->level = o->level; d->current = o->current; d->muted = o->muted;
     d->bpm_x10 = o->bpm_x10; d->reserved = o->reserved;
-    memcpy(d->track, o->track, sizeof d->track);
+    for (unsigned t = 0; t < EL_TRACKS; ++t) {
+        const track_payload_v25_t *ot = &o->track[t];
+        track_payload_t *nt = &d->track[t];
+        for (unsigned i = 0; i < ST_PATTERNS; ++i) pattern_from_v25(&ot->pattern[i], &nt->pattern[i]);
+        memcpy(nt->v, ot->v, sizeof nt->v);
+        nt->engine = ot->engine; nt->preset = ot->preset; nt->level = ot->level; nt->muted = ot->muted; nt->chord = ot->chord; nt->current = ot->current;
+    }
     memcpy(d->fx, o->fx, sizeof d->fx);
     memcpy(d->arp, o->arp, sizeof d->arp);
     memcpy(d->midi_channel, o->midi_channel, sizeof d->midi_channel);
@@ -724,7 +745,20 @@ static void to_v25(const payload_t *d, payload_v25_t *o)
     memcpy(o->kit_params, d->drum_sound[cur].kit_params, KIT_PARAMS);
     o->kit = d->pattern[cur].kit; o->level = d->level; o->current = d->current; o->muted = d->muted;
     o->bpm_x10 = d->bpm_x10; o->reserved = d->reserved;
-    memcpy(o->track, d->track, sizeof o->track);
+    for (unsigned t = 0; t < EL_TRACKS; ++t) {
+        const track_payload_t *nt = &d->track[t];
+        track_payload_v25_t *ot = &o->track[t];
+        for (unsigned i = 0; i < ST_PATTERNS; ++i) {
+            ot->pattern[i].length = nt->pattern[i].length; ot->pattern[i].gate = nt->pattern[i].gate; ot->pattern[i].rate = nt->pattern[i].rate;
+            for (unsigned k = 0; k < ST_STEPS; ++k) {
+                ot->pattern[i].step[k].note = nt->pattern[i].step[k].note;
+                ot->pattern[i].step[k].flags = nt->pattern[i].step[k].flags;
+                ot->pattern[i].step[k].chord = nt->pattern[i].step[k].chord;
+            }
+        }
+        memcpy(ot->v, nt->v, sizeof ot->v);
+        ot->engine = nt->engine; ot->preset = nt->preset; ot->level = nt->level; ot->muted = nt->muted; ot->chord = nt->chord; ot->current = nt->current;
+    }
     memcpy(o->fx, d->fx, sizeof o->fx);
     memcpy(o->arp, d->arp, sizeof o->arp);
     memcpy(o->midi_channel, d->midi_channel, sizeof o->midi_channel);

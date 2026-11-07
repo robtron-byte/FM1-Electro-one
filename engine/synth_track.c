@@ -87,16 +87,55 @@ static EL_DSP_CODE void release_all(st_track_t *t)
     t->gate_countdown = 0;
 }
 
-/* Live recording into the pattern: nearest 16th, like the drum recorder. */
-static EL_DSP_CODE void record_step(st_track_t *t, int note, unsigned chord, float velocity)
+static EL_DSP_CODE void release_long(st_track_t *t)
 {
-    if (!t->recording || !t->playing) return;
+    for (unsigned i = 0; i < t->long_count; ++i) syn_note_off(&t->part, t->long_note[i]);
+    t->long_count = 0;
+}
+
+/* Live recording into the pattern: nearest step, like the drum recorder.
+ * Returns the step, or -1 when nothing was recorded. */
+static EL_DSP_CODE int record_step(st_track_t *t, int note, unsigned chord, float velocity)
+{
+    if (!t->recording || !t->playing) return -1;
     st_pattern_t *p = &t->pattern[t->current];
     unsigned step = t->pos;
     if (t->since_step > 0.5f * t->step_frames) step = (step + 1u) % p->length;
     p->step[step].note = (uint8_t)note;
     p->step[step].chord = (uint8_t)chord;
     p->step[step].flags = (uint8_t)(ST_ON | (velocity > 0.9f ? ST_ACCENT : 0));
+    p->step[step].len = 0;
+    ++t->revision;
+    return (int)step;
+}
+
+/* A recorded STRINGS key: its length so far into its step, in 32nds (N6). */
+static EL_DSP_CODE void rec_len(st_track_t *t, unsigned i)
+{
+    st_step_t *s = &t->pattern[t->current].step[t->rec_step[i] % ST_STEPS];
+    float thirty_second = t->sixteenth_frames * 0.5f;
+    if (s->note != t->rec_note[i] || !(s->flags & ST_ON) || thirty_second <= 1.0f) return;
+    int n = (int)(t->rec_frames[i] / thirty_second + 0.5f);
+    s->len = (uint8_t)el_clampi(n, 1, 255);
+    ++t->revision;
+}
+
+EL_DSP_CODE void st_take_end(st_track_t *t)
+{
+    for (unsigned i = 0; i < t->rec_count; ++i) rec_len(t, i);
+    t->rec_count = 0;
+    if (!t->grow) return;
+    t->grow = 0;
+    st_pattern_t *p = &t->pattern[t->current];
+    unsigned end = 0;   /* in 32nds; a step of the take is an 8th (4) */
+    for (unsigned s = 0; s < ST_STEPS; ++s)
+        if (p->step[s].flags & ST_ON) {
+            unsigned e = s * 4u + (p->step[s].len ? p->step[s].len : 4u);
+            if (e > end) end = e;
+        }
+    if (!end) return;   /* nothing played: as it was */
+    unsigned bars = (end + 31u) / 32u;
+    p->length = (uint8_t)(8u * (bars < 1u ? 1u : bars > 4u ? 4u : bars));
     ++t->revision;
 }
 
@@ -120,6 +159,7 @@ EL_DSP_CODE void st_arp_set(st_track_t *t, unsigned param, int value)
 EL_DSP_CODE void st_rewind(st_track_t *t)
 {
     release_all(t);
+    release_long(t);
     t->playing = 0;
     t->pos = 0;
     t->tick = 0;
@@ -129,7 +169,7 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
 EL_DSP_CODE void st_mute(st_track_t *t, int on)
 {
     t->muted = on ? 1 : 0;
-    if (on) release_all(t);
+    if (on) { release_all(t); release_long(t); }
 }
 
 /* Called on every 16th; a step lasts rate_ticks 16ths. */
@@ -151,6 +191,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     t->playing = 1;
     float step_frames = sixteenth_frames * (float)ticks;
     t->step_frames = step_frames;
+    t->sixteenth_frames = sixteenth_frames;
     t->since_step = 0;
     const st_step_t *s = &p->step[pos];
     int on = (s->flags & ST_ON) && !t->muted && el_cond_plays(ST_COND(s->flags), t->pass) &&
@@ -159,6 +200,29 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);
     float velocity = (s->flags & ST_ACCENT) ? 1.0f : 0.7f;
+    if (s->len) {
+        /* A recorded note with its length (N6): it sounds that long beside
+         * the other steps; the same note again starts over. The key being
+         * recorded into this step right now already sounds. */
+        release_all(t);
+        for (unsigned i = 0; i < t->rec_count; ++i) if (t->rec_step[i] == pos && t->rec_note[i] == s->note) return;
+        float frames = (float)s->len * sixteenth_frames * 0.5f;
+        for (unsigned i = 0; i < count; ++i) {
+            unsigned k = 0;
+            while (k < t->long_count && t->long_note[k] != notes[i]) ++k;
+            if (k == t->long_count) {
+                if (k == ST_LONG_NOTES) {   /* full: the oldest goes */
+                    syn_note_off(&t->part, t->long_note[0]);
+                    for (unsigned j = 1; j < ST_LONG_NOTES; ++j) { t->long_note[j - 1] = t->long_note[j]; t->long_left[j - 1] = t->long_left[j]; }
+                    k = ST_LONG_NOTES - 1u;
+                } else ++t->long_count;
+            } else syn_note_off(&t->part, notes[i]);
+            t->long_note[k] = notes[i];
+            t->long_left[k] = frames;
+            syn_note_on(&t->part, notes[i], velocity, 0);
+        }
+        return;
+    }
     if (t->tied && t->sounding_count) {
         /* Tie from the previous step: glide/legato into the new notes and let
          * go of the ones that are not part of them. */
@@ -185,6 +249,12 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit)
 {
     limit = arp_frames_until(&t->arp, limit);
+    for (unsigned i = 0; i < t->long_count; ++i) {
+        int f = (int)t->long_left[i];
+        if ((float)f < t->long_left[i]) ++f;
+        if (f < 1) f = 1;
+        if (f < limit) limit = f;
+    }
     if (t->gate_countdown <= 0 || !t->sounding_count) return limit;
     int frames = (int)t->gate_countdown;
     if ((float)frames < t->gate_countdown) ++frames;
@@ -197,6 +267,14 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
     static const float trim[4] EL_DSP_DATA = {1.0f, 2.6f, 0.75f, 4.3f};
     syn_render(&t->part, left, right, dly, rev, frames, bpm, t->level_value / 127.0f * trim[t->area & 3u]);
     t->since_step += (float)frames;
+    for (unsigned i = 0; i < t->rec_count; ++i) t->rec_frames[i] += (float)frames;
+    for (unsigned i = 0; i < t->long_count;) {
+        t->long_left[i] -= (float)frames;
+        if (t->long_left[i] > 0) { ++i; continue; }
+        syn_note_off(&t->part, t->long_note[i]);
+        for (unsigned j = i + 1u; j < t->long_count; ++j) { t->long_note[j - 1] = t->long_note[j]; t->long_left[j - 1] = t->long_left[j]; }
+        --t->long_count;
+    }
     if (t->gate_countdown > 0) {
         t->gate_countdown -= (float)frames;
         if (t->gate_countdown <= 0) {
@@ -223,11 +301,29 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
     unsigned count = chord_notes(note, t->chord, notes);
     if (velocity <= 0) {
         for (unsigned i = 0; i < count; ++i) syn_note_off(&t->part, notes[i]);
+        /* a recorded STRINGS key let go: the note keeps how long it was held (N6) */
+        for (unsigned i = 0; i < t->rec_count; ++i)
+            if (t->rec_note[i] == note) {
+                rec_len(t, i);
+                for (unsigned j = i + 1u; j < t->rec_count; ++j) {
+                    t->rec_note[j - 1] = t->rec_note[j]; t->rec_step[j - 1] = t->rec_step[j]; t->rec_frames[j - 1] = t->rec_frames[j];
+                }
+                --t->rec_count;
+                break;
+            }
         return;
     }
     for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 0);
     t->last_note = (uint8_t)el_clampi(note, 0, 127);
-    record_step(t, note, t->chord, velocity);
+    int step = record_step(t, note, t->chord, velocity);
+    if (step >= 0 && t->area == MKS_AREA_STRINGS && t->rec_count < ST_REC_HELD) {
+        t->rec_note[t->rec_count] = (uint8_t)note;
+        t->rec_step[t->rec_count] = (uint8_t)step;
+        t->rec_frames[t->rec_count] = 0;
+        ++t->rec_count;
+        /* until it is let go: at least a 32nd, the step holds the key's length so far */
+        t->pattern[t->current].step[step].len = 1;
+    }
 }
 
 /* ---- generator (control side), after the iOS app's SequenceGenerator ----- */

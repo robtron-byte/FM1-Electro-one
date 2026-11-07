@@ -32,7 +32,12 @@ typedef struct {
     uint8_t note;   /* MIDI note */
     uint8_t flags;  /* ST_ON | ST_ACCENT | ST_TIE */
     uint8_t chord;  /* see ST_CHORD_TYPE / ST_CHORD_INV */
+    /* A live-recorded STRINGS note (N6, S8): how long it was held, in 32nds
+     * (1..255); it sounds that long, over the next steps, beside them. 0: the
+     * step plays with the pattern's gate (store version 26). */
+    uint8_t len;
 } st_step_t;
+enum { ST_LONG_NOTES = 8, ST_REC_HELD = 8 };
 
 typedef struct {
     uint8_t length;            /* 1..32 */
@@ -54,12 +59,13 @@ static inline int st_pattern_empty(const st_pattern_t *p)
     for (unsigned i = 0; i < ST_STEPS; ++i) if (p->step[i].flags & ST_ON) return 0;
     return 1;
 }
-/* Live recording in STRINGS onto an empty pattern whose steps are coarser
- * than an 8th would put every note on a bar line: such a take is recorded
- * in 8ths instead (docs/adr/0027). */
+/* A live take in STRINGS onto an empty pattern (N6, docs/adr/0027): the
+ * notes start on the nearest 8th and keep the length they were held; the
+ * pattern runs 4 bars of 8ths meanwhile and is cut to the whole bars the
+ * take used when REC ends (st_take_end). */
 static inline int st_live_grid_needed(const st_pattern_t *p, unsigned area, int live)
 {
-    return live && area == MKS_AREA_STRINGS && p->rate > ST_RATE_8TH && st_pattern_empty(p);
+    return live && area == MKS_AREA_STRINGS && st_pattern_empty(p);
 }
 
 typedef struct {
@@ -78,6 +84,14 @@ typedef struct {
     uint8_t pass;              /* passes of the current pattern since it started */
     uint32_t rnd;              /* the step probabilities' dice */
     float gate_countdown, step_frames, since_step;
+    float sixteenth_frames;    /* as the transport last said */
+    /* Notes of steps with a length (N6): sounding beside the steps, each until its time is up. */
+    int16_t long_note[ST_LONG_NOTES];
+    float long_left[ST_LONG_NOTES];
+    uint8_t long_count;
+    /* A live STRINGS take (N6): the keys held, the step each went to and how long it is held. */
+    uint8_t rec_note[ST_REC_HELD], rec_step[ST_REC_HELD], rec_count, grow;
+    float rec_frames[ST_REC_HELD];
     arp_t arp;
     volatile uint32_t revision;
 } st_track_t;
@@ -105,6 +119,10 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
 EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity);
 EL_DSP_CODE void st_mute(st_track_t *t, int on);
 EL_DSP_CODE void st_arp_set(st_track_t *t, unsigned param, int value);
+/* REC ended for this track: the held keys keep their lengths so far; a take
+ * that started on an empty STRINGS pattern is cut to the whole bars it used
+ * (1-4, N6). */
+EL_DSP_CODE void st_take_end(st_track_t *t);
 
 /* Notes of a step: root plus chord type and inversion (up to MKS_CHORD_NOTES). */
 unsigned st_chord_notes(int root, unsigned chord, int16_t *out);
