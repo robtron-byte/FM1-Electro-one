@@ -35,7 +35,7 @@ typedef struct {
 } dr_pattern_t;
 
 enum dr_command {
-    DR_CMD_HIT,         /* a = part, b = velocity 1..127, c = record flag, value = semitones (pitch lock) */
+    DR_CMD_HIT,         /* a = part, b = velocity 1..127, c = 1 record, 2 record without a sound (N2), value = semitones (pitch lock) */
     DR_CMD_TOGGLE,      /* a = part, b = step: hit on/off */
     DR_CMD_ROLL,        /* a = part, b = step: roll on/off (sets the hit too) */
     DR_CMD_ACCENT,      /* b = step */

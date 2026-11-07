@@ -813,7 +813,9 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
         else {
             if (ui->part != part) ui->page[0] = 0;
             ui->part = (uint8_t)part;
-            dr_post(m, DR_CMD_HIT, (uint8_t)part, 100, 1, 0);
+            /* the preview (OCT+, N2): off, the key only picks the part; while recording it records without a sound */
+            if (!ui->preview_off) dr_post(m, DR_CMD_HIT, (uint8_t)part, 100, 1, 0);
+            else if (m->recording) dr_post(m, DR_CMD_HIT, (uint8_t)part, 100, 2, 0);
         }
         return;
     }
@@ -1230,6 +1232,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         int up = (pressed & BIT(BTN_OCT_UP)) != 0;
         if (ui->overview) {
             /* HOME: nothing on OCT */
+        } else if (ui->area == EL_AREA_BEAT) {
+            /* BEAT (N2): OCT+ the drum preview on / off, OCT- the step page 1-16 / 17-32 */
+            if (up) {
+                ui->preview_off = (uint8_t)!ui->preview_off;
+                notice(ui, ui->preview_off ? "DRUM PREVIEW OFF" : "DRUM PREVIEW ON");
+            } else if (m->pattern[m->current].length > 16 && !ui->fill_edit) {
+                ui->step_page[0] = (uint8_t)!ui->step_page[0];
+                ui->follow = 0;
+            }
         } else if (synth_area(ui) && !ui->step_mode[ui->area]) {
             release_keys(ui, ~0u);
             ui->octave[ui->area] = (int8_t)el_clampi(ui->octave[ui->area] + (up ? 1 : -1), EL_OCT_MIN, EL_OCT_MAX);
@@ -1600,7 +1611,8 @@ static void update_leds(el_ui_t *ui)
     } else if (ui->area == EL_AREA_BEAT) {
         const dr_pattern_t *p = &m->pattern[m->current];
         unsigned page = ui->step_page[0];
-        if (p->length > 16 && slow) blink |= 1ull << (page ? BTN_OCT_UP : BTN_OCT_DOWN);
+        if (p->length > 16 && page && slow) blink |= 1ull << BTN_OCT_DOWN;   /* N2: OCT- the page (blinks on 17-32) */
+        if (ui->preview_off) dim |= 1ull << BTN_OCT_UP;                     /* OCT+ the preview: full on, dimmed off */
         for (unsigned i = 0; i < UI_WHITE; ++i) {
             unsigned s = i + page * 16u;
             if (s >= p->length) continue;

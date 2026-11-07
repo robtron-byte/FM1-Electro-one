@@ -252,7 +252,7 @@ static inline int audible(const dr_machine_t *m, unsigned part)
 EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record, int semitones)
 {
     if (part >= DR_PARTS || velocity <= 0.0f) return;
-    tr808_trigger_pitch(&m->kit, (int)part, velocity, semitones);
+    if (record != 2) tr808_trigger_pitch(&m->kit, (int)part, velocity, semitones);   /* 2: recorded without a sound (N2) */
     if (!record || !m->recording || !m->playing) return;
     /* Quantize to the nearest 16th. A hit late in a step lands on the next
      * one, which must not play it a second time. */

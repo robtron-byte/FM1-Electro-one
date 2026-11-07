@@ -226,6 +226,25 @@ int main(int argc, char **argv)
         ok = ok && (hm->kit.v[D8_OH].aux2 > 0.0f || !hm->kit.v[D8_OH].active);
         printf("hats: OH + CH on one step -> a short open hat (B16) %s\n", ok ? "ok" : "FAIL");
     }
+    {
+        /* N2: OCT+ in BEAT switches the drum preview off (the key only picks
+         * the part, OCT+ dimmed) and on again; OCT- turns the step page. */
+        if (ui.overview || ui.area != EL_AREA_BEAT) tap_button(BTN_FX);
+        static const uint8_t bk2[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
+        tap_button(BTN_OCT_UP);
+        run(50);
+        int ok = ui.preview_off && leds[BTN_OCT_UP] == 2;
+        engine.drums.kit.v[D8_SD].active = 0;
+        tap_key(bk2[1]);                    /* SD: picked, silent */
+        run(20);
+        ok = ok && ui.part == D8_SD && !engine.drums.kit.v[D8_SD].active;
+        tap_button(BTN_OCT_UP);
+        run(50);
+        tap_key(bk2[1]);
+        run(20);
+        ok = ok && !ui.preview_off && leds[BTN_OCT_UP] == 1;
+        printf("preview: OCT+ drum preview off / on, the key picks silently (N2) %s\n", ok ? "ok" : "FAIL");
+    }
     shot(dir, "02b_beat_pulse");
     turn(6, -1);
     hold(BTN_GLO, 1);
