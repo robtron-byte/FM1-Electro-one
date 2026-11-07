@@ -85,7 +85,11 @@ enum {
     EL_OPT_COMP_MAKEUP,     /* 0..24: makeup 0 .. +12 dB in half dB */
     EL_OPT_REC_STEP,        /* bit per synth track: REC records step by step (SH-101), else live */
     EL_OPT_DIST_KICK_FULL,  /* 1: the bass drum keeps its lows into the distortion; 0 (default): cut like the rest */
-    EL_OPTIONS = 12     /* stored size, room for more */
+    /* The master compressor's parallel share (docs/adr/0031): 0..20 steps of 5 % of the
+     * uncompressed signal; 0 = all compressed (the menu shows MIX 100 %). Stored apart (version 25). */
+    EL_OPT_COMP_DRY,
+    EL_OPTIONS = 16,        /* in memory */
+    EL_OPTIONS_STORED = 12  /* the first ones: where records of versions up to 24 end */
 };
 /* The last ratio is CLUB (EL_COMP_CLUB, docs/adr/0029): 4:1 with its own
  * attack, program release and a parallel share; attack and release set

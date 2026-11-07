@@ -115,6 +115,11 @@ void mb_master_club(el_mixbus_t *mb, int on)
     c->avg_db = env;
 }
 
+void mb_master_dry(el_mixbus_t *mb, float dry)
+{
+    mb->master_comp.dry = dry < 0.0f ? 0.0f : dry > 1.0f ? 1.0f : dry;
+}
+
 void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db)
 {
     mb_comp_t *c = &mb->master_comp;

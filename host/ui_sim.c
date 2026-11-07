@@ -177,15 +177,21 @@ int main(int argc, char **argv)
     run(400);
     shot(dir, "08_home");
     hold(BTN_EDIT, 1);                /* HOME + EDIT: distortion sends */
+    for (int i = 0; i < 4; ++i) turn(6, -1);   /* PRESETS: type OFF (one a turn): nothing can be sent (docs/adr/0031) */
     turn(2, 20);                      /* BEAT send */
     turn(5, 30);                      /* BASS send */
-    turn(6, 1);                       /* PRESETS: type TUBE */
+    run(300);
+    shot(dir, "08a_home_dist_off");
+    int send_locked = engine.fx.v[FX_DIST_MODE] == DIST_OFF && engine.fx.v[FX_DIST_SEND_BEAT] == 0 && engine.fx.v[FX_DIST_SEND_BASS] == 0;
+    for (int i = 0; i < 4; ++i) turn(6, 1);    /* PRESETS: type TUBE */
+    turn(2, 20);                      /* BEAT send */
+    turn(5, 30);                      /* BASS send */
     run(300);
     shot(dir, "08b_home_distortion");
     hold(BTN_EDIT, 0);
-    printf("dist: send beat %u bass %u type %s %s\n", engine.fx.v[FX_DIST_SEND_BEAT], engine.fx.v[FX_DIST_SEND_BASS],
+    printf("dist: send beat %u bass %u type %s, locked while OFF %s\n", engine.fx.v[FX_DIST_SEND_BEAT], engine.fx.v[FX_DIST_SEND_BASS],
            fx_dist_mode_name(engine.fx.v[FX_DIST_MODE]),
-           engine.fx.v[FX_DIST_SEND_BEAT] > 0 && engine.fx.v[FX_DIST_SEND_BASS] > 0 && engine.fx.v[FX_DIST_MODE] == DIST_TUBE ? "ok" : "FAIL");
+           send_locked && engine.fx.v[FX_DIST_SEND_BEAT] > 0 && engine.fx.v[FX_DIST_SEND_BASS] > 0 && engine.fx.v[FX_DIST_MODE] == DIST_TUBE ? "ok" : "FAIL");
 
     hold(BTN_HOME, 1);                /* HOME held + SAVE: OPTIONS */
     tap_button(BTN_SAVE);
@@ -199,7 +205,10 @@ int main(int argc, char **argv)
     turn(2, 6);                       /* -14 -> -20 dB */
     turn(0, 1);                       /* COMP RATIO */
     turn(2, 3);                       /* 1.8:1 -> 4:1 */
-    turn(1, 5);                       /* OUTPUT LEVEL */
+    turn(1, 4);                       /* COMP MIX */
+    turn(2, -4);                      /* 100 % -> 80 % compressed, 20 % of the dry signal */
+    int mix_ok = engine.option[EL_OPT_COMP_DRY] == 4;
+    turn(1, 2);                       /* OUTPUT LEVEL */
     turn(3, -10);                     /* 127 -> 107 */
     turn(0, 2);                       /* HELP LINE */
     run(1500);                        /* the groove plays: the compressor works */
@@ -207,7 +216,7 @@ int main(int argc, char **argv)
     turn(4, -1);                      /* off */
     run(300);
     shot(dir, "08c_options");
-    menu = menu && ui.opt_item == 14 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107 &&
+    menu = menu && mix_ok && engine.mix.master_comp.dry > 0.19f && engine.mix.master_comp.dry < 0.21f && ui.opt_item == 15 && !engine.option[EL_OPT_HINTS] && engine.option[EL_OPT_OUT_LEVEL] == 107 &&
            engine.mix.master_comp.threshold_db == -20.0f && engine.mix.master_comp.ratio == 4.0f && compressing;
     printf("comp: threshold %.0f dB, ratio %.1f:1, gain reduction %.1f dB %s\n", engine.mix.master_comp.threshold_db,
            engine.mix.master_comp.ratio, engine.mix.gain_reduction_db, menu ? "ok" : "FAIL");
@@ -952,6 +961,28 @@ int main(int argc, char **argv)
         lk_ok = lk_ok && ui.part == D8_PU;
         ui.part = D8_BD;
         printf("locks: step pitch and velocity (KNOB 1 / KNOB 2), stored, copied, cleared; no toms or congas %s\n", lk_ok ? "ok" : "FAIL");
+    /* COMP MIX is stored and comes back; a record from before it (version 20) with CLUB
+     * keeps its 30 % of the dry signal (docs/adr/0031). */
+    {
+        el_engine_t *sim = ui.engine;
+        static el_engine_t again3, legacy;
+        el_post(sim, EL_CMD_OPTION, EL_OPT_COMP_RATIO, EL_COMP_CLUB);
+        el_post(sim, EL_CMD_OPTION, EL_OPT_COMP_DRY, 9);
+        run(30);
+        int cm_ok = el_store_save(sim) == 0;
+        el_init(&again3);
+        cm_ok = cm_ok && el_store_load(&again3) == 0 && again3.option[EL_OPT_COMP_DRY] == 9 && again3.mix.master_comp.dry > 0.44f &&
+                again3.mix.master_comp.dry < 0.46f && again3.mix.master_comp.club;
+        el_post(sim, EL_CMD_OPTION, EL_OPT_COMP_DRY, 0);
+        run(30);
+        cm_ok = cm_ok && el_store_save(sim) == 0 && el_store_test_as_v20() == 0;
+        el_init(&legacy);
+        cm_ok = cm_ok && el_store_load(&legacy) == 0 && legacy.option[EL_OPT_COMP_DRY] == 6 && legacy.mix.master_comp.club;
+        el_post(sim, EL_CMD_OPTION, EL_OPT_COMP_RATIO, 5);
+        run(30);
+        el_store_save(sim);
+        printf("comp mix: stored (version 25), an older CLUB record keeps its 30 %% dry %s\n", cm_ok ? "ok" : "FAIL");
+    }
     }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }

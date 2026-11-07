@@ -561,6 +561,38 @@ static int dist_comb_test(void)
     return ok ? 0 : 1;
 }
 
+/* COMP MIX (docs/adr/0031): the parallel share of the master compressor.
+ * All dry (20 steps) is the output with no compression, sample for sample;
+ * all compressed differs from it; half lies in between. (The master's
+ * limiter and saturation make the level a poor measure: the change in the
+ * output energy is compared, not the level.) */
+static double comp_energy(int ratio_index, int dry)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 3 * 2];
+    el_init(&e);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_COMP_THRESHOLD, 30);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_COMP_RATIO, (int16_t)ratio_index);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_COMP_MAKEUP, 0);
+    el_post(&e, EL_CMD_OPTION, EL_OPT_COMP_DRY, (int16_t)dry);
+    el_post(&e, EL_CMD_START, 0, 0);
+    unsigned total = FM1_SAMPLE_RATE * 3 / EL_BLOCK * EL_BLOCK;
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    double sum = 0;
+    for (unsigned i = FM1_SAMPLE_RATE * 2u; i < total * 2u; ++i) sum += out[i] * out[i];
+    return sum;
+}
+
+static int comp_mix_test(void)
+{
+    double none = comp_energy(0, 0), full = comp_energy(7, 0), half = comp_energy(7, 10), dry = comp_energy(7, 20);
+    double d_full = fabs(full - none) / none, d_half = fabs(half - none) / none, d_dry = fabs(dry - none) / none;
+    int ok = d_full > 0.01 && d_half > 0.05 * d_full && d_half < 0.8 * d_full && d_dry < 1e-6;
+    printf("comp mix: 10:1 at -30 dB, output energy against no compression: all compressed %+.2f %%, half %+.2f %%, all dry %+.4f %%: %s\n",
+           100 * (full - none) / none, 100 * (half - none) / none, 100 * (dry - none) / none, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static int dist_test(void)
 {
     double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
@@ -578,7 +610,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | dist_comb_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
+    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | comp_mix_test() | dist_comb_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

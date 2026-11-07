@@ -36,5 +36,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0028](0028-drum-locks-ohne-toms.md) | Drum-Locks für Tonhöhe (Halbtöne) und Lautstärke pro Step; Tom und Conga aus der Bedienung | vorgeschlagen | 2026-11-07 |
 | [0029](0029-master-kompressor-club.md) | Master-Kompressor CLUB (Programm-Release, parallel) | vorgeschlagen | 2026-11-07 |
 | [0030](0030-verzerrung-phasengleich.md) | Die Verzerrung kommt phasengleich zum Original zurück (trockene Busse um 24 Samples verzögert) | vorgeschlagen | 2026-11-07 |
+| [0031](0031-kompressor-mix-und-send-sperre.md) | Mix-Regler für den Master-Kompressor (parallel); kein Send bei Verzerrung OFF | vorgeschlagen | 2026-11-07 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

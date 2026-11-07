@@ -67,6 +67,7 @@ int el_option_max(unsigned option)
     case EL_OPT_COMP_ATTACK: return EL_COMP_ATTACKS - 1;
     case EL_OPT_COMP_RELEASE: return EL_COMP_RELEASES - 1;
     case EL_OPT_COMP_MAKEUP: return 24;
+    case EL_OPT_COMP_DRY: return 20;
     case EL_OPT_REC_STEP: return (1 << EL_TRACKS) - 1;
     case EL_OPT_DIST_KICK_FULL: return 1;
     default: return 1;
@@ -80,6 +81,7 @@ void el_apply_comp(el_engine_t *e)
                    el_comp_attacks[o[EL_OPT_COMP_ATTACK] % EL_COMP_ATTACKS], el_comp_releases[o[EL_OPT_COMP_RELEASE] % EL_COMP_RELEASES],
                    0.5f * o[EL_OPT_COMP_MAKEUP]);
     mb_master_club(&e->mix, o[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS == EL_COMP_CLUB);
+    mb_master_dry(&e->mix, 0.05f * (float)o[EL_OPT_COMP_DRY]);
 }
 
 /* Default sounds per area. */
@@ -330,7 +332,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_OPTION:
         if (c->a >= EL_OPTIONS) break;
         e->option[c->a] = (uint8_t)el_clampi(c->value, 0, el_option_max(c->a));
-        if (c->a >= EL_OPT_COMP_THRESHOLD && c->a <= EL_OPT_COMP_MAKEUP) el_apply_comp(e);
+        if ((c->a >= EL_OPT_COMP_THRESHOLD && c->a <= EL_OPT_COMP_MAKEUP) || c->a == EL_OPT_COMP_DRY) el_apply_comp(e);
         if (c->a == EL_OPT_MASTER) e->mix.enabled = e->option[c->a] ? 1 : 0;
         if (c->a == EL_OPT_OUT_LEVEL) e->master = e->option[c->a] / 127.0f;
         if (c->a == EL_OPT_MIDI_CLOCK && !e->option[c->a]) t->source = EL_CLOCK_INTERNAL;

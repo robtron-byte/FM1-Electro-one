@@ -217,6 +217,7 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         k.name = send_names[slot];
         k.max = 127;
         k.color = area_color[slot];
+        if (!ui->engine->fx.v[FX_DIST_MODE]) { k.text = "OFF"; k.color = FAINT; }   /* no type: no send */
     } else if (ui->overview) {
         static const char *const fx_names[4] = {"DLY TIME", "FEEDBACK", "REV SIZE", "DECAY"};
         k.name = (ui->hold & HOLD_GLO) ? fx_names[slot] : area_tabs[slot];
@@ -262,6 +263,11 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
     if (!delta) return;
     knob_t k = knob(ui, slot);
     if (!k.name) return;
+    /* The distortion sends: with the type OFF nothing comes back, so nothing can be sent (docs/adr/0031). */
+    if (ui->overview && (ui->hold & HOLD_EDIT) && !e->fx.v[FX_DIST_MODE]) {
+        notice(ui, "DISTORTION OFF: PICK A TYPE (PRESETS)");
+        return;
+    }
     /* Many values (filters, levels, most sound knobs): faster the faster the
      * knob turns, a slow turn still one at a time. Few values (types,
      * switches, up to 16): one per detent. */
@@ -926,21 +932,23 @@ static void toggle_arp(el_ui_t *ui, int hold)
 /* ---- OPTIONS (HOME + SAVE): settings made once ----------------------------- */
 
 enum { OPT_MIDI_BEAT, OPT_MIDI_BASS = OPT_MIDI_BEAT + 3, OPT_CLOCK, OPT_MASTER, OPT_THRESHOLD, OPT_RATIO, OPT_ATTACK,
-       OPT_RELEASE, OPT_MAKEUP, OPT_DIST_BD, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
+       OPT_RELEASE, OPT_MAKEUP, OPT_MIX, OPT_DIST_BD, OPT_LEVEL, OPT_START, OPT_HINTS, OPT_ITEMS };
 static const char *const opt_names[OPT_ITEMS] = {"MIDI CH BEAT", "MIDI CH RHYTHM", "MIDI CH STRINGS", "MIDI CH BASS",
                                                  "MIDI CLOCK", "MASTER FX", "  COMP THRESHOLD", "  COMP RATIO", "  COMP ATTACK",
-                                                 "  COMP RELEASE", "  COMP MAKEUP", "DIST BASS DRUM", "OUTPUT LEVEL", "POWER-ON",
-                                                 "HELP LINE"};
+                                                 "  COMP RELEASE", "  COMP MAKEUP", "  COMP MIX", "DIST BASS DRUM", "OUTPUT LEVEL",
+                                                 "POWER-ON", "HELP LINE"};
 /* Engine option behind each menu line (the MIDI lines use midi_channel). */
 static const uint8_t opt_option[OPT_ITEMS] = {0, 0, 0, 0, EL_OPT_MIDI_CLOCK, EL_OPT_MASTER, EL_OPT_COMP_THRESHOLD, EL_OPT_COMP_RATIO,
-                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_DIST_KICK_FULL, EL_OPT_OUT_LEVEL,
-                                              EL_OPT_START, EL_OPT_HINTS};
+                                              EL_OPT_COMP_ATTACK, EL_OPT_COMP_RELEASE, EL_OPT_COMP_MAKEUP, EL_OPT_COMP_DRY, EL_OPT_DIST_KICK_FULL,
+                                              EL_OPT_OUT_LEVEL, EL_OPT_START, EL_OPT_HINTS};
 
 static int opt_value(const el_ui_t *ui, unsigned item, int *max)
 {
     const el_engine_t *e = ui->engine;
     if (item <= OPT_MIDI_BASS) { *max = EL_MIDI_OFF; return e->midi_channel[item - OPT_MIDI_BEAT]; }
     *max = el_option_max(opt_option[item]);
+    /* COMP MIX shows the compressed share: 100 % = all compressed (the option counts the dry steps) */
+    if (item == OPT_MIX) return *max - e->option[EL_OPT_COMP_DRY];
     return e->option[opt_option[item]];
 }
 
@@ -963,6 +971,7 @@ static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
     else if (item == OPT_ATTACK) el_snprintf(out, size, "%u MS", el_comp_attacks[v % EL_COMP_ATTACKS]);
     else if (item == OPT_RELEASE) el_snprintf(out, size, "%u MS", el_comp_releases[v % EL_COMP_RELEASES]);
     else if (item == OPT_MAKEUP) el_snprintf(out, size, "+%d.%d DB", v / 2, v % 2 ? 5 : 0);
+    else if (item == OPT_MIX) el_snprintf(out, size, "%d %%", v * 5);
     else el_snprintf(out, size, v ? "ON" : "OFF");
 }
 
@@ -991,7 +1000,13 @@ static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pr
     int max, v = opt_value(ui, item, &max);
     v = el_clampi(v + (max > 32 ? turn * 2 : turn), 0, max);
     if (item <= OPT_MIDI_BASS) el_post(e, EL_CMD_MIDI_CHANNEL, (uint8_t)(item - OPT_MIDI_BEAT), (int16_t)v);
-    else el_post(e, EL_CMD_OPTION, opt_option[item], (int16_t)v);
+    else {
+        el_post(e, EL_CMD_OPTION, opt_option[item], (int16_t)(item == OPT_MIX ? max - v : v));
+        /* CLUB comes with its 30 % of the dry signal (docs/adr/0029, 0031): 70 % MIX */
+        if (item == OPT_RATIO && v % EL_COMP_RATIOS == EL_COMP_CLUB && e->option[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS != EL_COMP_CLUB &&
+            !e->option[EL_OPT_COMP_DRY])
+            el_post(e, EL_CMD_OPTION, EL_OPT_COMP_DRY, 6);
+    }
 }
 
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
@@ -1712,12 +1727,12 @@ static void draw_options(el_ui_t *ui, gfx_band_t *b)
         }
     }
     for (unsigned i = 0; i < OPT_ITEMS; ++i) {
-        int y = 46 + (int)i * 10;
-        if (!gfx_touches(b, y - 1, 10)) continue;
+        int y = 44 + (int)i * 9;   /* (16 lines in 9 pixels each end above the footer) */
+        if (!gfx_touches(b, y - 1, 9)) continue;
         int on = i == ui->opt_item;
         char value[16];
         opt_text(ui, i, value, sizeof value);
-        if (on) gfx_fill(b, 0, y - 1, GFX_W, 10, PANEL);
+        if (on) gfx_fill(b, 0, y - 1, GFX_W, 9, PANEL);
         uint16_t c = i <= OPT_MIDI_BASS ? area_color[i] : TEXT;
         gfx_text(b, 6, y, opt_names[i], on ? c : DIM, 1);
         gfx_text(b, 150, y, value, on ? ACCENT : TEXT, 1);

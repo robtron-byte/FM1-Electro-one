@@ -20,9 +20,10 @@ typedef struct {
     float gain, gain_step;        /* detector runs every COMP_EVERY samples, gain glides between */
     uint8_t phase;
     /* CLUB (mb_master_club, docs/adr/0029): release by the program (fast
-     * above the slow average, slow on it) and 30 % of the uncompressed
-     * signal kept (parallel) */
+     * above the slow average, slow on it). The uncompressed share kept
+     * (parallel compression, docs/adr/0031): dry, 0 = all compressed. */
     uint8_t club;
+    float dry;
     float avg_db, avg_coef, rs_coef;
 #if MB_FIXED
     int32_t qgain, qstep;         /* the glide in Q28 */
@@ -72,10 +73,15 @@ void mb_init(el_mixbus_t *mb);
 void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db);
 /* The master compressor as CLUB (after mb_master_comp; on = 0: as set):
  * 4:1, 10 ms attack, release 80 ms on peaks above the program's slow
- * average and 700 ms on it, 30 % parallel (docs/adr/0029). */
+ * average and 700 ms on it (docs/adr/0029); its 30 % parallel is the COMP
+ * MIX setting the menu sets with it (docs/adr/0031). */
 void mb_master_club(el_mixbus_t *mb, int on);
-/* The gain a compressor's glide gives, with CLUB's parallel share. */
-static inline float mb_comp_out(const mb_comp_t *c, float gain) { return c->club ? 0.3f + 0.7f * gain : gain; }
+/* The master compressor's parallel share: dry 0..1 of the uncompressed signal
+ * (0 = only the compressed one, the compressor as set). */
+void mb_master_dry(el_mixbus_t *mb, float dry);
+/* The gain a compressor's glide gives, with its parallel share: dry of the
+ * signal as it is (no make-up) and the rest compressed. */
+static inline float mb_comp_out(const mb_comp_t *c, float gain) { return c->dry + (1.0f - c->dry) * gain; }
 /* kick: mono kick signal (sidechain). drums / bass / synth: stereo buses.
  * Writes the finished stereo mix to out_l/out_r (fx returns already added
  * by the caller into synth). */

@@ -20,8 +20,9 @@
  * the drums' step conditions (docs/adr/0025), appended again (the synths'
  * are in their step flags; records before 22 hold 0 there: always); 23 the
  * drums' step probabilities, appended (the synths' in their step bytes); 24
- * the drums' pitch and level locks (docs/adr/0028), appended. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * the drums' pitch and level locks (docs/adr/0028), appended; 25 the options
+ * after the first twelve (the compressor's parallel share, docs/adr/0031). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -42,7 +43,7 @@ typedef struct {
     uint8_t fx[FX_PARAMS];                 \
     uint8_t arp[EL_TRACKS][ARP_PARAMS];    \
     uint8_t midi_channel[EL_AREAS];        \
-    uint8_t option[EL_OPTIONS];
+    uint8_t option[EL_OPTIONS_STORED];
 typedef struct { FIELDS_V19 } payload_v19_t;
 
 /* Version 21: each slot's sound. */
@@ -64,11 +65,15 @@ typedef struct { FIELDS_V21 } payload_v21_t;
 typedef struct { FIELDS_V22 } payload_v22_t;
 #define FIELDS_V23 FIELDS_V22 uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
 typedef struct { FIELDS_V23 } payload_v23_t;
-typedef struct {
-    FIELDS_V23
-    uint32_t drum_pitch[DR_PATTERNS][5][DR_PITCH_PARTS];   /* dr_machine_t.pitch */
+#define FIELDS_V24 FIELDS_V23                                           \
+    uint32_t drum_pitch[DR_PATTERNS][5][DR_PITCH_PARTS];   /* dr_machine_t.pitch */ \
     uint32_t drum_vol[DR_PATTERNS][3][DR_PARTS];           /* dr_machine_t.vol */
+typedef struct { FIELDS_V24 } payload_v24_t;
+typedef struct {
+    FIELDS_V24
+    uint8_t option_ext[EL_OPTIONS - EL_OPTIONS_STORED];   /* the options after the first EL_OPTIONS_STORED */
 } payload_t;
+#define V24_BYTES sizeof(payload_v24_t)
 #define V23_BYTES sizeof(payload_v23_t)
 #define V22_BYTES sizeof(payload_v22_t)
 #define V21_BYTES sizeof(payload_v21_t)
@@ -98,7 +103,7 @@ typedef struct { FIELDS_V12 area_v13_t area[EL_TRACKS]; } payload_v13_t;
 typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_v16_t;   /* versions 14-16 */
 #define FIELDS_V17 FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; uint8_t midi_channel[EL_AREAS];
 typedef struct { FIELDS_V17 } payload_v17_t;
-typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS]; } payload_v18_t;
+typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS_STORED]; } payload_v18_t;
 /* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
  * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
  * of each old knob in the new order: */
@@ -210,6 +215,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_24 && record.bytes == V24_BYTES) ||
                   (record.version == VERSION_23 && record.bytes == V23_BYTES) ||
                   (record.version == VERSION_22 && record.bytes == V22_BYTES) ||
                   (record.version == VERSION_21 && record.bytes == V21_BYTES) ||
@@ -264,7 +270,7 @@ static const payload_t *upgrade(void)
         else if (version >= VERSION_14) memcpy(d->arp[t], ((const payload_v16_t *)(const void *)o)->arp[t], ARP_PARAMS);
     }
     if (version >= VERSION_17) memcpy(d->midi_channel, ((const payload_v17_t *)(const void *)o)->midi_channel, EL_AREAS);
-    if (version >= VERSION_18) memcpy(d->option, ((const payload_v18_t *)(const void *)o)->option, EL_OPTIONS);
+    if (version >= VERSION_18) memcpy(d->option, ((const payload_v18_t *)(const void *)o)->option, EL_OPTIONS_STORED);
     return d;
 #endif
 }
@@ -317,7 +323,7 @@ static int el_store_load_held(el_engine_t *e)
     else memset(m->cond, 0, sizeof m->cond);
     if (version >= VERSION_23) memcpy(m->prob, d->drum_prob, sizeof m->prob);
     else memset(m->prob, 0, sizeof m->prob);
-    if (version >= VERSION) {
+    if (version >= VERSION_24) {
         memcpy(m->pitch, d->drum_pitch, sizeof m->pitch);
         memcpy(m->vol, d->drum_vol, sizeof m->vol);
     } else {
@@ -333,8 +339,13 @@ static int el_store_load_held(el_engine_t *e)
     if (version >= VERSION_18) {   /* older records keep el_init's options */
         /* Before version 20 only the first options existed; the compressor
          * keeps el_init's settings. */
-        unsigned count = version >= VERSION_20 ? EL_OPTIONS : EL_OPT_COMP_THRESHOLD;
+        unsigned count = version >= VERSION_20 ? EL_OPTIONS_STORED : EL_OPT_COMP_THRESHOLD;
         for (unsigned i = 0; i < count; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, el_option_max(i));
+        if (version >= VERSION)
+            for (unsigned i = EL_OPTIONS_STORED; i < EL_OPTIONS; ++i)
+                e->option[i] = (uint8_t)el_clampi(d->option_ext[i - EL_OPTIONS_STORED], 0, el_option_max(i));
+        else if (e->option[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS == EL_COMP_CLUB)
+            e->option[EL_OPT_COMP_DRY] = 6;   /* CLUB kept 30 % of the dry signal before it was a setting */
         el_apply_comp(e);
         e->mix.enabled = e->option[EL_OPT_MASTER] ? 1 : 0;
         e->master = e->option[EL_OPT_OUT_LEVEL] / 127.0f;
@@ -478,7 +489,10 @@ static int el_store_save_held(el_engine_t *e)
     memcpy(d->fx, e->fx.v, sizeof d->fx);
     for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);
     for (unsigned a = 0; a < EL_AREAS; ++a) d->midi_channel[a] = e->midi_channel[a];
-    for (unsigned i = 0; i < EL_OPTIONS; ++i) d->option[i] = e->option[i];
+    for (unsigned i = 0; i < EL_OPTIONS; ++i) {
+        if (i < EL_OPTIONS_STORED) d->option[i] = e->option[i];
+        else d->option_ext[i - EL_OPTIONS_STORED] = e->option[i];
+    }
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
