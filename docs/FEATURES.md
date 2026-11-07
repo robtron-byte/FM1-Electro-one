@@ -12,14 +12,12 @@ Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 
 | Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
-| B12 | Beat/Drums | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht (nach Rechenlast und Gerätetests) · **ausgewählt 07.11. (erste Runde)** | – |
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
 | B16 | Beat/Drums | Open Hat und Closed Hat auf demselben Step wie bei der TR-808: Statt dass die CH die OH abwürgt, klingt eine kurze OH (Nutzerwunsch 07.11.) | ○ | – |
 | S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ | – |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
-| N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ · **ausgewählt 07.11. (erste Runde)** | – |
 | N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ | – |
 | N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ | – |
 | N4 | Neu | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ (die LEDs können keine Farbe: nur hell/blinkend möglich) | – |
@@ -83,6 +81,8 @@ Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N9 | Neu | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ◐ umgesetzt (37. Build), wartet auf Gerätetest | – |
 | N11 | Neu | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ◐ umgesetzt (37. Build), wartet auf Gerätetest | – |
 | N13 | Neu | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ◐ umgesetzt (37. Build): GLO blinkt, Fußzeile MUTE, stumme Taste blinkt | – |
+| B12 | Beat/Drums | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ◐ umgesetzt (37. Build): zehn Drum-Teile, Speicherversion 26, ~3,1 KB RAM frei | – |
+| N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ◐ umgesetzt (37. Build): gespeichert (Version 26); EDIT + PRESETS holt den Werksklang des Kits | – |
 
 ## Gestrichen
 

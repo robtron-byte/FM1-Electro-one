@@ -85,7 +85,7 @@ static const char *const area_names[EL_AREAS] = {"BEAT", "RHYTHM", "STRINGS", "B
 static const char *const area_tabs[EL_AREAS] = {"BEAT", "RHYT", "STRG", "BASS"};
 static const uint16_t area_color[EL_AREAS] = {0xfb44, 0xfee0, 0xb4bf, 0x3f3b};
 static const uint16_t part_color[DR_PARTS] = {
-    0xf8a3, 0xfc40, 0xfee0, 0xfee0, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f, 0x87f0, 0xffff};
+    0xf8a3, 0xfc40, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f, 0x87f0, 0xffff};
 /* Sound pages of the synth areas (E3-E6). */
 static const char *const synth_page_names[SYNTH_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX", "ARP"};
 static const uint8_t arp_page[4] = {ARP_MODE, ARP_RATE, ARP_OCTAVES, ARP_GATE};

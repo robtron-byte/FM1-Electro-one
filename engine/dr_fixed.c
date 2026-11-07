@@ -24,7 +24,7 @@ enum { S_LEVEL, S_TUNE, S_DECAY, S_TONE, S_SNAPPY, S_SOUND, S_PAN, S_REV, S_DLY 
 #define KIT80(lane) DV_KTYPE(1u, (lane))
 
 /* Level against the float 808 (fitted by ear and RMS, host/hit_render.c). */
-static const float fix_gain[D8_NUM] = {1.6f, 1.4f, 1.4f, 1.4f, 1.2f, 1.4f, 1.2f, 1.2f, 1.2f, 1.2f, 0, 0};
+static const float fix_gain[D8_NUM] = {1.6f, 1.4f, 1.2f, 1.4f, 1.2f, 1.2f, 1.2f, 1.2f, 0, 0};
 
 static struct {
     dv_param_t p[D8_NUM];
@@ -67,13 +67,6 @@ static void drf_params(const tr808_t *t, int part, dv_param_t *p)
     switch (part) {
     case D8_BD: p->type = KIT80(DV_KICK); p->tone = k[S_TONE]; break;
     case D8_SD: p->type = KIT80(DV_SNARE); p->tone = k[S_TONE]; p->extra = k[S_SNAPPY]; break;
-    case D8_LT:
-    case D8_HT:
-        p->type = k[S_SOUND] ? DVT_CONGA : KIT80(DV_TOM);
-        tune += part == D8_HT ? 96 : -96;   /* the high one half an octave above, the low one below */
-        p->extra = k[S_SNAPPY];             /* BEND */
-        p->tone = k[S_TONE];                /* the stick's noise */
-        break;
     case D8_RS: p->type = k[S_SOUND] ? DVT_CLAVE : KIT80(DV_RIM); break;
     case D8_CP: p->type = KIT80(DV_CLAP); p->tone = k[S_TONE]; break;
     case D8_CB: p->type = KIT80(DV_BELL); break;

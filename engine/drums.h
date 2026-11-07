@@ -13,13 +13,14 @@
 #include "tr808.h"
 
 enum {
-    DR_PARTS = D8_NUM,      /* BD SD LT HT RS CP CB CY OH CH ZP PU */
+    DR_PARTS = D8_NUM,      /* BD SD RS CP CB CY OH CH ZP PU (no toms since store version 26) */
     DR_STEPS = 32,
     DR_PITCH_PARTS = 6,     /* parts with a pitch lock: BD SD RS CB ZP PU */
     DR_PATTERNS = 4,        /* slots A-D (each synth area has its own four too) */
     DR_KITS = 5,
     DR_STYLES = 16,
-    DR_NAME = 10
+    DR_NAME = 10,
+    DR_STYLE_ROWS = 13     /* a style's rows: the twelve parts before B12, then the accent */
 };
 
 typedef struct {
@@ -68,7 +69,10 @@ typedef struct {
     uint16_t bpm_x10;
     uint8_t swing, kit, length;
     uint8_t rhythm_style, strings_style, bass_style, harmony;
-    const char *row[DR_PARTS + 1];   /* '|'-separated alternatives */
+    /* '|'-separated alternatives in the order of the original twelve parts
+     * (BD SD LT HT RS CP CB CY OH CH ZP PU), then the accent: the toms' rows
+     * are still drawn (and dropped), so every style generates as before. */
+    const char *row[DR_STYLE_ROWS];
 } dr_style_t;
 extern const dr_style_t dr_styles[DR_STYLES];
 
@@ -137,11 +141,6 @@ static inline unsigned dr_prob(const dr_machine_t *m, unsigned slot, unsigned pa
     for (unsigned k = 0; k < 4; ++k) v |= ((c[k][part] >> step) & 1u) << k;
     return v;
 }
-/* Low and high tom (conga) are taken out of the kit (docs/adr/0028): no key,
- * no row, no MIDI note, and they never sound. Their hits in patterns of
- * older versions are removed when a pattern is loaded or generated. */
-#define DR_HIDDEN(part) ((part) == D8_LT || (part) == D8_HT)
-void dr_strip_hidden(dr_pattern_t *p);
 
 /* Index of a part among the pitch locks (the tuned parts BD SD RS CB ZP PU), or -1. */
 static inline int dr_pitch_slot(unsigned part)

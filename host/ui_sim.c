@@ -800,6 +800,34 @@ int main(int argc, char **argv)
         if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
     }
     printf("slots: a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
+    {
+        /* B12 / N1: version 26 keeps every kit as last set; a version 25 record
+         * (twelve parts, toms) loads with each part where it belongs now. */
+        static el_engine_t a26, b26, c25;
+        float audio[EL_BLOCK * 2];
+        el_init(&a26);
+        el_generate_all(&a26, 11);
+        dr_machine_t *m = &a26.drums;
+        dr_post(m, DR_CMD_PARAM, D8_RS, 0, 0, 77);   /* the kit remembers it */
+        dr_post(m, DR_CMD_TOGGLE, D8_PU, 5, 0, 0);
+        dr_post(m, DR_CMD_COND, D8_CH, 3, 0, 2);
+        el_render_float(&a26, audio, EL_BLOCK);
+        int ok = el_store_save(&a26) == 0;
+        el_init(&b26);
+        ok = ok && el_store_load(&b26) == 0 && b26.drums.kit_mem_used == m->kit_mem_used && m->kit_mem_used &&
+             !memcmp(b26.drums.kit_mem[m->kit_index].pot, m->kit_mem[m->kit_index].pot, sizeof m->kit_mem[0].pot);
+        ok = ok && el_store_test_as(25) == 0;
+        el_init(&c25);
+        ok = ok && el_store_load(&c25) == 0;
+        for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+            ok = ok && !memcmp(c25.drums.pattern[i].hit, m->pattern[i].hit, sizeof m->pattern[i].hit) &&
+                 !memcmp(c25.drums.pattern[i].roll, m->pattern[i].roll, sizeof m->pattern[i].roll) &&
+                 !memcmp(c25.drums.sound[i].pot, m->sound[i].pot, sizeof m->sound[i].pot) &&
+                 !memcmp(c25.drums.cond[i], m->cond[i], sizeof m->cond[i]);
+        }
+        ok = ok && tr808_sound_get(&c25.drums.sound[m->current], D8_RS, 0) == 77 && !c25.drums.kit_mem_used;
+        printf("store: version 26 (no toms, kits as last set), a version 25 record mapped part by part (B12, N1) %s\n", ok ? "ok" : "FAIL");
+    }
 
     /* Step conditions (docs/adr/0025): the playback, Repeat and the panel
      * (a step held, PRESETS turned). */
@@ -1034,19 +1062,7 @@ int main(int argc, char **argv)
         lk_ok = lk_ok && dr_pitch(m, slot, D8_SD, 3) == 0 && dr_vol(m, slot, D8_SD, 3) == 0 && dr_pitch(m, other, D8_SD, 3) == 7;
         /* no toms: no key, no MIDI note, no sound, no hits left in a pattern */
         lk_ok = lk_ok && dr_note_part(41) < 0 && dr_note_part(43) < 0 && dr_note_part(48) < 0 && dr_note_part(36) == D8_BD;
-        dr_pattern_t g;
-        dr_generate(&g, 6, 40, 12345u, NULL);
-        int toms = 0;
-        for (unsigned part = 0; part < DR_PARTS; ++part) if (DR_HIDDEN(part) && (g.hit[part] || g.roll[part])) toms = 1;
-        static dr_pattern_t dirty;
-        dirty = g;
-        dirty.hit[D8_LT] = dirty.hit[D8_HT] = 0xffu;
-        dr_post_pattern(m, other, &dirty, 0);
-        run(30);
-        toms = toms || m->pattern[other].hit[D8_LT] || m->pattern[other].hit[D8_HT];
-        dr_hit(m, D8_LT, 1.0f, 0, 0);
-        toms = toms || m->kit.v[D8_LT].active;
-        lk_ok = lk_ok && !toms;
+        lk_ok = lk_ok && DR_PARTS == 10;   /* B12: no tom parts at all */
         /* the black keys: the third is the rim shot, then zap and pulse */
         tap_key(5); run(30);
         lk_ok = lk_ok && ui.part == D8_RS;

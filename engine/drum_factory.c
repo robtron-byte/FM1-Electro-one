@@ -196,8 +196,15 @@ void dr_generate(dr_pattern_t *out, unsigned style, unsigned variation, uint32_t
     p.swing = s->swing;
     p.kit = s->kit;
     p.style = (uint8_t)style;
-    for (unsigned part = 0; part < DR_PARTS; ++part) p.hit[part] = pick_row(s->row[part], &p.roll[part], &rng);
-    p.accent = pick_row(s->row[DR_PARTS], 0, &rng);
+    /* rows of the original twelve parts: LT (2) and HT (3) drawn and dropped */
+    for (unsigned row = 0; row < DR_STYLE_ROWS - 1u; ++row) {
+        uint32_t roll = 0, hit = pick_row(s->row[row], &roll, &rng);
+        if (row == 2u || row == 3u) continue;
+        unsigned part = row < 2u ? row : row - 2u;
+        p.hit[part] = hit;
+        p.roll[part] = roll;
+    }
+    p.accent = pick_row(s->row[DR_STYLE_ROWS - 1u], 0, &rng);
     uint32_t mask = p.length >= 32 ? 0xffffffffu : (1u << p.length) - 1u;
     /* Variation, kept musical: a ghost kick on an off-16th, a hat moved or
      * dropped, an open-hat pickup at the end of the bar. Downbeats, the
@@ -221,6 +228,5 @@ void dr_generate(dr_pattern_t *out, unsigned style, unsigned variation, uint32_t
         p.roll[D8_BD] = keep->roll[D8_BD];
         p.length = keep->length;
     }
-    dr_strip_hidden(&p);
     *out = p;
 }

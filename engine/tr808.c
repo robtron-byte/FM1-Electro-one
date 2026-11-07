@@ -17,7 +17,7 @@ enum { P_LEVEL, P_TUNE, P_DECAY, P_TONE, P_SNAPPY, P_SOUND, P_PAN, P_REV, P_DLY 
 
 /* ---- parameters ------------------------------------------------------------ */
 
-static const char *const tom_names[] = {"TOM", "CONGA"}, *const rim_names[] = {"RIM", "CLAVE"};
+static const char *const rim_names[] = {"RIM", "CLAVE"};
 static const char *const sd_names[] = {"LATE", "EARLY"}, *const engine_names[] = {"TR-808", "PO-12"};
 static const char *const key_names[] = {"OFF", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 static const char *const follow_names[] = {"OFF", "BASS"};
@@ -36,15 +36,6 @@ static const part_params_t params[D8_NUM + 1] = {
     /* SD */ {9, {P_LEVEL, P_TUNE, P_TONE, P_SNAPPY, P_DECAY, P_PAN, P_REV, P_DLY, P_SOUND},
               {P("Level", 100), P("Tune", 64), P("Tone", 64), P("Snappy", 72), P("Decay", 64), P("Pan", 64), P("Rev", 0), P("Dly", 0),
                {"Sound", 1, 0, sd_names}}},
-    /* Toms: the four knobs of the breakdown first (Pitch, Bend = how far
-     * the pitch sags, Decay, Noise), then Level. Store version 15 moved
-     * them here from Level, Tune, Decay, Sound, Pan, Rev, Dly. */
-    /* LT */ {9, {P_TUNE, P_SNAPPY, P_DECAY, P_TONE, P_LEVEL, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Pitch", 64), P("Bend", 64), P("Decay", 64), P("Noise", 64), P("Level", 100), {"Sound", 1, 0, tom_names},
-               P("Pan", 45), P("Rev", 0), P("Dly", 0)}},
-    /* HT */ {9, {P_TUNE, P_SNAPPY, P_DECAY, P_TONE, P_LEVEL, P_SOUND, P_PAN, P_REV, P_DLY},
-              {P("Pitch", 64), P("Bend", 64), P("Decay", 64), P("Noise", 64), P("Level", 100), {"Sound", 1, 0, tom_names},
-               P("Pan", 83), P("Rev", 0), P("Dly", 0)}},
     /* RS */ {8, {P_LEVEL, P_TUNE, P_DECAY, P_SOUND, P_PAN, P_REV, P_DLY, P_SNAPPY},
               {P("Level", 100), P("Tune", 64), P("Decay", 64), {"Sound", 1, 0, rim_names}, P("Pan", 51), P("Rev", 0), P("Dly", 0),
                P("Drive", 0)}},
@@ -146,7 +137,7 @@ EL_DSP_CODE void tr808_sound_apply(tr808_t *t, const tr808_sound_t *s)
 
 /* Fixed per-unit component tolerance: the frequencies of a real 808 sit a
  * little off the nominal values, differently on every machine. */
-static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 1.011f, 1.008f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+static const float tolerance[D8_NUM] EL_DSP_DATA = {1.004f, 0.992f, 0.989f, 1.006f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 static const float metal_hz[6] EL_DSP_DATA = {205.3f, 304.4f, 369.6f, 522.7f, 540.0f, 800.0f};
 static const float metal_tol[6] EL_DSP_DATA = {1.012f, 0.991f, 1.006f, 0.988f, 1.0f, 1.0f};
 
@@ -163,7 +154,6 @@ static void dr_reset(void);   /* tr808_rest_fixed.h */
 
 static inline float decay_coef(float samples);
 static float spread_tab[128];
-static float tom_env3_c, tom_env2_c, tom_lag2_c, tom_bias;
 
 void tr808_init(tr808_t *t)
 {
@@ -183,10 +173,6 @@ void tr808_init(tr808_t *t)
     for (int part = 0; part <= D8_KIT; ++part)
         for (int p = 0; p < params[part].count; ++p) tr808_set(t, part, p, params[part].desc[p].def);
     for (int i = 0; i < 128; ++i) spread_tab[i] = dsp_exp2((i - 64) / 64.0f);
-    tom_env3_c = decay_coef(MS(0.19f));
-    tom_env2_c = decay_coef(MS(10.0f));
-    tom_lag2_c = decay_coef(MS(1.5f));
-    tom_bias = dsp_tanh(0.76f * 0.0025f);
     for (int part = 0; part < D8_NUM; ++part) {
         t->shift[part] = 1.0f;
         t->v[part].rng = 0x9e3779b9u * (uint32_t)(part + 1);
@@ -259,8 +245,6 @@ static inline EL_DSP_HELPER float m_exp(tr_memo_t *m, float x)
     if (x != m->x) { m->x = x; m->y = dsp_exp(x); }
     return m->y;
 }
-/* Fixed coefficients (tom_env3_c, tom_env2_c, tom_lag2_c, tom_bias) are
- * set by tr808_init. */
 
 /* The 1 ms trigger pulse after the 808's differentiating pulse shaper
  * (high-pass, tau 0.1 ms, negative excursion clamped by a diode). */
@@ -283,11 +267,9 @@ static inline EL_DSP_HELPER int po_engine(const tr808_t *t, int part) { return t
 
 static inline EL_DSP_HELPER unsigned po_sound(const tr808_t *t, int part)
 {
-    static const uint8_t first[D8_NUM] = {PO_BD, PO_SD, PO_LOTOM, PO_HITOM, PO_STICKS, PO_CLAP, PO_COWBELL, PO_CY, PO_OH,
-                                         PO_CH, PO_BLIP, 0};
-    static const uint8_t second[D8_NUM] = {PO_BD, PO_SYNSD, PO_BASSTONE, PO_TONE, PO_CLICK, PO_NOISE, PO_COWBELL, PO_CY,
-                                          PO_OH, PO_CH, PO_BLIP, 0};
-    int alt = (part == D8_SD || part == D8_LT || part == D8_HT || part == D8_RS || part == D8_CP) && t->pot[part][P_SOUND];
+    static const uint8_t first[D8_NUM] = {PO_BD, PO_SD, PO_STICKS, PO_CLAP, PO_COWBELL, PO_CY, PO_OH, PO_CH, PO_BLIP, 0};
+    static const uint8_t second[D8_NUM] = {PO_BD, PO_SYNSD, PO_CLICK, PO_NOISE, PO_COWBELL, PO_CY, PO_OH, PO_CH, PO_BLIP, 0};
+    int alt = (part == D8_SD || part == D8_RS || part == D8_CP) && t->pot[part][P_SOUND];
     return alt ? second[part] : first[part];
 }
 
@@ -543,56 +525,6 @@ static EL_DSP_VOICE float snare(tr808_t *t, tr_voice_t *v)
     float out = body * 0.55f + (v->out_lp * noise_env * k[4] + snap) * snappy;
     if (v->age > (uint32_t)MS(500.0f) && v->env2 < 1e-4f) v->active = 0;
     return out;
-}
-
-/* Toms / congas, rebuilt after tachyonbeats' "808 part 06: low tom"
- * breakdown and fitted to its audio (residual -31 dB): a sine that starts
- * on -cos with a 0.19 ms edge, its pitch sagging from f0 * (1 + bend) to
- * f0 with a 43 ms time constant (LT: 119 -> 93 Hz), an exponential fade
- * (75 ms), a little band-passed noise (1.4 %) and a click, all through a
- * gentle tanh drive (0.76). Accent pushes the body harder into the drive
- * and bends a little further. HT and the congas scale the times with the
- * pitch; congas bend less, decay faster and have no noise. */
-static const float tom_hz[4] EL_DSP_DATA = {93.0f, 185.0f, 185.0f, 400.0f};   /* LT, HT, LC, HC */
-static EL_DSP_VOICE float tom(tr808_t *t, tr_voice_t *v, int part)
-{
-    int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-    float f0 = tom_hz[idx] * (t->key_on ? t->key_r[part] : m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f));   /* fitted: no tolerance */
-    if (f0 != v->memo[1].x) { v->memo[1].x = f0; v->memo[1].y = dsp_sqrt(93.0f / f0); }
-    float scale = v->memo[1].y;   /* times as fitted for LT, shorter for higher drums */
-    if (v->age == 0) {
-        v->lag2 = v->lag1;          /* what still rings fades out instead of clicking */
-        v->aux = 0;                 /* phase: the hit starts on -cos */
-        svf_set(&v->r1, 500.0f * f0 / tom_hz[idx], 1.0f);
-    }
-    float bend = 0.277f * knob(t, part, P_SNAPPY) * 2.0f * (conga ? 0.35f : 1.0f) * (1.0f + 0.4f * v->accent);
-    v->pitch *= m_decay(&v->memo[2], MS(42.9f * scale));
-    float hz = f0 * (1.0f + bend * v->pitch);
-    v->aux += hz * (1.0f / EL_SAMPLE_RATE);
-    if (v->aux >= 1.0f) v->aux -= 1.0f;
-    float body = -dsp_cos(2.0f * DSP_PI * v->aux);
-    v->env *= m_decay(&v->memo[4], MS(74.9f * scale * (conga ? 0.65f : 1.0f) * m_exp2(&v->memo[3], (t->pot[part][P_DECAY] - 64) / 48.0f)));
-    v->env3 *= tom_env3_c;
-    body *= v->env * (1.0f - v->env3);
-    if (!conga) {
-        /* Noise: band-passed around 500 Hz (the fit's residual), 10 ms. */
-        float attack = dsp_min(1.0f, (float)v->age / MS(0.5f));
-        v->env2 *= tom_env2_c;
-        float amount = 0.014f * m_exp2(&v->memo[5], (t->pot[part][P_TONE] - 64) / 16.0f);
-        body += svf_bp(&v->r1, t->noise_now, 0) * 2.0f * amount * v->env2 * attack;
-        /* Click: a 0.3 ms spike, high-passed at 1 kHz. */
-        float c = dsp_exp(-(float)v->age / MS(0.3f));
-        v->out_lp += (c - v->out_lp) * 0.133f;
-        body += 0.03f * (c - v->out_lp);
-    }
-    float soft = v->volts * 14.0f / (4.0f + 10.0f * v->accent);   /* MIDI hits below normal */
-    float in = body * (1.0f + 1.2f * v->accent) * soft;
-    float y = (dsp_tanh(0.76f * (in + 0.0025f)) - tom_bias) * (1.0f + 0.5f * v->accent);
-    v->lag2 *= tom_lag2_c;
-    y += v->lag2;
-    v->lag1 = y;
-    if (v->age > (uint32_t)MS(30.0f) && v->env < 1e-4f && dsp_abs(v->lag2) < 1e-5f) { v->lag1 = 0; v->active = 0; }
-    return y;
 }
 
 /* Rim shot: 455 + 1667 Hz resonators into an asymmetric swing VCA (the
@@ -1309,12 +1241,12 @@ static EL_DSP_VOICE float pulse(tr808_t *t, tr_voice_t *v)
 /* Output trims, calibrated with host/analyze_808.py: unaccented peaks follow
  * the Service Notes level chart (BD 3.5, SD 3, LT/HT 3.5, MT 3, RS 3 Vpp),
  * metal voices and clap set to a conventional mix level. */
-static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 0.0788f, 0.1085f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
+static const float trim[D8_NUM] EL_DSP_DATA = {4.365f, 5.87f, 9.314f, 2.043f, 1.448f, 0.727f, 0.4533f, 2.482f, 0.3f, 0.3f};
 
 enum { DRIVE_PARTS = (1u << D8_RS) | (1u << D8_CP) | (1u << D8_CB) | (1u << D8_CY) | (1u << D8_OH) | (1u << D8_CH) };
 
 /* PO-12 kit output: its own balance (po12.c), +4.6 dB to sit like the 808 kit in the mix. */
-static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};
+static const float po_trim[D8_NUM] EL_DSP_DATA = {1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f, 1.7f};
 
 /* Drum key (docs/adr/0016). KIT Key C..B tunes the tonal parts to a key,
  * Follow BASS adds the BASS area's transposition. Each part goes to the
@@ -1337,24 +1269,22 @@ static EL_DSP_HELPER void key_update(tr808_t *t)
     if (pc < 0) pc += 12;
     /* Only when an input moved (the key, a TUNE, a sound switch): a log2 and
      * two exp2 for eight parts at every render call cost more than the drums' math. */
-    uint8_t sig[12] = {(uint8_t)pc, t->pot[D8_BD][P_TUNE], t->pot[D8_SD][P_TUNE], t->pot[D8_LT][P_TUNE], t->pot[D8_HT][P_TUNE],
+    uint8_t sig[12] = {(uint8_t)pc, t->pot[D8_BD][P_TUNE], t->pot[D8_SD][P_TUNE], 0, 0,
                        t->pot[D8_RS][P_TUNE], t->pot[D8_CB][P_TUNE], t->pot[D8_ZP][P_TUNE], t->pot[D8_PU][P_TUNE],
-                       (uint8_t)(t->pot[D8_SD][P_SOUND] | t->pot[D8_LT][P_SOUND] << 2 | t->pot[D8_HT][P_SOUND] << 4 | t->pot[D8_RS][P_SOUND] << 6), 0, 0};
+                       (uint8_t)(t->pot[D8_SD][P_SOUND] | t->pot[D8_RS][P_SOUND] << 6), 0, 0};
     /* (loops: the library's memcmp / memcpy run from the flash) */
     int same = t->key_sig_ok;
     for (unsigned i = 0; i < sizeof sig && same; ++i) same = sig[i] == t->key_sig[i];
     if (same) return;
     for (unsigned i = 0; i < sizeof sig; ++i) t->key_sig[i] = sig[i];
     t->key_sig_ok = 1;
-    static const uint8_t deg[D8_NUM] = {0, 0, 7, 0, 7, 0, 0, 0, 0, 0, 0, 0};   /* semitones above the root */
+    static const uint8_t deg[D8_NUM] = {0, 0, 7, 0, 0, 0, 0, 0, 0, 0};   /* semitones above the root */
     for (int part = 0; part < D8_NUM; ++part) {
         float base;
         int d = deg[part];
         switch (part) {
         case D8_BD: base = tr808_bd_cal[0]; break;
         case D8_SD: base = t->pot[D8_SD][P_SOUND] ? 172.0f * 1.384f : 172.0f; break;
-        case D8_LT: base = tom_hz[t->pot[D8_LT][P_SOUND] == 1 ? 2 : 0]; break;
-        case D8_HT: base = tom_hz[t->pot[D8_HT][P_SOUND] == 1 ? 3 : 1]; break;
         case D8_RS: if (t->pot[D8_RS][P_SOUND] == 1) { base = 2500.0f; d = 0; } else base = 455.0f; break;
         case D8_CB: base = 540.0f; break;
         case D8_ZP: base = TR808_ZP_MODEL == 3 ? 12350.0f : 1340.0f; break;
@@ -1536,7 +1466,6 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             switch (part) {
             case D8_BD: y = bass_drum(t, v); break;
             case D8_SD: y = snare(t, v); break;
-            case D8_LT: case D8_HT: y = tom(t, v, part); break;
             case D8_RS: y = rim(t, v); break;
             case D8_CP: y = clap(t, v); break;
             case D8_CB: y = cowbell(t, v, cb_src); break;

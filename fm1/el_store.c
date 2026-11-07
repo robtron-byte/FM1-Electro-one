@@ -21,8 +21,11 @@
  * are in their step flags; records before 22 hold 0 there: always); 23 the
  * drums' step probabilities, appended (the synths' in their step bytes); 24
  * the drums' pitch and level locks (docs/adr/0028), appended; 25 the options
- * after the first twelve (the compressor's parallel share, docs/adr/0031). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * after the first twelve (the compressor's parallel share, docs/adr/0031);
+ * 26 the drums without toms and congas (B12: ten parts, older records are
+ * mapped part by part), every option in one array, no separate copy of the
+ * playing kit (each slot has its sound), each kit as last set (N1). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -31,11 +34,22 @@ typedef struct {
     uint8_t engine, preset, level, muted, chord, current;
 } track_payload_t;
 
+/* Up to version 25 the drums had twelve parts: BD SD LT HT RS CP CB CY OH
+ * CH ZP PU. Their patterns and tables in that layout, and where each old
+ * part went (-1: the toms, gone). */
+enum { OLD_PARTS = 12 };
+typedef struct {
+    char name[DR_NAME + 1];
+    uint8_t length, swing, kit, style;
+    uint32_t hit[OLD_PARTS], roll[OLD_PARTS], accent;
+} dr_pattern_v25_t;
+static int new_part(unsigned old) { return old < 2u ? (int)old : old < 4u ? -1 : (int)old - 2; }
+
 /* Versions 19 and 20; params, kit_params and track[].v hold the sound
  * that plays (version 21: of the playing slot). */
 #define FIELDS_V19                         \
-    dr_pattern_t pattern[DR_PATTERNS];     \
-    uint8_t params[DR_PARTS][PARAMS];      \
+    dr_pattern_v25_t pattern[DR_PATTERNS]; \
+    uint8_t params[OLD_PARTS][PARAMS];     \
     uint8_t kit_params[KIT_PARAMS];        \
     uint8_t kit, level, current, muted;    \
     uint16_t bpm_x10, reserved;            \
@@ -46,7 +60,11 @@ typedef struct {
     uint8_t option[EL_OPTIONS_STORED];
 typedef struct { FIELDS_V19 } payload_v19_t;
 
-/* Version 21: each slot's sound. */
+/* Version 21: each slot's sound (26: ten parts). */
+typedef struct {
+    uint8_t params[OLD_PARTS][PARAMS];
+    uint8_t kit_params[KIT_PARAMS];
+} drum_sound_v25_t;
 typedef struct {
     uint8_t params[DR_PARTS][PARAMS];
     uint8_t kit_params[KIT_PARAMS];
@@ -58,21 +76,42 @@ typedef struct {
 
 #define FIELDS_V21                                              \
     FIELDS_V19                                                  \
-    drum_sound_payload_t drum_sound[DR_PATTERNS];               \
+    drum_sound_v25_t drum_sound[DR_PATTERNS];                   \
     synth_sound_payload_t synth_sound[EL_TRACKS][ST_PATTERNS];
 typedef struct { FIELDS_V21 } payload_v21_t;
-#define FIELDS_V22 FIELDS_V21 uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];   /* dr_machine_t.cond */
+#define FIELDS_V22 FIELDS_V21 uint32_t drum_cond[DR_PATTERNS][3][OLD_PARTS];   /* dr_machine_t.cond */
 typedef struct { FIELDS_V22 } payload_v22_t;
-#define FIELDS_V23 FIELDS_V22 uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
+#define FIELDS_V23 FIELDS_V22 uint32_t drum_prob[DR_PATTERNS][4][OLD_PARTS];   /* dr_machine_t.prob */
 typedef struct { FIELDS_V23 } payload_v23_t;
 #define FIELDS_V24 FIELDS_V23                                           \
     uint32_t drum_pitch[DR_PATTERNS][5][DR_PITCH_PARTS];   /* dr_machine_t.pitch */ \
-    uint32_t drum_vol[DR_PATTERNS][3][DR_PARTS];           /* dr_machine_t.vol */
+    uint32_t drum_vol[DR_PATTERNS][3][OLD_PARTS];          /* dr_machine_t.vol */
 typedef struct { FIELDS_V24 } payload_v24_t;
 typedef struct {
     FIELDS_V24
     uint8_t option_ext[EL_OPTIONS - EL_OPTIONS_STORED];   /* the options after the first EL_OPTIONS_STORED */
+} payload_v25_t;
+
+/* Version 26 (B12, N1). */
+typedef struct {
+    dr_pattern_t pattern[DR_PATTERNS];
+    uint8_t kit, level, current, muted;
+    uint16_t bpm_x10, reserved;            /* reserved: drum key | follow << 8 */
+    track_payload_t track[EL_TRACKS];
+    uint8_t fx[FX_PARAMS];
+    uint8_t arp[EL_TRACKS][ARP_PARAMS];
+    uint8_t midi_channel[EL_AREAS];
+    uint8_t option[EL_OPTIONS];
+    drum_sound_payload_t drum_sound[DR_PATTERNS];
+    synth_sound_payload_t synth_sound[EL_TRACKS][ST_PATTERNS];
+    uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];
+    uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];
+    uint32_t drum_pitch[DR_PATTERNS][5][DR_PITCH_PARTS];
+    uint32_t drum_vol[DR_PATTERNS][3][DR_PARTS];
+    drum_sound_payload_t kit_mem[DR_KITS];  /* dr_machine_t.kit_mem (N1) */
+    uint8_t kit_mem_used;
 } payload_t;
+#define V25_BYTES sizeof(payload_v25_t)
 #define V24_BYTES sizeof(payload_v24_t)
 #define V23_BYTES sizeof(payload_v23_t)
 #define V22_BYTES sizeof(payload_v22_t)
@@ -88,8 +127,8 @@ typedef struct {
     uint8_t engine, preset, level, muted, chord;
 } old_track_t;
 #define FIELDS_V12                         \
-    dr_pattern_t pattern[OLD_SLOTS];       \
-    uint8_t params[DR_PARTS][PARAMS];      \
+    dr_pattern_v25_t pattern[OLD_SLOTS];   \
+    uint8_t params[OLD_PARTS][PARAMS];     \
     uint8_t kit_params[KIT_PARAMS];        \
     uint8_t kit, level, current, muted;    \
     uint16_t bpm_x10, reserved;            \
@@ -104,10 +143,6 @@ typedef struct { FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; } payload_v16_t;
 #define FIELDS_V17 FIELDS_V12 uint8_t arp[EL_TRACKS][ARP_PARAMS]; uint8_t midi_channel[EL_AREAS];
 typedef struct { FIELDS_V17 } payload_v17_t;
 typedef struct { FIELDS_V17 uint8_t option[EL_OPTIONS_STORED]; } payload_v18_t;
-/* Before version 15 the toms stored Level, Tune, Decay, Sound, Pan, Rev,
- * Dly; now Pitch, Bend, Decay, Noise, Level, Sound, Pan, Rev, Dly. Index
- * of each old knob in the new order: */
-static const uint8_t old_tom_params[7] = {4, 0, 2, 5, 6, 7, 8};
 #define V12_BYTES sizeof(payload_v12_t)
 #define V13_BYTES sizeof(payload_v13_t)
 #define V16_BYTES sizeof(payload_v16_t)
@@ -161,6 +196,7 @@ _Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one se
  * SDK's start 2.6 KB of heap it is short of (docs/adr/0019). */
 typedef union {
     record_t r;
+    uint8_t v25[offsetof(record_t, data) + V25_BYTES];   /* records 19-25: converted on loading */
 #if EL_STORE_UPGRADE
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
     uint8_t v18[offsetof(record_t, data) + V18_BYTES];
@@ -174,7 +210,7 @@ static int take(void) { return (held = malloc(sizeof *held)) != NULL; }
 static void give(void) { free(held); held = NULL; }
 #define record buffer.r
 #if EL_STORE_UPGRADE
-static payload_t upgraded;   /* an older record in today's layout */
+static payload_v25_t upgraded;   /* a record before version 19 in version 25's layout */
 #endif
 
 static uint32_t crc32(const void *data, size_t bytes)
@@ -215,6 +251,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_25 && record.bytes == V25_BYTES) ||
                   (record.version == VERSION_24 && record.bytes == V24_BYTES) ||
                   (record.version == VERSION_23 && record.bytes == V23_BYTES) ||
                   (record.version == VERSION_22 && record.bytes == V22_BYTES) ||
@@ -233,15 +270,15 @@ static uint32_t read_valid(unsigned which)
 
 /* An older record (24 slots shared by all areas) in today's layout: slot A
  * from the groove that played last, B-D from the user slots 17-19. */
-static const payload_t *upgrade(void)
+static const payload_v25_t *upgrade(void)
 {
     unsigned version = record.version;
-    if (version >= VERSION_19) return &record.data;
+    if (version >= VERSION_19) return (const payload_v25_t *)(const void *)&record.data;
 #if !EL_STORE_UPGRADE
-    return &record.data;   /* never reached: read_valid takes only today's records */
+    return (const payload_v25_t *)(const void *)&record.data;   /* never reached: read_valid takes only versions from 19 */
 #else
     const payload_v12_t *o = (const payload_v12_t *)(const void *)&record.data;
-    payload_t *d = &upgraded;
+    payload_v25_t *d = &upgraded;
     memset(d, 0, sizeof *d);
     unsigned map[DR_PATTERNS], n = 0;
     map[n++] = o->current % OLD_SLOTS;
@@ -275,6 +312,71 @@ static const payload_t *upgrade(void)
 #endif
 }
 
+/* A slot's sound in the stored form (ten parts). */
+static void sound_to_payload(const tr808_sound_t *snd, drum_sound_payload_t *ds)
+{
+    for (unsigned part = 0; part < DR_PARTS; ++part)
+        for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
+            ds->params[part][p] = (uint8_t)tr808_sound_get(snd, (int)part, p);
+    for (int p = 0; p < KIT_PARAMS; ++p) ds->kit_params[p] = (uint8_t)tr808_sound_get(snd, D8_KIT, p);
+}
+
+/* Twelve old parts' knobs onto the ten (the toms' dropped). */
+static void params_from_v25(const uint8_t from[OLD_PARTS][PARAMS], const uint8_t kit[KIT_PARAMS], drum_sound_payload_t *ds)
+{
+    for (unsigned old = 0; old < OLD_PARTS; ++old)
+        if (new_part(old) >= 0) memcpy(ds->params[new_part(old)], from[old], PARAMS);
+    memcpy(ds->kit_params, kit, KIT_PARAMS);
+}
+
+/* A record of versions 12-25 (in version 25's layout) in version 26's: the
+ * drum parts mapped, the toms dropped. Before version 21 one sound: the
+ * slots in its kit take it, the others their kit's factory sound (as they
+ * started). Fields a version did not have stay 0 (load decides by version). */
+static void from_v25(const payload_v25_t *o, unsigned version, payload_t *d)
+{
+    memset(d, 0, sizeof *d);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        const dr_pattern_v25_t *op = &o->pattern[i];
+        dr_pattern_t *np = &d->pattern[i];
+        memcpy(np->name, op->name, sizeof np->name);
+        np->length = op->length;
+        np->swing = op->swing;
+        np->kit = op->kit;
+        np->style = op->style;
+        np->accent = op->accent;
+        for (unsigned old = 0; old < OLD_PARTS; ++old)
+            if (new_part(old) >= 0) { np->hit[new_part(old)] = op->hit[old]; np->roll[new_part(old)] = op->roll[old]; }
+    }
+    d->kit = o->kit; d->level = o->level; d->current = o->current; d->muted = o->muted;
+    d->bpm_x10 = o->bpm_x10; d->reserved = o->reserved;
+    memcpy(d->track, o->track, sizeof d->track);
+    memcpy(d->fx, o->fx, sizeof d->fx);
+    memcpy(d->arp, o->arp, sizeof d->arp);
+    memcpy(d->midi_channel, o->midi_channel, sizeof d->midi_channel);
+    memcpy(d->option, o->option, EL_OPTIONS_STORED);
+    if (version >= VERSION_25) memcpy(d->option + EL_OPTIONS_STORED, o->option_ext, EL_OPTIONS - EL_OPTIONS_STORED);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        if (version >= VERSION_21) params_from_v25(o->drum_sound[i].params, o->drum_sound[i].kit_params, &d->drum_sound[i]);
+        else if (o->pattern[i].kit % DR_KITS == o->kit % DR_KITS) params_from_v25(o->params, o->kit_params, &d->drum_sound[i]);
+        else {
+            tr808_sound_t f;
+            dr_kit_sound(&f, o->pattern[i].kit % DR_KITS);
+            sound_to_payload(&f, &d->drum_sound[i]);
+        }
+    }
+    if (version >= VERSION_21) memcpy(d->synth_sound, o->synth_sound, sizeof d->synth_sound);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i)
+        for (unsigned old = 0; old < OLD_PARTS; ++old) {
+            int n = new_part(old);
+            if (n < 0) continue;
+            if (version >= VERSION_22) for (unsigned k = 0; k < 3; ++k) d->drum_cond[i][k][n] = o->drum_cond[i][k][old];
+            if (version >= VERSION_23) for (unsigned k = 0; k < 4; ++k) d->drum_prob[i][k][n] = o->drum_prob[i][k][old];
+            if (version >= VERSION_24) for (unsigned k = 0; k < 3; ++k) d->drum_vol[i][k][n] = o->drum_vol[i][k][old];
+        }
+    if (version >= VERSION_24) memcpy(d->drum_pitch, o->drum_pitch, sizeof d->drum_pitch);   /* by pitch slot: unchanged */
+}
+
 static int el_store_load_held(el_engine_t *e)
 {
     if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
@@ -282,7 +384,13 @@ static int el_store_load_held(el_engine_t *e)
     if (!a && !b) return 1;
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
     unsigned version = record.version;
-    const payload_t *d = upgrade();
+    payload_t *converted = NULL;
+    const payload_t *d = &record.data;
+    if (version < VERSION) {
+        if (!(converted = malloc(sizeof *converted))) return -1;
+        from_v25(upgrade(), version, converted);
+        d = converted;
+    }
     dr_machine_t *m = &e->drums;
     int old_chords = version < VERSION_16;
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
@@ -292,44 +400,37 @@ static int el_store_load_held(el_engine_t *e)
         p.swing = (uint8_t)el_clampi(p.swing, 50, 75);
         p.kit = (uint8_t)(p.kit % DR_KITS);
         p.style = (uint8_t)(p.style % DR_STYLES);
-        dr_strip_hidden(&p);
         m->pattern[i] = p;
+    }
+    /* each kit as last set (N1) */
+    m->kit_mem_used = (uint8_t)(d->kit_mem_used & ((1u << DR_KITS) - 1u));
+    for (unsigned k = 0; k < DR_KITS; ++k) {
+        tr808_sound_t *snd = &m->kit_mem[k];
+        dr_kit_sound(snd, k);
+        if (!((m->kit_mem_used >> k) & 1u)) continue;
+        for (unsigned part = 0; part < DR_PARTS; ++part)
+            for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p) tr808_sound_set(snd, (int)part, p, d->kit_mem[k].params[part][p]);
+        for (int p = 0; p < KIT_PARAMS; ++p) tr808_sound_set(snd, D8_KIT, p, d->kit_mem[k].kit_params[p]);
     }
     /* Audio is not running yet: the kit can be set directly. DR_CMD_KIT also
      * stores the kit in the current pattern, so select that one first. */
     m->current = m->next = (uint8_t)(d->current % DR_PATTERNS);
     dr_post(m, DR_CMD_KIT, (uint8_t)(d->kit % DR_KITS), 0, 0, 0);
     dr_process_commands(m);
-    for (unsigned part = 0; part < DR_PARTS; ++part) {
-        int tom = (part == D8_LT || part == D8_HT) && version < VERSION_15;
-        for (int p = 0; p < (tom ? 7 : tr808_nparams((int)part)) && p < PARAMS; ++p)
-            tr808_set(&m->kit, (int)part, tom ? old_tom_params[p] : p, d->params[part][p]);
-    }
-    for (int p = 0; p < KIT_PARAMS; ++p) tr808_set(&m->kit, D8_KIT, p, d->kit_params[p]);
-    /* Each slot's sound. Before version 21 one sound: the slots in its kit
-     * take it, the others their kit's factory sound (as they started). */
+    /* Each slot's sound (records before 21: as from_v25 set them). */
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         tr808_sound_t *snd = &m->sound[i];
-        if (version >= VERSION_21) {
-            dr_kit_sound(snd, m->pattern[i].kit);
-            const drum_sound_payload_t *ds = &d->drum_sound[i];
-            for (unsigned part = 0; part < DR_PARTS; ++part)
-                for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p) tr808_sound_set(snd, (int)part, p, ds->params[part][p]);
-            for (int p = 0; p < KIT_PARAMS; ++p) tr808_sound_set(snd, D8_KIT, p, ds->kit_params[p]);
-        } else if (m->pattern[i].kit == m->kit_index) tr808_sound_capture(&m->kit, snd);
-        else dr_kit_sound(snd, m->pattern[i].kit);
+        dr_kit_sound(snd, m->pattern[i].kit);
+        const drum_sound_payload_t *ds = &d->drum_sound[i];
+        for (unsigned part = 0; part < DR_PARTS; ++part)
+            for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p) tr808_sound_set(snd, (int)part, p, ds->params[part][p]);
+        for (int p = 0; p < KIT_PARAMS; ++p) tr808_sound_set(snd, D8_KIT, p, ds->kit_params[p]);
     }
-    if (version >= VERSION_22) memcpy(m->cond, d->drum_cond, sizeof m->cond);
-    else memset(m->cond, 0, sizeof m->cond);
-    if (version >= VERSION_23) memcpy(m->prob, d->drum_prob, sizeof m->prob);
-    else memset(m->prob, 0, sizeof m->prob);
-    if (version >= VERSION_24) {
-        memcpy(m->pitch, d->drum_pitch, sizeof m->pitch);
-        memcpy(m->vol, d->drum_vol, sizeof m->vol);
-    } else {
-        memset(m->pitch, 0, sizeof m->pitch);
-        memset(m->vol, 0, sizeof m->vol);
-    }
+    /* step conditions, chances and locks (0 in records before 22, 23, 24) */
+    memcpy(m->cond, d->drum_cond, sizeof m->cond);
+    memcpy(m->prob, d->drum_prob, sizeof m->prob);
+    memcpy(m->pitch, d->drum_pitch, sizeof m->pitch);
+    memcpy(m->vol, d->drum_vol, sizeof m->vol);
     /* Drum key and Follow (KIT parameters 4, 5) live in the former reserved
      * field: older records hold 0 there = key OFF (docs/adr/0016). */
     tr808_set(&m->kit, D8_KIT, 4, el_clampi(d->reserved & 0xffu, 0, 12));
@@ -341,9 +442,9 @@ static int el_store_load_held(el_engine_t *e)
          * keeps el_init's settings. */
         unsigned count = version >= VERSION_20 ? EL_OPTIONS_STORED : EL_OPT_COMP_THRESHOLD;
         for (unsigned i = 0; i < count; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, el_option_max(i));
-        if (version >= VERSION)
+        if (version >= VERSION_25)
             for (unsigned i = EL_OPTIONS_STORED; i < EL_OPTIONS; ++i)
-                e->option[i] = (uint8_t)el_clampi(d->option_ext[i - EL_OPTIONS_STORED], 0, el_option_max(i));
+                e->option[i] = (uint8_t)el_clampi(d->option[i], 0, el_option_max(i));
         else if (e->option[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS == EL_COMP_CLUB)
             e->option[EL_OPT_COMP_DRY] = 6;   /* CLUB kept 30 % of the dry signal before it was a setting */
         el_apply_comp(e);
@@ -406,6 +507,7 @@ static int el_store_load_held(el_engine_t *e)
                 e->track[i].arp.v[p] = (uint8_t)el_clampi(d->arp[i][p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
     if (version >= VERSION_17)   /* older records keep el_init's channels */
         for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = (uint8_t)el_clampi(d->midi_channel[a], 0, EL_MIDI_OFF);
+    free(converted);
     return 0;
 }
 
@@ -447,17 +549,9 @@ static int el_store_save_held(el_engine_t *e)
     memset(&record, 0, sizeof record);
     payload_t *d = &record.data;
     memcpy(d->pattern, m->pattern, sizeof d->pattern);
-    for (unsigned part = 0; part < DR_PARTS; ++part)
-        for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
-            d->params[part][p] = (uint8_t)tr808_get(&m->kit, (int)part, p);
-    for (int p = 0; p < KIT_PARAMS; ++p) d->kit_params[p] = (uint8_t)tr808_get(&m->kit, D8_KIT, p);
-    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
-        drum_sound_payload_t *ds = &d->drum_sound[i];
-        for (unsigned part = 0; part < DR_PARTS; ++part)
-            for (int p = 0; p < tr808_nparams((int)part) && p < PARAMS; ++p)
-                ds->params[part][p] = (uint8_t)tr808_sound_get(&m->sound[i], (int)part, p);
-        for (int p = 0; p < KIT_PARAMS; ++p) ds->kit_params[p] = (uint8_t)tr808_sound_get(&m->sound[i], D8_KIT, p);
-    }
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) sound_to_payload(&m->sound[i], &d->drum_sound[i]);
+    for (unsigned k = 0; k < DR_KITS; ++k) sound_to_payload(&m->kit_mem[k], &d->kit_mem[k]);
+    d->kit_mem_used = m->kit_mem_used;
     memcpy(d->drum_cond, m->cond, sizeof d->drum_cond);
     memcpy(d->drum_prob, m->prob, sizeof d->drum_prob);
     memcpy(d->drum_pitch, m->pitch, sizeof d->drum_pitch);
@@ -489,10 +583,7 @@ static int el_store_save_held(el_engine_t *e)
     memcpy(d->fx, e->fx.v, sizeof d->fx);
     for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);
     for (unsigned a = 0; a < EL_AREAS; ++a) d->midi_channel[a] = e->midi_channel[a];
-    for (unsigned i = 0; i < EL_OPTIONS; ++i) {
-        if (i < EL_OPTIONS_STORED) d->option[i] = e->option[i];
-        else d->option_ext[i - EL_OPTIONS_STORED] = e->option[i];
-    }
+    for (unsigned i = 0; i < EL_OPTIONS; ++i) d->option[i] = e->option[i];
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
@@ -615,24 +706,68 @@ int el_store_save(el_engine_t *e)
 
 #ifdef FM1_HOST_TEST
 /* Host test: the newest record rewritten as version 20 wrote it. */
-int el_store_test_as_v20(void)
+/* Today's record in version 25's layout (twelve parts, the toms empty). */
+static void to_v25(const payload_t *d, payload_v25_t *o)
+{
+    memset(o, 0, sizeof *o);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        const dr_pattern_t *np = &d->pattern[i];
+        dr_pattern_v25_t *op = &o->pattern[i];
+        memcpy(op->name, np->name, sizeof op->name);
+        op->length = np->length; op->swing = np->swing; op->kit = np->kit; op->style = np->style; op->accent = np->accent;
+        for (unsigned old = 0; old < OLD_PARTS; ++old)
+            if (new_part(old) >= 0) { op->hit[old] = np->hit[new_part(old)]; op->roll[old] = np->roll[new_part(old)]; }
+    }
+    unsigned cur = d->current % DR_PATTERNS;
+    for (unsigned old = 0; old < OLD_PARTS; ++old)
+        if (new_part(old) >= 0) memcpy(o->params[old], d->drum_sound[cur].params[new_part(old)], PARAMS);
+    memcpy(o->kit_params, d->drum_sound[cur].kit_params, KIT_PARAMS);
+    o->kit = d->pattern[cur].kit; o->level = d->level; o->current = d->current; o->muted = d->muted;
+    o->bpm_x10 = d->bpm_x10; o->reserved = d->reserved;
+    memcpy(o->track, d->track, sizeof o->track);
+    memcpy(o->fx, d->fx, sizeof o->fx);
+    memcpy(o->arp, d->arp, sizeof o->arp);
+    memcpy(o->midi_channel, d->midi_channel, sizeof o->midi_channel);
+    memcpy(o->option, d->option, EL_OPTIONS_STORED);
+    memcpy(o->option_ext, d->option + EL_OPTIONS_STORED, EL_OPTIONS - EL_OPTIONS_STORED);
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        for (unsigned old = 0; old < OLD_PARTS; ++old) {
+            int n = new_part(old);
+            if (n < 0) continue;
+            memcpy(o->drum_sound[i].params[old], d->drum_sound[i].params[n], PARAMS);
+            for (unsigned k = 0; k < 3; ++k) { o->drum_cond[i][k][old] = d->drum_cond[i][k][n]; o->drum_vol[i][k][old] = d->drum_vol[i][k][n]; }
+            for (unsigned k = 0; k < 4; ++k) o->drum_prob[i][k][old] = d->drum_prob[i][k][n];
+        }
+        memcpy(o->drum_sound[i].kit_params, d->drum_sound[i].kit_params, KIT_PARAMS);
+    }
+    memcpy(o->synth_sound, d->synth_sound, sizeof o->synth_sound);
+    memcpy(o->drum_pitch, d->drum_pitch, sizeof o->drum_pitch);
+}
+
+/* The newest record rewritten as version `version` (20 or 25) wrote it. */
+int el_store_test_as(unsigned version)
 {
     if (!take()) return -1;
     uint32_t a = read_valid(0), b = read_valid(1);
     unsigned newest = (int32_t)(a - b) > 0 || !b ? 0u : 1u;
     int r = -1;
     if ((a || b) && read_valid(newest) && record.version == VERSION) {
-        record.version = VERSION_20;
-        record.bytes = V19_BYTES;
-        record.crc = crc32(&record.data, V19_BYTES);
+        static payload_v25_t o;
+        to_v25(&record.data, &o);
+        size_t bytes = version >= VERSION_25 ? V25_BYTES : V19_BYTES;
+        memcpy(&record.data, &o, bytes);
+        record.version = (uint16_t)version;
+        record.bytes = (uint16_t)bytes;
+        record.crc = crc32(&record.data, bytes);
         uint32_t address = el_store_address(newest);
         r = 0;
         for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
-        if (!r) r = fm1_flash_write(address, &record, offsetof(record_t, data) + V19_BYTES);
+        if (!r) r = fm1_flash_write(address, &record, offsetof(record_t, data) + bytes);
     }
     give();
     return r;
 }
+int el_store_test_as_v20(void) { return el_store_test_as(VERSION_20); }
 #endif
 
 int el_sound_get(unsigned slot, el_sound_t *out)

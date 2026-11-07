@@ -501,17 +501,17 @@ static int key_808_test(void)
     tr808_set(&t, D8_KIT, 4, 1);              /* key C */
     memset(k, 0, sizeof k);
     tr808_render(&t, k, l, r, a, b, c, 64);
-    double bd = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 0), lt = key_cents(93.0 * t.key_r[D8_LT], 7);
+    double bd = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 0), lt = 0;   /* (no toms since B12) */
     double rs = key_cents(455.0 * t.key_r[D8_RS], 7), cb = key_cents(540.0 * t.key_r[D8_CB], 0);
     double fifth = 1200.0 * log2(800.0 * t.key_cb_hi / (540.0 * t.key_r[D8_CB]));
-    tr808_set(&t, D8_LT, 0, 76);              /* LT TUNE: two semitones up */
+    tr808_set(&t, D8_RS, 1, 76);              /* RS TUNE: two semitones up */
     tr808_set(&t, D8_KIT, 5, 1);              /* follow the bass ... */
     t.key_shift = 2;                          /* ... transposed by +2: key D */
     tr808_render(&t, k, l, r, a, b, c, 64);
-    double lt2 = key_cents(93.0 * t.key_r[D8_LT], 11), bd2 = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 2);
+    double lt2 = key_cents(455.0 * t.key_r[D8_RS], 11), bd2 = key_cents(tr808_bd_cal[0] * t.key_r[D8_BD], 2);
     double worst = fmax(fmax(fmax(fabs(bd), fabs(lt)), fmax(fabs(rs), fabs(cb))), fmax(fabs(lt2), fabs(bd2)));
     int ok = worst < 1.0 && fabs(fifth - 700.0) < 1.0;
-    printf("808 key: C -> BD C, LT G, RS G, CB C, CB fifth %.1f cents; LT +2, follow +2 -> LT B, BD D; worst %.2f cents: %s\n",
+    printf("808 key: C -> BD C, RS G, CB C, CB fifth %.1f cents; RS +2, follow +2 -> RS B, BD D; worst %.2f cents: %s\n",
            fifth, worst, ok ? "ok" : "FAIL");
     return ok ? 0 : 1;
 }

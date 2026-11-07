@@ -44,3 +44,4 @@ Rückmeldung vom Nutzer:
 
 - 2026-11-07: angelegt; `make test` (Test „locks“), `make metal-fixed-check` und `make web` laufen.
 - 2026-11-07: Regler auf KNOB 1 (Tonhöhe) und KNOB 2 (Velocity) gelegt, SELECT wieder frei; Anzeige mit zwei Feldern und umbenannten Reglern unten.
+- 2026-11-07: B12 umgesetzt (Nutzerwunsch: Speicher frei machen): Tom und Conga ganz entfernt, die Drums haben zehn Teile (BD SD RS CP CB CY OH CH ZP PU). Speicherversion 26 rechnet ältere Stände Teil für Teil um (die Tom-Spuren fallen weg); der Generator zieht die Tom-Zeilen der Stile weiter und verwirft sie, damit alle Werks-Grooves gleich bleiben (70 Demo-WAVs bytegleich). Gerät: ~3,1 KB weniger RAM, ~0,7 KB weniger Code

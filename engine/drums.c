@@ -9,7 +9,7 @@
 #include "drums.h"
 #include <string.h>
 
-const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "LT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
+const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
 const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT", "PO-12"};
 
 enum { DR_NORMAL_VELOCITY_Q7 = 84, DR_ROLL_SCALE_Q7 = 96 };
@@ -39,20 +39,14 @@ static const dr_kit_entry_t kits[DR_KITS][DR_KIT_ENTRIES] EL_DSP_DATA = {
 };
 
 /* ZP on 67 (high agogo), PU on 75 (claves) */
-static const uint8_t part_notes[DR_PARTS] = {36, 38, 41, 48, 37, 39, 56, 49, 46, 42, 67, 75};
+static const uint8_t part_notes[DR_PARTS] = {36, 38, 37, 39, 56, 49, 46, 42, 67, 75};
 
 unsigned dr_part_note(unsigned part) { return part < DR_PARTS ? part_notes[part] : 0; }
-
-void dr_strip_hidden(dr_pattern_t *p)
-{
-    for (unsigned part = 0; part < DR_PARTS; ++part)
-        if (DR_HIDDEN(part)) p->hit[part] = p->roll[part] = 0;
-}
 
 int dr_note_part(unsigned note)
 {
     for (unsigned p = 0; p < DR_PARTS; ++p)
-        if (part_notes[p] == note && !DR_HIDDEN(p)) return (int)p;
+        if (part_notes[p] == note) return (int)p;
     /* Common alternates: 35 kick, 40 snare, 43/45/47/50 toms, 44 pedal hat, 51 ride. */
     switch (note) {
     case 35: return D8_BD;
@@ -214,12 +208,12 @@ static EL_DSP_CODE void silence(dr_machine_t *m)
 static inline int audible(const dr_machine_t *m, unsigned part)
 {
     uint16_t bit = (uint16_t)(1u << part);
-    return !DR_HIDDEN(part) && !(m->mute & bit) && (!m->solo || (m->solo & bit));
+    return !(m->mute & bit) && (!m->solo || (m->solo & bit));
 }
 
 EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record, int semitones)
 {
-    if (part >= DR_PARTS || DR_HIDDEN(part) || velocity <= 0.0f) return;
+    if (part >= DR_PARTS || velocity <= 0.0f) return;
     tr808_trigger_pitch(&m->kit, (int)part, velocity, semitones);
     if (!record || !m->recording || !m->playing) return;
     /* Quantize to the nearest 16th. A hit late in a step lands on the next
@@ -400,7 +394,6 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
                 if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
             }
             m->pattern[part] = m->staging;
-            dr_strip_hidden(&m->pattern[part]);
             if (!c->c) {
                 memset(m->cond[part], 0, sizeof m->cond[part]);
                 memset(m->prob[part], 0, sizeof m->prob[part]);

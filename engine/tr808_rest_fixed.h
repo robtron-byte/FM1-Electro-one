@@ -89,7 +89,7 @@ static inline EL_DSP_HELPER int32_t dr_ramp(uint32_t age, int32_t step_q30)
 
 static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
 {
-    static const uint8_t parts[] = {D8_SD, D8_LT, D8_HT, D8_RS, D8_CP, D8_ZP, D8_PU};
+    static const uint8_t parts[] = {D8_SD, D8_RS, D8_CP, D8_ZP, D8_PU};
     unsigned live = 0;
     for (unsigned i = 0; i < sizeof parts; ++i) {
         int part = parts[i];
@@ -161,58 +161,6 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
                 int32_t snap = DM28(pulse > 0 ? pulse : 0, g_snap);
                 int32_t y = DM28(body, c055) + DM30(DM28(DM30(v->out_lp, nenv), g_n) + snap, snappy);
                 if (v->age > end && v->env2 < quiet) v->active = 0;
-                out[n] = dr_f20(y);
-                ++v->age;
-            }
-        } else if (part == D8_LT || part == D8_HT) {
-            /* ---- tom(): toms and congas */
-            int conga = t->pot[part][P_SOUND] == 1, idx = (part - D8_LT) + (conga ? 2 : 0);
-            float f0 = tom_hz[idx] * (t->key_on ? t->key_r[part] : m_exp2(&v->memo[0], 0.75f * (t->pot[part][P_TUNE] - 64) / 64.0f));
-            if (f0 != v->memo[1].x) { v->memo[1].x = f0; v->memo[1].y = dsp_sqrt(93.0f / f0); }
-            float scale = v->memo[1].y;
-            if (fresh) {
-                v->lag2 = v->lag1;               /* what still rings fades out instead of clicking */
-                v->phase = 0;                    /* the hit starts on -cos */
-                v->click = DM_ONE30;
-                dm_svf_set(&v->r1, 500.0f * f0 / tom_hz[idx], 1.0f);
-            }
-            float bend = 0.277f * knob(t, part, P_SNAPPY) * 2.0f * (conga ? 0.35f : 1.0f) * (1.0f + 0.4f * acc);
-            float base_f = f0 * (1.0f / EL_SAMPLE_RATE) * 4294967296.0f;
-            const uint32_t base = (uint32_t)base_f;
-            const int32_t bend_inc = (int32_t)(base_f * bend * (1.0f / 4.0f));   /* /4: Q30 pitch, shift 28 */
-            const int32_t c_pitch = dm_q30(m_decay(&v->memo[2], MS(42.9f * scale)));
-            const int32_t c_env = dm_q30(m_decay(&v->memo[4], MS(74.9f * scale * (conga ? 0.65f : 1.0f) * m_exp2(&v->memo[3], (t->pot[part][P_DECAY] - 64) / 48.0f))));
-            const int32_t c_env3 = dm_q30(tom_env3_c), c_env2 = dm_q30(tom_env2_c), c_lag2 = dm_q30(tom_lag2_c);
-            const int32_t att_step = dm_q30(1.0f / MS(0.5f));
-            const int32_t amount = dm_q28(2.0f * 0.014f * m_exp2(&v->memo[5], (t->pot[part][P_TONE] - 64) / 16.0f));
-            const int32_t c_click = dm_q30(m_exp(&v->memo[6], -1.0f / MS(0.3f))), c_clp = dm_q28(0.133f), g_click = dm_q28(0.03f);
-            float soft = tv->volts * 14.0f / (4.0f + 10.0f * acc);
-            const int32_t g_in = dm_q28(0.76f * (1.0f + 1.2f * acc) * soft), bias_in = dr_q20(0.76f * 0.0025f);
-            const int32_t bias = dr_q20(tom_bias), g_out = dm_q28(1.0f + 0.5f * acc), tiny = dr_q20(1e-5f);
-            const uint32_t settle = (uint32_t)MS(30.0f);
-            for (int n = 0; n < frames; ++n) {
-                int32_t noise = dr_noise(&ns);
-                if (!v->active) { out[n] = 0; continue; }
-                v->pitch = DM30(v->pitch, c_pitch);
-                v->phase += base + (uint32_t)dm_mul(bend_inc, v->pitch, 28);
-                int32_t body = -dr_sin(v->phase + 0x40000000u);   /* -cos */
-                v->env = DM30(v->env, c_env);
-                v->env3 = DM30(v->env3, c_env3);
-                body = DM30(body, DM30(v->env, DM_ONE30 - v->env3));
-                if (!conga) {
-                    int32_t attack = dr_ramp(v->age, att_step);
-                    v->env2 = DM30(v->env2, c_env2);
-                    body += DM30(DM30(DM28(dm_bp(&v->r1, noise), amount), v->env2), attack);
-                    int32_t c = v->click >> 10;            /* exp(-age / 0.3 ms), Q20 */
-                    v->click = DM30(v->click, c_click);
-                    v->out_lp += DM28(c - v->out_lp, c_clp);
-                    body += DM28(c - v->out_lp, g_click);
-                }
-                int32_t y = DM28(dr_tanh(DM28(body, g_in) + bias_in) - bias, g_out);
-                v->lag2 = DM30(v->lag2, c_lag2);
-                y += v->lag2;
-                v->lag1 = y;
-                if (v->age > settle && v->env < quiet && (v->lag2 < 0 ? -v->lag2 : v->lag2) < tiny) { v->lag1 = 0; v->active = 0; }
                 out[n] = dr_f20(y);
                 ++v->age;
             }
