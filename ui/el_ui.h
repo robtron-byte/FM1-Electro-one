@@ -21,6 +21,12 @@ enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5
 typedef struct {
     el_engine_t *engine;
     int (*save)(el_engine_t *engine); /* SAVE button; 0 on success */
+    /* Erase the copy the next save writes, ahead (docs/adr/0023); may be
+     * NULL. Called once the groove has stood still a while after the start
+     * and after each save; then SAVE while it plays leaves no gap. */
+    int (*prepare)(void);
+    uint8_t prep_pending;
+    uint32_t still_since;
     /* User sound slots (fm1/el_store.c); may be NULL. */
     int (*sound_get)(unsigned slot, el_sound_t *out);
     int (*sound_put)(unsigned slot, const el_sound_t *in);
@@ -40,6 +46,14 @@ typedef struct {
     uint8_t rec_fresh, rec_key, rec_note, transpose_mode[EL_AREAS];
     uint8_t punch_key[EL_PUNCHES];      /* key + 1 holding each punch-in (black keys 5-11) */
     uint8_t punch_last;                 /* the punch-in pressed last: its value on the white keys */
+    /* A step key held (BEAT, or a synth area in STEP mode; docs/adr/0025):
+     * key + 1, area, step, drum part, its condition as last set, whether an
+     * encoder turned meanwhile, and whether the step sounded at the press
+     * (then it goes off at the release, unless an encoder turned). */
+    uint8_t sh_key, sh_area, sh_step, sh_part, sh_cond, sh_used, sh_remove;
+    uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
+    uint8_t sh_show_prob;               /* the big readout shows the chance (else the passes) */
+    uint32_t sh_at;                     /* when it went down: the big readout after a moment */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
      * then the three synth parts), one staging buffer at a time, each into
@@ -63,6 +77,7 @@ typedef struct {
     int16_t shadow_value[4];
     uint16_t shadow_param[4];   /* area << 8 | parameter */
     uint32_t shadow_time[4];
+    uint32_t knob_at[4];        /* when each of KNOB 1-4 last turned (its speed: edit_knob) */
     const char *notice;
     uint32_t notice_until, notice_id, hold;
     uint64_t leds, leds_dim;   /* lit, and of those dimmed (docs/adr/0020) */

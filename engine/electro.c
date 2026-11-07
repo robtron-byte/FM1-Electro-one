@@ -34,9 +34,9 @@ void el_init(el_engine_t *e)
     el_generate_all(e, 0x2545f491u);
     e->master = 1.0f;
     e->dry_gain = e->stutter_gain = 1.0f;
-    /* Stutter 1/16, tape stop over an 8th, delay 1/8, crusher
+    /* Stutter 1/16, tape stop over a quarter, delay 1/8, crusher
      * 8 bit, phaser once a bar. */
-    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 1, 0, 1, 2, 2};
+    static const uint8_t punch_init[EL_PUNCHES] = {3, 0, 3, 0, 1, 2, 2};
     memcpy(e->punch_div, punch_init, sizeof punch_init);
     static const uint8_t channels[EL_AREAS] = {9, 0, 1, 2};   /* drums 10, RHYTHM 1, STRINGS 2, BASS 3 */
     for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = channels[a];
@@ -217,6 +217,13 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_STEP_TOGGLE:
         if (!(s->flags & ST_ON)) { s->note = t->last_note; s->chord = t->chord; }
         s->flags ^= ST_ON;
+        if (!(s->flags & ST_ON)) { s->flags &= (uint8_t)~ST_COND_MASK; ST_SET_PROB(s, 0); }   /* a step switched off forgets its condition */
+        break;
+    case EL_CMD_STEP_PROB:
+        ST_SET_PROB(s, (unsigned)el_clampi(c->value, 0, EL_PROBS - 1));
+        break;
+    case EL_CMD_STEP_COND:
+        s->flags = (uint8_t)((s->flags & ~ST_COND_MASK) | (unsigned)el_clampi(c->value, 0, EL_CONDS - 1) << 3);
         break;
     case EL_CMD_STEP_FLAG:
         s->flags = (uint8_t)((s->flags ^ c->c) | ST_ON);
@@ -227,10 +234,10 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         t->last_note = s->note;
         break;
     case EL_CMD_STEP_CHORD:
-        s->chord = (uint8_t)((s->chord & 0x30u) | (unsigned)el_clampi(c->value, 0, MKS_CHORDS));
+        s->chord = (uint8_t)((s->chord & 0xf0u) | (unsigned)el_clampi(c->value, 0, MKS_CHORDS));
         break;
     case EL_CMD_STEP_INV:
-        s->chord = (uint8_t)((s->chord & 15u) | (unsigned)el_clampi(c->value, 0, 2) << 4);
+        s->chord = (uint8_t)((s->chord & 0xcfu) | (unsigned)el_clampi(c->value, 0, 2) << 4);
         break;
     case EL_CMD_TRACK_RATE:
         p->rate = (uint8_t)el_clampi(c->b, 0, ST_RATES - 1);
@@ -297,7 +304,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if (c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) {
+    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND || c->type == EL_CMD_STEP_PROB) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }
@@ -453,7 +460,11 @@ static inline EL_DSP_HELPER void prof_add(el_engine_t *e, unsigned stage, uint32
  * sends go to buffers of their own (the drums write rev / dly meanwhile);
  * render_bus adds them. */
 static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b);
-static struct { el_engine_t *e; el_bus_t *b, *bus; int pos, n; } synth_args;
+static EL_DSP_CODE void bus_pre(el_engine_t *e, el_bus_t *b);
+static EL_DSP_CODE void bus_dist(el_engine_t *e, el_bus_t *b);
+static EL_DSP_CODE void bus_post(el_engine_t *e, el_bus_t *b, uint32_t fx_ticks, int split);
+static volatile uint32_t split_pre_ticks, split_dist_ticks;   /* the second core's parts of a split bus */
+static struct { el_engine_t *e; el_bus_t *b, *bus, *split; int pos, n; } synth_args;
 static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int n)
 {
     uint32_t pt = prof_now(), t0 = pt;
@@ -468,11 +479,79 @@ static EL_DSP_CODE void render_synths(el_engine_t *e, el_bus_t *b, int pos, int 
     if (pt - t0 > e->synth_peak) e->synth_peak = pt - t0;
     e->syn_ticks += pt - t0;
 }
+
+/* The split bus (render_sources): how far the second core got with the
+ * block before's bus_pre (1) and bus_dist (2), on a cache line of its own. */
+static volatile int split_done __attribute__((aligned(64)));
+static int par_state;   /* this stretch's job: 0 none, 1 handed over, 2 finished, 3 the second core gave up */
+static EL_DSP_CODE int job_wait(el_engine_t *e)
+{
+    if (par_state == 1) par_state = e->par_wait() ? 3 : 2;
+    return par_state == 3 ? -1 : 0;
+}
+
 static EL_DSP_CODE void synth_job(uint32_t arg)
 {
     (void)arg;
-    render_synths(synth_args.e, synth_args.b, synth_args.pos, synth_args.n);
-    if (synth_args.bus) bus_stage(synth_args.e, synth_args.bus);   /* the block before's effects and master */
+    el_engine_t *e = synth_args.e;
+    if (synth_args.split) {   /* the block before's sends and distortion first: the first core waits for them */
+        uint32_t t0 = prof_now();
+        bus_pre(e, synth_args.split);
+        uint32_t t1 = prof_now();
+        EL_FENCE();
+        split_done = 1;
+        EL_FENCE();
+        bus_dist(e, synth_args.split);
+        uint32_t t2 = prof_now();
+        split_pre_ticks = t1 - t0;
+        split_dist_ticks = t2 - t1;
+        EL_FENCE();
+        split_done = 2;
+        EL_FENCE();
+    }
+    render_synths(e, synth_args.b, synth_args.pos, synth_args.n);
+    if (synth_args.bus) bus_stage(e, synth_args.bus);   /* the block before's effects and master */
+}
+
+/* First core: wait until the second core has done part (1 bus_pre, 2
+ * bus_dist) of the split bus; when it gave up, do what is missing here. On
+ * the host the "second core" runs its job when waited for. */
+#ifndef EL_JOIN_TICKS
+#define EL_JOIN_TICKS 96000u   /* 4 ms of the platform's 24 MHz counter; then wait for the whole job */
+#endif
+static EL_DSP_CODE void bus_join(el_engine_t *e, el_bus_t *b, int part)
+{
+#if defined(EL_PLATFORM)
+    uint32_t t0 = prof_now();
+    while (split_done < part && par_state == 1) {
+        EL_FENCE();
+        if (prof_now() - t0 > EL_JOIN_TICKS) job_wait(e);
+    }
+#else
+    if (split_done < part) job_wait(e);
+#endif
+    if (split_done < 1) { split_pre_ticks = split_dist_ticks = 0; bus_pre(e, b); split_done = 1; }
+    if (part >= 2 && split_done < 2) { bus_dist(e, b); split_done = 2; }
+}
+
+#if defined(FM1_HOST_TEST)
+int el_test_bus_mode;   /* host tests: 0 by the times, else EL_BUS_* + 1 */
+#endif
+static inline uint32_t umax(uint32_t a, uint32_t b) { return a > b ? a : b; }
+/* Where the block before's effects and master go: EL_BUS_C0 all on the
+ * first core after the drums, EL_BUS_SPLIT its sends and distortion on the
+ * second before its synths (the rest on the first), EL_BUS_C1 all on the
+ * second after its synths. Whichever ends soonest by the last block's
+ * times: drums D, synths S, bus_pre P, distortion X, the rest Q. */
+enum { EL_BUS_C0, EL_BUS_SPLIT, EL_BUS_C1 };
+static EL_DSP_CODE int bus_place(const el_engine_t *e)
+{
+#if defined(FM1_HOST_TEST)
+    if (el_test_bus_mode) return el_test_bus_mode - 1;
+#endif
+    uint32_t D = e->prev_drum_ticks, S = e->prev_syn_ticks, P = e->prev_pre_ticks, X = e->prev_dist_ticks, Q = e->prev_post_ticks;
+    uint32_t c0 = umax(D + P + X + Q, S), split = umax(D + Q, P + X + S), c1 = umax(D, S + P + X + Q);
+    return split <= c0 && split <= c1 ? EL_BUS_SPLIT : c1 < c0 ? EL_BUS_C1 : EL_BUS_C0;
 }
 
 static EL_DSP_CODE void render_sources(el_engine_t *e, el_bus_t *b, int pos, int n)
@@ -483,26 +562,32 @@ static EL_DSP_CODE void render_sources(el_engine_t *e, el_bus_t *b, int pos, int
     synth_args.b = b;
     synth_args.pos = pos;
     synth_args.n = n;
-    /* Two cores: the effects and master of the block before run meanwhile,
-     * on the core that had less to do in that block: the second after its
-     * synths when they took less time than the drums (only drums playing,
-     * a dense kit), else the first after the drums. They touch only the
-     * block before's buses and the effects' and master's own state. */
-    el_bus_t *done = bus_pending;
-    int bus_c1 = done && e->par_run && e->prev_syn_ticks < e->prev_drum_ticks;
+    /* Two cores: the effects and master of the block before run meanwhile
+     * (bus_place). They touch only the block before's buses and the
+     * effects' and master's own state. */
+    /* In the stretch that covers at least half of what is left of the block
+     * (the last one at the latest): a step splits a block, and a short
+     * stretch leaves the second core's synths little to overlap with. */
+    el_bus_t *done = bus_pending && 2 * n >= (int)b->frames - pos ? bus_pending : 0;
+    int place = done && e->par_run ? bus_place(e) : EL_BUS_C0;
     if (done) bus_pending = 0;
-    synth_args.bus = bus_c1 ? done : 0;
-    int par = e->par_run && e->par_run(synth_job, 0);
-    if (!par) { bus_c1 = 0; synth_args.bus = 0; }
+    synth_args.bus = place == EL_BUS_C1 ? done : 0;
+    synth_args.split = place == EL_BUS_SPLIT ? done : 0;
+    split_done = 0;
+    EL_FENCE();
+    par_state = e->par_run && e->par_run(synth_job, 0) ? 1 : 0;
+    if (!par_state) { place = EL_BUS_C0; synth_args.bus = synth_args.split = 0; }
     uint32_t pt = prof_now(), t0 = pt;
     dr_render(&e->drums, b->kick + pos, b->drum_l + pos, b->drum_r + pos, b->rev + pos, b->gate + pos, b->dly + pos, n);
     prof_add(e, EL_PROF_DRUMS, &pt);
     e->drum_ticks += pt - t0;
-    if (done && !bus_c1) bus_stage(e, done);
-    if (!par || e->par_wait()) {             /* one core, or the second gave up */
+    if (done && place == EL_BUS_C0) bus_stage(e, done);
+    if (done && place == EL_BUS_SPLIT) bus_post(e, done, 0, 1);
+    if (!par_state || job_wait(e)) {             /* one core, or the second gave up */
         render_synths(e, b, pos, n);
-        if (bus_c1) bus_stage(e, done);
+        if (place == EL_BUS_C1) bus_stage(e, done);
     }
+    par_state = 0;
     if (done) bus_out = done;
 }
 
@@ -787,8 +872,9 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *gate = b->gate, *dly = b->dly;
     float *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r, *syn_rev = b->syn_rev, *syn_dly = b->syn_dly;
     el_cmd_t c;
-    e->prev_syn_ticks = e->syn_ticks; e->prev_drum_ticks = e->drum_ticks;   /* (render_sources) */
-    e->syn_ticks = e->drum_ticks = 0;
+    e->prev_syn_ticks = e->syn_ticks; e->prev_drum_ticks = e->drum_ticks;   /* (bus_place) */
+    e->prev_pre_ticks = e->pre_ticks; e->prev_dist_ticks = e->dist_ticks; e->prev_post_ticks = e->post_ticks;
+    e->syn_ticks = e->drum_ticks = e->pre_ticks = e->dist_ticks = e->post_ticks = 0;
     while (el_queue_pop(&e->queue, &c)) apply(e, &c);
     while (el_queue_pop(&e->midi_queue, &c)) apply(e, &c);
     dr_process_commands(&e->drums);
@@ -840,20 +926,21 @@ static EL_DSP_CODE void render_bus(el_engine_t *e, unsigned frames)
     bus_out = b;
 }
 
-/* Effects, master and punch-ins of one block's buses (b->left / right). */
-static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b)
+/* Effects, master and punch-ins of one block's buses (b->left / right), in
+ * three parts. With two cores the first two can run on the second core
+ * (render_sources): bus_pre reads and changes the buses (sends, reverb
+ * throw, distortion send), bus_dist turns the distortion send into its wet
+ * signal (only its own buffer and state), bus_post does the rest (reverb,
+ * delay, gated reverb, the distortion's return, master, punch-ins). */
+static EL_DSP_CODE void bus_pre(el_engine_t *e, el_bus_t *b)
 {
     unsigned frames = b->frames;
     float *kick = b->kick, *drum_l = b->drum_l, *drum_r = b->drum_r, *bass_l = b->bass_l, *bass_r = b->bass_r;
-    float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *gate = b->gate, *dly = b->dly;
+    float *synth_l = b->synth_l, *synth_r = b->synth_r, *rev = b->rev, *dly = b->dly;
     float *rhythm_l = b->rhythm_l, *rhythm_r = b->rhythm_r, *syn_rev = b->syn_rev, *syn_dly = b->syn_dly;
-    el_transport_t *t = &e->transport;
-    e->stutter_sync = b->stutter_sync;
-    e->sync_step = b->sync_step;
     for (unsigned i = 0; i < frames; ++i) { rev[i] += syn_rev[i]; dly[i] += syn_dly[i]; }
     /* BASS always in mono (its chorus and unison spread fold to the middle). */
     for (unsigned i = 0; i < frames; ++i) bass_l[i] = bass_r[i] = 0.5f * (bass_l[i] + bass_r[i]);
-    uint32_t pt = prof_now();
     punch_throw(e, b, frames);
     /* Distortion send per area (mono), its return on the drum bus. */
     const uint8_t *fv = e->fx.v;
@@ -875,11 +962,36 @@ static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b)
         synth_l[i] += rhythm_l[i];
         synth_r[i] += rhythm_r[i];
     }
-    fx_distortion(&e->fx, dist_send, drum_l, drum_r, (int)frames);
+}
+
+static int dist_wet;   /* bus_dist: the distortion has a return to mix */
+static EL_DSP_CODE void bus_dist(el_engine_t *e, el_bus_t *b)
+{
+    dist_wet = fx_distortion_process(&e->fx, dist_send, (int)b->frames);
+}
+
+/* fx_ticks: the time of bus_pre and bus_dist when they ran here; split: they
+ * run on the second core (render_sources), wait for them */
+static EL_DSP_CODE void bus_post(el_engine_t *e, el_bus_t *b, uint32_t fx_ticks, int split)
+{
+    unsigned frames = b->frames;
+    el_transport_t *t = &e->transport;
+    if (split) bus_join(e, b, 1);
+    e->stutter_sync = b->stutter_sync;
+    e->sync_step = b->sync_step;
+    uint32_t pt = prof_now(), t0 = pt;
     /* Effect returns sit with the synths (high-passed, gently ducked). */
-    fx_render(&e->fx, dly, rev, gate, synth_l, synth_r, (int)frames, t->bpm);
+    fx_render(&e->fx, b->dly, b->rev, b->gate, b->synth_l, b->synth_r, (int)frames, t->bpm);
+    if (split) {
+        bus_join(e, b, 2);
+        fx_ticks = split_pre_ticks + split_dist_ticks;
+        e->pre_ticks += split_pre_ticks;
+        e->dist_ticks += split_dist_ticks;
+    }
+    if (dist_wet) fx_distortion_mix(&e->fx, dist_send, b->drum_l, b->drum_r, (int)frames);
+    e->prof[EL_PROF_FX] += fx_ticks;
     prof_add(e, EL_PROF_FX, &pt);
-    mb_process(&e->mix, kick, drum_l, drum_r, bass_l, bass_r, synth_l, synth_r, b->left, b->right, (int)frames);
+    mb_process(&e->mix, b->kick, b->drum_l, b->drum_r, b->bass_l, b->bass_r, b->synth_l, b->synth_r, b->left, b->right, (int)frames);
     prof_add(e, EL_PROF_MASTER, &pt);
     punch_delay(e, b, frames);
     punch_crush(e, b, frames);
@@ -887,7 +999,20 @@ static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b)
     punch_stutter(e, b, frames);
     punch_tape(e, b, frames);
     prof_add(e, EL_PROF_PUNCH, &pt);
+    e->post_ticks += pt - t0;
     ++e->blocks;
+}
+
+static EL_DSP_CODE void bus_stage(el_engine_t *e, el_bus_t *b)
+{
+    uint32_t t0 = prof_now();
+    bus_pre(e, b);
+    uint32_t t1 = prof_now();
+    bus_dist(e, b);
+    uint32_t t2 = prof_now();
+    e->pre_ticks += t1 - t0;
+    e->dist_ticks += t2 - t1;
+    bus_post(e, b, t2 - t0, 0);
 }
 
 EL_DSP_CODE void el_render(el_engine_t *e, int32_t *output, unsigned frames)

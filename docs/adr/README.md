@@ -30,7 +30,8 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0022](0022-drums-festkomma.md) | Drums in Festkomma auf der eigenen Plattform (Felucca-Drumstimmen) | vorgeschlagen | 2026-11-06 |
 | [0023](0023-speichern-im-stillstand.md) | Automatisch speichern erst bei STOP (Flash-Löschen stoppt den Ton) | vorgeschlagen | 2026-11-06 |
 | [0024](0024-sound-pro-platz.md) | Jeder Pattern-Platz behält seinen Sound (Drums und Synths) | vorgeschlagen | 2026-11-06 |
-| [0025](0025-eigene-sounds-zuerst.md) | Eigene Sounds vor den Werks-Sounds, GLO + PRESETS als Schnellspur | vorgeschlagen | 2026-11-07 |
-| [0026](0026-eigene-sounds-und-lange-streicher.md) | Eigene schlichte Sounds und Pads, Bässe neben der Bassdrum, STRINGS bis 8 Takte pro Step, Live-Aufnahme in Achteln | vorgeschlagen | 2026-11-07 |
+| [0025](0025-step-varianz.md) | Step-Varianz: ein Step spielt nur in jedem zweiten oder vierten Durchlauf | vorgeschlagen | 2026-11-06 |
+| [0026](0026-eigene-sounds-zuerst.md) | Eigene Sounds vor den Werks-Sounds, GLO + PRESETS als Schnellspur | vorgeschlagen | 2026-11-07 |
+| [0027](0027-eigene-sounds-und-lange-streicher.md) | Eigene schlichte Sounds und Pads, Bässe neben der Bassdrum, STRINGS bis 8 Takte pro Step, Live-Aufnahme in Achteln | vorgeschlagen | 2026-11-07 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

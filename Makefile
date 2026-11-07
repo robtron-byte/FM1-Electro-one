@@ -56,7 +56,7 @@ build/hit_render: host/hit_render.c engine/tr808.c engine/tr808.h engine/po12.c 
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/hit_render.c engine/tr808.c engine/dr_fixed.c engine/po12.c -lm
 
-# Own sounds (docs/adr/0026): tools/extra_presets.py writes engine/extra_presets.c.
+# Own sounds (docs/adr/0027): tools/extra_presets.py writes engine/extra_presets.c.
 build/preset_probe: host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c -lm
@@ -98,7 +98,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	  grep -E "^(two cores|timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
 	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
-	  grep "^store\|^extras\|^strings\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
+	  grep "^store\|^extras\|^strings\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steps\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 
@@ -113,6 +113,13 @@ mb-fixed-check: host/mb_fixed_check.c host/fixed_cmp.py engine/mixbus.c engine/m
 	@mkdir -p build
 	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMB_FIXED=$$fx -o build/mbc_$$fx host/mb_fixed_check.c engine/mixbus.c -lm && ./build/mbc_$$fx build/mbc_$$fx.raw || exit 1; done
 	@python3 host/fixed_cmp.py build/mbc_0.raw build/mbc_1.raw 3 -60 "FX on" "FX off" "hot, limiter"
+
+# The MKS-50 oscillators' grid fast path (engine/mks.c, MKS_CHOP_GRID) against
+# chop_general: every MKS-50 sound, a chord low and high; within -90 dB.
+chop-grid-check: host/chop_grid_check.c host/fixed_cmp.py engine/mks.c engine/mks.h engine/mks_presets.c
+	@mkdir -p build
+	@for g in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMKS_CHOP_GRID=$$g -o build/cgc_$$g host/chop_grid_check.c engine/mks.c engine/mks_presets.c -lm && ./build/cgc_$$g > build/cgc_$$g.raw || exit 1; done
+	@python3 host/fixed_cmp.py build/cgc_0.raw build/cgc_1.raw 56 -90
 
 # The fixed-point distortion (engine/dist.c, DIST_FIXED, own platform) against
 # the float one: every type, five settings, each within -60 dB.

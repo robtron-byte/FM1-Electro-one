@@ -12,8 +12,16 @@
 
 enum { ST_STEPS = 32, ST_PATTERNS = 4, ST_NO_CHORD = 0 };   /* slots A-D */
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
+/* Bits 3-5 of the flags: the step's condition (EL_COND_*, docs/adr/0025). */
+#define ST_COND(flags) (((unsigned)(flags) >> 3) & 7u)
+#define ST_COND_MASK 0x38u
+/* The step's probability (EL_PROBS): bits 6-7 of the flags (low) and of the
+ * chord byte (high; the chord uses bits 0-5). */
+#define ST_PROB(s) ((((unsigned)(s)->flags >> 6) & 3u) | (((unsigned)(s)->chord >> 6) & 3u) << 2)
+#define ST_SET_PROB(s, v) ((s)->flags = (uint8_t)(((s)->flags & 0x3fu) | ((unsigned)(v) & 3u) << 6), \
+                           (s)->chord = (uint8_t)(((s)->chord & 0x3fu) | (((unsigned)(v) >> 2) & 3u) << 6))
 /* Step lengths: 1/16, 1/8, 1/4, 1/2, 1 bar, 2, 4, 8 bars (in 16ths: 1..128).
- * With 32 steps a pattern can run up to 256 bars (docs/adr/0026). */
+ * With 32 steps a pattern can run up to 256 bars (docs/adr/0027). */
 enum { ST_RATE_16TH, ST_RATE_8TH, ST_RATE_QUARTER, ST_RATE_HALF, ST_RATE_BAR, ST_RATE_2BARS, ST_RATE_4BARS, ST_RATE_8BARS, ST_RATES };
 /* chord byte: low nibble = type (0 single note, 1..8 chord memory slot + 1),
  * bits 4-5 = inversion 0..2 (lowest notes moved up an octave). */
@@ -48,7 +56,7 @@ static inline int st_pattern_empty(const st_pattern_t *p)
 }
 /* Live recording in STRINGS onto an empty pattern whose steps are coarser
  * than an 8th would put every note on a bar line: such a take is recorded
- * in 8ths instead (docs/adr/0026). */
+ * in 8ths instead (docs/adr/0027). */
 static inline int st_live_grid_needed(const st_pattern_t *p, unsigned area, int live)
 {
     return live && area == MKS_AREA_STRINGS && p->rate > ST_RATE_8TH && st_pattern_empty(p);
@@ -67,6 +75,8 @@ typedef struct {
     uint8_t last_note;         /* used when a step is switched on */
     int16_t sounding[MKS_CHORD_NOTES];
     uint8_t sounding_count, tied, tick;
+    uint8_t pass;              /* passes of the current pattern since it started */
+    uint32_t rnd;              /* the step probabilities' dice */
     float gate_countdown, step_frames, since_step;
     arp_t arp;
     volatile uint32_t revision;

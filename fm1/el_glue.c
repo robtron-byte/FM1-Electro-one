@@ -30,6 +30,7 @@ void el_glue_start(void)
     el_store_load(&engine);
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
+    ui.prepare = el_store_prepare;
     ui.sound_get = el_sound_get;
     ui.sound_put = el_sound_put;
     if (el_platform_cpu1_ok()) {   /* the synth areas on the second core (docs/adr/0021) */

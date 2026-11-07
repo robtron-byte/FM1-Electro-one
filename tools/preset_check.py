@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
-"""Low-end check of the bass sounds against the 808 kick (docs/adr/0026).
+"""Low-end check of the bass sounds against the 808 kick (docs/adr/0027).
 Usage: preset_check.py <dir with *.f32 from build/preset_probe> [area-name-filter ...]
 Prints, per sound, how its energy splits over the sub region (below 40 Hz),
 the kick's body (40-90 Hz; the 808 kick sits at 45-60 Hz), above it and the
 top. The bass sounds play an octave down (16'): MIDI 36 gives about 33 Hz.
-Played with `build/preset_probe <dir> 36 2.5` (docs/adr/0026)."""
+Played with `build/preset_probe <dir> 36 2.5` (docs/adr/0027)."""
 import glob, os, sys
 import numpy as np
 

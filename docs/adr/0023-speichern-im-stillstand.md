@@ -13,7 +13,8 @@ Auf der eigenen Plattform (ADR 0021) sperrt das Löschen eines 4-KB-Flash-Sektor
 
 - **OPTIONS verlassen:** gespeichert wird nur, wenn sich eine Option geändert hat (Vergleich mit dem Stand beim Öffnen).
 - **Läuft der Groove**, wartet jedes automatische Speichern (geänderte Optionen, zwei Sekunden nach einem Generator-Einsatz) auf STOP; das Display sagt dann „OPTIONS SET: SAVED AT STOP“.
-- **SAVE** (ausdrücklich) speichert weiter sofort, auch während der Groove läuft; dabei entsteht die kurze Lücke.
+- **SAVE** (ausdrücklich) speichert weiter sofort, auch während der Groove läuft.
+- **Vorab löschen** (`el_store_prepare`, seit 2026-11-07): Die Kopie, die das nächste Speichern beschreibt (die ältere der beiden), wird gelöscht, sobald der Groove nach dem Start oder nach einem Speichern 1,5 s stillsteht. Ein SAVE während des Spielens schreibt dann nur noch Seiten (Interrupts zwischen den 256-Byte-Seiten an) und hat keine Lücke mehr. Die neueste gültige Kopie bleibt dabei immer unangetastet. Erst ein zweites Speichern im selben Durchlauf muss wieder löschen.
 
 ## Alternativen
 
@@ -28,3 +29,4 @@ Auf der eigenen Plattform (ADR 0021) sperrt das Löschen eines 4-KB-Flash-Sektor
 ## Verlauf
 
 - 2026-11-06: angelegt nach der Rückmeldung „beim Zurückgehen von OPTIONS auf HOME knackst es“
+- 2026-11-07: vorab löschen im Stillstand, damit SAVE während des Spielens keinen Aussetzer mehr hat (Rückmeldung „beim Speichern gibt es einen kleinen Aussetzer“); Host-Test „store: erased ahead“

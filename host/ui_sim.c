@@ -26,8 +26,10 @@ int fm1_flash_read(uint32_t offset, void *data, size_t bytes)
     memcpy(data, flash + offset, bytes);
     return 0;
 }
+static unsigned erases;   /* (the store test: a prepared save erases nothing) */
 int fm1_flash_erase(uint32_t offset)
 {
+    ++erases;
     if (offset % FM1_FLASH_SECTOR_BYTES || offset >= flash_bytes) return FM1_FLASH_INVALID;
     memset(flash + offset, 0xff, FM1_FLASH_SECTOR_BYTES);
     return 0;
@@ -386,7 +388,7 @@ int main(int argc, char **argv)
     panel.keys |= 1u << 6; run(30);           /* ... B3 while A3 is held: legato */
     panel.keys &= ~(1u << 4 | 1u << 6); run(30);
     hold(BTN_GLO, 1); tap_key(9); hold(BTN_GLO, 0);    /* B3 one more step */
-    hold(BTN_EDIT, 1); tap_key(9); hold(BTN_EDIT, 0);  /* rest */
+    tap_key(UI_KEYS - 1u);                              /* the last key: a rest */
     tap_key(7);                                         /* C4 */
     run(100);
     shot(dir, "11b_step_rec");
@@ -429,7 +431,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* STRINGS (docs/adr/0026): a live take on an empty pattern records in
+    /* STRINGS (docs/adr/0027): a live take on an empty pattern records in
      * 8ths, a step take keeps the step length; steps run up to 8 bars. */
     {
         tap_button(BTN_ENV);
@@ -657,7 +659,7 @@ int main(int argc, char **argv)
     printf("sounds: user slot 3 \"%s\" (%s) stored, found, cancel, restart %s\n", got.name, syn_engine_names[got.engine],
            us_ok ? "ok" : "FAIL");
 
-    /* Own factory sounds (docs/adr/0026): after both engines' sounds, found by
+    /* Own factory sounds (docs/adr/0027): after both engines' sounds, found by
      * name, in the area they were made for, with the values of the table. */
     {
         unsigned base = mks_preset_count + jp6_preset_count;
@@ -717,5 +719,121 @@ int main(int argc, char **argv)
         if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
     }
     printf("slots: a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
-    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok ? 0 : 1;
+
+    /* Step conditions (docs/adr/0025): the playback, Repeat and the panel
+     * (a step held, PRESETS turned). */
+    int sc_ok = 1;
+    {
+        static el_engine_t ce;
+        el_init(&ce);
+        dr_machine_t *m = &ce.drums;
+        dr_pattern_t *p = &m->pattern[m->current];
+        p->length = 4;
+        for (unsigned i = 0; i < DR_PARTS; ++i) p->hit[i] = p->roll[i] = 0;
+        p->hit[D8_BD] = 1u;                                   /* BD on step 1 */
+        dr_post(m, DR_CMD_COND, D8_BD, 0, 0, EL_COND_2_2);
+        dr_process_commands(m);
+        unsigned played = 0;
+        for (unsigned pass = 0; pass < 6; ++pass)
+            for (unsigned st = 0; st < 4; ++st) {
+                m->kit.v[D8_BD].age = 12345u;
+                dr_step(m, pass * 4u + st, 1000.0f);
+                if (st == 0 && m->kit.v[D8_BD].age == 0) played |= 1u << pass;
+            }
+        sc_ok = sc_ok && played == 0x2au;                    /* passes 2, 4, 6 */
+        /* Repeat on step 1: the playhead's pass decides. */
+        dr_rewind(m);
+        unsigned rep = 0;
+        for (unsigned n = 0; n < 8; ++n) {
+            m->kit.v[D8_BD].age = 12345u;
+            dr_step_at(m, n, 1000.0f, 0);
+            if (m->kit.v[D8_BD].age == 0) rep |= 1u << n;
+        }
+        sc_ok = sc_ok && rep == 0xf0u;                       /* the second pass of the playhead */
+        /* Synth: a 1:4 step plays on the first of every four passes. */
+        st_track_t *t = &ce.track[0];
+        st_pattern_t *sp = &t->pattern[t->current];
+        sp->length = 2;
+        sp->rate = ST_RATE_16TH;
+        sp->step[0].flags = ST_ON;
+        sp->step[1].flags = 0;
+        el_post3(&ce, EL_CMD_STEP_COND, 0, 0, 0, EL_COND_1_4);
+        float audio[EL_BLOCK * 2];
+        el_render_float(&ce, audio, EL_BLOCK);
+        sc_ok = sc_ok && ST_COND(sp->step[0].flags) == EL_COND_1_4;
+        st_rewind(t);
+        unsigned sp_played = 0;
+        for (unsigned pass = 0; pass < 8; ++pass) {
+            st_step(t, pass * 2u, 1000.0f);
+            if (t->sounding_count) sp_played |= 1u << pass;
+            st_step(t, pass * 2u + 1u, 1000.0f);
+        }
+        sc_ok = sc_ok && sp_played == 0x11u;                 /* passes 1 and 5 */
+        /* Probability: 50 % plays about half the passes (dice), 100 % all. */
+        dr_rewind(m);
+        dr_post(m, DR_CMD_COND, D8_BD, 0, 0, EL_COND_ALWAYS);
+        dr_post(m, DR_CMD_PROB, D8_BD, 0, 0, 5);
+        dr_process_commands(m);
+        unsigned hits = 0;
+        for (unsigned pass = 0; pass < 400; ++pass)
+            for (unsigned st = 0; st < 4; ++st) {
+                m->kit.v[D8_BD].age = 12345u;
+                dr_step(m, pass * 4u + st, 1000.0f);
+                if (st == 0 && m->kit.v[D8_BD].age == 0) ++hits;
+            }
+        sc_ok = sc_ok && hits > 150 && hits < 250 && el_prob_percent(5) == 50;
+        el_post3(&ce, EL_CMD_STEP_PROB, 0, 0, 0, 7);           /* synth step: 30 % */
+        el_post3(&ce, EL_CMD_STEP_CHORD, 0, 0, 0, 2);          /* (a chord keeps it) */
+        el_render_float(&ce, audio, EL_BLOCK);
+        sc_ok = sc_ok && ST_PROB(&sp->step[0]) == 7 && ST_CHORD_TYPE(sp->step[0].chord) == 2 && ST_COND(sp->step[0].flags) == EL_COND_1_4;
+        if (!sc_ok) printf("debug prob: hits %u of 400, synth prob %u\n", hits, ST_PROB(&sp->step[0]));
+        if (!sc_ok) printf("debug cond: drums %02x repeat %02x synth %02x\n", played, rep, sp_played);
+    }
+    {
+        /* The panel: BEAT, BD, step 15 held, PRESETS one detent: 1:2, and the
+         * step stays on; held again without a turn: off, condition gone. */
+        el_engine_t *sim = ui.engine;   /* (a local `engine` above hides the simulator's) */
+        if (sim->transport.running) { tap_button(BTN_PLAY); run(100); }
+        ui.overview = 0; ui.editor = 0; ui.area = EL_AREA_BEAT; ui.part = D8_BD; ui.step_page[0] = 0;
+        dr_machine_t *m = &sim->drums;
+        dr_post(m, DR_CMD_LENGTH, 0, 16, 0, 0);
+        run(30);
+        if ((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) { tap_key(24); run(30); }
+        panel.keys |= 1u << 24; run(30);
+        panel.encoders[6] = 1; run(10);
+        unsigned cond_right = dr_cond(m, m->current, D8_BD, 14);   /* right: 1:2 */
+        panel.encoders[1] = -5; run(300);   /* ALGORITHM: 50 %, the passes stay; the big readout */
+        unsigned on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u, cond = dr_cond(m, m->current, D8_BD, 14);
+        unsigned prob = dr_prob(m, m->current, D8_BD, 14);
+        shot(dir, "22_step_cond");
+        panel.keys &= ~(1u << 24); run(30);
+        unsigned kept_on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u;
+        tap_key(24); run(30);
+        unsigned off = !((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) && dr_cond(m, m->current, D8_BD, 14) == 0;
+        int panel_ok = on && cond_right == EL_COND_1_2 && cond == EL_COND_1_2 && prob == 5 && kept_on && off && dr_prob(m, m->current, D8_BD, 14) == 0;
+        if (!panel_ok) printf("debug panel: on %u cond %u kept %u off %u\n", on, cond, kept_on, off);
+        sc_ok = sc_ok && panel_ok;
+    }
+    {
+        /* Erased ahead (docs/adr/0023): the save that follows erases
+         * nothing and loads back; without, it erases. */
+        el_engine_t *sim = ui.engine;
+        int pr = el_store_prepare();
+        unsigned before = erases;
+        int sv = el_store_save(sim);
+        unsigned during = erases - before;
+        static el_engine_t back;
+        el_init(&back);
+        int lb = el_store_load(&back);
+        before = erases;
+        el_store_save(sim);   /* not prepared: the older copy holds the save before */
+        unsigned unprepared = erases - before;
+        int prep_ok = pr == 0 && sv == 0 && during == 0 && lb == 0 && unprepared > 0 &&
+                      !memcmp(back.drums.pattern, sim->drums.pattern, sizeof back.drums.pattern);
+        if (!prep_ok) printf("debug prepare: %d %d erases %u load %d unprepared %u\n", pr, sv, during, lb, unprepared);
+        sc_ok = sc_ok && prep_ok;
+        printf("store: erased ahead, the save erases nothing %s\n", prep_ok ? "ok" : "FAIL");
+    }
+    printf("steps: conditions 2:2 / 1:4, probability, under Repeat, held step + PRESETS / ALGORITHM %s\n", sc_ok ? "ok" : "FAIL");
+    return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }

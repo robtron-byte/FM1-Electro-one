@@ -1,8 +1,36 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 13. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 23. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 13. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 23. Build:
+- **Step-Aufnahme (REC 101): Pause mit der letzten Taste der Tastatur** statt EDIT + Taste.
+- **Der Wert, an dem du drehst** (KNOB 1–4), ist im Display hinterlegt, sein Name hell, solange gedreht wird.
+
+Aus dem 20.–22. Build:
+- **Varianz und Wahrscheinlichkeit pro Step** (ADR 0025): Step-Taste halten: **PRESETS** stellt die Varianz ein (`1:1`, `1:2`, `2:2`, `1:4` … `4:4`), **ALGORITHM** die Wahrscheinlichkeit (100 % … 10 %, links seltener); beides kombinierbar. Nach einer Viertelsekunde zeigt das Display groß den Wert des zuletzt gedrehten Reglers.
+
+Aus dem 18./19. Build:
+- **Master sparsamer** (19. Build, bitgleich): Zustände während der Schleife in lokalen Variablen. Emulator mit DARK STR: PEAK 70 → 63 %.
+- **SAVE ohne Aussetzer:** Der Speicherplatz für das nächste Speichern wird gelöscht, während der Groove kurz stillsteht (1,5 s nach dem Einschalten bzw. nach STOP). SAVE während des Spielens schreibt dann nur noch und unterbricht den Ton nicht mehr. Nur ein zweites SAVE ohne STOP dazwischen hat wieder die kurze Lücke.
+- **Display flüssiger:** Das Display wird mit 20 statt 12 MHz angesteuert (ein ganzes Bild ~46 statt ~77 ms).
+
+Aus dem 17. Build (alles bitgleicher Klang):
+- **Synths sparsamer:** Die Rechenfunktionen (exp2, log2, Wurzel) riefen bei jeder Umwandlung ein langsames Kopierprogramm im Flash auf; die Hüllkurven-Zeiten werden pro Stimme gemerkt. Emulator: DARK STR STRINGS 45 → 39 %, Kern 1 81 → 68 %; JX STRINGS 38 → 32 %. Master, RHYTHM und BASS profitieren auch.
+- **Hall, Delay, Gated Reverb sparsamer:** jeder Effekt in eigener Schleife, ohne Funktionsaufrufe pro Sample. Emulator: FX 18 → 15 %.
+- Kitwechsel rechnet das Werks-Kit nicht mehr im Audio-Interrupt aus.
+
+Aus dem 16. Build:
+- **DARK STR, DARK DRONE, MACHINE PD** rechnen deutlich weniger (gleicher Klang, bitgleich): Ihre Saw-Form 5 lief über den langsamen allgemeinen Weg der Oszillatoren. Emulator: STRINGS 54–61 % → 45 %, Kern 1 89 % → 81 %. Alle anderen STRINGS-Sounds lagen schon bei 32–44 %.
+
+Aus dem 15. Build:
+- **Step-Varianz** (ADR 0025): Step-Taste halten (BEAT, oder ein Synth-Bereich im STEP-Modus) und **PRESETS** drehen: `1:2` spielt den Step nur im ersten von je zwei Durchläufen des Patterns, `2:2` im zweiten, `1:4` bis `4:4` in einem von vier, `1:1` immer. Ein kleiner weißer Strich markiert solche Steps. Ein klingender Step geht beim Loslassen nur aus, wenn kein Regler gedreht wurde. Variationen behalten die Varianz, ein neues Pattern beginnt ohne.
+- **Tape-Stop** jetzt standardmäßig über eine Viertel.
+- **Regler mit vielen Werten** (Filter, Pegel, die meisten Klangregler) werden schneller, je schneller man dreht; langsam bleibt es ein Wert pro Raste. Regler mit bis zu 16 Werten bleiben wie bisher.
+
+Aus dem 14. Build:
+- **Verzerrung entlastet** (13. Build auf dem Gerät: FX 34 %, PEAK 104 %, LATE BLOCKS 140): Sie rechnet jetzt auf dem zweiten Kern vor den Synths, parallel zu den Drums; Hall, Delay und Master bleiben auf dem ersten. Jeder Block wählt die Aufteilung, die am schnellsten fertig ist. Die Verzerrung selbst rechnet ein Drittel weniger. Bei Steps (jede 16tel) laufen Effekte und Master im längeren Teil des Blocks. Klang bitgleich. Emulator: mit Verzerrung PEAK 96 → 83 %, ohne 83 → 74 %.
+
+Aus dem 13. Build:
 - **Jeder Pattern-Platz behält seinen Sound** (ADR 0024): in BEAT Kit und alle Drum-Regler, in RHYTHM, STRINGS und BASS der Synth-Sound. Von A nach B und zurück ist A wieder so eingestellt wie vorher; die Drum-Einstellungen setzen sich beim Platzwechsel nicht mehr zurück. Was du einstellst, gilt für den Platz, der gerade spielt. Drum-Tonart und FOLLOW gelten weiter für den ganzen Bereich. Der gespeicherte Stand wird übernommen: Jeder Platz startet mit dem bisherigen Sound.
 - Last unverändert (Emulator mit strengem Taktmodell: PEAK 84 %, MAX 89 %, LATE BLOCKS 0).
 
@@ -23,7 +51,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `9ed283b0fcdca81bf170a16d812aeb90703172bf6e1cd0ecf5b9afab6ef8eea5`
+SHA-256: `bd81721b0b33b109ced29d3c5b489b3f2f46a1eb7a356bd8aec356eca6e2dfc2`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -16,8 +16,11 @@
  * OPTIONS; 19 four slots per area, each area with its own current slot; 20
  * the master compressor settings in OPTIONS (the same layout as 19, which
  * left those bytes zero); 21 a sound per slot (docs/adr/0024), appended:
- * records 19 and 20 are its first part, every slot gets their one sound. */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * records 19 and 20 are its first part, every slot gets their one sound; 22
+ * the drums' step conditions (docs/adr/0025), appended again (the synths'
+ * are in their step flags; records before 22 hold 0 there: always); 23 the
+ * drums' step probabilities, appended (the synths' in their step bytes). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -51,11 +54,19 @@ typedef struct {
     uint8_t engine, preset;
 } synth_sound_payload_t;
 
-typedef struct {
-    FIELDS_V19
-    drum_sound_payload_t drum_sound[DR_PATTERNS];
+#define FIELDS_V21                                              \
+    FIELDS_V19                                                  \
+    drum_sound_payload_t drum_sound[DR_PATTERNS];               \
     synth_sound_payload_t synth_sound[EL_TRACKS][ST_PATTERNS];
+typedef struct { FIELDS_V21 } payload_v21_t;
+#define FIELDS_V22 FIELDS_V21 uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];   /* dr_machine_t.cond */
+typedef struct { FIELDS_V22 } payload_v22_t;
+typedef struct {
+    FIELDS_V22
+    uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
 } payload_t;
+#define V22_BYTES sizeof(payload_v22_t)
+#define V21_BYTES sizeof(payload_v21_t)
 #define V19_BYTES sizeof(payload_v19_t)
 
 /* Versions 12-18: 24 slots. Fields of version 12; the later versions append
@@ -194,6 +205,8 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_22 && record.bytes == V22_BYTES) ||
+                  (record.version == VERSION_21 && record.bytes == V21_BYTES) ||
                   (record.version >= VERSION_19 && record.version <= VERSION_20 && record.bytes == V19_BYTES);
     if (!EL_STORE_UPGRADE && !current) return 0;
     if (!current &&
@@ -284,7 +297,7 @@ static int el_store_load_held(el_engine_t *e)
      * take it, the others their kit's factory sound (as they started). */
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         tr808_sound_t *snd = &m->sound[i];
-        if (version >= VERSION) {
+        if (version >= VERSION_21) {
             dr_kit_sound(snd, m->pattern[i].kit);
             const drum_sound_payload_t *ds = &d->drum_sound[i];
             for (unsigned part = 0; part < DR_PARTS; ++part)
@@ -293,6 +306,10 @@ static int el_store_load_held(el_engine_t *e)
         } else if (m->pattern[i].kit == m->kit_index) tr808_sound_capture(&m->kit, snd);
         else dr_kit_sound(snd, m->pattern[i].kit);
     }
+    if (version >= VERSION_22) memcpy(m->cond, d->drum_cond, sizeof m->cond);
+    else memset(m->cond, 0, sizeof m->cond);
+    if (version >= VERSION) memcpy(m->prob, d->drum_prob, sizeof m->prob);
+    else memset(m->prob, 0, sizeof m->prob);
     /* Drum key and Follow (KIT parameters 4, 5) live in the former reserved
      * field: older records hold 0 there = key OFF (docs/adr/0016). */
     tr808_set(&m->kit, D8_KIT, 4, el_clampi(d->reserved & 0xffu, 0, 12));
@@ -302,7 +319,7 @@ static int el_store_load_held(el_engine_t *e)
     if (version >= VERSION_18) {   /* older records keep el_init's options */
         /* Before version 20 only the first options existed; the compressor
          * keeps el_init's settings. */
-        unsigned count = version >= VERSION ? EL_OPTIONS : EL_OPT_COMP_THRESHOLD;
+        unsigned count = version >= VERSION_20 ? EL_OPTIONS : EL_OPT_COMP_THRESHOLD;
         for (unsigned i = 0; i < count; ++i) e->option[i] = (uint8_t)el_clampi(d->option[i], 0, el_option_max(i));
         el_apply_comp(e);
         e->mix.enabled = e->option[EL_OPT_MASTER] ? 1 : 0;
@@ -328,7 +345,8 @@ static int el_store_load_held(el_engine_t *e)
             {
                 unsigned chord = t->pattern[p].step[k].chord, type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
                 if (old_chords) type = type < 14u ? st_chord_v15[type] : 0u;
-                t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4);
+                t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4 |
+                                                        (old_chords ? 0u : chord & 0xc0u));   /* bits 6-7: the probability */
             }
         }
         uint8_t v[SYN_VALUES];
@@ -340,7 +358,7 @@ static int el_store_load_held(el_engine_t *e)
         int user = s->preset >= EL_USER_SOUND && s->preset < EL_USER_SOUND + EL_USER_SOUNDS;
         t->preset = (uint8_t)(s->preset < syn_sound_count() || user ? s->preset : 0);
         st_keep_sound(t, 1);   /* before version 21: the one sound in every slot */
-        if (version >= VERSION)
+        if (version >= VERSION_21)
             for (unsigned p = 0; p < ST_PATTERNS; ++p) {
                 const synth_sound_payload_t *ss = &d->synth_sound[i][p];
                 st_sound_t *snd = &t->sound[p];
@@ -366,12 +384,40 @@ static int el_store_load_held(el_engine_t *e)
     return 0;
 }
 
+/* Whether copy `which` is erased throughout (then a save needs no erase,
+ * which stops the sound ~50 ms a sector: docs/adr/0023). */
+static int copy_blank(unsigned which)
+{
+    const uint32_t *w = (const uint32_t *)(const void *)&buffer;
+    for (unsigned s = 0; s < SECTORS; ++s) {
+        if (fm1_flash_read(el_store_address(which) + s * FM1_FLASH_SECTOR_BYTES, &buffer, FM1_FLASH_SECTOR_BYTES) != FM1_FLASH_OK)
+            return 0;
+        for (unsigned i = 0; i < FM1_FLASH_SECTOR_BYTES / 4u; ++i) if (w[i] != 0xffffffffu) return 0;
+    }
+    return 1;
+}
+
+/* The copy the next save writes (the older one) erased ahead, while it
+ * costs no sound (the groove stopped): the newest valid copy stays. */
+static int el_store_prepare_held(void)
+{
+    if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
+    uint32_t a = read_valid(0), b = read_valid(1);
+    unsigned target = (int32_t)(a - b) > 0 ? 1u : 0u;
+    if (!a && !b) target = 0;
+    if (copy_blank(target)) return 0;
+    int r = 0;
+    for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(el_store_address(target) + s * FM1_FLASH_SECTOR_BYTES);
+    return r;
+}
+
 static int el_store_save_held(el_engine_t *e)
 {
     uint32_t a = read_valid(0), b = read_valid(1);
     uint32_t sequence = ((int32_t)(a - b) > 0 ? a : b) + 1u;
     unsigned target = (int32_t)(a - b) > 0 ? 1u : 0u; /* overwrite the older one */
     if (!a && !b) target = 0;
+    int blank = copy_blank(target);   /* (before the record: it uses the same buffer) */
     const dr_machine_t *m = &e->drums;
     memset(&record, 0, sizeof record);
     payload_t *d = &record.data;
@@ -387,6 +433,8 @@ static int el_store_save_held(el_engine_t *e)
                 ds->params[part][p] = (uint8_t)tr808_sound_get(&m->sound[i], (int)part, p);
         for (int p = 0; p < KIT_PARAMS; ++p) ds->kit_params[p] = (uint8_t)tr808_sound_get(&m->sound[i], D8_KIT, p);
     }
+    memcpy(d->drum_cond, m->cond, sizeof d->drum_cond);
+    memcpy(d->drum_prob, m->prob, sizeof d->drum_prob);
     d->reserved = (uint16_t)(tr808_get(&m->kit, D8_KIT, 4) | tr808_get(&m->kit, D8_KIT, 5) << 8);
     d->kit = m->kit_index;
     d->level = m->level_value;
@@ -422,7 +470,8 @@ static int el_store_save_held(el_engine_t *e)
     record.crc = crc32(d, sizeof *d);
     uint32_t address = el_store_address(target);
     int r = 0;
-    for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
+    if (!blank)   /* erased ahead (el_store_prepare): no gap in the sound */
+        for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
     if (!r) r = fm1_flash_write(address, &record, sizeof record);
     return r;
 }
@@ -514,6 +563,14 @@ int el_store_load(el_engine_t *e)
 {
     if (!take()) return -1;
     int r = el_store_load_held(e);
+    give();
+    return r;
+}
+
+int el_store_prepare(void)
+{
+    if (!take()) return -1;
+    int r = el_store_prepare_held();
     give();
     return r;
 }

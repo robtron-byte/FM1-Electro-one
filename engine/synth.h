@@ -21,7 +21,7 @@ typedef struct {
 
 extern const char *const syn_engine_names[SYN_ENGINES];
 
-/* FM1-Electro's own factory sounds (engine/extra_presets.c, docs/adr/0026):
+/* FM1-Electro's own factory sounds (engine/extra_presets.c, docs/adr/0027):
  * after the sounds of both engines, so saved sound numbers stay valid. */
 typedef struct {
     char name[11];

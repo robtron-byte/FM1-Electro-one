@@ -1,4 +1,4 @@
-# 0025: Eigene Sounds stehen vor den Werks-Sounds
+# 0026: Eigene Sounds stehen vor den Werks-Sounds
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-07

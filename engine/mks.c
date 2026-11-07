@@ -97,9 +97,18 @@ static inline float env_seconds(float raw, int segment)
 
 /* ---- DCO (MB87123 chop model) ------------------------------------------- */
 
-static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0};
+static const mks_chop_t chop_off EL_DSP_DATA = {0, 0, 0.5f, 0, 0.5f, 0, 0.5f, 0, 0};
 
-static inline int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
+/* MKS_CHOP_GRID: shapes whose edges all fall on one grid (saw 5, sub 1-3
+ * and 5: ramps and half-open gates at whole multiples) look only at the
+ * nearest grid point instead of chop_general's seven edge families
+ * (DARK STR, saw 5: STRINGS 54 -> see docs/adr/0019). Same edges, same
+ * corrections; only the float rounding of where an edge lies differs. */
+#ifndef MKS_CHOP_GRID
+#define MKS_CHOP_GRID 1
+#endif
+
+static inline __attribute__((always_inline)) int chop_enabled(const mks_chop_t *c) { return c->ramp > 0 || c->m0 > 0; }
 
 static inline EL_DSP_HELPER float chop_naive(const mks_chop_t *c, float p)
 {
@@ -148,6 +157,21 @@ static inline __attribute__((always_inline)) float chop_render(const mks_chop_t 
             return out;
         }
     }
+#if MKS_CHOP_GRID
+    if (c->grid > 0.0f && dt * c->grid < 0.5f) {
+        float l0 = c->m0 > 0 ? wrap01(p * c->m0) : 0, l1 = c->m1 > 0 ? wrap01(p * c->m1) : 0;
+        float lr = c->ramp > 0 ? wrap01(p * c->ramp) : 0;
+        int open = (c->m0 <= 0 || l0 >= c->w0) && (c->m1 <= 0 || l1 >= c->w1);
+        float out = open ? 2.0f * (c->ramp > 0 ? lr : 1.0f) - 1.0f : -1.0f;
+        float g = wrap01(p * c->grid), x = g < 0.5f ? g : g - 1.0f, d = x / c->grid;
+        if (d < dt && d > -dt) {   /* the one grid point within reach: an edge, if the wave jumps there */
+            float edge = p - d;
+            float h = chop_naive(c, wrap01(edge + 1e-5f)) - chop_naive(c, wrap01(edge - 1e-5f));
+            if (h != 0) out += h * polyblep(wrap01(d), dt);
+        }
+        return out;
+    }
+#endif
     return chop_general(c, p, dt);
 }
 
@@ -193,9 +217,26 @@ static EL_DSP_CODE float chop_general(const mks_chop_t *c, float p, float dt)
 
 static void chop_set(mks_chop_t *c, float ramp, float m0, float w0, float m1, float w1)
 {
+    /* (every control block: unchanged, nothing to work out) */
+    if (c->ramp == ramp && c->m0 == m0 && c->w0 == w0 && c->m1 == m1 && c->w1 == w1 && c->m2 == 0) return;
     c->ramp = ramp; c->m0 = m0; c->w0 = w0; c->m1 = m1; c->w1 = w1; c->m2 = 0; c->w2 = 0.5f;
     /* the fast path for a ramp under one square of a multiple of its rate */
     c->gated_ramp = ramp > 0 && m0 > 0 && m1 <= 0 && w0 > 0.0f && w0 < 1.0f && (m0 / ramp) == (float)(int)(m0 / ramp);
+    /* the grid: whole rates, gates half open (edges at k / (2 m)); their
+     * least common multiple */
+    unsigned g = 1;
+    int ok = 1;
+    const float r[3] = {ramp, 2.0f * m0, 2.0f * m1};
+    const float w[3] = {0.5f, w0, w1};
+    for (int i = 0; i < 3; ++i) {
+        if (r[i] <= 0) continue;
+        unsigned n = (unsigned)r[i];
+        if ((float)n != r[i] || (i && w[i] != 0.5f) || n > 256u) { ok = 0; break; }
+        unsigned a = g, b = n;
+        while (b) { unsigned t = a % b; a = b; b = t; }
+        g = g / a * n;
+    }
+    c->grid = ok && g <= 256u ? (float)g : 0.0f;
 }
 
 /* DCOSettings.configure: pulse on the pulse phase (1 = main), saw/sub on the
@@ -490,13 +531,27 @@ static inline float env_scale(const mks_part_t *p, const mks_voice_t *v, float p
     return scale;
 }
 
-static EL_DSP_HELPER void env_settings(const mks_part_t *p, const mks_voice_t *v, float pitch, mks_env_settings_t *s)
+static EL_DSP_HELPER void env_settings(const mks_part_t *p, mks_voice_t *v, float pitch, mks_env_settings_t *s)
 {
-    float k = env_scale(p, v, pitch);
-    s->t1 = env_seconds(p->v[MP_T1], 1) * k; s->l1 = p->v[MP_L1] / 127.0f;
-    s->t2 = env_seconds(p->v[MP_T2], 2) * k; s->l2 = p->v[MP_L2] / 127.0f;
-    s->t3 = env_seconds(p->v[MP_T3], 3) * k; s->l3 = p->v[MP_L3] / 127.0f;
-    s->t4 = env_seconds(p->v[MP_T4], 4) * k;
+    /* Worked out again only when the knobs, the pitch or the drift changed
+     * (else the same numbers as before, without exp2 / log2 every block). */
+    static const uint8_t keys[9] EL_DSP_DATA = {MP_T1, MP_L1, MP_T2, MP_L2, MP_T3, MP_L3, MP_T4, MP_ENV_KEY, MP_DRIFT};
+    mks_env_settings_t *m = &v->es;
+    int same = v->es_ok && v->es_pitch == pitch && v->es_drift == v->drift_env;
+    for (unsigned i = 0; i < 9u && same; ++i) same = v->es_key[i] == p->v[keys[i]];
+    if (!same) {
+        for (unsigned i = 0; i < 9u; ++i) v->es_key[i] = p->v[keys[i]];
+        v->es_pitch = pitch;
+        v->es_drift = v->drift_env;
+        v->es_ok = 1;
+        float k = env_scale(p, v, pitch);
+        m->t1 = env_seconds(p->v[MP_T1], 1) * k; m->l1 = p->v[MP_L1] / 127.0f;
+        m->t2 = env_seconds(p->v[MP_T2], 2) * k; m->l2 = p->v[MP_L2] / 127.0f;
+        m->t3 = env_seconds(p->v[MP_T3], 3) * k; m->l3 = p->v[MP_L3] / 127.0f;
+        m->t4 = env_seconds(p->v[MP_T4], 4) * k;
+    }
+    s->t1 = m->t1; s->l1 = m->l1; s->t2 = m->t2; s->l2 = m->l2;
+    s->t3 = m->t3; s->l3 = m->l3; s->t4 = m->t4;
 }
 
 static float last_pitch_of(const mks_part_t *p)

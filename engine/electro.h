@@ -50,7 +50,9 @@ enum el_command {
     EL_CMD_MIDI_CHANNEL, /* a = area, value = channel 0..15 or EL_MIDI_OFF */
     EL_CMD_OPTION,       /* a = EL_OPT_*, value */
     EL_CMD_PUNCH,        /* a = EL_PUNCH_* bit, b = 1 held / 0 let go */
-    EL_CMD_PUNCH_RATE    /* a = EL_PUNCH_* bits, b = white key 0..5 (repeat 0..15; el_punch_value_name) */
+    EL_CMD_PUNCH_RATE,   /* a = EL_PUNCH_* bits, b = white key 0..5 (repeat 0..15; el_punch_value_name) */
+    EL_CMD_STEP_COND,    /* b = step, value = EL_COND_* (docs/adr/0025) */
+    EL_CMD_STEP_PROB     /* b = step, value = 0..EL_PROBS-1, 0 = always (docs/adr/0025) */
 };
 /* Punch-in effects, active while held (HOME, black keys 5-11, in this
  * order). The bit of effect n is 1 << n. */
@@ -135,10 +137,12 @@ typedef struct {
      * audio time base summed since the control task last took them. */
     volatile uint32_t prof[EL_PROF_STAGES];
     volatile uint32_t synth_peak;   /* the slowest synth stage (one call, ticks) since it was read */
-    /* Two cores: the synth (second core) and drum (first core) ticks of this
-     * block and of the block before; they decide which core takes the
-     * effects and master of the block before (electro.c render_sources). */
+    /* Two cores: the ticks of this block and of the block before of the
+     * synths (second core), drums (first core) and the bus parts (sends and
+     * reverb throw, distortion, the rest); they decide where the effects and
+     * master of the block before run (electro.c bus_place). */
     volatile uint32_t syn_ticks, drum_ticks, prev_syn_ticks, prev_drum_ticks;
+    volatile uint32_t pre_ticks, dist_ticks, post_ticks, prev_pre_ticks, prev_dist_ticks, prev_post_ticks;
     /* Second core (docs/adr/0021): the platform's hand-over of a job and the
      * wait for it (0 = done; else run it here). NULL: one core. */
     int (*par_run)(void (*job)(uint32_t), uint32_t arg);

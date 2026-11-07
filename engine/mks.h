@@ -45,7 +45,8 @@ extern const int8_t mks_chords[MKS_CHORDS][MKS_CHORD_NOTES]; /* offsets, -128 en
  * the nearest of today's eight. */
 extern const uint8_t st_chord_v15[14];
 
-typedef struct { float ramp, m0, w0, m1, w1, m2, w2; int gated_ramp; } mks_chop_t;   /* gated_ramp: chop_render's fast path */
+/* gated_ramp, grid: chop_render's fast paths (grid: every edge on multiples of 1 / grid, 0 none) */
+typedef struct { float ramp, m0, w0, m1, w1, m2, w2; int gated_ramp; float grid; } mks_chop_t;
 typedef struct { float t1, l1, t2, l2, t3, l3, t4; } mks_env_settings_t;
 typedef struct { float b0, b1, b2, a1, a2; } mks_biquad_t;
 
@@ -69,6 +70,11 @@ typedef struct {
     float hz1, hz2;                 /* HPF state */
     float hpf_fc, hpf_b0, hpf_a1;   /* HPF modes 2, 3: corner at most the voice's fundamental */
     mks_env_t env;
+    /* env_settings as last worked out, and what they came from (the knobs,
+     * pitch and drift): recomputed only when one of these changes */
+    mks_env_settings_t es;
+    float es_pitch, es_drift;
+    uint8_t es_key[9], es_ok;
 } mks_voice_t;
 
 typedef struct {

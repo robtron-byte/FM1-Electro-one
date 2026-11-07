@@ -36,6 +36,37 @@
 
 #define EL_FENCE() __sync_synchronize()
 
+/* Unroll the next loop fully (clang, the device's compiler; others ignore it). */
+#if defined(__clang__)
+#define EL_UNROLL _Pragma("clang loop unroll(full)")
+#else
+#define EL_UNROLL
+#endif
+
+/* Step condition (docs/adr/0025): a step plays on pass n of every m of its
+ * pattern (passes counted from the pattern's start): 1:1 always, 1:2 the
+ * first of every two, 2:2 the second, 1:4 .. 4:4 one of every four. */
+enum { EL_COND_ALWAYS, EL_COND_1_2, EL_COND_2_2, EL_COND_1_4, EL_COND_2_4, EL_COND_3_4, EL_COND_4_4, EL_CONDS };
+static inline int el_cond_plays(unsigned cond, unsigned pass)
+{
+    static const uint8_t every[EL_CONDS] = {1, 2, 2, 4, 4, 4, 4}, which[EL_CONDS] = {0, 0, 1, 0, 1, 2, 3};
+    return cond >= EL_CONDS || pass % every[cond] == which[cond];
+}
+/* Step probability (docs/adr/0025): 0 = always, n = 1..9 plays a step in
+ * (10 - n) x 10 % of its passes (90 .. 10 %). rnd: a fresh random word. */
+enum { EL_PROBS = 10 };
+static inline int el_prob_percent(unsigned prob) { return prob && prob < EL_PROBS ? (int)(10u - prob) * 10 : 100; }
+static inline int el_prob_plays(unsigned prob, uint32_t rnd)
+{
+    return !prob || prob >= EL_PROBS || (int)((rnd >> 8) % 100u) < el_prob_percent(prob);
+}
+static inline uint32_t el_rnd(uint32_t *s)
+{
+    uint32_t n = *s;
+    n ^= n << 13; n ^= n >> 17; n ^= n << 5;
+    return *s = n ? n : 0x9e3779b9u;
+}
+
 static inline int el_clampi(int x, int lo, int hi) { return x < lo ? lo : x > hi ? hi : x; }
 static inline float el_clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 /* The BEAT kit in fixed point (engine/dr_fixed.c, docs/adr/0022): on the own

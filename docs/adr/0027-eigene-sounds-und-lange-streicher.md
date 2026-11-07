@@ -1,4 +1,4 @@
-# 0026: Eigene schlichte Sounds, Bässe neben der Bassdrum, längere Streicher
+# 0027: Eigene schlichte Sounds, Bässe neben der Bassdrum, längere Streicher
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-07
@@ -33,7 +33,7 @@ Messung (`make bass-check`, Bässe bei C2 = MIDI 36): Die Bässe der Apps spiele
 ## Folgen
 
 - Klang der neuen Sounds nur nach Messung entworfen, nicht gehört: Der Nutzer soll sie prüfen und mit dem Gerät nachstellen (Parameter in `tools/extra_presets.py`).
-- Die eigenen Sounds stehen am Ende der Werks-Liste jedes Bereichs. Die eigenen Sounds des Nutzers (U01…) stehen davor (ADR 0025).
+- Die eigenen Sounds stehen am Ende der Werks-Liste jedes Bereichs. Die eigenen Sounds des Nutzers (U01…) stehen davor (ADR 0026).
 - Die MKS-50- und die JP-6-Engine kennen keine Sound-Namen über 10 Zeichen.
 
 ## Verlauf

@@ -31,7 +31,7 @@ DSP_MATH_FN float dsp_exp2(float x) {
     int n=(int)(x+(x<0?-0.5f:0.5f));
     float a=(x-(float)n)*0.6931471805599453f;
     float p=1.0f+a*(1.0f+a*(0.5f+a*(1.0f/6.0f+a*(1.0f/24.0f+a*(1.0f/120.0f+a/720.0f)))));
-    uint32_t bits=(uint32_t)(n+127)<<23;float scale;memcpy(&scale,&bits,sizeof scale);
+    uint32_t bits=(uint32_t)(n+127)<<23;float scale;__builtin_memcpy(&scale,&bits,sizeof scale);
     return p*scale;
 }
 static inline float dsp_exp(float x) { return dsp_exp2(x*1.4426950408889634f); }
@@ -48,15 +48,15 @@ static inline float dsp_cos(float x) {return dsp_sin(x+DSP_PI*.5f);}
 static inline float dsp_tan(float x) {return dsp_sin(x)/dsp_cos(x);}
 DSP_MATH_FN float dsp_sqrt(float x) {
     if(x<=0)return 0;
-    uint32_t bits;memcpy(&bits,&x,4);bits=(bits>>1)+0x1fc00000u;
-    float y;memcpy(&y,&bits,4);
+    uint32_t bits;__builtin_memcpy(&bits,&x,4);bits=(bits>>1)+0x1fc00000u;
+    float y;__builtin_memcpy(&y,&bits,4);
     for(unsigned i=0;i<4;i++)y=.5f*(y+x/y);
     return y;
 }
 DSP_MATH_FN float dsp_log2(float x) {
-    x=dsp_max(x,1e-30f);uint32_t bits;memcpy(&bits,&x,4);
+    x=dsp_max(x,1e-30f);uint32_t bits;__builtin_memcpy(&bits,&x,4);
     int e=(int)(bits>>23)-127;bits=(bits&0x7fffffu)|0x3f800000u;
-    float m;memcpy(&m,&bits,4);
+    float m;__builtin_memcpy(&m,&bits,4);
     if(m>1.41421356f){m*=.5f;e++;}
     float z=(m-1)/(m+1),q=z*z;
     return (float)e+2.8853900817779268f*z*(1+q*(1.0f/3+q*(1.0f/5+q*(1.0f/7+q/9))));
