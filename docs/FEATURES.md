@@ -6,7 +6,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B16, S12, Y5, F11, U9, P11, N14).
 
-Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
+Stand: 35. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
 
 ## Offen und angefangen
 
@@ -81,7 +81,7 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | P4 | Plattform/Leistung | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
 | P5 | Plattform/Leistung | Takt messen (`ADDS …/US` in OPTIONS): Gerät ADD 336, IND 348/µs: eine Addition je Takt, also etwa 340 MHz | ✓ | 0019 |
 | P8 | Plattform/Leistung | Web-Simulator | ✓ | – |
-| P10 | Plattform/Leistung | Leise Releases der MKS-50-Stimmen enden früher (`MKS_RELEASE_HURRY`, Standard an): Stimmen schneller frei, v. a. bei vollen Akkorden | ◐ ab dem 35. Build | 0019 |
+| P10 | Plattform/Leistung | Leise Releases der MKS-50-Stimmen enden früher (`MKS_RELEASE_HURRY`, Standard an): Stimmen schneller frei, v. a. bei vollen Akkorden | ◐ im 35. Build | 0019 |
 
 ## Gestrichen
 
