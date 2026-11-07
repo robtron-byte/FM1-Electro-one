@@ -29,3 +29,4 @@ Erste Runde der Feature-Liste (Auswahl des Nutzers vom 07.11.): Fill-ins in BEAT
 ## Verlauf
 
 - 2026-11-07: angelegt (N8, N11, N12, N13 umgesetzt, 37. Build)
+- 2026-11-07: Zweite Runde (38. Build): OCT+ in BEAT schaltet die Drum-Vorschau (N2), OCT− blättert die Step-Seiten; HOME, ARP + 16. weiße Taste zweimal = leerer Start (S11, wie die Generator-Tasten mit Rückfrage); PLAY gedimmt bei Stopp (N4); OH + CH auf einem Step = kurze OH (B16, 90 ms)

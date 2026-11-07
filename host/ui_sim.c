@@ -210,6 +210,19 @@ int main(int argc, char **argv)
         printf("fills: SEQ next bar, GLO + SEQ every 8 bars, EDIT + SEQ edit, stored, generated (N12) %s\n", fl ? "ok" : "FAIL");
     }
     {
+        /* N10: live effects held in HOME: a tile each with its animation */
+        if (!ui.overview) tap_button(BTN_HOME);
+        panel.keys |= 1u << 10 | 1u << 13 | 1u << 20 | 1u << 25;   /* stutter, throw, delay, phaser */
+        run(150);
+        int ok = ui.punch_key[0] && ui.punch_key[1] && ui.punch_key[4] && ui.punch_key[6];
+        shot(dir, "20b_punch_tiles");
+        panel.keys &= ~(1u << 10 | 1u << 13 | 1u << 20 | 1u << 25);
+        run(100);
+        ok = ok && !ui.engine->punch;
+        tap_button(BTN_HOME);
+        printf("punch tiles: a tile per held effect (N10) %s\n", ok ? "ok" : "FAIL");
+    }
+    {
         /* B16: OH and CH on one step: the open hat alone, cut short after ~90 ms. */
         static el_engine_t h;
         float buf[EL_BLOCK * 2];

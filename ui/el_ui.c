@@ -1448,6 +1448,7 @@ static unsigned shown_step_page(el_ui_t *ui, unsigned length, unsigned pos, int 
 }
 
 static int step_overlay(const el_ui_t *ui);
+static unsigned punch_shown(const el_ui_t *ui);
 static unsigned knob_phase(const el_ui_t *ui, unsigned i);
 static int bars_overlay(const el_ui_t *ui);
 static void signatures(el_ui_t *ui, uint32_t sig[3])
@@ -1461,6 +1462,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
     mix(&sig[1], ui->acc_lane | (uint32_t)ui->mute_mode << 1);
+    if (ui->overview && punch_shown(ui))   /* the tiles' animation, ~12 frames a second (N10) */
+        mix(&sig[1], 0x70000000u | punch_shown(ui) | (ui->now / 80u) << 8 | (uint32_t)e->punch << 24 | (uint32_t)e->punch_div[3] << 16);
     mix(&sig[2], ui->mute_mode | (uint32_t)ui->fill_edit << 1 | (uint32_t)e->drums.fill_now << 2 | (uint32_t)e->drums.fill_auto << 3 |
                  (uint32_t)(e->drums.fill_auto ? e->drums.bars % e->drums.fill_auto : 0) << 10);
     mix(&sig[1], bars_overlay(ui) ? 0x40000000u | ui->bars_shown : 0u);
@@ -1946,6 +1949,93 @@ static void draw_editor(el_ui_t *ui, gfx_band_t *b)
     if (gfx_touches(b, 160, 10)) gfx_text(b, 4, 160, syn_engine_names[t->part.engine], DIM, 1);
 }
 
+/* Live effects held (N10): a tile per punch-in, name and a small animation,
+ * side by side over the lower part of HOME. */
+static unsigned punch_shown(const el_ui_t *ui)
+{
+    unsigned bits = ui->engine->punch;
+    for (unsigned i = 0; i < EL_PUNCHES; ++i) if (ui->punch_key[i]) bits |= 1u << i;
+    return bits & ((1u << EL_PUNCHES) - 1u);
+}
+
+enum { PT_Y = 116, PT_H = 70 };
+static void draw_punch_tiles(el_ui_t *ui, gfx_band_t *b)
+{
+    unsigned bits = punch_shown(ui), n = 0;
+    if (!bits || !gfx_touches(b, PT_Y, PT_H)) return;
+    for (unsigned i = 0; i < EL_PUNCHES; ++i) n += (bits >> i) & 1u;
+    static const char *const short_names[EL_PUNCHES] = {"STUT", "THROW", "TAPE", "REPT", "DLY", "CRSH", "PHSR"};
+    static const char *const names[EL_PUNCHES] = {"STUTTER", "THROW", "TAPE", "REPEAT", "DELAY", "CRUSH", "PHASER"};
+    int gap = 4, w = (GFX_W - 8 - (int)(n - 1u) * gap) / (int)n, x = 4;
+    uint32_t t = ui->now;
+    gfx_fill(b, 0, PT_Y - 3, GFX_W, PT_H + 6, BACK);
+    for (unsigned i = 0; i < EL_PUNCHES; ++i) {
+        if (!((bits >> i) & 1u)) continue;
+        uint16_t c = ACCENT;
+        gfx_frame(b, x, PT_Y, w, PT_H, c);
+        const char *name = gfx_text_width(names[i], 1) <= w - 6 ? names[i] : short_names[i];
+        gfx_text(b, x + (w - gfx_text_width(name, 1)) / 2, PT_Y + 4, name, TEXT, 1);
+        int ax = x + 4, ay = PT_Y + 16, aw = w - 8, ah = PT_H - 22;
+        switch (i) {
+        case 0: {   /* stutter: bars in time, the lit one moves */
+            int lit = (int)(t / 125u) % 4;
+            for (int k = 0; k < 4; ++k) gfx_fill(b, ax + k * aw / 4, ay, aw / 4 - 2, ah, k == lit ? c : GRID);
+            break;
+        }
+        case 1:     /* reverb throw: rings going out */
+            for (int k = 0; k < 3; ++k) {
+                int r = (int)((t / 50u + (uint32_t)k * 7u) % 21u) * (aw < ah ? aw : ah) / 42;
+                gfx_frame(b, ax + aw / 2 - r, ay + ah / 2 - r, 2 * r + 1, 2 * r + 1, k ? DIM : c);
+            }
+            break;
+        case 2: {   /* tape stop: the curve sinks */
+            int drop = (int)(t % 1200u) * ah / 1200;
+            for (int k = 0; k < aw; k += 2) {
+                int y = ay + drop * k * k / (aw * aw);
+                if (y > ay + ah - 2) y = ay + ah - 2;
+                gfx_fill(b, ax + k, y, 2, 2, c);
+            }
+            break;
+        }
+        case 3: {   /* repeat: the chosen step, blinking */
+            char st[4];
+            el_snprintf(st, sizeof st, "%u", (unsigned)ui->engine->punch_div[3] + 1u);
+            if ((t / 125u) & 1u || !(ui->engine->punch & EL_PUNCH_REPEAT)) {
+                int sc = gfx_text_width(st, 3) <= aw ? 3 : 1;
+                gfx_text(b, ax + (aw - gfx_text_width(st, sc)) / 2, ay + (ah - 7 * sc) / 2, st, (ui->engine->punch & EL_PUNCH_REPEAT) ? c : DIM, sc);
+            }
+            break;
+        }
+        case 4: {   /* delay: echoes, each lower */
+            int off = (int)(t / 60u) % 6;
+            for (int k = 0; k < 4; ++k) {
+                int hh = ah * (4 - k) / 4, xx = ax + k * aw / 4 + off * aw / 48;
+                if (xx + 3 <= ax + aw) gfx_fill(b, xx, ay + ah - hh, 3, hh, k ? DIM : c);
+            }
+            break;
+        }
+        case 5:     /* bitcrush: a staircase */
+            for (int k = 0; k < 6; ++k) {
+                int hh = ah * ((k + (int)(t / 200u)) % 6 + 1) / 6;
+                gfx_fill(b, ax + k * aw / 6, ay + ah - hh, aw / 6, hh, (k & 1) ? c : DIM);
+            }
+            break;
+        default: {  /* phaser: a notch moving through */
+            int notch = (int)(t / 30u) % (2 * aw);
+            if (notch >= aw) notch = 2 * aw - 1 - notch;
+            for (int k = 0; k < aw; k += 2) {
+                int d = k - notch;
+                if (d < 0) d = -d;
+                int hh = d < aw / 6 ? ah * d / (aw / 6 + 1) : ah;
+                gfx_fill(b, ax + k, ay + ah - hh, 2, hh < 2 ? 2 : hh, c);
+            }
+            break;
+        }
+        }
+        x += w + gap;
+    }
+}
+
 static void draw_overview(el_ui_t *ui, gfx_band_t *b)
 {
     el_engine_t *e = ui->engine;
@@ -2295,7 +2385,7 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
     if (gfx_touches(b, 0, HEADER_H)) draw_header(ui, b);
     if (gfx_touches(b, HEADER_H, FOOT_Y - 4 - HEADER_H)) {
         if (ui->options) draw_options(ui, b);
-        else if (ui->overview) draw_overview(ui, b);
+        else if (ui->overview) { draw_overview(ui, b); draw_punch_tiles(ui, b); }
         else if (ui->area == EL_AREA_BEAT) draw_beat(ui, b);
         else if (in_editor(ui)) draw_editor(ui, b);
         else draw_synth(ui, b);
