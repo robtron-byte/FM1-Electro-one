@@ -1,8 +1,19 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 38. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 39. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 38. Build (zweite Runde deiner Auswahl):
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 39. Build (deine Feedback-Liste):
+- **Speichern ohne Hänger:** Die nächste Kopie wird schon beim Einschalten gelöscht; SAVE beim Spielen braucht kein Löschen mehr (erst ein zweites SAVE ohne Stopp dazwischen löscht wieder).
+- **Arpeggiator in STRINGS:** Mit ARP an spielt jeder STRINGS-Step seinen Akkord als Arpeggio (so lange der Step klingt); gehaltene Tasten haben Vorrang.
+- **Akzente in der Lauflicht-Leiste:** BEAT: ein Step mit Akzent ohne Schlag leuchtet gedimmt. STEP-Modus: akzentuierte Steps voll, andere gedimmt.
+- **Hervorhebung beim Drehen:** öffnet sich einmal am Anfang, bleibt beim Weiterdrehen ruhig stehen, Schrift mit Abstand zum Rand, Wert in gleicher Größe.
+- **STRINGS-Längen:** nur 1, 2, 4, 8 … Takte (GLO + ALGORITHM verdoppelt/halbiert; Live-Aufnahmen runden auf).
+- **Akkordwahl:** GLO gehalten in STRINGS zeigt die Tafel CHORD mit den 9 Möglichkeiten und den Tönen des aktiven Akkords; die Tasten 1–9 leuchten gedimmt, die aktive voll.
+- **Eigene Sounds:** Im Editor (EDIT tippen) SAVE, Platz wählen, SAVE: dann steht „U01 …“ links vom ersten Werks-Sound. Solange keiner gespeichert ist, sagt PRESETS dort, wie es geht.
+
+Emulator (neue Firmware mit einem Speicherstand des 36. Builds): Groove lädt, PEAK 58 %, MAX 72 %; eigener Sound gespeichert und in PRESETS gefunden.
+
+Aus dem 38. Build:
 - **Hi-Hats (B16):** Open und Closed Hat auf demselben Step: eine kurze Open Hat (90 ms) wie bei der 808, statt dass die Closed Hat sie sofort abwürgt.
 - **Drum-Vorschau (N2):** OCT+ in BEAT schaltet sie an/aus (OCT+ gedimmt = aus). Aus: die Instrumenten-Taste wählt nur, bei REC wird ohne Ton aufgenommen. OCT− blättert die Step-Seiten 1–16 / 17–32.
 - **Leerer Start (S11):** HOME, ARP halten + 16. weiße Taste zweimal: alles leer, Zufalls-Kit und -Sounds. Erst SAVE macht es dauerhaft.
@@ -110,7 +121,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `b2cffb19ced23259370f3b2bc1d8aca2c1b3ab68e7e4266f5d97098633375708`
+SHA-256: `f30d878ba9a09287b54c2fd12db7ff381b85c173c6c349007c4ce223825f4693`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
