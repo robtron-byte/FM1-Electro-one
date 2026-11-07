@@ -98,7 +98,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	  grep -E "^(two cores|timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
 	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
-	  grep "^store\|^extras\|^strings\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steps\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
+	  grep "^store\|^extras\|^strings\|^locks\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steps\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 
@@ -131,7 +131,7 @@ dist-fixed-check: host/dist_fixed_check.c host/dist_fixed_cmp.py engine/dist.c e
 # The fixed-point cymbal and hats (engine/tr808_metal_fixed.h, own platform)
 # against the float 808: single hits with several knob settings, each must
 # stay within -40 dB of the float model (docs/adr/0022).
-METAL_CASES = cy cy_acc cy_dark cy_bright oh oh_acc oh_long oh_tune ch ch_acc ch_tune oh_choke bd bd_acc bd_short bd_long bd_tune bd_tone bd_punch bd_drive bd_retrig sd sd_acc sd_tone sd_early lt ht_acc lt_conga ht_tune rs rs_clave cp cp_acc cp_maracas cb cb_tune ch_drive cp_drive zp zp_tone zp_sweep zp_retrig pu pu_ring
+METAL_CASES = cy cy_acc cy_dark cy_bright oh oh_acc oh_long oh_tune ch ch_acc ch_tune oh_choke bd bd_acc bd_short bd_long bd_tune bd_tone bd_punch bd_drive bd_retrig sd sd_acc sd_tone sd_early lt ht_acc lt_conga ht_tune rs rs_clave cp cp_acc cp_maracas cb cb_tune ch_drive cp_drive zp zp_tone zp_sweep zp_retrig pu pu_ring bd_p7 bd_m12 sd_p5 rs_m3 cb_p4 cb_m5 zp_p6 pu_m7
 metal-fixed-check: host/metal_fixed_check.c host/metal_fixed_cmp.py $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/mfc_0 build/mfc_1
 	@for fx in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DTR808_FIXED=$$fx -o build/mfc_bin_$$fx host/metal_fixed_check.c $(ENGINE) -lm && ./build/mfc_bin_$$fx build/mfc_$$fx || exit 1; done
@@ -198,7 +198,7 @@ hall-ab: host/hall_ab.c host/fixed_cmp.py $(ENGINE) $(wildcard engine/*.h)
 	@python3 host/fixed_cmp.py build/hall_A.raw build/hall_C.raw 1 0 "C (every 8th)"; true
 
 # The master compressor as set from the factory (A) and as CLUB (B, COMP
-# RATIO CLUB, docs/adr/0028): the default groove, 16 s.
+# RATIO CLUB, docs/adr/0029): the default groove, 16 s.
 comp-ab: host/comp_ab.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/wav
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -o build/comp_ab host/comp_ab.c $(ENGINE) -lm

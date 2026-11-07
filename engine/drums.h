@@ -15,6 +15,7 @@
 enum {
     DR_PARTS = D8_NUM,      /* BD SD LT HT RS CP CB CY OH CH ZP PU */
     DR_STEPS = 32,
+    DR_PITCH_PARTS = 6,     /* parts with a pitch lock: BD SD RS CB ZP PU */
     DR_PATTERNS = 4,        /* slots A-D (each synth area has its own four too) */
     DR_KITS = 5,
     DR_STYLES = 16,
@@ -33,7 +34,7 @@ typedef struct {
 } dr_pattern_t;
 
 enum dr_command {
-    DR_CMD_HIT,         /* a = part, b = velocity 1..127, c = record flag */
+    DR_CMD_HIT,         /* a = part, b = velocity 1..127, c = record flag, value = semitones (pitch lock) */
     DR_CMD_TOGGLE,      /* a = part, b = step: hit on/off */
     DR_CMD_ROLL,        /* a = part, b = step: roll on/off (sets the hit too) */
     DR_CMD_ACCENT,      /* b = step */
@@ -54,7 +55,9 @@ enum dr_command {
     DR_CMD_PANIC,
     DR_CMD_AREA_MUTE,   /* b = on: silence the whole beat area */
     DR_CMD_COND,        /* a = part, b = step, value = EL_COND_* (the current pattern) */
-    DR_CMD_PROB         /* a = part, b = step, value = 0..EL_PROBS-1 (the current pattern) */
+    DR_CMD_PROB,        /* a = part, b = step, value = 0..EL_PROBS-1 (the current pattern) */
+    DR_CMD_PITCH,       /* a = part, b = step, value = -12..12 semitones (docs/adr/0028; tuned parts only) */
+    DR_CMD_VOL          /* a = part, b = step, value = 0 as played, 1..7 a fixed level (docs/adr/0028) */
 };
 
 /* Harmony family of a style: chord progressions for the strings. */
@@ -79,6 +82,13 @@ typedef struct {
      * planes: bit n of cond[slot][k][part] is bit k of step n's condition. */
     uint32_t cond[DR_PATTERNS][3][DR_PARTS];
     uint32_t prob[DR_PATTERNS][4][DR_PARTS];   /* the probability (EL_PROBS), four bit planes likewise */
+    /* Parameter locks per step (docs/adr/0028), as bit planes as well: the
+     * pitch in semitones (-12..12, five planes of two's complement; only the
+     * tuned parts, dr_pitch_slot) and a fixed level 1..7 (three planes, 0 =
+     * the step plays as the pattern has it). */
+    uint32_t pitch[DR_PATTERNS][5][DR_PITCH_PARTS];
+    uint32_t vol[DR_PATTERNS][3][DR_PARTS];
+    int8_t roll_semis[DR_PARTS];
     uint8_t pass;           /* passes of the current pattern since it started */
     el_queue_t queue;
     float level;            /* output gain */
@@ -121,6 +131,46 @@ static inline unsigned dr_prob(const dr_machine_t *m, unsigned slot, unsigned pa
     for (unsigned k = 0; k < 4; ++k) v |= ((c[k][part] >> step) & 1u) << k;
     return v;
 }
+/* Low and high tom (conga) are taken out of the kit (docs/adr/0028): no key,
+ * no row, no MIDI note, and they never sound. Their hits in patterns of
+ * older versions are removed when a pattern is loaded or generated. */
+#define DR_HIDDEN(part) ((part) == D8_LT || (part) == D8_HT)
+void dr_strip_hidden(dr_pattern_t *p);
+
+/* Index of a part among the pitch locks (the tuned parts BD SD RS CB ZP PU), or -1. */
+static inline int dr_pitch_slot(unsigned part)
+{
+    switch (part) {
+    case D8_BD: return 0;
+    case D8_SD: return 1;
+    case D8_RS: return 2;
+    case D8_CB: return 3;
+    case D8_ZP: return 4;
+    case D8_PU: return 5;
+    default: return -1;
+    }
+}
+/* A step's pitch lock in semitones (0 = none, or a part that is not tuned). */
+static inline int dr_pitch(const dr_machine_t *m, unsigned slot, unsigned part, unsigned step)
+{
+    int s = dr_pitch_slot(part);
+    if (s < 0) return 0;
+    const uint32_t (*c)[DR_PITCH_PARTS] = m->pitch[slot % DR_PATTERNS];
+    unsigned v = 0;
+    for (unsigned k = 0; k < 5; ++k) v |= ((c[k][s] >> step) & 1u) << k;
+    return (int)v >= 16 ? (int)v - 32 : (int)v;
+}
+/* A step's fixed level 1..7, 0 = as played (normal or accent). */
+static inline unsigned dr_vol(const dr_machine_t *m, unsigned slot, unsigned part, unsigned step)
+{
+    const uint32_t (*c)[DR_PARTS] = m->vol[slot % DR_PATTERNS];
+    return ((c[0][part] >> step) & 1u) | ((c[1][part] >> step) & 1u) << 1 | ((c[2][part] >> step) & 1u) << 2;
+}
+/* The velocity of a fixed level (1..7): quiet ghost notes up to the accent
+ * (5 is the normal hit); the percentage the panel shows. */
+float dr_vol_velocity(unsigned level);
+int dr_vol_percent(unsigned level);
+
 /* A step's condition (EL_COND_*). */
 static inline unsigned dr_cond(const dr_machine_t *m, unsigned slot, unsigned part, unsigned step)
 {
@@ -155,7 +205,7 @@ EL_DSP_CODE int dr_frames_until(const dr_machine_t *m, int limit);
 EL_DSP_CODE void dr_render(dr_machine_t *m, float *kick, float *left, float *right,
                            float *rev, float *gate, float *dly, int frames);
 /* Trigger a part from MIDI or a pad; record into the pattern when armed. */
-EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record);
+EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int record, int semitones);
 
 /* General MIDI drum note for a part, and the part for a note (or -1). */
 unsigned dr_part_note(unsigned part);

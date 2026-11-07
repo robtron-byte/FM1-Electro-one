@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
  * Host tool: the default groove through the master, for A/B listening of
  * the compressor: `make comp-ab` writes build/wav/comp_A.wav (as set from
- * the factory) and comp_B.wav (COMP RATIO CLUB, docs/adr/0028).
+ * the factory) and comp_B.wav (COMP RATIO CLUB, docs/adr/0029).
  * Usage: comp_ab <out.wav> <ratio index> */
 #include <stdio.h>
 #include <stdlib.h>

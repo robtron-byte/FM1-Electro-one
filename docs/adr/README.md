@@ -33,6 +33,7 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0025](0025-step-varianz.md) | Step-Varianz: ein Step spielt nur in jedem zweiten oder vierten Durchlauf | vorgeschlagen | 2026-11-06 |
 | [0026](0026-eigene-sounds-zuerst.md) | Eigene Sounds vor den Werks-Sounds, GLO + PRESETS als Schnellspur | vorgeschlagen | 2026-11-07 |
 | [0027](0027-eigene-sounds-und-lange-streicher.md) | Eigene schlichte Sounds und Pads, Bässe neben der Bassdrum, STRINGS bis 8 Takte pro Step, Live-Aufnahme in Achteln | vorgeschlagen | 2026-11-07 |
-| [0028](0028-master-kompressor-club.md) | Master-Kompressor CLUB (Programm-Release, parallel) | vorgeschlagen | 2026-11-07 |
+| [0028](0028-drum-locks-ohne-toms.md) | Drum-Locks für Tonhöhe (Halbtöne) und Lautstärke pro Step; Tom und Conga aus der Bedienung | vorgeschlagen | 2026-11-07 |
+| [0029](0029-master-kompressor-club.md) | Master-Kompressor CLUB (Programm-Release, parallel) | vorgeschlagen | 2026-11-07 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

@@ -278,7 +278,7 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
         if (k == DM_CB) {
             const float *cb = tr808_cb_cal;
             if (fresh[k]) {
-                float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE);
+                float tune = (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE)) * t->shift[part];
                 dm_svf_set(&v->r1, cb[0] * tune, cb[1]);
                 dm_svf_set(&v->r2, cb[3] * tune, 0.7071f);
             }
@@ -291,9 +291,9 @@ static EL_DSP_CODE unsigned dm_render(tr808_t *t, int frames)
             kv[k] = dm_q28(0.45f + 0.55f * tv->volts * 14.0f / 4.0f / 3.5f);
             cb_asym = dm_q28(cb[7]);
             out_gain[k] = dm_q28(cb[8]);
-            if (t->key_on || t->pot[part][P_TUNE] != 64) {   /* its own rectangles */
-                float lo = t->key_on ? t->key_r[part] : spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE);
-                float hi = t->key_on ? t->key_cb_hi : lo;
+            if (t->key_on || t->pot[part][P_TUNE] != 64 || t->shift_semis[part]) {   /* its own rectangles */
+                float lo = (t->key_on ? t->key_r[part] : spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];
+                float hi = t->key_on ? t->key_cb_hi * t->shift[part] : lo;
                 for (int i = 0; i < 2; ++i) {
                     float dt = metal_hz[4 + i] * (i ? hi : lo) * (1.0f / EL_SAMPLE_RATE);
                     dm.cb_inc[i] = (uint32_t)(dt * 4294967296.0f);

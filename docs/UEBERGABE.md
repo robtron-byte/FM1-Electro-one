@@ -85,4 +85,5 @@ github.com/aroum/fm1-custom-fw.
 - 24. Build: korrigiert; 20.–23. waren wegen eines unbemerkten Linkfehlers (`strlen` fehlt auf der Plattform) noch Build 19. Bauen jetzt nur mit Prüfung von Rückgabewert, frischer `dinghy.elf` und Log (kein 'undefined'/'failed'/'truncated').
 - 25. Build: JP-6 inline (vco_tick/vcf), tr808 key_update ohne memcmp. Bauen mit Skript, das Linkfehler erkennt (siehe 24. Build).
 - 26. Build: Branch claude/loving-hopper-0mxdty (ADR 0026, 0027) zusammengeführt (Merge), make test/web, check.sh ok.
-- 27. Build: COMP RATIO CLUB (ADR 0028); FX_REVERB_LFO_EVERY gebaut, ohne messbaren Gewinn, aus. EP-133-Anleitung bräuchte teenage.engineering im Netz der Sitzung.
+- 27. Build: COMP RATIO CLUB (ADR 0029); FX_REVERB_LFO_EVERY gebaut, ohne messbaren Gewinn, aus. EP-133-Anleitung bräuchte teenage.engineering im Netz der Sitzung.
+- 28. Build: Branch claude/loving-hopper-0mxdty (ba8447e, ADR 0028 Drum-Locks, Store 24) gemergt; mein CLUB-ADR auf 0029 umbenannt. make test/web/metal-fixed-check, check.sh, Emulator PEAK 63 % ok.

@@ -52,7 +52,7 @@ static EL_DSP_CODE int db_render(tr808_t *t, int frames)
         db.env = db.pitch = db.env3 = DM_ONE30;
     }
     /* ---- per call, as bass_drum() works them out */
-    float f0 = k[0] * (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE));
+    float f0 = k[0] * (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part];
     float kd = knob(t, part, P_DECAY);
     float q = k[11] * m_exp2(&db.memo[1], k[12] * m_powf(&db.memo[0], kd, 0.8f));
     float punch = knob(t, part, P_SOUND);

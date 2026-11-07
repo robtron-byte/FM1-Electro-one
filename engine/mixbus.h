@@ -19,7 +19,7 @@ typedef struct {
     float a_coef, r_coef, makeup, env_db, gain_db;                   /* state */
     float gain, gain_step;        /* detector runs every COMP_EVERY samples, gain glides between */
     uint8_t phase;
-    /* CLUB (mb_master_club, docs/adr/0028): release by the program (fast
+    /* CLUB (mb_master_club, docs/adr/0029): release by the program (fast
      * above the slow average, slow on it) and 30 % of the uncompressed
      * signal kept (parallel) */
     uint8_t club;
@@ -72,7 +72,7 @@ void mb_init(el_mixbus_t *mb);
 void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db);
 /* The master compressor as CLUB (after mb_master_comp; on = 0: as set):
  * 4:1, 10 ms attack, release 80 ms on peaks above the program's slow
- * average and 700 ms on it, 30 % parallel (docs/adr/0028). */
+ * average and 700 ms on it, 30 % parallel (docs/adr/0029). */
 void mb_master_club(el_mixbus_t *mb, int on);
 /* The gain a compressor's glide gives, with CLUB's parallel share. */
 static inline float mb_comp_out(const mb_comp_t *c, float gain) { return c->club ? 0.3f + 0.7f * gain : gain; }

@@ -87,7 +87,7 @@ enum {
     EL_OPT_DIST_KICK_FULL,  /* 1: the bass drum keeps its lows into the distortion; 0 (default): cut like the rest */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
-/* The last ratio is CLUB (EL_COMP_CLUB, docs/adr/0028): 4:1 with its own
+/* The last ratio is CLUB (EL_COMP_CLUB, docs/adr/0029): 4:1 with its own
  * attack, program release and a parallel share; attack and release set
  * in OPTIONS do not apply then. */
 enum { EL_COMP_RATIOS = 9, EL_COMP_CLUB = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };

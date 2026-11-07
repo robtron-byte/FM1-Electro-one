@@ -1,8 +1,10 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 27. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 28. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. - **Master-Kompressor CLUB** (27. Build, ADR 0028): OPTIONS → COMP RATIO ganz nach rechts auf **CLUB**: 4:1, schneller Attack (der Anschlag kommt durch), Release passt sich an (Schläge lassen schnell los, der Teppich langsam, kein Pumpen), 30 % unkomprimiert parallel für Punch. Schwelle und Make-up wie eingestellt. Zum Vergleich am PC: `make comp-ab`.
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 28. Build:
+- **Aus dem zweiten Chat (ADR 0028): Drum-Locks pro Step.** BEAT-Step halten: **KNOB 1 = Tonhöhe** (−12…+12 Halbtöne), **KNOB 2 = Velocity**. Tom und Conga sind aus der Bedienung genommen; die zehn Instrumente liegen auf den ersten zehn schwarzen Tasten.
+- **Master-Kompressor CLUB** (27. Build, ADR 0029): OPTIONS → COMP RATIO ganz nach rechts auf **CLUB**: 4:1, schneller Attack (der Anschlag kommt durch), Release passt sich an (Schläge lassen schnell los, der Teppich langsam, kein Pumpen), 30 % unkomprimiert parallel für Punch. Schwelle und Make-up wie eingestellt. Zum Vergleich am PC: `make comp-ab`.
 - **Aus dem zweiten Chat (26. Build):** In PRESETS stehen die eigenen (User-)Sounds vor den Werks-Sounds, GLO + PRESETS blättert nur durch sie (ADR 0026). 23 neue eigene Sounds hinter den Werks-Sounds; STRINGS-Schritte auch 4 und 8 Takte, Generator-Stil LONG; eine Live-Aufnahme auf ein leeres STRINGS-Pattern läuft in Achteln (ADR 0027). Beide ADRs sind „vorgeschlagen“, bis du die Sounds gehört hast.
 - **JP-6-Sounds sparsamer** (25. Build, bitgleich): Oszillator und Filter ohne Funktionsaufruf pro Sample. Emulator: JP6 STRNG STRINGS 40 → 35 %.
 
@@ -57,7 +59,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `b229e782e691d4356cfd7c554bb15440c513de9724d35f083d2bde88bea764ec`
+SHA-256: `49feffdbcc2ef3d2b045233a23ba13856a2a77778230af4112cb8e280db7007c`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

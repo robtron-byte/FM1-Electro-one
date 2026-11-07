@@ -21,7 +21,7 @@ static void wav(const char *path, const float *x, unsigned n)
     for (unsigned i = 0; i < 2 * n; ++i) { float y = x[i] < -1 ? -1 : x[i] > 1 ? 1 : x[i]; short q = (short)lrintf(y * 32767); fwrite(&q, 2, 1, f); }
     fclose(f);
 }
-typedef struct { const char *name; int part, velocity, tune, decay, tone, second, slot, value; } hit_t;   /* slot / value: one more knob (tr808.c P_*) */
+typedef struct { const char *name; int part, velocity, tune, decay, tone, second, slot, value, semis; } hit_t;   /* slot / value: one more knob (tr808.c P_*); semis: the step's pitch lock */
 static const hit_t cases[] = {
     {"cy", D8_CY, 100, 64, 64, 64, -1},     {"cy_acc", D8_CY, 127, 64, 64, 64, -1},
     {"cy_dark", D8_CY, 100, 64, 20, 10, -1}, {"cy_bright", D8_CY, 100, 90, 120, 120, -1},
@@ -43,6 +43,10 @@ static const hit_t cases[] = {
     {"cp_maracas", D8_CP, 100, 64, 64, 64, -1, 5, 1},
     {"cb", D8_CB, 100, 64, 64, 64, -1}, {"cb_tune", D8_CB, 127, 90, 100, 64, -1},
     {"ch_drive", D8_CH, 100, 64, 64, 64, -1, 4, 80}, {"cp_drive", D8_CP, 100, 64, 64, 64, -1, 4, 100},
+    {"bd_p7", D8_BD, 100, 64, 64, 64, -1, 0, 0, 7}, {"bd_m12", D8_BD, 127, 64, 100, 64, -1, 0, 0, -12},
+    {"sd_p5", D8_SD, 100, 64, 64, 64, -1, 4, 100, 5}, {"rs_m3", D8_RS, 100, 64, 64, 64, -1, 0, 0, -3},
+    {"cb_p4", D8_CB, 100, 64, 64, 64, -1, 0, 0, 4}, {"cb_m5", D8_CB, 127, 90, 100, 64, -1, 0, 0, -5},
+    {"zp_p6", D8_ZP, 100, 64, 64, 64, -1, 0, 0, 6}, {"pu_m7", D8_PU, 100, 64, 64, 64, -1, 0, 0, -7},
     {"zp", D8_ZP, 100, 64, 64, 64, -1}, {"zp_tone", D8_ZP, 127, 90, 100, 90, -1}, {"zp_sweep", D8_ZP, 100, 40, 64, 0, -1, 4, 100},
     {"zp_retrig", D8_ZP, 100, 64, 64, 64, D8_ZP}, {"pu", D8_PU, 100, 64, 64, 64, -1}, {"pu_ring", D8_PU, 127, 90, 30, 120, -1, 4, 100},
 };
@@ -62,7 +66,7 @@ int main(int argc, char **argv)
         unsigned total = 44100 * 2 / EL_BLOCK * EL_BLOCK;
         memset(out, 0, sizeof out);
         for (unsigned p = 0; p < total; p += EL_BLOCK) {
-            if (p == 0) dr_post(&e.drums, DR_CMD_HIT, (uint8_t)h->part, (uint8_t)h->velocity, 0, 0);
+            if (p == 0) dr_post(&e.drums, DR_CMD_HIT, (uint8_t)h->part, (uint8_t)h->velocity, 0, (int16_t)h->semis);
             if (h->second >= 0 && p == 44100 / 4 / EL_BLOCK * EL_BLOCK) dr_post(&e.drums, DR_CMD_HIT, (uint8_t)h->second, 100, 0, 0);
             el_render_float(&e, out + 2 * p, EL_BLOCK);
         }

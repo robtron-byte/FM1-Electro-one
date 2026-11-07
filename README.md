@@ -42,7 +42,7 @@ Das FM-1 wird zur Electro-Groovebox mit vier Bereichen, die zusammen auf einer C
 
 | Bereich | Taste | Klang | Sequencer |
 |---|---|---|---|
-| **BEAT** | FX | 808-Drum-Machine (10 Instrumente + ZAP + PULSE, 5 Kits inkl. PO-12; Toms/Congas tief und hoch) | 4 Plätze (A–D), bis 32 Steps, Akzent, Rolls, Swing |
+| **BEAT** | FX | 808-Drum-Machine (BD SD RS CP CB CY OH CH + ZAP + PULSE, 5 Kits inkl. PO-12; ohne Toms und Congas) | 4 Plätze (A–D), bis 32 Steps, Akzent, Rolls, Swing |
 | **RHYTHM** | SEL | MKS-50 oder JP-6, 3 Stimmen: Zaps, Stabs, Bleeps, Sequenzen, Leads, Perc (30 + 44 Sounds, dazu 7 eigene schlichte) | Noten-Steps mit Akzent und Tie |
 | **STRINGS** | ENV | MKS-50 oder JP-6, 4 Stimmen: Strings, Pads, Brass (16 + 20 Sounds, dazu 8 eigene Pads und schlichte Strings) | Akkord-Sequenzer für lange Sequenzen: Schrittlänge 1/16 bis 8 Takte (Standard 1 Takt, bis 256 Takte lang); eine Live-Aufnahme auf ein leeres Pattern läuft in Achteln, gehaltene Akkorde, pro Step Akkordtyp (m7, SUS2, MIN, 5+8, SUS4, 7TH, MAJ, m7b5 — dieselben acht wie in den Apps) und Umkehrung |
 | **BASS** | LFO | MKS-50 oder JP-6, 2 Stimmen (Mono/Unison, Glide): Robo, Acid, Sub, Wobble (10 + 10 Sounds, dazu 8 eigene) | Noten-Steps mit Akzent und Slide (Tie) |
@@ -109,7 +109,7 @@ OCT −    OCT +                              HOME SAVE ARP  SEQ  PLAY/STOP REC
 | ALGORITHM | Tempo. GLO + ALGORITHM: Länge des Patterns im aktuellen Bereich. EDIT + ALGORITHM: Swing (BEAT), Notenlänge (RHYTHM, BASS), Schrittlänge 1/16 … 8 Takte (STRINGS) |
 | PRESETS | Sound des Bereichs (EDIT: andere Engine, GLO: nur die eigenen Sounds), in BEAT das Kit (808, ELECTRO, MIAMI, KRAFT, PO-12) |
 
-**BEAT:** schwarze Taste wählt und spielt ein Instrument (BD SD LT HT RS CP CB CY OH CH ZAP; SEQ schaltet auf die zweite Ebene mit PULSE auf schwarzer Taste 1), weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. KNOB 1–4 Klang des Instruments, GLO + SELECT wählt das Instrument ohne es zu spielen (auch PULSE).
+**BEAT:** schwarze Taste wählt und spielt ein Instrument (BD SD RS CP CB CY OH CH ZAP PU, die zehn Instrumente auf den ersten zehn schwarzen Tasten), weiße Tasten setzen Steps. EDIT + weiß Akzent, GLO + weiß 32tel-Roll, EDIT + schwarz Instrument löschen, GLO + schwarz Instrument stumm. KNOB 1–4 Klang des Instruments, GLO + SELECT wählt das Instrument ohne es zu spielen. **Step-Taste halten:** PRESETS Durchläufe (1:2 …), ALGORITHM Wahrscheinlichkeit, **KNOB 1 Tonhöhe des Steps in Halbtönen (−12 … +12), KNOB 2 Velocity des Steps in 7 groben Stufen** (ADR 0028). Beide stehen gleichzeitig in zwei Feldern auf dem Display, das zuletzt gedrehte ist umrahmt, und die beiden Knöpfe unten heißen solange PITCH und VELOCITY; jede Änderung klingt sofort an, ein kleiner oranger Strich unten links am Step zeigt, dass er eine Tonhöhe oder Velocity trägt. Tonhöhe gibt es bei BD, SD, RS, CB, ZAP und PULSE (denen, die auch der Drum-Tonart folgen), die Velocity bei allen; „AUTO“ heißt: so, wie das Pattern den Step hat (normal oder Akzent). KNOB 3 und 4 bleiben der Klang, SELECT der Platz.
 
 **RHYTHM, STRINGS, BASS** haben zwei Modi, SEQ schaltet um:
 
