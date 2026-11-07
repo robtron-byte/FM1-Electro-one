@@ -808,7 +808,7 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     }
     if (part >= 0) ui->acc_lane = 0;
     if (part >= 0) {
-        if (hold & HOLD_GLO) dr_post(m, DR_CMD_MUTE, (uint8_t)part, !(m->mute & BIT(part)), 0, 0);
+        if ((hold & HOLD_GLO) || (ui->mute_mode && !(hold & HOLD_EDIT))) dr_post(m, DR_CMD_MUTE, (uint8_t)part, !(m->mute & BIT(part)), 0, 0);
         else if (hold & HOLD_EDIT) { dr_post(m, DR_CMD_CLEAR_PART, (uint8_t)part, 0, 0, 0); notice(ui, "PART CLEARED"); }
         else {
             if (ui->part != part) ui->page[0] = 0;
@@ -1084,6 +1084,17 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     if ((ui->prev_buttons & ~c->buttons & BIT(BTN_ARP)) && ui->arp_tap) {
         ui->arp_tap = 0;
         toggle_arp(ui, (hold & HOLD_EDIT) != 0);
+    }
+    /* GLO tapped alone in BEAT: the mute mode on / off (N13); held it stays the shift key. */
+    if (pressed & BIT(BTN_GLO)) ui->glo_tap = 1;
+    if ((pressed & ~BIT(BTN_GLO)) || keys_down || (c->buttons & ~BIT(BTN_GLO))) ui->glo_tap = 0;
+    for (unsigned i = 0; i < UI_ENCODERS; ++i) if (c->encoders[i]) ui->glo_tap = 0;
+    if ((ui->prev_buttons & ~c->buttons & BIT(BTN_GLO)) && ui->glo_tap) {
+        ui->glo_tap = 0;
+        if (!ui->overview && ui->area == EL_AREA_BEAT) {
+            ui->mute_mode = (uint8_t)!ui->mute_mode;
+            notice(ui, ui->mute_mode ? "MUTE MODE: KEYS MUTE / UNMUTE" : "MUTE MODE OFF");
+        }
     }
     /* EDIT tapped alone: the editor of the area shown, again: back (N8). */
     if (pressed & BIT(BTN_EDIT)) ui->edit_tap = 1;
@@ -1382,7 +1393,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
-    mix(&sig[1], ui->acc_lane);
+    mix(&sig[1], ui->acc_lane | (uint32_t)ui->mute_mode << 1);
+    mix(&sig[2], ui->mute_mode);
     mix(&sig[1], bars_overlay(ui) ? 0x40000000u | ui->bars_shown : 0u);
     mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 |
                                       (uint32_t)((ui->sh_pitch + 16) & 31) << 17 | (uint32_t)ui->sh_vol << 22 | (uint32_t)ui->sh_lock << 25 : 0u);
@@ -1499,7 +1511,7 @@ static void update_leds(el_ui_t *ui)
      * The area buttons (FX / SEL / ENV / LFO, HOME): the chosen one full,
      * the others dimmed to about half; OCT- / OCT+ blink when the keys'
      * octave is at its end. */
-    uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0, dim = 0;
+    uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0, dim = 0, key_dim = 0;
     int slow = (ui->now / 400u) & 1u, fast = (ui->now / 125u) & 1u;
     if (playing) {
         uint32_t step = e->transport.step ? e->transport.step - 1u : 0u;   /* the step sounding now */
@@ -1512,6 +1524,7 @@ static void update_leds(el_ui_t *ui)
     if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor && slow)
         blink |= 1ull << BTN_SEQ;
     if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
+    if (ui->mute_mode && !ui->overview && ui->area == EL_AREA_BEAT && slow) blink |= 1ull << BTN_GLO;   /* N13 */
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
     dim |= (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
           ~(1ull << (ui->overview ? BTN_HOME : BTN_FX + ui->area));
@@ -1550,6 +1563,13 @@ static void update_leds(el_ui_t *ui)
         for (unsigned k = 0; k < UI_BLACK; ++k) {
             int part = beat_part(ui, (int)k);
             if (part < 0) continue;
+            if (ui->mute_mode && !(ui->hold & HOLD_GLO)) {
+                /* N13: full = plays and has hits, dimmed = nothing recorded, blinking = muted */
+                uint64_t bit = 1ull << (14u + black_keys[k]);
+                if (m->mute & BIT(part)) { if (slow) leds |= bit; }
+                else { leds |= bit; if (!p->hit[part]) key_dim |= bit; }
+                continue;
+            }
             int on = (ui->hold & HOLD_GLO) ? !(m->mute & BIT(part)) : part == ui->part;
             if (on) leds |= 1ull << (14u + black_keys[k]);
         }
@@ -1579,6 +1599,7 @@ static void update_leds(el_ui_t *ui)
         }
     }
     leds &= ~blink;
+    dim |= key_dim;
     dim &= leds;
     uint64_t changed = ui->leds_valid ? (leds ^ ui->leds) | (dim ^ ui->leds_dim) : ~0ull;
     for (unsigned i = 0; i < 14u + UI_KEYS; ++i)
@@ -1973,6 +1994,9 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     char line[48];
     if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && rec_step_mode(ui)) {
         el_snprintf(line, sizeof line, "STEP REC %u/32  TOP KEY=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
+        hint = line;
+    } else if (!hint && ui->mute_mode && !ui->overview && ui->area == EL_AREA_BEAT) {
+        el_snprintf(line, sizeof line, "MUTE: KEYS MUTE / UNMUTE  GLO = OFF");
         hint = line;
     } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {
         el_snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);

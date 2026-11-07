@@ -131,6 +131,27 @@ int main(int argc, char **argv)
     int beat_ok = engine.drums.kit_index == kit_before + 1 && bp->length == 32 && bp->swing > 50 && ui.part == DR_PARTS - 1;
     printf("layout: beat kit %s, length %u, swing %u, part %s %s\n", dr_kit_names[engine.drums.kit_index], bp->length,
            bp->swing, dr_part_names[ui.part], beat_ok ? "ok" : "FAIL");
+    {
+        /* N13: GLO tapped in BEAT: the mute mode; the instrument keys mute, their LEDs
+         * show it (full plays, dimmed no hits, blinking muted); GLO again: off. */
+        static const uint8_t bk[11] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
+        dr_machine_t *dm = &engine.drums;
+        tap_button(BTN_GLO);
+        int mm = ui.mute_mode;
+        uint16_t mute_was = dm->mute;
+        tap_key(bk[0]);                     /* BD */
+        run(50);
+        mm = mm && (dm->mute ^ mute_was) == (1u << D8_BD);
+        int blinked = 0, lit = 0;
+        for (int i = 0; i < 12; ++i) { run(70); if (leds[14 + bk[0]]) lit = 1; else blinked = 1; }
+        mm = mm && lit && blinked;
+        tap_key(bk[0]);
+        run(50);
+        mm = mm && dm->mute == mute_was;
+        tap_button(BTN_GLO);
+        mm = mm && !ui.mute_mode;
+        printf("mute mode: GLO tap on / off, key mutes, LED blinks while muted (N13) %s\n", mm ? "ok" : "FAIL");
+    }
     shot(dir, "02b_beat_pulse");
     turn(6, -1);
     hold(BTN_GLO, 1);
