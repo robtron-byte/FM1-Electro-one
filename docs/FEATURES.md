@@ -102,4 +102,5 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | N3 | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ |
 | N4 | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ |
 | N5 | REC gedimmt, solange nicht aufgenommen wird; voll (blinkend) beim Aufnehmen | ○ |
-| N6 | STRINGS-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte; jede Note klingt so lange, wie man sie gehalten hat (Anschlag bis Loslassen, keine festen Schritte) | ○ |
+| N6 | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel); jede Note klingt so lange, wie man sie gehalten hat (gebundene Schritte bis zum Loslassen) | ○ |
+| N7 | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) |
