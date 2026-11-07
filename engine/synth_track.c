@@ -161,6 +161,8 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
 {
     release_all(t);
     release_long(t);
+    t->arp_seq_left = 0;
+    arp_seq(&t->arp, 0, 0, 1);
     t->playing = 0;
     t->pos = 0;
     t->tick = 0;
@@ -219,6 +221,14 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);
     float velocity = (s->flags & ST_ACCENT) ? 1.0f : 0.7f;
+    if (t->area == MKS_AREA_STRINGS && arp_active(&t->arp)) {
+        /* STRINGS with ARP on: the step's chord is arpeggiated instead of
+         * played (as long as the step lasts, or a recorded note is held). */
+        release_all(t);
+        arp_seq(&t->arp, notes, count, (int)(velocity * 127.0f));
+        t->arp_seq_left = s->len ? (float)s->len * sixteenth_frames * 0.5f : step_frames * el_clampi(p->gate, 10, 100) * 0.01f;
+        return;
+    }
     if (s->len) {
         /* A recorded note with its length (N6): it sounds that long beside
          * the other steps; the same note again starts over. The key being
@@ -286,6 +296,10 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
     static const float trim[4] EL_DSP_DATA = {1.0f, 2.6f, 0.75f, 4.3f};
     syn_render(&t->part, left, right, dly, rev, frames, bpm, t->level_value / 127.0f * trim[t->area & 3u]);
     t->since_step += (float)frames;
+    if (t->arp_seq_left > 0) {   /* the step's arpeggio ends with the step */
+        t->arp_seq_left -= (float)frames;
+        if (t->arp_seq_left <= 0) { t->arp_seq_left = 0; arp_seq(&t->arp, 0, 0, 1); }
+    }
     for (unsigned i = 0; i < t->rec_count; ++i) t->rec_frames[i] += (float)frames;
     for (unsigned i = 0; i < t->long_count;) {
         t->long_left[i] -= (float)frames;

@@ -7,6 +7,7 @@
 #ifndef EL_ARP_H
 #define EL_ARP_H
 #include "el_config.h"
+#include "mks.h"
 
 enum { ARP_ON, ARP_MODE, ARP_RATE, ARP_OCTAVES, ARP_GATE, ARP_HOLD, ARP_PARAMS };
 enum { ARP_MODES = 5, ARP_RATES = 11, ARP_KEYS = 16, ARP_POOL = 80, ARP_TICKS_PER_16TH = 6 };
@@ -19,6 +20,9 @@ typedef struct {
     uint8_t keys[ARP_KEYS], velocities[ARP_KEYS], count;
     uint8_t held[16];             /* keys physically down (bit per note) */
     uint8_t chord;                /* live chord of the area, ST chord byte */
+    /* The sequence's chord (STRINGS with ARP on): arpeggiated while no key is held. */
+    int16_t seq[MKS_CHORD_NOTES];
+    uint8_t seq_count, seq_velocity;
     uint8_t sub, grid_valid;
     int16_t sounding;
     uint32_t tick, last_grid, position, random;
@@ -42,6 +46,8 @@ EL_DSP_CODE int arp_frames_until(const arp_t *a, int limit);
 /* After frames were rendered. running: transport runs (sub-ticks wait for
  * arp_sync after the 16th); stopped: free-running at bpm. */
 EL_DSP_CODE arp_events_t arp_advance(arp_t *a, int frames, int running, float bpm);
+/* The sequence's notes to arpeggiate while no key is held (count 0: none). */
+EL_DSP_CODE void arp_seq(arp_t *a, const int16_t *notes, unsigned count, int velocity);
 /* Forget the keys and return the note to release (-1: none). */
 EL_DSP_CODE int arp_clear(arp_t *a);
 static inline int arp_active(const arp_t *a) { return a->v[ARP_ON] != 0; }

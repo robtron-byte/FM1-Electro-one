@@ -87,7 +87,12 @@ void el_glue_start(void)
                                                     );
     clk_mhz = clock_mhz();
     clk_ind = clock_par();
+    /* The copy the next save writes erased now, before the sound starts: the
+     * first SAVE while the groove plays has no erase (~150 ms without
+     * interrupts) and no hang (docs/adr/0023). */
+    int prepared = el_store_prepare() == 0;
     el_ui_init(&ui, &engine);
+    if (prepared) ui.prep_pending = 0;
     ui.save = el_store_save;
     ui.prepare = el_store_prepare;
     ui.sound_get = el_sound_get;

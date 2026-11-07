@@ -30,3 +30,4 @@ Auf der eigenen Plattform (ADR 0021) sperrt das Löschen eines 4-KB-Flash-Sektor
 
 - 2026-11-06: angelegt nach der Rückmeldung „beim Zurückgehen von OPTIONS auf HOME knackst es“
 - 2026-11-07: vorab löschen im Stillstand, damit SAVE während des Spielens keinen Aussetzer mehr hat (Rückmeldung „beim Speichern gibt es einen kleinen Aussetzer“); Host-Test „store: erased ahead“
+- 2026-11-07: Gerät (37./38. Build): Speichern hängt noch kurz – das vorab Löschen kam erst 1,5 s nach dem Stopp. Jetzt wird die nächste Kopie schon beim Einschalten gelöscht, bevor der Ton startet (`fm1/el_glue.c`); das erste SAVE beim Spielen braucht kein Löschen mehr. Ein zweites SAVE ohne Stopp dazwischen löscht weiterhin (~150 ms)

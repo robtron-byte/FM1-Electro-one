@@ -85,6 +85,7 @@ typedef struct {
     uint32_t rnd;              /* the step probabilities' dice */
     float gate_countdown, step_frames, since_step;
     float sixteenth_frames;    /* as the transport last said */
+    float arp_seq_left;        /* STRINGS with ARP: frames the step's chord is arpeggiated still */
     /* Notes of steps with a length (N6): sounding beside the steps, each until its time is up. */
     int16_t long_note[ST_LONG_NOTES];
     float long_left[ST_LONG_NOTES];

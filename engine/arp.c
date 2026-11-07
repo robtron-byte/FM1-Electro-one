@@ -56,6 +56,8 @@ static EL_DSP_CODE void next_note(arp_t *a, int *note, int *velocity)
 {
     uint8_t pool[ARP_POOL], vel[ARP_POOL], order[ARP_POOL];
     unsigned n = 0;
+    if (!a->count)   /* no key held: the sequence's chord, as it is */
+        for (unsigned t = 0; t < a->seq_count && n < ARP_POOL; ++t) { pool[n] = (uint8_t)a->seq[t]; vel[n] = a->seq_velocity; ++n; }
     for (unsigned k = 0; k < a->count; ++k) {
         int16_t tones[MKS_CHORD_NOTES];
         unsigned count = st_chord_notes(a->keys[k], a->chord, tones);
@@ -109,7 +111,7 @@ static EL_DSP_CODE arp_events_t fire(arp_t *a)
 static EL_DSP_CODE arp_events_t on_tick(arp_t *a)
 {
     unsigned rate = rate_ticks[a->v[ARP_RATE] < ARP_RATES ? a->v[ARP_RATE] : 2];
-    if (!a->count || !a->v[ARP_ON] || a->tick % rate) return none;
+    if ((!a->count && !a->seq_count) || !a->v[ARP_ON] || a->tick % rate) return none;
     uint32_t grid = a->tick / rate;
     if (a->grid_valid && grid == a->last_grid) return none;
     a->last_grid = grid;
@@ -148,14 +150,25 @@ EL_DSP_CODE arp_events_t arp_key(arp_t *a, int note, int velocity)
     }
     a->held[note >> 3] &= (uint8_t)~(1u << (note & 7));
     if (!a->v[ARP_HOLD]) remove_key(a, note);
-    if (!a->count && a->sounding >= 0) { ev.off = a->sounding; a->sounding = -1; }
+    if (!a->count && !a->seq_count && a->sounding >= 0) { ev.off = a->sounding; a->sounding = -1; }
     return ev;
+}
+
+EL_DSP_CODE void arp_seq(arp_t *a, const int16_t *notes, unsigned count, int velocity)
+{
+    int fresh = !a->seq_count && count && !a->count;
+    if (count > MKS_CHORD_NOTES) count = MKS_CHORD_NOTES;
+    for (unsigned i = 0; i < count; ++i) a->seq[i] = notes[i];
+    a->seq_count = (uint8_t)count;
+    a->seq_velocity = (uint8_t)el_clampi(velocity, 1, 127);
+    if (fresh) a->position = 0;   /* a new chord from the bottom */
 }
 
 EL_DSP_CODE int arp_clear(arp_t *a)
 {
     int note = a->sounding;
     a->count = 0;
+    a->seq_count = 0;
     a->sounding = -1;
     a->gate_left = 0;
     a->grid_valid = 0;

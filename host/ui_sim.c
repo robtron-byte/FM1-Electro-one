@@ -223,6 +223,25 @@ int main(int argc, char **argv)
         printf("punch tiles: a tile per held effect (N10) %s\n", ok ? "ok" : "FAIL");
     }
     {
+        /* STRINGS with ARP on: the sequence's chords are arpeggiated (no key held). */
+        static el_engine_t ar;
+        float buf[EL_BLOCK * 2];
+        el_init(&ar);
+        el_generate_all(&ar, 3);
+        el_post(&ar, EL_CMD_START, 0, 0);
+        el_post3(&ar, EL_CMD_TRACK_ARP, 1, ARP_ON, 0, 1);
+        int seen[128] = {0}, changes = 0, last = -2, pitches = 0;
+        for (int k = 0; k < 44100 * 4 / EL_BLOCK; ++k) {
+            el_render_float(&ar, buf, EL_BLOCK);
+            int sn = ar.track[1].arp.sounding;
+            if (sn >= 0 && sn != last) { ++changes; seen[sn] = 1; }
+            last = sn;
+        }
+        for (int k = 0; k < 128; ++k) pitches += seen[k];
+        printf("strings arp: the sequence's chords arpeggiated, %d notes, %d pitches %s\n", changes, pitches,
+               changes > 8 && pitches >= 3 ? "ok" : "FAIL");
+    }
+    {
         /* B16: OH and CH on one step: the open hat alone, cut short after ~90 ms. */
         static el_engine_t h;
         float buf[EL_BLOCK * 2];
