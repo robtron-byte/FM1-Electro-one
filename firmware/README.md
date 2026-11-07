@@ -1,8 +1,9 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 25. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 26. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. - **JP-6-Sounds sparsamer** (25. Build, bitgleich): Oszillator und Filter ohne Funktionsaufruf pro Sample. Emulator: JP6 STRNG STRINGS 40 → 35 %.
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. - **Aus dem zweiten Chat (26. Build):** In PRESETS stehen die eigenen (User-)Sounds vor den Werks-Sounds, GLO + PRESETS blättert nur durch sie (ADR 0026). 23 neue eigene Sounds hinter den Werks-Sounds; STRINGS-Schritte auch 4 und 8 Takte, Generator-Stil LONG; eine Live-Aufnahme auf ein leeres STRINGS-Pattern läuft in Achteln (ADR 0027). Beide ADRs sind „vorgeschlagen“, bis du die Sounds gehört hast.
+- **JP-6-Sounds sparsamer** (25. Build, bitgleich): Oszillator und Filter ohne Funktionsaufruf pro Sample. Emulator: JP6 STRNG STRINGS 40 → 35 %.
 
 **Wichtig:** Die Dateien des 20.–23. Builds waren versehentlich noch der 19. Build (das Linken scheiterte unbemerkt an einer fehlenden Bibliotheksfunktion). Der 24. Build enthält alles, was für 20–23 beschrieben ist.
 
@@ -55,7 +56,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `f12e2d58a11ddb96bf35e98d3f1519286edd91053ca8912d5a4cdea644042113`
+SHA-256: `926a3e6d2fc974b14b7a0a1afd0478eaff81cbf8855ecfa44bd41a1402bfdadf`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
