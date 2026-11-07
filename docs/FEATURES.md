@@ -96,4 +96,4 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 
 | Nr | Feature | Status |
 |---|---|---|
-| – | (hier kommen die neuen Wünsche hin) | |
+| N1 | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ |
