@@ -6,32 +6,32 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B17, S12, Y5, F11, U9, P11, N14).
 
-Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
+Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
 | Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
-| B12 | Beat/Drums | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht (nach Rechenlast und Gerätetests) | – |
+| B12 | Beat/Drums | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht (nach Rechenlast und Gerätetests) · **ausgewählt 07.11. (erste Runde)** | – |
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
 | B16 | Beat/Drums | Open Hat und Closed Hat auf demselben Step wie bei der TR-808: Statt dass die CH die OH abwürgt, klingt eine kurze OH (Nutzerwunsch 07.11.) | ○ | – |
 | S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ | – |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
-| N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ | – |
+| N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ · **ausgewählt 07.11. (erste Runde)** | – |
 | N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ | – |
 | N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ | – |
 | N4 | Neu | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ (die LEDs können keine Farbe: nur hell/blinkend möglich) | – |
-| N5 | Neu | REC gedimmt, solange nicht aufgenommen wird; voll (blinkend) beim Aufnehmen | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
-| N6 | Neu | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ○ | – |
+| N5 | Neu | REC gedimmt, solange nicht aufgenommen wird; voll (blinkend) beim Aufnehmen | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) · **ausgewählt 07.11. (erste Runde)** | – |
+| N6 | Neu | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ○ · **ausgewählt 07.11. (erste Runde)** | – |
 | N7 | Neu | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) | – |
-| N8 | Neu | Kurzer Druck auf EDIT (ohne etwas anderes) öffnet den Editor des gerade aktiven Bereichs, noch ein kurzer Druck geht zurück. EDIT gehalten bleibt die Umschalttaste wie bisher (EDIT + …) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
-| N9 | Neu | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
+| N8 | Neu | Kurzer Druck auf EDIT (ohne etwas anderes) öffnet den Editor des gerade aktiven Bereichs, noch ein kurzer Druck geht zurück. EDIT gehalten bleibt die Umschalttaste wie bisher (EDIT + …) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) · **ausgewählt 07.11. (erste Runde)** | – |
+| N9 | Neu | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) · **ausgewählt 07.11. (erste Runde)** | – |
 | N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ | – |
-| N11 | Neu | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) | – |
-| N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ | – |
-| N13 | Neu | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ○ | – |
+| N11 | Neu | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ◔ angefangen (Zweig `claude/wip-n5-n8-n9-n11`, ungetestet) · **ausgewählt 07.11. (erste Runde)** | – |
+| N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ · **ausgewählt 07.11. (erste Runde)** | – |
+| N13 | Neu | Mute-Modus in BEAT: GLO kurz tippen schaltet ihn an (bleibt an, auch nach dem Loslassen), dann schalten die Instrumenten-Tasten stumm/laut; GLO noch einmal tippen schaltet ihn aus. GLO gehalten bleibt Umschalter für Kombinationen. GLO-LED und Display zeigen „MUTE“. Im Mute-Modus leuchten die Instrumenten-Tasten nach Zustand: voll = hat Schläge und spielt, gedimmt = im Pattern nichts aufgenommen, aus/blinkend = stummgeschaltet | ○ · **ausgewählt 07.11. (erste Runde)** | – |
 
 ## Umgesetzt
 
@@ -57,7 +57,7 @@ Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | S5 | Sequencer | Step-Wahrscheinlichkeit 100 … 10 % (ALGORITHM bei gehaltenem Step) | ✓ (Gerät 07.11.) | 0025 |
 | S6 | Sequencer | Große Anzeige beim Halten eines Steps (nach ¼ s) | ✓ (Gerät 07.11.) | 0025 |
 | S7 | Sequencer | Step-Aufnahme SH-101: Pause mit der letzten Taste | ✓ (Gerät 07.11.) | – |
-| S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ Gerät: falsch – Live-Aufnahme soll nur den **Anfang** auf 1/8 quantisieren, die Note klingt so lange wie gehalten (nicht auf Achtel gekürzt); siehe N6 | 0027 |
+| S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ Gerät: falsch – Live-Aufnahme soll nur den **Anfang** auf 1/8 quantisieren, die Note klingt so lange wie gehalten (nicht auf Achtel gekürzt); siehe N6 · **ausgewählt 07.11. (erste Runde)** | 0027 |
 | S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ✓ (Gerät 07.11.) | – |
 | Y1 | Synths | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
 | Y2 | Synths | BASS einstimmig, mono | ✓ | 0007 |
