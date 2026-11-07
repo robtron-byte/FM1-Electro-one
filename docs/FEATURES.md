@@ -23,7 +23,7 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | B10 | 5 Kits inkl. PO-12 | ✓ | – |
 | B11 | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ◐ | 0028 |
 | B12 | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit) | ○ | – |
-| B13 | Drum-Locks pro Step: Tonhöhe (KNOB 1), Velocity (KNOB 2) | ◐ | 0028 |
+| B13 | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ◐ | 0028 |
 | B14 | Akzent-Zeile über die 11. schwarze Taste | ◐ | – |
 | B15 | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
 
@@ -78,6 +78,7 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | U5 | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | U6 | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
 | U7 | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
+| U8 | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ◐ | 0031 |
 
 ## P – Plattform / Leistung
 
