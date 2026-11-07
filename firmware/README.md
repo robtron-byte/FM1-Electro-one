@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 22. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 23. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 20.–22. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 23. Build:
+- **Step-Aufnahme (REC 101): Pause mit der letzten Taste der Tastatur** statt EDIT + Taste.
+- **Der Wert, an dem du drehst** (KNOB 1–4), ist im Display hinterlegt, sein Name hell, solange gedreht wird.
+
+Aus dem 20.–22. Build:
 - **Varianz und Wahrscheinlichkeit pro Step** (ADR 0025): Step-Taste halten: **PRESETS** stellt die Varianz ein (`1:1`, `1:2`, `2:2`, `1:4` … `4:4`), **ALGORITHM** die Wahrscheinlichkeit (100 % … 10 %, links seltener); beides kombinierbar. Nach einer Viertelsekunde zeigt das Display groß den Wert des zuletzt gedrehten Reglers.
 
 Aus dem 18./19. Build:

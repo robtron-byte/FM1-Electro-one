@@ -388,7 +388,7 @@ int main(int argc, char **argv)
     panel.keys |= 1u << 6; run(30);           /* ... B3 while A3 is held: legato */
     panel.keys &= ~(1u << 4 | 1u << 6); run(30);
     hold(BTN_GLO, 1); tap_key(9); hold(BTN_GLO, 0);    /* B3 one more step */
-    hold(BTN_EDIT, 1); tap_key(9); hold(BTN_EDIT, 0);  /* rest */
+    tap_key(UI_KEYS - 1u);                              /* the last key: a rest */
     tap_key(7);                                         /* C4 */
     run(100);
     shot(dir, "11b_step_rec");

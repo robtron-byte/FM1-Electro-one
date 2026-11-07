@@ -81,3 +81,4 @@ github.com/aroum/fm1-custom-fw.
 - 20. Build: Step-Wahrscheinlichkeit (ADR 0025, Store-Version 23, Synths in Flag-/Akkord-Bits 6–7), große Anzeige beim Halten (`draw_step_overlay`).
 - 21. Build: Step-Regler: rechts Durchläufe, links Prozent (ein Step hat eins), Anzeige nach ½ s getrennt.
 - 22. Build: Step: PRESETS = Durchläufe, ALGORITHM = Prozent (kombinierbar), Anzeige nach ¼ s, zeigt den zuletzt gedrehten.
+- 23. Build: Step-Aufnahme Pause = letzte Taste (UI_KEYS-1), Hervorhebung des gerade gedrehten Werts (`knob_at`, 700 ms).

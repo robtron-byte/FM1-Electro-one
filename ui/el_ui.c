@@ -727,8 +727,9 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
 
 /* Step record while stopped, as on the SH-101 and the KeyStep: every key
  * writes the next step and the sequence ends after it; a key pressed while
- * the one before is still held ties the two (legato / slide). EDIT + key
- * writes a rest, GLO + key holds the note before for one more step. The
+ * the one before is still held ties the two (legato / slide). The last key
+ * of the keyboard writes a rest, GLO + key holds the note before for one
+ * more step. The
  * first key after REC starts a new sequence. */
 /* REC mode of the area (GLO + REC): step by step like the SH-101, or live. */
 static int rec_step_mode(const el_ui_t *ui)
@@ -744,7 +745,7 @@ static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
     unsigned step = ui->rec_fresh ? 0u : ui->cursor[ui->area];
     if (step >= ST_STEPS) { notice(ui, "32 STEPS: REC TO FINISH"); return; }
     if (ui->rec_fresh) { el_post3(e, EL_CMD_TRACK_CLEAR, track, 0, 0, 0); ui->rec_fresh = 0; }
-    if (hold & HOLD_EDIT) {
+    if (key == UI_KEYS - 1u) {   /* the last key of the keyboard: a rest */
         el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)note, 0);
         ui->rec_key = ui->rec_note = 0xff;   /* a rest: nothing to tie to */
     } else if ((hold & HOLD_GLO) && step > 0 && ui->rec_note != 0xff) {
@@ -1294,7 +1295,10 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         for (unsigned i = 0; i < EL_PROF_STAGES; ++i) mix(&sig[2], ui->prof[i] | i << 8 | (uint32_t)ui->prof_valid << 16);
     mix(&sig[2], ui->engine->fx.v[FX_DIST_MODE] | (uint32_t)ui->engine->fx.v[FX_DIST_TONE] << 8 | (uint32_t)ui->engine->fx.v[FX_DIST_DRIVE] << 16);
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
-    for (unsigned i = 0; i < 4; ++i) { knob_t k = knob(ui, i); mix(&sig[2], (uint32_t)k.value); }
+    for (unsigned i = 0; i < 4; ++i) {
+        knob_t k = knob(ui, i);
+        mix(&sig[2], (uint32_t)k.value | (uint32_t)(ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u) << 31);
+    }
     unsigned a = ui->overview ? 0 : ui->area;
     mix(&sig[2], ui->gen_style[a] | (uint32_t)ui->gen_density[a] << 8 | (uint32_t)ui->gen_keep << 16);
     if (synth_area(ui))
@@ -1787,7 +1791,10 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             knob_t k = knob(ui, i);
             if (!k.name) continue;
             int x = 4 + (int)i * 59;
-            gfx_text(b, x, FOOT_Y, k.name, DIM, 1);
+            /* the value being turned: a light panel behind it, its name bright */
+            int turning = ui->knob_at[i] && ui->now - ui->knob_at[i] < 700u;
+            if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x31a6);
+            gfx_text(b, x, FOOT_Y, k.name, turning ? TEXT : DIM, 1);
             if (k.text) gfx_text(b, x, FOOT_Y + 14, k.text, k.color, 1);
             else { el_snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, k.color, 2); }
         }
@@ -1795,7 +1802,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
     char line[48];
     if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && rec_step_mode(ui)) {
-        el_snprintf(line, sizeof line, "STEP REC %u/32  EDIT=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
+        el_snprintf(line, sizeof line, "STEP REC %u/32  TOP KEY=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
         hint = line;
     } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {
         el_snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);
