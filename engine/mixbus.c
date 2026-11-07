@@ -72,7 +72,12 @@ static void comp_set(mb_comp_t *c, float threshold_db, float ratio, float attack
 static inline EL_DSP_HELPER float comp_detect(mb_comp_t *c, float level)
 {
     float in_db = 6.0206f * dsp_log2(level + 1e-9f);
-    c->env_db += (in_db - c->env_db) * (in_db > c->env_db ? c->a_coef : c->r_coef);
+    float rel = c->r_coef;
+    if (c->club) {   /* program release: peaks above the slow average let go fast, the body slowly */
+        c->avg_db += (in_db - c->avg_db) * c->avg_coef;
+        rel = c->env_db > c->avg_db + 3.0f ? c->r_coef : c->rs_coef;
+    }
+    c->env_db += (in_db - c->env_db) * (in_db > c->env_db ? c->a_coef : rel);
     float over = c->env_db - c->threshold_db, k = c->knee_db, reduce;
     if (over <= -k * 0.5f) reduce = 0;
     else if (over >= k * 0.5f) reduce = over * (1.0f - 1.0f / c->ratio);
@@ -92,7 +97,22 @@ static inline EL_DSP_HELPER float comp_gain(mb_comp_t *c, float level)
         c->gain_step = (target - c->gain) * (1.0f / COMP_EVERY);
     }
     c->gain += c->gain_step;
-    return c->gain;
+    return mb_comp_out(c, c->gain);
+}
+
+void mb_master_club(el_mixbus_t *mb, int on)
+{
+    mb_comp_t *c = &mb->master_comp;
+    c->club = on ? 1u : 0u;
+    if (!on) return;
+    float env = c->env_db, gain = c->gain_db;
+    comp_set(c, c->threshold_db, 4.0f, 10.0f, 80.0f, c->knee_db, c->makeup_db);
+    c->club = 1;
+    c->env_db = env;
+    c->gain_db = gain;
+    c->rs_coef = coef(700.0f / COMP_EVERY);
+    c->avg_coef = coef(600.0f / COMP_EVERY);
+    c->avg_db = env;
 }
 
 void mb_master_comp(el_mixbus_t *mb, float threshold_db, float ratio, float attack_ms, float release_ms, float makeup_db)
@@ -453,8 +473,9 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
             }
             mgain += mstep;
             reduction = dsp_min(reduction, mgain_db);
-            l = tube(l * mgain, master_drive, inv_master);
-            r = tube(r * mgain, master_drive, inv_master);
+            float mg = mb_comp_out(mc, mgain);
+            l = tube(l * mg, master_drive, inv_master);
+            r = tube(r * mg, master_drive, inv_master);
             l += kick[n] * MB_KICK_GAIN;    /* as loud as through the master's make-up */
             r += kick[n] * MB_KICK_GAIN;
             /* DC blocker after the asymmetric stage. */

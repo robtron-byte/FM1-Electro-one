@@ -69,6 +69,9 @@ typedef struct {
     int16_t gate_diff[FX_GATE_DIFFS][256];   /* at FX_LINE_SCALE */
     uint8_t v[FX_PARAMS];
     unsigned dw, rw, fw;
+    unsigned lfo_back[4];  /* FX_REVERB_LFO_EVERY: the held read distance and fraction per line */
+    float lfo_frac[4];
+    uint8_t lfo_cnt;
     uint8_t half;          /* frame within the delay's third-rate step (0..2) */
     float acc[2], lp[2], last[2], time, damp[4], lfo[4];
     float rev_hp[2], dly_hp[2], gate_hp[2], gate_acc, gate_lp[2];

@@ -87,7 +87,10 @@ enum {
     EL_OPT_DIST_KICK_FULL,  /* 1: the bass drum keeps its lows into the distortion; 0 (default): cut like the rest */
     EL_OPTIONS = 12     /* stored size, room for more */
 };
-enum { EL_COMP_RATIOS = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };
+/* The last ratio is CLUB (EL_COMP_CLUB, docs/adr/0028): 4:1 with its own
+ * attack, program release and a parallel share; attack and release set
+ * in OPTIONS do not apply then. */
+enum { EL_COMP_RATIOS = 9, EL_COMP_CLUB = 8, EL_COMP_ATTACKS = 8, EL_COMP_RELEASES = 8 };
 extern const float el_comp_ratios[EL_COMP_RATIOS];
 extern const uint16_t el_comp_attacks[EL_COMP_ATTACKS], el_comp_releases[EL_COMP_RELEASES];
 /* Largest value of an option. */

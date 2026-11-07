@@ -185,3 +185,21 @@ gate-ab: host/clap_ab.c $(ENGINE) $(wildcard engine/*.h)
 	  $(CC) $(CPPFLAGS) $(CFLAGS) $$f -o build/gate_ab_$$n host/clap_ab.c $(ENGINE) -lm && \
 	  ./build/gate_ab_$$n build/wav/gate_$$n.wav 56 && echo "build/wav/gate_$$n.wav"; done
 	@./build/gate_ab_A build/wav/gate_dry.wav 0 && echo "build/wav/gate_dry.wav"
+
+# The hall's modulation every frame (A, as before) or every 4th / 8th of its
+# frames (B, C; FX_REVERB_LFO_EVERY, docs/adr/0019): the default groove with
+# a big hall, then its tail; B and C compared with A.
+hall-ab: host/hall_ab.c host/fixed_cmp.py $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for v in A:1 B:4 C:8; do n=$${v%%:*}; f=$${v#*:}; \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) -DFX_REVERB_LFO_EVERY=$$f -o build/hall_ab_$$n host/hall_ab.c $(ENGINE) -lm && \
+	  ./build/hall_ab_$$n build/wav/hall_$$n.wav build/hall_$$n.raw && echo "build/wav/hall_$$n.wav"; done
+	@python3 host/fixed_cmp.py build/hall_A.raw build/hall_B.raw 1 0 "B (every 4th)"; true
+	@python3 host/fixed_cmp.py build/hall_A.raw build/hall_C.raw 1 0 "C (every 8th)"; true
+
+# The master compressor as set from the factory (A) and as CLUB (B, COMP
+# RATIO CLUB, docs/adr/0028): the default groove, 16 s.
+comp-ab: host/comp_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -o build/comp_ab host/comp_ab.c $(ENGINE) -lm
+	@./build/comp_ab build/wav/comp_A.wav 2 && ./build/comp_ab build/wav/comp_B.wav 8

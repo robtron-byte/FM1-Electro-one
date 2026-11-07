@@ -282,6 +282,13 @@ EL_DSP_CODE void hole_render(el_fx_t *fx, const float *in, float *left, float *r
 #ifndef FX_REVERB_HALF
 #define FX_REVERB_HALF 1
 #endif
+/* FX_REVERB_LFO_EVERY n (docs/adr/0019): the hall's four line modulations
+ * (LFO, triangle, read position) worked out every n-th of its frames and
+ * held in between (the position then moves one frame a frame: the same
+ * whole offset and fraction). 1: every frame, as before. */
+#ifndef FX_REVERB_LFO_EVERY
+#define FX_REVERB_LFO_EVERY 1
+#endif
 
 EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, const float *gate,
                            float *left, float *right, int frames, float bpm)
@@ -398,6 +405,11 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
         float hp = fx->rev_hp[0], lfo[4], dmp[4], inc[4];
         unsigned rw = fx->rw, fw = fx->fw;
         for (int i = 0; i < 4; ++i) { lfo[i] = fx->lfo[i]; dmp[i] = fx->damp[i]; inc[i] = (0.23f + 0.17f * (float)i) / rev_rate; }
+#if FX_REVERB_LFO_EVERY > 1
+        unsigned lfo_cnt = fx->lfo_cnt, back[4];
+        float hfrac[4];
+        for (int i = 0; i < 4; ++i) { back[i] = fx->lfo_back[i]; hfrac[i] = fx->lfo_frac[i]; }
+#endif
 #if FX_REVERB_HALF
         float acc = fx->rev_acc, o00 = fx->rev_out[0][0], o01 = fx->rev_out[0][1], o10 = fx->rev_out[1][0], o11 = fx->rev_out[1][1];
         unsigned half = fx->rev_half;
@@ -425,8 +437,30 @@ EL_UNROLL
                 x = delayed - diffusion * w;
             }
             float y[4], sum = 0;
+#if FX_REVERB_LFO_EVERY > 1
+            int lfo_now = lfo_cnt == 0;
+            lfo_cnt = lfo_cnt + 1u < FX_REVERB_LFO_EVERY ? lfo_cnt + 1u : 0u;
+#endif
 EL_UNROLL
             for (int i = 0; i < 4; ++i) {
+#if FX_REVERB_LFO_EVERY > 1
+                int k;
+                float frac;
+                if (lfo_now) {
+                    lfo[i] += inc[i] * (float)FX_REVERB_LFO_EVERY;
+                    if (lfo[i] >= 1.0f) lfo[i] -= 1.0f;
+                    float p = lfo[i], tri = p < 0.5f ? 4 * p - 1 : 3 - 4 * p;
+                    float pos = (float)rw - (lengths[i] + mod * tri);
+                    k = (int)pos;
+                    if ((float)k > pos) --k;
+                    frac = pos - (float)k;
+                    back[i] = rw - (unsigned)k;   /* (held: the line read this far behind the write) */
+                    hfrac[i] = frac;
+                } else {
+                    k = (int)(rw - back[i]);
+                    frac = hfrac[i];
+                }
+#else
                 lfo[i] += inc[i];
                 if (lfo[i] >= 1.0f) lfo[i] -= 1.0f;
                 float p = lfo[i], tri = p < 0.5f ? 4 * p - 1 : 3 - 4 * p;
@@ -434,6 +468,7 @@ EL_UNROLL
                 int k = (int)pos;
                 if ((float)k > pos) --k;
                 float frac = pos - (float)k;
+#endif
                 float a = fx->mem.b.lines[i][(unsigned)k & (FX_REVERB_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 float b = fx->mem.b.lines[i][(unsigned)(k + 1) & (FX_REVERB_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 dmp[i] += (a + (b - a) * frac - dmp[i]) * damp;
@@ -460,6 +495,10 @@ EL_UNROLL
             reverb_peak = dsp_max(reverb_peak, dsp_abs(y[0]) + dsp_abs(y[1]) + dsp_abs(y[2]) + dsp_abs(y[3]));
         }
         fx->rev_hp[0] = hp; fx->rw = rw; fx->fw = fw;
+#if FX_REVERB_LFO_EVERY > 1
+        fx->lfo_cnt = (uint8_t)lfo_cnt;
+        for (int i = 0; i < 4; ++i) { fx->lfo_back[i] = back[i]; fx->lfo_frac[i] = hfrac[i]; }
+#endif
         for (int i = 0; i < 4; ++i) { fx->lfo[i] = lfo[i]; fx->damp[i] = dmp[i]; }
 #if FX_REVERB_HALF
         fx->rev_acc = acc; fx->rev_half = (uint8_t)half;

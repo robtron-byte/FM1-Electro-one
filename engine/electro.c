@@ -54,7 +54,7 @@ void el_init(el_engine_t *e)
     el_apply_comp(e);
 }
 
-const float el_comp_ratios[EL_COMP_RATIOS] = {1.0f, 1.4f, 1.8f, 2.0f, 3.0f, 4.0f, 6.0f, 10.0f};
+const float el_comp_ratios[EL_COMP_RATIOS] = {1.0f, 1.4f, 1.8f, 2.0f, 3.0f, 4.0f, 6.0f, 10.0f, 4.0f /* CLUB */};
 const uint16_t el_comp_attacks[EL_COMP_ATTACKS] = {1, 3, 5, 10, 25, 50, 80, 120};
 const uint16_t el_comp_releases[EL_COMP_RELEASES] = {50, 100, 150, 220, 300, 500, 800, 1200};
 
@@ -79,6 +79,7 @@ void el_apply_comp(el_engine_t *e)
     mb_master_comp(&e->mix, -(float)o[EL_OPT_COMP_THRESHOLD], el_comp_ratios[o[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS],
                    el_comp_attacks[o[EL_OPT_COMP_ATTACK] % EL_COMP_ATTACKS], el_comp_releases[o[EL_OPT_COMP_RELEASE] % EL_COMP_RELEASES],
                    0.5f * o[EL_OPT_COMP_MAKEUP]);
+    mb_master_club(&e->mix, o[EL_OPT_COMP_RATIO] % EL_COMP_RATIOS == EL_COMP_CLUB);
 }
 
 /* Default sounds per area. */

@@ -893,7 +893,8 @@ static void opt_text(const el_ui_t *ui, unsigned item, char *out, size_t size)
     else if (item == OPT_THRESHOLD) el_snprintf(out, size, "-%d DB", v);
     else if (item == OPT_RATIO) {
         int r10 = (int)(el_comp_ratios[v % EL_COMP_RATIOS] * 10.0f + 0.5f);
-        if (r10 == 10) el_snprintf(out, size, "OFF (1:1)");
+        if (v % EL_COMP_RATIOS == EL_COMP_CLUB) el_snprintf(out, size, "CLUB");
+        else if (r10 == 10) el_snprintf(out, size, "OFF (1:1)");
         else if (r10 % 10) el_snprintf(out, size, "%d.%d:1", r10 / 10, r10 % 10);
         else el_snprintf(out, size, "%d:1", r10 / 10);
     }
