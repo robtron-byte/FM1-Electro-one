@@ -16,6 +16,7 @@ void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
     syn_init(&t->part, SYN_MKS, voices, seed);
     arp_init(&t->arp);
     t->area = (uint8_t)area;
+    t->rnd = seed * 2654435761u + 0x51ed270bu;
     t->level_value = 100;
     t->last_note = area == MKS_AREA_BASS ? 36 : area == MKS_AREA_STRINGS ? 48 : 60;
     for (unsigned i = 0; i < ST_PATTERNS; ++i) {
@@ -152,7 +153,8 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     t->step_frames = step_frames;
     t->since_step = 0;
     const st_step_t *s = &p->step[pos];
-    int on = (s->flags & ST_ON) && !t->muted && el_cond_plays(ST_COND(s->flags), t->pass);
+    int on = (s->flags & ST_ON) && !t->muted && el_cond_plays(ST_COND(s->flags), t->pass) &&
+             (!ST_PROB(s) || el_prob_plays(ST_PROB(s), el_rnd(&t->rnd)));
     if (!on) { release_all(t); return; }
     int16_t notes[MKS_CHORD_NOTES];
     unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);

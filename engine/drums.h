@@ -53,7 +53,8 @@ enum dr_command {
     DR_CMD_RECORD,      /* b = on */
     DR_CMD_PANIC,
     DR_CMD_AREA_MUTE,   /* b = on: silence the whole beat area */
-    DR_CMD_COND         /* a = part, b = step, value = EL_COND_* (the current pattern) */
+    DR_CMD_COND,        /* a = part, b = step, value = EL_COND_* (the current pattern) */
+    DR_CMD_PROB         /* a = part, b = step, value = 0..EL_PROBS-1 (the current pattern) */
 };
 
 /* Harmony family of a style: chord progressions for the strings. */
@@ -77,6 +78,7 @@ typedef struct {
     /* Step conditions per slot, part and step (EL_COND_*), as three bit
      * planes: bit n of cond[slot][k][part] is bit k of step n's condition. */
     uint32_t cond[DR_PATTERNS][3][DR_PARTS];
+    uint32_t prob[DR_PATTERNS][4][DR_PARTS];   /* the probability (EL_PROBS), four bit planes likewise */
     uint8_t pass;           /* passes of the current pattern since it started */
     el_queue_t queue;
     float level;            /* output gain */
@@ -112,6 +114,13 @@ int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int1
 /* Control task: replace a whole pattern. Returns 0, -1 queue full, -2 while
  * the previous replacement has not been applied yet (retry next frame). */
 int dr_post_pattern(dr_machine_t *m, unsigned slot, const dr_pattern_t *p, int keep_cond);
+static inline unsigned dr_prob(const dr_machine_t *m, unsigned slot, unsigned part, unsigned step)
+{
+    const uint32_t (*c)[DR_PARTS] = m->prob[slot % DR_PATTERNS];
+    unsigned v = 0;
+    for (unsigned k = 0; k < 4; ++k) v |= ((c[k][part] >> step) & 1u) << k;
+    return v;
+}
 /* A step's condition (EL_COND_*). */
 static inline unsigned dr_cond(const dr_machine_t *m, unsigned slot, unsigned part, unsigned step)
 {

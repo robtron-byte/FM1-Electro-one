@@ -142,6 +142,14 @@ static EL_DSP_CODE void set_cond(dr_machine_t *m, unsigned slot, unsigned part, 
     }
 }
 
+static EL_DSP_CODE void set_prob(dr_machine_t *m, unsigned slot, unsigned part, unsigned step, unsigned prob)
+{
+    for (unsigned k = 0; k < 4; ++k) {
+        uint32_t *w = &m->prob[slot][k][part];
+        *w = (prob >> k) & 1u ? *w | 1u << step : *w & ~(1u << step);
+    }
+}
+
 static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
 {
     m->current = (uint8_t)index;
@@ -221,6 +229,8 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     for (unsigned part = 0; part < DR_PARTS; ++part) {
         if (!(p->hit[part] & bit) || !audible(m, part) || m->muted) continue;
         if (!el_cond_plays(dr_cond(m, m->current, part, pos), m->pass)) continue;
+        unsigned prob = dr_prob(m, m->current, part, pos);
+        if (prob && !el_prob_plays(prob, el_rnd(&m->random))) continue;
         if (!(suppress & (1u << part))) tr808_trigger(&m->kit, (int)part, velocity);
         if (p->roll[part] & bit) {
             m->roll_pending |= 1u << part;
@@ -277,7 +287,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_TOGGLE:
         if (part < DR_PARTS && step < DR_STEPS) {
             p->hit[part] ^= 1u << step;
-            if (!(p->hit[part] & (1u << step))) { p->roll[part] &= ~(1u << step); set_cond(m, m->current, part, step, 0); }
+            if (!(p->hit[part] & (1u << step))) { p->roll[part] &= ~(1u << step); set_cond(m, m->current, part, step, 0); set_prob(m, m->current, part, step, 0); }
         }
         break;
     case DR_CMD_ROLL:
@@ -290,10 +300,11 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         if (step < DR_STEPS) p->accent ^= 1u << step;
         break;
     case DR_CMD_CLEAR_PART:
-        if (part < DR_PARTS) { p->hit[part] = p->roll[part] = 0; for (unsigned k = 0; k < 3; ++k) m->cond[m->current][k][part] = 0; }
+        if (part < DR_PARTS) { p->hit[part] = p->roll[part] = 0; for (unsigned k = 0; k < 3; ++k) m->cond[m->current][k][part] = 0; for (unsigned k = 0; k < 4; ++k) m->prob[m->current][k][part] = 0; }
         else {
             for (unsigned i = 0; i < DR_PARTS; ++i) p->hit[i] = p->roll[i] = 0;
             memset(m->cond[m->current], 0, sizeof m->cond[m->current]);
+            memset(m->prob[m->current], 0, sizeof m->prob[m->current]);
             p->accent = 0;
         }
         break;
@@ -316,6 +327,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
             m->pattern[step] = m->pattern[part];
             m->sound[step] = m->sound[part];
             memcpy(m->cond[step], m->cond[part], sizeof m->cond[step]);
+            memcpy(m->prob[step], m->prob[part], sizeof m->prob[step]);
             if (step == m->current) enter(m, step);
         }
         break;
@@ -328,7 +340,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
                 if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
             }
             m->pattern[part] = m->staging;
-            if (!c->c) memset(m->cond[part], 0, sizeof m->cond[part]);
+            if (!c->c) { memset(m->cond[part], 0, sizeof m->cond[part]); memset(m->prob[part], 0, sizeof m->prob[part]); }
         }
         EL_FENCE();
         ++m->staging_taken;
@@ -362,6 +374,9 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_COND:
         if (part < DR_PARTS && step < DR_STEPS) set_cond(m, m->current, part, step, (unsigned)el_clampi(c->value, 0, EL_CONDS - 1));
+        break;
+    case DR_CMD_PROB:
+        if (part < DR_PARTS && step < DR_STEPS) set_prob(m, m->current, part, step, (unsigned)el_clampi(c->value, 0, EL_PROBS - 1));
         break;
     default:
         return;

@@ -697,6 +697,24 @@ int main(int argc, char **argv)
             st_step(t, pass * 2u + 1u, 1000.0f);
         }
         sc_ok = sc_ok && sp_played == 0x11u;                 /* passes 1 and 5 */
+        /* Probability: 50 % plays about half the passes (dice), 100 % all. */
+        dr_rewind(m);
+        dr_post(m, DR_CMD_COND, D8_BD, 0, 0, EL_COND_ALWAYS);
+        dr_post(m, DR_CMD_PROB, D8_BD, 0, 0, 5);
+        dr_process_commands(m);
+        unsigned hits = 0;
+        for (unsigned pass = 0; pass < 400; ++pass)
+            for (unsigned st = 0; st < 4; ++st) {
+                m->kit.v[D8_BD].age = 12345u;
+                dr_step(m, pass * 4u + st, 1000.0f);
+                if (st == 0 && m->kit.v[D8_BD].age == 0) ++hits;
+            }
+        sc_ok = sc_ok && hits > 150 && hits < 250 && el_prob_percent(5) == 50;
+        el_post3(&ce, EL_CMD_STEP_PROB, 0, 0, 0, 7);           /* synth step: 30 % */
+        el_post3(&ce, EL_CMD_STEP_CHORD, 0, 0, 0, 2);          /* (a chord keeps it) */
+        el_render_float(&ce, audio, EL_BLOCK);
+        sc_ok = sc_ok && ST_PROB(&sp->step[0]) == 7 && ST_CHORD_TYPE(sp->step[0].chord) == 2 && ST_COND(sp->step[0].flags) == EL_COND_1_4;
+        if (!sc_ok) printf("debug prob: hits %u of 400, synth prob %u\n", hits, ST_PROB(&sp->step[0]));
         if (!sc_ok) printf("debug cond: drums %02x repeat %02x synth %02x\n", played, rep, sp_played);
     }
     {
@@ -711,13 +729,15 @@ int main(int argc, char **argv)
         if ((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) { tap_key(24); run(30); }
         panel.keys |= 1u << 24; run(30);
         panel.encoders[6] = 1; run(10);
+        panel.encoders[1] = -5; run(300);   /* ALGORITHM left: 50 %; held long enough for the big readout */
         unsigned on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u, cond = dr_cond(m, m->current, D8_BD, 14);
+        unsigned prob = dr_prob(m, m->current, D8_BD, 14);
         shot(dir, "22_step_cond");
         panel.keys &= ~(1u << 24); run(30);
         unsigned kept_on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u;
         tap_key(24); run(30);
         unsigned off = !((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) && dr_cond(m, m->current, D8_BD, 14) == 0;
-        int panel_ok = on && cond == EL_COND_1_2 && kept_on && off;
+        int panel_ok = on && cond == EL_COND_1_2 && prob == 5 && kept_on && off && dr_prob(m, m->current, D8_BD, 14) == 0;
         if (!panel_ok) printf("debug panel: on %u cond %u kept %u off %u\n", on, cond, kept_on, off);
         sc_ok = sc_ok && panel_ok;
     }
@@ -741,6 +761,6 @@ int main(int argc, char **argv)
         sc_ok = sc_ok && prep_ok;
         printf("store: erased ahead, the save erases nothing %s\n", prep_ok ? "ok" : "FAIL");
     }
-    printf("steps: conditions 2:2 / 1:4, under Repeat, held step + PRESETS %s\n", sc_ok ? "ok" : "FAIL");
+    printf("steps: conditions 2:2 / 1:4, probability, under Repeat, held step + PRESETS / ALGORITHM %s\n", sc_ok ? "ok" : "FAIL");
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }

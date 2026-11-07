@@ -51,6 +51,8 @@ typedef struct {
      * encoder turned meanwhile, and whether the step sounded at the press
      * (then it goes off at the release, unless an encoder turned). */
     uint8_t sh_key, sh_area, sh_step, sh_part, sh_cond, sh_used, sh_remove;
+    uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
+    uint32_t sh_at;                     /* when it went down: the big readout after a moment */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
      * then the three synth parts), one staging buffer at a time, each into

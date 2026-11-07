@@ -18,8 +18,9 @@
  * left those bytes zero); 21 a sound per slot (docs/adr/0024), appended:
  * records 19 and 20 are its first part, every slot gets their one sound; 22
  * the drums' step conditions (docs/adr/0025), appended again (the synths'
- * are in their step flags; records before 22 hold 0 there: always). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * are in their step flags; records before 22 hold 0 there: always); 23 the
+ * drums' step probabilities, appended (the synths' in their step bytes). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -58,10 +59,13 @@ typedef struct {
     drum_sound_payload_t drum_sound[DR_PATTERNS];               \
     synth_sound_payload_t synth_sound[EL_TRACKS][ST_PATTERNS];
 typedef struct { FIELDS_V21 } payload_v21_t;
+#define FIELDS_V22 FIELDS_V21 uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];   /* dr_machine_t.cond */
+typedef struct { FIELDS_V22 } payload_v22_t;
 typedef struct {
-    FIELDS_V21
-    uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];   /* dr_machine_t.cond */
+    FIELDS_V22
+    uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
 } payload_t;
+#define V22_BYTES sizeof(payload_v22_t)
 #define V21_BYTES sizeof(payload_v21_t)
 #define V19_BYTES sizeof(payload_v19_t)
 
@@ -201,6 +205,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_22 && record.bytes == V22_BYTES) ||
                   (record.version == VERSION_21 && record.bytes == V21_BYTES) ||
                   (record.version >= VERSION_19 && record.version <= VERSION_20 && record.bytes == V19_BYTES);
     if (!EL_STORE_UPGRADE && !current) return 0;
@@ -301,8 +306,10 @@ static int el_store_load_held(el_engine_t *e)
         } else if (m->pattern[i].kit == m->kit_index) tr808_sound_capture(&m->kit, snd);
         else dr_kit_sound(snd, m->pattern[i].kit);
     }
-    if (version >= VERSION) memcpy(m->cond, d->drum_cond, sizeof m->cond);
+    if (version >= VERSION_22) memcpy(m->cond, d->drum_cond, sizeof m->cond);
     else memset(m->cond, 0, sizeof m->cond);
+    if (version >= VERSION) memcpy(m->prob, d->drum_prob, sizeof m->prob);
+    else memset(m->prob, 0, sizeof m->prob);
     /* Drum key and Follow (KIT parameters 4, 5) live in the former reserved
      * field: older records hold 0 there = key OFF (docs/adr/0016). */
     tr808_set(&m->kit, D8_KIT, 4, el_clampi(d->reserved & 0xffu, 0, 12));
@@ -338,7 +345,8 @@ static int el_store_load_held(el_engine_t *e)
             {
                 unsigned chord = t->pattern[p].step[k].chord, type = ST_CHORD_TYPE(chord), inv = ST_CHORD_INV(chord);
                 if (old_chords) type = type < 14u ? st_chord_v15[type] : 0u;
-                t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4);
+                t->pattern[p].step[k].chord = (uint8_t)((type > MKS_CHORDS ? 0u : type) | (inv > 2u ? 0u : inv) << 4 |
+                                                        (old_chords ? 0u : chord & 0xc0u));   /* bits 6-7: the probability */
             }
         }
         uint8_t v[SYN_VALUES];
@@ -426,6 +434,7 @@ static int el_store_save_held(el_engine_t *e)
         for (int p = 0; p < KIT_PARAMS; ++p) ds->kit_params[p] = (uint8_t)tr808_sound_get(&m->sound[i], D8_KIT, p);
     }
     memcpy(d->drum_cond, m->cond, sizeof d->drum_cond);
+    memcpy(d->drum_prob, m->prob, sizeof d->drum_prob);
     d->reserved = (uint16_t)(tr808_get(&m->kit, D8_KIT, 4) | tr808_get(&m->kit, D8_KIT, 5) << 8);
     d->kit = m->kit_index;
     d->level = m->level_value;

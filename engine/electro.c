@@ -217,7 +217,10 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_STEP_TOGGLE:
         if (!(s->flags & ST_ON)) { s->note = t->last_note; s->chord = t->chord; }
         s->flags ^= ST_ON;
-        if (!(s->flags & ST_ON)) s->flags &= (uint8_t)~ST_COND_MASK;   /* a step switched off forgets its condition */
+        if (!(s->flags & ST_ON)) { s->flags &= (uint8_t)~ST_COND_MASK; ST_SET_PROB(s, 0); }   /* a step switched off forgets its condition */
+        break;
+    case EL_CMD_STEP_PROB:
+        ST_SET_PROB(s, (unsigned)el_clampi(c->value, 0, EL_PROBS - 1));
         break;
     case EL_CMD_STEP_COND:
         s->flags = (uint8_t)((s->flags & ~ST_COND_MASK) | (unsigned)el_clampi(c->value, 0, EL_CONDS - 1) << 3);
@@ -231,10 +234,10 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         t->last_note = s->note;
         break;
     case EL_CMD_STEP_CHORD:
-        s->chord = (uint8_t)((s->chord & 0x30u) | (unsigned)el_clampi(c->value, 0, MKS_CHORDS));
+        s->chord = (uint8_t)((s->chord & 0xf0u) | (unsigned)el_clampi(c->value, 0, MKS_CHORDS));
         break;
     case EL_CMD_STEP_INV:
-        s->chord = (uint8_t)((s->chord & 15u) | (unsigned)el_clampi(c->value, 0, 2) << 4);
+        s->chord = (uint8_t)((s->chord & 0xcfu) | (unsigned)el_clampi(c->value, 0, 2) << 4);
         break;
     case EL_CMD_TRACK_RATE:
         p->rate = (uint8_t)el_clampi(c->b, 0, ST_RATES - 1);
@@ -301,7 +304,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND) {
+    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND || c->type == EL_CMD_STEP_PROB) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }

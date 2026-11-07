@@ -647,8 +647,10 @@ static void cond_notice(el_ui_t *ui)
 
 /* A step key goes down: a silent step sounds at once; a sounding one goes
  * off when its key is let go, unless an encoder turned meanwhile. */
-static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, int on, unsigned cond)
+static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, int on, unsigned cond, unsigned prob)
 {
+    ui->sh_prob = (uint8_t)(on ? prob : 0u);
+    ui->sh_at = ui->now;
     ui->sh_key = (uint8_t)(key + 1u);
     ui->sh_area = ui->area;
     ui->sh_step = (uint8_t)step;
@@ -658,14 +660,23 @@ static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, i
     ui->sh_remove = (uint8_t)(on != 0);
 }
 
-/* The held step: PRESETS sets its condition (the other encoders keep their
- * jobs; any turn keeps the step). Returns what is left of PRESETS. */
-static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets)
+/* The held step: PRESETS sets its condition, ALGORITHM its probability
+ * (the other encoders keep their jobs; any turn keeps the step). Returns
+ * what is left of PRESETS; *algo is used up likewise. */
+static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets, int *algo)
 {
     if (!ui->sh_key) return presets;
     for (unsigned i = 0; i < UI_ENCODERS; ++i) if (enc[i]) ui->sh_used = 1;
-    if (!presets) return 0;
     el_engine_t *e = ui->engine;
+    if (*algo) {
+        /* turned right: plays more often (100 % = 0) */
+        unsigned prob = (unsigned)el_clampi((int)ui->sh_prob - *algo, 0, EL_PROBS - 1);   /* a detent: 10 % */
+        int r = ui->sh_area == EL_AREA_BEAT ? dr_post(&e->drums, DR_CMD_PROB, ui->sh_part, ui->sh_step, 0, (int16_t)prob)
+                                            : el_post3(e, EL_CMD_STEP_PROB, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, (int16_t)prob);
+        if (r == 0) ui->sh_prob = (uint8_t)prob;
+        *algo = 0;
+    }
+    if (!presets) return 0;
     unsigned cond = (unsigned)el_clampi((int)ui->sh_cond + (presets > 0 ? 1 : -1), 0, EL_CONDS - 1);
     int r = ui->sh_area == EL_AREA_BEAT ? dr_post(&e->drums, DR_CMD_COND, ui->sh_part, ui->sh_step, 0, (int16_t)cond)
                                         : el_post3(e, EL_CMD_STEP_COND, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, (int16_t)cond);
@@ -714,7 +725,7 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     else if (hold & HOLD_GLO) dr_post(m, DR_CMD_ROLL, ui->part, (uint8_t)s, 0, 0);
     else {
         int on = (p->hit[ui->part] >> s) & 1u;
-        step_hold(ui, key, s, ui->part, on, dr_cond(m, m->current, ui->part, s));
+        step_hold(ui, key, s, ui->part, on, dr_cond(m, m->current, ui->part, s), dr_prob(m, m->current, ui->part, s));
         if (!on) dr_post(m, DR_CMD_TOGGLE, ui->part, (uint8_t)s, 0, 0);
     }
 }
@@ -774,7 +785,7 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         else if (hold & HOLD_GLO) el_post3(e, EL_CMD_STEP_FLAG, track, (uint8_t)s, ST_TIE, 0);
         else {
             int on = (p->step[s].flags & ST_ON) != 0;
-            step_hold(ui, key, s, 0, on, ST_COND(p->step[s].flags));
+            step_hold(ui, key, s, 0, on, ST_COND(p->step[s].flags), ST_PROB(&p->step[s]));
             if (!on) el_post3(e, EL_CMD_STEP_TOGGLE, track, (uint8_t)s, 0, 0);
         }
         return;
@@ -1103,8 +1114,10 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         return;
     }
     const int16_t *enc = c->encoders;
-    const int select = enc[ENC_SELECT], algo = enc[ENC_ALGORITHM];
-    const int presets = step_hold_encoders(ui, enc, enc[ENC_PRESETS]);
+    const int select = enc[ENC_SELECT];
+    int algo_left = enc[ENC_ALGORITHM];
+    const int presets = step_hold_encoders(ui, enc, enc[ENC_PRESETS], &algo_left);
+    const int algo = algo_left;
     int dist_page = ui->overview && (hold & HOLD_EDIT);
     if (dist_page) {
         /* HOME + EDIT: KNOB 1-4 send per area, PRESETS type, ALGORITHM drive, SELECT tone. */
@@ -1215,6 +1228,7 @@ static unsigned shown_step_page(el_ui_t *ui, unsigned length, unsigned pos, int 
     return page;
 }
 
+static int step_overlay(const el_ui_t *ui);
 static void signatures(el_ui_t *ui, uint32_t sig[3])
 {
     el_engine_t *e = ui->engine;
@@ -1225,6 +1239,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
+    mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 : 0u);
     mix(&sig[0], (uint32_t)(uint16_t)ui->load | (uint32_t)ui->load_drops << 16);
     for (unsigned a = 0; a < EL_AREAS; ++a)
         mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1);
@@ -1484,7 +1499,7 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
                 if ((p->accent >> s) & 1u) gfx_fill(b, x, y, CELL - 2, CELL - 2, c);
                 else gfx_fill(b, x + 2, y + 2, CELL - 6, CELL - 6, c);
                 if ((p->roll[part] >> s) & 1u) gfx_fill(b, x + 4, y + 4, 3, 3, BACK);
-                if (dr_cond(m, m->current, part, s)) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
+                if (dr_cond(m, m->current, part, s) || dr_prob(m, m->current, part, s)) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
             }
         }
     }
@@ -1552,7 +1567,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                 uint16_t c = k == 0 && (st->flags & ST_ACCENT) ? color : (uint16_t)((color >> 1) & 0x7bef);
                 gfx_fill(b, x, y, w, 5, c);
             }
-            if (ST_COND(st->flags)) gfx_fill(b, x, ROLL_Y + ROLL_H - 3, 4, 2, TEXT);   /* not every pass (ADR 0025) */
+            if (ST_COND(st->flags) || ST_PROB(st)) gfx_fill(b, x, ROLL_Y + ROLL_H - 3, 4, 2, TEXT);   /* not every pass (ADR 0025) */
             if (col >= 30 && ST_CHORD_TYPE(st->chord)) {
                 char label[12];
                 note_name(label, sizeof label, st->note);
@@ -1572,6 +1587,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                  type ? mks_chord_names[type - 1] : "", type ? inv_names[inv] : "",
                  (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "",
                  ST_COND(st->flags) ? " " : "", ST_COND(st->flags) ? cond_names[ST_COND(st->flags) % EL_CONDS] : "");
+        if (ST_PROB(st)) { size_t l = strlen(text); el_snprintf(text + l, sizeof text - l, " %d%%", el_prob_percent(ST_PROB(st))); }
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
         static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
@@ -1825,6 +1841,43 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     if (hint == ui->notice || ui->engine->option[EL_OPT_HINTS]) gfx_text(b, 4, GFX_H - 12, hint, hint == ui->notice ? AMBER : DIM, 1);
 }
 
+/* A step held a moment (docs/adr/0025): its condition and probability big,
+ * and a picture of the passes: a box per pass of the cycle (1, 2 or 4),
+ * filled where the step may play, and a bar for its chance there. */
+static int step_overlay(const el_ui_t *ui)
+{
+    return ui->sh_key && !ui->options && !ui->overview && (ui->sh_used || ui->now - ui->sh_at >= 250u);
+}
+
+static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
+{
+    enum { OX = 20, OY = 50, OW = 200, OH = 120 };
+    if (!gfx_touches(b, OY, OH)) return;
+    uint16_t color = area_color[ui->sh_area % EL_AREAS];
+    gfx_fill(b, OX, OY, OW, OH, BACK);
+    gfx_frame(b, OX, OY, OW, OH, color);
+    char text[24];
+    el_snprintf(text, sizeof text, "STEP %u", ui->sh_step + 1u);
+    gfx_text(b, OX + 8, OY + 6, text, DIM, 1);
+    unsigned cond = ui->sh_cond % EL_CONDS;
+    gfx_text(b, OX + 8, OY + 22, cond_names[cond], TEXT, 4);
+    el_snprintf(text, sizeof text, "%d%%", el_prob_percent(ui->sh_prob));
+    gfx_text(b, OX + OW - 8 - gfx_text_width(text, 4), OY + 22, text, ui->sh_prob ? AMBER : TEXT, 4);
+    /* the passes: 1:1 one box, 1:2 / 2:2 two, n:4 four; filled where it plays */
+    static const uint8_t every[EL_CONDS] = {1, 2, 2, 4, 4, 4, 4}, which[EL_CONDS] = {0, 0, 1, 0, 1, 2, 3};
+    unsigned n = every[cond], bw = 40, gap = 6, x0 = OX + (OW - (n * bw + (n - 1u) * gap)) / 2u;
+    int pct = el_prob_percent(ui->sh_prob);
+    for (unsigned i = 0; i < n; ++i) {
+        int x = (int)(x0 + i * (bw + gap)), y = OY + 66;
+        gfx_frame(b, x, y, (int)bw, 24, DIM);
+        if (i == which[cond]) {
+            gfx_fill(b, x + 2, y + 2, (int)bw - 4, 20, FAINT);
+            gfx_fill(b, x + 2, y + 2, ((int)bw - 4) * pct / 100, 20, color);   /* its chance */
+        }
+    }
+    gfx_text(b, OX + 8, OY + OH - 14, "PRESETS: PASSES  ALGO: CHANCE", DIM, 1);
+}
+
 void el_ui_draw_band(el_ui_t *ui, unsigned band)
 {
     gfx_band_t *b = &ui->band;
@@ -1837,6 +1890,7 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
         else if (in_editor(ui)) draw_editor(ui, b);
         else draw_synth(ui, b);
     }
+    if (step_overlay(ui)) draw_step_overlay(ui, b);
     if (gfx_touches(b, FOOT_Y - 4, GFX_H)) draw_footer(ui, b);
 }
 

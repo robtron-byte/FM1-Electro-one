@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 19. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 20. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 18./19. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 20. Build:
+- **Wahrscheinlichkeit pro Step** (ADR 0025): Step-Taste halten und **ALGORITHM** drehen: 100 % bis 10 % (links seltener, eine Raste 10 %). **PRESETS** stellt wie bisher die Varianz (`1:2`, `2:2`, `1:4` …). Beim Halten erscheinen beide Werte groß im Display, darunter ein Kästchen je Durchlauf: gefüllt, wo der Step spielen kann, so weit wie seine Wahrscheinlichkeit. Gespeichert wird beides.
+
+Aus dem 18./19. Build:
 - **Master sparsamer** (19. Build, bitgleich): Zustände während der Schleife in lokalen Variablen. Emulator mit DARK STR: PEAK 70 → 63 %.
 - **SAVE ohne Aussetzer:** Der Speicherplatz für das nächste Speichern wird gelöscht, während der Groove kurz stillsteht (1,5 s nach dem Einschalten bzw. nach STOP). SAVE während des Spielens schreibt dann nur noch und unterbricht den Ton nicht mehr. Nur ein zweites SAVE ohne STOP dazwischen hat wieder die kurze Lücke.
 - **Display flüssiger:** Das Display wird mit 20 statt 12 MHz angesteuert (ein ganzes Bild ~46 statt ~77 ms).
