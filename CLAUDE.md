@@ -6,3 +6,4 @@
 - Dokumentation und Records auf Deutsch.
 - Nach Änderungen am Gerätecode: `make test`; wenn Standards umgestellt werden, den Testbuild in `firmware/` neu packen (`tools/package_fm1.py`, siehe `docs/adr/0003`).
 - **Vor jedem Testbuild in `firmware/`** zusätzlich `tools/fm1-emu/check.sh` (Hardware-Prüfung im Emulator, `docs/adr/0018`). Keine Float-Division, deren Nenner 0 werden kann: der Compiler rechnet bewachte Divisionen vor ihrem Test aus.
+- **Bedienfreundlichkeit (Wunsch des Nutzers):** Bei jeder Funktion auf eine logische, einheitliche Bedienung achten: links = weniger/leiser/kürzer/zurück, rechts = mehr/lauter/länger/weiter; ein Regler startet am aktuellen Zustand (kein Sprung ans Ende); kurze Klicks für Häufiges, Kombinationen nur für Seltenes; was gerade passiert, ist im Display sichtbar. Feature-Liste `docs/FEATURES.md` mitpflegen.

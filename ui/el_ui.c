@@ -715,6 +715,12 @@ static void step_audition(el_ui_t *ui)
  * instruments only) and KNOB 2 its velocity (7 steps, one per turn;
  * docs/adr/0028); both are used up here. Other encoders keep their jobs; any turn keeps the
  * step. Returns what is left of PRESETS; *algo is used up likewise. */
+static uint32_t m_acc_of(const el_ui_t *ui)
+{
+    const dr_machine_t *m = &ui->engine->drums;
+    return m->pattern[m->current].accent;
+}
+
 static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
 {
     if (!ui->sh_key) return presets;
@@ -734,7 +740,10 @@ static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
         enc[ENC_KNOB1] = 0;
     }
     if (beat && enc[ENC_KNOB1 + 1]) {
-        int level = el_clampi((int)ui->sh_vol + (enc[ENC_KNOB1 + 1] > 0 ? 1 : -1), 0, 7);
+        /* from what the step plays now (not locked: its accent's level, 7, or the
+         * normal one, 5): left quieter, right louder */
+        int from = ui->sh_vol ? (int)ui->sh_vol : (((m_acc_of(ui) >> ui->sh_step) & 1u) ? 7 : 5);
+        int level = el_clampi(from + (enc[ENC_KNOB1 + 1] > 0 ? 1 : -1), 1, 7);
         if (dr_post(&e->drums, DR_CMD_VOL, ui->sh_part, ui->sh_step, 0, (int16_t)level) == 0) {
             ui->sh_vol = (uint8_t)level;
             step_audition(ui);

@@ -877,18 +877,20 @@ int main(int argc, char **argv)
         run(30);
         const unsigned step = 14, key = 24;                                        /* white key 24 = step 15 */
         if (!((m->pattern[m->current].hit[D8_BD] >> step) & 1u)) { tap_key(key); run(30); }
-        /* hold the step: KNOB 1 three semitones up, KNOB 2 three velocity steps up */
+        /* hold the step: KNOB 1 three semitones up, KNOB 2 three velocity steps
+         * down from what the step plays (normal: level 5, accent: 7) */
         panel.keys |= 1u << key; run(30);
         panel.encoders[2] = 3; run(10);
         shot(dir, "24_step_pitch");
-        panel.encoders[3] = 1; run(10); panel.encoders[3] = 1; run(10); panel.encoders[3] = 5; run(10);   /* (one step a turn, whatever the count) */
+        int acc = (m->pattern[m->current].accent >> step) & 1u;
+        panel.encoders[3] = -1; run(10); panel.encoders[3] = -1; run(10); panel.encoders[3] = -5; run(10);   /* (one step a turn, whatever the count) */
         shot(dir, "23_step_locks");
         int pitch = dr_pitch(m, m->current, D8_BD, step), level = (int)dr_vol(m, m->current, D8_BD, step);
         panel.encoders[2] = -20; run(10);                                      /* far down: stops at -12 */
         int low = dr_pitch(m, m->current, D8_BD, step);
         panel.encoders[2] = 9; run(10);
         panel.keys &= ~(1u << key); run(30);
-        lk_ok = lk_ok && pitch == 3 && level == 3 && low == -12 && dr_pitch(m, m->current, D8_BD, step) == -3 &&
+        lk_ok = lk_ok && pitch == 3 && level == (acc ? 4 : 2) && low == -12 && dr_pitch(m, m->current, D8_BD, step) == -3 &&
                 ((m->pattern[m->current].hit[D8_BD] >> step) & 1u);                   /* the step stays on */
         /* an instrument without a pitch takes the level but no pitch */
         ui.part = D8_CH;
@@ -897,7 +899,7 @@ int main(int argc, char **argv)
         panel.encoders[2] = 4; run(10);
         panel.encoders[3] = -1; run(10); panel.encoders[3] = 1; run(10); panel.encoders[3] = 1; run(10);
         panel.keys &= ~(1u << key); run(30);
-        lk_ok = lk_ok && dr_pitch(m, m->current, D8_CH, step) == 0 && dr_vol(m, m->current, D8_CH, step) == 2;
+        lk_ok = lk_ok && dr_pitch(m, m->current, D8_CH, step) == 0 && dr_vol(m, m->current, D8_CH, step) == (acc ? 7 : 6);   /* from the played level: -1 +1 +1 */
         /* the hit: pitch and level reach the kit; a step switched off forgets them */
         dr_rewind(m);
         m->pos = (uint8_t)((step + m->pattern[m->current].length - 1u) % m->pattern[m->current].length);
@@ -912,7 +914,7 @@ int main(int argc, char **argv)
             tr808_trigger_pitch(&kit, D8_BD, 0.66f, 0);
             normal_volts = kit.v[D8_BD].volts;
         }
-        lk_ok = lk_ok && m->kit.v[D8_BD].volts < normal_volts * 0.8f;               /* level 3 of 7: quieter than a normal hit */
+        lk_ok = lk_ok && m->kit.v[D8_BD].volts < normal_volts * 0.8f;               /* a level below the normal one: quieter than a normal hit */
         /* sounds one octave up: twice the zero crossings of the bass drum's body */
         {
             static tr808_t k0, k1;
