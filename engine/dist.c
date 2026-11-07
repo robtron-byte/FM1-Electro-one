@@ -18,7 +18,6 @@ static inline float powf_fast(float a, float b) { return a <= 0.0f ? 0.0f : dsp_
 static const float half_band[12] EL_DSP_DATA = {
     0.3163647824f, -0.1003918960f, 0.0545327660f, -0.0334618158f, 0.0211372679f, -0.0132048055f,
     0.0079527640f, -0.0045132248f, 0.0023474055f, -0.0010708521f, 0.0003905110f, -0.0000820879f};
-enum { DIST_LATENCY = 24 };
 
 static inline EL_DSP_HELPER float dist_clip(float x, int mode)
 {

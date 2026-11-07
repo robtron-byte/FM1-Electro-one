@@ -95,7 +95,7 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	./build/jp6_test build/wav_jp6 > build/jp6_test.log; s=$$?; grep "^strings hpf\|FAILED" build/jp6_test.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/jp6_test.log
 	./build/render_demo build/wav > build/render_demo.log; s=$$?; \
-	  grep -E "^(two cores|timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
+	  grep -E "^(two cores|timing|midi clock|punch|dist send|dist comb|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
 	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
 	  grep "^store\|^extras\|^strings\|^locks\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steps\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \

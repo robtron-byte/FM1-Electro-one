@@ -516,6 +516,51 @@ static int key_808_test(void)
     return ok ? 0 : 1;
 }
 
+/* The send's wet signal comes back DIST_LATENCY samples late; the dry buses
+ * run as late (docs/adr/0030). Without that a nearly clean distortion (drive
+ * 0, or TUBE) is a delayed copy of the dry sound and cancels it around
+ * 920 Hz (24 samples: half a period there). A held A#5 (932 Hz) must not
+ * lose level when the send goes up, master off so only the phase counts. */
+static double band_energy(int mode, int drive, int send)
+{
+    static el_engine_t e;
+    static float out[FM1_SAMPLE_RATE * 2 * 2], mono[FM1_SAMPLE_RATE * 2];
+    el_init(&e);
+    el_post(&e, EL_CMD_FX, FX_DIST_MODE, (int16_t)mode);
+    el_post(&e, EL_CMD_FX, FX_DIST_DRIVE, (int16_t)drive);
+    el_post(&e, EL_CMD_FX, FX_DIST_SEND_STRINGS, (int16_t)send);
+    el_post(&e, EL_CMD_MIX, 0, 0);
+    el_post(&e, EL_CMD_START, 0, 0);
+    const uint8_t on[3] = {0x91, 82, 110};   /* STRINGS, A#5 */
+    el_midi_input(&e, on, 3);
+    unsigned total = FM1_SAMPLE_RATE * 2 / EL_BLOCK * EL_BLOCK;
+    for (unsigned pos = 0; pos < total; pos += EL_BLOCK) el_render_float(&e, out + pos * 2u, EL_BLOCK);
+    for (unsigned i = 0; i < total; ++i) mono[i] = 0.5f * (out[2 * i] + out[2 * i + 1]);
+    double power = 0;
+    for (double hz = 905.0; hz <= 960.0; hz += 5.0) {   /* DFT over the last second, Hann window */
+        double re = 0, im = 0, w = 2.0 * 3.14159265358979 * hz / FM1_SAMPLE_RATE;
+        for (unsigned i = 0; i < FM1_SAMPLE_RATE; ++i) {
+            double win = 0.5 - 0.5 * cos(2.0 * 3.14159265358979 * i / FM1_SAMPLE_RATE), x = mono[FM1_SAMPLE_RATE + i] * win;
+            re += x * cos(w * i);
+            im += x * sin(w * i);
+        }
+        power += re * re + im * im;
+    }
+    return power;
+}
+
+static int dist_comb_test(void)
+{
+    double base = band_energy(0, 0, 0);
+    double tube = band_energy(DIST_TUBE, 0, 127), tube_db = 10 * log10(tube / base);
+    double od = band_energy(DIST_OD, 0, 127), od_db = 10 * log10(od / base);
+    double tube_mid = band_energy(DIST_TUBE, 64, 100), tube_mid_db = 10 * log10(tube_mid / base);
+    int ok = base > 0 && tube_db > -1.0 && od_db > -1.0 && tube_mid_db > -1.0;
+    printf("dist comb: A#5 with the send up, TUBE clean %+.1f dB, OD clean %+.1f dB, TUBE driven %+.1f dB (no cancellation): %s\n",
+           tube_db, od_db, tube_mid_db, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
 static int dist_test(void)
 {
     double plain = render_energy(0, 0, 0, 0), off = render_energy(0, 127, 0, 0);
@@ -533,7 +578,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
+    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | dist_comb_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {

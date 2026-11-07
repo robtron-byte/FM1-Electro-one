@@ -120,6 +120,9 @@ typedef struct {
      * dry level and how long the reverb throw has been fed. */
     volatile uint8_t punch;
     float stutter_phase, stutter_gain, dry_gain, throw_fed, throw_lp, kick_low;
+    /* The dry buses' last DIST_LATENCY samples (kick, drums L R, bass, synths L R): delayed
+     * by as much as the distortion send's wet signal (docs/adr/0030). */
+    float dry_tail[6][DIST_LATENCY];
     /* White key value per punch-in (el_punch_value_name). */
     uint8_t punch_div[EL_PUNCHES];
     uint32_t sync_step;

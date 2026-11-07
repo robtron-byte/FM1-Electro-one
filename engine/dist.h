@@ -9,6 +9,10 @@
 #include "el_config.h"
 
 enum { DIST_OFF, DIST_OD, DIST_DIST, DIST_RAT, DIST_TUBE, DIST_MODES };
+/* The samples dist_process delays the signal by (its oversampling filters),
+ * kept when bypassed. The send's wet signal is that late against the dry
+ * mix; engine/electro.c delays the dry buses by as much (docs/adr/0030). */
+enum { DIST_LATENCY = 24 };
 
 /* DIST_FIXED: the distortion in fixed point (own platform: its FPU is slow,
  * the float version took more than a core with the HOME sends up). */

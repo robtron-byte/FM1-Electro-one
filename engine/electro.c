@@ -965,6 +965,43 @@ static EL_DSP_CODE void bus_pre(el_engine_t *e, el_bus_t *b)
     }
 }
 
+/* One bus delayed by DIST_LATENCY samples, in place; tail holds the
+ * samples of the block before. Plain loops: no libc on the audio path. */
+static EL_DSP_CODE void delay_dry(float *x, float *tail, unsigned frames)
+{
+    enum { N = DIST_LATENCY };
+    if (frames >= N) {
+        float keep[N];
+        for (unsigned k = 0; k < N; ++k) keep[k] = x[frames - N + k];
+        for (unsigned i = frames - 1u; i >= N; --i) x[i] = x[i - N];
+        for (unsigned k = 0; k < N; ++k) { x[k] = tail[k]; tail[k] = keep[k]; }
+    } else {
+        for (unsigned i = 0; i < frames; ++i) {
+            float out = tail[0];
+            for (unsigned k = 0; k + 1u < N; ++k) tail[k] = tail[k + 1u];
+            tail[N - 1u] = x[i];
+            x[i] = out;
+        }
+    }
+}
+
+/* The distortion send comes back DIST_LATENCY samples late: with little
+ * drive, or the soft TUBE, it is nearly a delayed copy of the send, and
+ * added to the dry mix as it was it combed it (notches from 920 Hz up).
+ * So the dry buses run the same samples late, always (a latency that
+ * jumped with the send would click); the wet joins them aligned. */
+static EL_DSP_CODE void bus_align_dry(el_engine_t *e, el_bus_t *b)
+{
+    unsigned frames = b->frames;
+    delay_dry(b->kick, e->dry_tail[0], frames);
+    delay_dry(b->drum_l, e->dry_tail[1], frames);
+    delay_dry(b->drum_r, e->dry_tail[2], frames);
+    delay_dry(b->bass_l, e->dry_tail[3], frames);   /* (mono: the right one is a copy) */
+    for (unsigned i = 0; i < frames; ++i) b->bass_r[i] = b->bass_l[i];
+    delay_dry(b->synth_l, e->dry_tail[4], frames);
+    delay_dry(b->synth_r, e->dry_tail[5], frames);
+}
+
 static int dist_wet;   /* bus_dist: the distortion has a return to mix */
 static EL_DSP_CODE void bus_dist(el_engine_t *e, el_bus_t *b)
 {
@@ -989,6 +1026,7 @@ static EL_DSP_CODE void bus_post(el_engine_t *e, el_bus_t *b, uint32_t fx_ticks,
         e->pre_ticks += split_pre_ticks;
         e->dist_ticks += split_dist_ticks;
     }
+    bus_align_dry(e, b);
     if (dist_wet) fx_distortion_mix(&e->fx, dist_send, b->drum_l, b->drum_r, (int)frames);
     e->prof[EL_PROF_FX] += fx_ticks;
     prof_add(e, EL_PROF_FX, &pt);
