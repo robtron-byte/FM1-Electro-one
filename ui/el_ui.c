@@ -1700,7 +1700,7 @@ static void draw_options(el_ui_t *ui, gfx_band_t *b)
         /* Master compressor gain reduction, 0 .. -12 dB. */
         float gr = ui->engine->mix.enabled ? -ui->engine->mix.gain_reduction_db : 0.0f;
         int w = (int)(dsp_min(gr, 12.0f) * 6.0f);
-        if (ui->clk_pll) {
+        if (ui->clk_pll && !ui->plat) {
             /* The clock, read from the chip (ADR 0019). */
             char clk[32];
             el_snprintf(clk, sizeof clk, "PLL%u S%u=%u T%u", ui->clk_pll, ui->clk_src, ui->clk_sys, ui->clk_timer);
@@ -1831,7 +1831,8 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             if (ui->plat) {   /* own platform: peaks and gaps instead of the SDK build's CPU test */
                 el_snprintf(l2, sizeof l2, "PEAK %u%% MAX %u%% C1 %u%%%s", (unsigned)(ui->load < 0 ? 0 : ui->load),
                             (unsigned)ui->load_max, (unsigned)ui->c1_peak, ui->cpu1_on ? "" : " 1CORE");
-                el_snprintf(l3, sizeof l3, "LATE BLOCKS %u", (unsigned)ui->drops);
+                /* with the clock as the chip reports it (PLL, source, system clock in MHz) */
+                el_snprintf(l3, sizeof l3, "LATE %u  PLL%u S%u=%u", (unsigned)ui->drops, ui->clk_pll, ui->clk_src, ui->clk_sys);
             }
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);

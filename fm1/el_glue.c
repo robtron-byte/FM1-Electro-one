@@ -78,6 +78,18 @@ void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
         ui.drops = drops;
         ui.cpu1_on = (uint8_t)el_platform_cpu1_ok();
         ui.plat = 1;
+        {
+            /* The clock as X0X reads it off an FM-1 (as fm1/el_fm1.c): the PLL
+             * from the 24 MHz reference, the system clock from source 0x10014
+             * (6: 2/3 of the PLL). */
+            uint32_t r0 = *(volatile uint32_t *)0x119A0u, r8 = *(volatile uint32_t *)0x119A8u;
+            uint32_t rc = *(volatile uint32_t *)0x119ACu, src = *(volatile uint32_t *)0x10014u & 0xFu;
+            uint32_t ref = (r0 & 0xC000000u) != 0x8000000u ? 24u : 0u;
+            uint32_t pll = ref ? ref * ((rc & 0xFFFu) + 2u) / (((r8 >> 2) & 31u) + 2u) : 0u;
+            ui.clk_pll = (uint16_t)pll;
+            ui.clk_src = (uint8_t)src;
+            ui.clk_sys = (uint16_t)(src == 6u ? pll * 2u / 3u : 0u);
+        }
         ui.load_drops = 0;
         /* stage shares: their ticks against the engine blocks rendered meanwhile */
         uint32_t blocks = engine.blocks, n = blocks - prof_blocks;
