@@ -107,4 +107,4 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | N8 | Kurzer Druck auf EDIT (ohne etwas anderes) öffnet den Editor des gerade aktiven Bereichs, noch ein kurzer Druck geht zurück. EDIT gehalten bleibt die Umschalttaste wie bisher (EDIT + …) | ○ |
 | N9 | Im Editor im Kreis blättern: von der ersten Seite nach links auf die letzte, von der letzten nach rechts auf die erste (Seiten und Abschnitte) | ○ |
 | N10 | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ |
-| N11 | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Offen: ungerade Längen in Steps als Ausnahme behalten? | ○ |
+| N11 | GLO + ALGORITHM (Pattern-Länge) ändert in ganzen Takten; die Taktzahl erscheint groß im Display, solange gedreht wird. Ungerade Längen in einzelnen Steps nur im STEP-Modus der Synth-Bereiche | ○ |
