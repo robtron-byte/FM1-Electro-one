@@ -829,12 +829,16 @@ int main(int argc, char **argv)
         if (!ui.step_mode[EL_AREA_BASS]) tap_button(BTN_SEQ);
         panel.encoders[2] = 1; run(10); panel.encoders[2] = 0;
         run(120);
-        int n3 = ui.knob_at[0] && ui.now - ui.knob_at[0] >= 80u && ui.now - ui.knob_at[0] < 420u;
+        uint32_t started = ui.knob_start[0];
+        panel.encoders[2] = 1; run(10); panel.encoders[2] = 0;   /* a second detent: the panel stays, no new opening */
+        run(20);
+        int still = ui.knob_start[0] == started;
+        int n3 = still && ui.knob_at[0] && ui.now - ui.knob_start[0] >= 80u && ui.now - ui.knob_at[0] < 420u;
         shot(dir, "19c_step_knob");
         run(500);
         n3 = n3 && ui.now - ui.knob_at[0] >= 500u;
         tap_button(BTN_SEQ);
-        printf("knobs: the turned value pops in, big, and goes after 0.5 s, STEP mode too (N3, U7) %s\n", n3 ? "ok" : "FAIL");
+        printf("knobs: the panel opens once per turn, stays while turning, goes 0.5 s after (N3, U7) %s\n", n3 ? "ok" : "FAIL");
         printf("leds: REC dimmed while not recording (N5) %s; length in bars %u x %u (N11) %s\n", n5 ? "ok" : "FAIL",
                bp2->length / spb, spb, n11 ? "ok" : "FAIL");
     }

@@ -256,6 +256,7 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
     return k;
 }
 
+static void knob_turned(el_ui_t *ui, unsigned i);
 static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
 {
     el_engine_t *e = ui->engine;
@@ -279,7 +280,7 @@ static void edit_knob(el_ui_t *ui, unsigned slot, int delta)
         if (k.max > 64 && mult > 1) ++mult;           /* 0..127: up to four */
         step = delta * mult;
     }
-    ui->knob_at[slot] = ui->now;
+    knob_turned(ui, slot);
     int value = raw_value(ui, slot, &param) + step, r;
     value = el_clampi(value, param == PARAM_ARP + ARP_GATE ? 5 : 0, k.max);
     if (ui->overview && param >= 300u) {
@@ -739,8 +740,8 @@ static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
     el_engine_t *e = ui->engine;
     int beat = ui->sh_area == EL_AREA_BEAT;
     uint8_t track = (uint8_t)(ui->sh_area - 1u);
-    if (beat && enc[ENC_KNOB1]) ui->knob_at[0] = ui->now | 1u;
-    if (beat && enc[ENC_KNOB1 + 1]) ui->knob_at[1] = ui->now | 1u;
+    if (beat && enc[ENC_KNOB1]) knob_turned(ui, 0);
+    if (beat && enc[ENC_KNOB1 + 1]) knob_turned(ui, 1);
     if (beat && enc[ENC_KNOB1]) {
         if (dr_pitch_slot(ui->sh_part) >= 0) {
             int semis = el_clampi(ui->sh_pitch + enc[ENC_KNOB1], -12, 12);
@@ -1398,7 +1399,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     } else if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
         uint8_t track = (uint8_t)(ui->area - 1u), s = ui->cursor[ui->area];
         const int16_t *k = enc + ENC_KNOB1;
-        for (unsigned i = 0; i < 4; ++i) if (k[i]) ui->knob_at[i] = ui->now | 1u;   /* U7: highlighted in the footer */
+        for (unsigned i = 0; i < 4; ++i) if (k[i]) knob_turned(ui, i);   /* U7: highlighted in the footer */
         if (k[0]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, k[0]);
         if (k[1]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, (int16_t)(k[1] * 12));
         if (k[2]) {
@@ -1640,12 +1641,17 @@ static void update_leds(el_ui_t *ui)
             if (s >= p->length) continue;
             int on = (ui->hold & HOLD_EDIT) ? (p->accent >> s) & 1u :
                      (ui->hold & HOLD_GLO) ? (p->roll[ui->part] >> s) & 1u : (p->hit[ui->part] >> s) & 1u;
+            uint32_t acc = p->accent;
             if (ui->fill_edit) {   /* the fill's bar (N12) */
                 const dr_fill_t *f = &m->fill[m->current];
                 on = (ui->hold & HOLD_EDIT) ? (f->accent >> i) & 1u : (ui->hold & HOLD_GLO) ? (f->roll[ui->part] >> i) & 1u : (f->hit[ui->part] >> i) & 1u;
+                acc = (uint32_t)f->accent << (page * 16u);
             }
-            if (playing && m->pos == s) on = !on;
+            /* accents in the running light: a step with an accent but no hit dimmed */
+            int accent_only = !on && !(ui->hold & (HOLD_EDIT | HOLD_GLO)) && (acc >> s) & 1u;
+            if (playing && m->pos == s) on = !on, accent_only = 0;
             if (on) leds |= 1ull << (14u + white_keys[i]);
+            else if (accent_only) { leds |= 1ull << (14u + white_keys[i]); key_dim |= 1ull << (14u + white_keys[i]); }
         }
         for (unsigned k = 0; k < UI_BLACK; ++k) {
             int part = beat_part(ui, (int)k);
@@ -1672,8 +1678,11 @@ static void update_leds(el_ui_t *ui)
                 if (s >= p->length) continue;
                 int on = (ui->hold & HOLD_EDIT) ? (p->step[s].flags & ST_ACCENT) != 0 :
                          (ui->hold & HOLD_GLO) ? (p->step[s].flags & ST_TIE) != 0 : (p->step[s].flags & ST_ON) != 0;
-                if (tplay && t->pos == s) on = !on;
+                /* an accented step dimmed, a plain one full (accents in the running light) */
+                int dimmed = on && !(ui->hold & (HOLD_EDIT | HOLD_GLO)) && !(p->step[s].flags & ST_ACCENT);
+                if (tplay && t->pos == s) on = !on, dimmed = 0;
                 if (on) leds |= 1ull << (14u + white_keys[i]);
+                if (on && dimmed) key_dim |= 1ull << (14u + white_keys[i]);
             }
         } else {
             /* KEYS: light the keys of the notes the sequence is playing. */
@@ -2082,25 +2091,36 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
     gfx_text(b, 4, 180, "5 STUT 6 HALL 7 STOP 8 REP 9 DLY 10 BIT 11 PHA", DIM, 1);
 }
 
-/* The value being turned (U3, N3, U7): an amber panel behind name and value
- * that pops in (two frames), shows the value a size larger, and shrinks back
- * after the turn (half a second). Phase 0: off, 1-2 growing, 3 full, 4-5 going. */
+/* The value being turned (U3, N3, U7): an amber panel behind name and value.
+ * It opens once when a turn starts (two frames), stays still while the knob
+ * keeps turning (no jump per detent) and closes half a second after the
+ * last detent. Phase 0: off, 1-2 opening, 3 open, 4-5 closing. */
 static unsigned knob_phase(const el_ui_t *ui, unsigned i)
 {
     if (!ui->knob_at[i]) return 0;
-    uint32_t e = ui->now - ui->knob_at[i];
-    return e < 40u ? 1u : e < 80u ? 2u : e < 420u ? 3u : e < 460u ? 4u : e < 500u ? 5u : 0u;
+    uint32_t last = ui->now - ui->knob_at[i], since = ui->now - ui->knob_start[i];
+    if (last >= 500u) return 0;
+    if (last >= 460u) return 5u;
+    if (last >= 420u) return 4u;
+    return since < 40u ? 1u : since < 80u ? 2u : 3u;
+}
+
+/* A detent of KNOB i: a turn starts when the panel was closed. */
+static void knob_turned(el_ui_t *ui, unsigned i)
+{
+    if (!ui->knob_at[i] || ui->now - ui->knob_at[i] >= 500u) ui->knob_start[i] = ui->now;
+    ui->knob_at[i] = ui->now | 1u;
 }
 
 static void draw_knob_cell(gfx_band_t *b, int x, const char *name, const char *value, int small, uint16_t color, unsigned phase, int steady)
 {
+    /* the panel with room around the letters: 4 px left and top, the value well inside */
     static const uint8_t inset[6] = {0, 6, 3, 0, 3, 6};
     int lit = phase || steady, in = phase ? inset[phase] : 0;
-    if (lit) gfx_fill(b, x - 3 + in, FOOT_Y - 2 + in / 2, 57 - 2 * in, 30 - in, AMBER);
+    if (lit) gfx_fill(b, x - 4 + in, FOOT_Y - 4 + in / 2, 56 - 2 * in, 34 - in, AMBER);
     gfx_text(b, x, FOOT_Y, name, lit ? BACK : DIM, 1);
     if (small) { gfx_text(b, x, FOOT_Y + 14, value, lit ? BACK : color, 1); return; }
-    int big = phase == 3 && gfx_text_width(value, 3) <= 54;
-    gfx_text(b, x, big ? FOOT_Y + 9 : FOOT_Y + 12, value, lit ? BACK : color, big ? 3 : 2);
+    gfx_text(b, x, FOOT_Y + 12, value, lit ? BACK : color, 2);
 }
 
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)

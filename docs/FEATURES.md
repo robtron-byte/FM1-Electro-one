@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S12, Y6, F11, U10, P11, N15).
+Neue Nummern: im Bereich die nächste freie (B17, S12, Y6, F11, U11, P11, N15).
 
 Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -81,11 +81,12 @@ Stand: 38. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ◐ umgesetzt (38. Build): OCT+ Vorschau an/aus (gedimmt = aus), OCT− Seiten | – |
 | S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ◐ umgesetzt (38. Build): HOME, ARP + 16. weiße Taste zweimal | – |
 | N7 | Neu | STRINGS-Aufnahmen länger als 4 Takte: läuft eine Aufnahme über 4 Takte hinaus, rastet sie auf Viertel um und wächst bis 8 Takte (Entscheidung Nutzer 07.11.: Viertel-Raster statt mehr Speicher) | ◐ umgesetzt (38. Build): über 4 Takte → Viertel-Raster, bis 8 Takte | – |
-| N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ◐ umgesetzt (38. Build): Amber-Fläche springt auf, Wert eine Größe größer, nach 0,5 s zurück | – |
+| N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ◐ 39. Build (Feedback: sprang zu sehr): Fläche öffnet einmal zu Beginn des Drehens, bleibt ruhig stehen, Schrift mit Abstand zum Rand, Wert in gleicher Größe; schließt 0,5 s nach dem letzten Schritt | – |
 | U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ◐ umgesetzt (38. Build): STEP-Modus zeigt die Step-Werte auf KNOB 1–4, hervorgehoben; Editor und Drum-Locks ebenso | – |
 | N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ◐ umgesetzt (38. Build): Kacheln über dem unteren Teil von HOME, ~12 Bilder/s | – |
 | U9 | Bedienung/Display | Speichern beim Spielen ohne Hänger: die nächste Kopie wird schon beim Einschalten gelöscht (Feedback 07.11.) | ◐ umgesetzt (39. Build) | 0023 |
 | Y5 | Synths | Arpeggiator in STRINGS arpeggiert die Akkorde der laufenden Sequenz (ohne gehaltene Taste; Tasten haben Vorrang) (Feedback 07.11.) | ◐ umgesetzt (39. Build) | – |
+| U10 | Bedienung/Display | Akzente in der Lauflicht-Leiste: BEAT Akzent ohne Schlag gedimmt; STEP-Modus akzentuierte Steps voll, andere gedimmt (Feedback 07.11.) | ◐ umgesetzt (39. Build) | – |
 
 ## Gestrichen
 

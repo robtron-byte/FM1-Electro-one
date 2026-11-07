@@ -90,6 +90,7 @@ typedef struct {
     uint16_t shadow_param[4];   /* area << 8 | parameter */
     uint32_t shadow_time[4];
     uint32_t knob_at[4];        /* when each of KNOB 1-4 last turned (its speed: edit_knob) */
+    uint32_t knob_start[4];     /* when its turn started (the panel opens once, N3) */
     const char *notice;
     uint32_t notice_until, notice_id, hold;
     uint64_t leds, leds_dim;   /* lit, and of those dimmed (docs/adr/0020) */
