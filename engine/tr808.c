@@ -188,6 +188,7 @@ void tr808_init(tr808_t *t)
     tom_lag2_c = decay_coef(MS(1.5f));
     tom_bias = dsp_tanh(0.76f * 0.0025f);
     for (int part = 0; part < D8_NUM; ++part) {
+        t->shift[part] = 1.0f;
         t->v[part].rng = 0x9e3779b9u * (uint32_t)(part + 1);
         for (int i = 0; i < 8; ++i) t->v[part].memo[i].x = -1e30f;   /* nothing remembered yet */
     }
@@ -292,11 +293,22 @@ static inline EL_DSP_HELPER unsigned po_sound(const tr808_t *t, int part)
 
 /* ---- trigger ------------------------------------------------------------------- */
 
-EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity)
+EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity) { tr808_trigger_pitch(t, part, velocity, 0); }
+
+/* Pitch lock: x 2^(n/12) for n = -12 .. 12. */
+static const float shift_tab[25] EL_DSP_DATA = {
+    0.5f, 0.52973f, 0.56123f, 0.59460f, 0.62996f, 0.66742f, 0.70711f, 0.74915f, 0.79370f, 0.84090f, 0.89090f, 0.94387f, 1.0f,
+    1.05946f, 1.12246f, 1.18921f, 1.25992f, 1.33484f, 1.41421f, 1.49831f, 1.58740f, 1.68179f, 1.78180f, 1.88775f, 2.0f};
+
+EL_DSP_CODE void tr808_trigger_pitch(tr808_t *t, int part, float velocity, int semitones)
 {
     if ((unsigned)part >= D8_NUM || velocity <= 0) return;
+    if (!TR808_TUNED(part)) semitones = 0;
+    semitones = semitones < -12 ? -12 : semitones > 12 ? 12 : semitones;
+    t->shift_semis[part] = (int8_t)semitones;
+    t->shift[part] = shift_tab[semitones + 12];
     if (po_engine(t, part)) {
-        po_trigger(&t->po[part], po_sound(t, part), velocity, knob(t, part, P_TUNE), knob(t, part, P_DECAY));
+        po_trigger(&t->po[part], po_sound(t, part), velocity, knob(t, part, P_TUNE) + (float)semitones * (1.0f / 24.0f), knob(t, part, P_DECAY));
         if (part == D8_CH && t->kit[2] && t->po[D8_OH].active) t->po[D8_OH].choke = 1;
         if (part == D8_OH && t->kit[2] == 2 && t->po[D8_CH].active) t->po[D8_CH].choke = 1;
         return;
@@ -371,7 +383,7 @@ static EL_DSP_VOICE float bass_drum(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_BD;
     const float *k = tr808_bd_cal;
-    float f0 = k[0] * (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE));
+    float f0 = k[0] * (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part];
     float kd = knob(t, part, P_DECAY);
     if (kd != v->memo[0].x) { v->memo[0].x = kd; v->memo[0].y = k[11] * dsp_exp2(k[12] * powf_approx(kd, 0.8f)); }
     float q = v->memo[0].y;
@@ -470,7 +482,7 @@ TR808_CAL float tr808_sd_cal[SD_CAL] = {
 static EL_DSP_HELPER float snare_circuit(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_SD;
-    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE);
+    float tune = (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part];
     float dq = dsp_clamp(1.3275f * spread(t, part, P_DECAY), 0.35f, 1.5f);
     float volts = 4.0f + 3.3f * v->accent;               /* 8W8's trigger height */
     if (v->age == 0) {
@@ -500,7 +512,7 @@ static EL_DSP_VOICE float snare(tr808_t *t, tr_voice_t *v)
     const int part = D8_SD;
     const float *k = tr808_sd_cal;
     float pulse = trigger_pulse(v);
-    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE), decay = spread(t, part, P_DECAY);
+    float tune = (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part], decay = spread(t, part, P_DECAY);
     if (v->age == 0) {
         svf_set(&v->r3, k[8], 0.7f);   /* noise high-pass */
         v->aux = 0;
@@ -589,7 +601,7 @@ static EL_DSP_VOICE float rim(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_RS;
     int clave = t->pot[part][P_SOUND] == 1;
-    float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE), pulse = trigger_pulse(v);
+    float tune = (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part], pulse = trigger_pulse(v);
     if (v->age == 0) {
         svf_set(&v->r1, 455.0f * tune, 6.7f * tr808_mx_cal[7]);
         svf_set(&v->r2, 1667.0f * tune, 13.5f * tr808_mx_cal[7]);
@@ -852,7 +864,7 @@ static EL_DSP_HELPER float cowbell_fitted(tr808_t *t, tr_voice_t *v, float src)
     const int part = D8_CB;
     const float *k = tr808_cb_cal;
     if (v->age == 0) {
-        float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE);
+        float tune = (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE)) * t->shift[part];
         svf_set(&v->r1, k[0] * tune, k[1]);
         svf_set(&v->r2, k[3] * tune, 0.7071f);
     }
@@ -875,7 +887,7 @@ static EL_DSP_VOICE float cowbell(tr808_t *t, tr_voice_t *v, float src)
     const int part = D8_CB;
     const float *k = tr808_mx_cal;
     if (TR808_CB_MODEL) return cowbell_fitted(t, v, src);
-    if (v->age == 0) svf_set(&v->r1, k[0] * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE)), k[1]);
+    if (v->age == 0) svf_set(&v->r1, k[0] * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE)) * t->shift[part], k[1]);
     float y = svf_bp(&v->r1, src * 0.5f, 0);
     float decay = spread(t, part, P_DECAY);
     v->env *= m_decay(&v->memo[0], MS(k[2]) * decay);
@@ -1111,7 +1123,7 @@ static EL_DSP_HELPER float zap_perc(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_ZP;
     if (v->age == 0) {
-        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];   /* start Hz */
         v->pitch = 1.0f;
         v->lag1 = 1.0f;     /* FM index envelope */
         v->lag2 = 1.0f;     /* noise envelope */
@@ -1150,7 +1162,7 @@ static EL_DSP_HELPER float zap_electro(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_ZP;
     if (v->age == 0) {
-        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];   /* start Hz */
         v->pitch = 1.0f;
         v->aux2 = 0.0f;     /* flutter phase */
         v->lag2 = 1.0f;     /* noise at the hit */
@@ -1199,7 +1211,7 @@ static EL_DSP_HELPER float zap_ref(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_ZP;
     if (v->age == 0) {
-        v->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));
+        v->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];
         v->aux2 = 1.0f / spread(t, part, P_SNAPPY);            /* time scale: ms per ms */
         float k = knob(t, part, P_SOUND);
         v->lag2 = 11.0f - 5.0f * k;                            /* floor, log2 Hz: 2048 .. 64 */
@@ -1231,7 +1243,7 @@ static EL_DSP_VOICE float zap(tr808_t *t, tr_voice_t *v)
     if (TR808_ZP_MODEL) return zap_perc(t, v);
     const int part = D8_ZP;
     if (v->age == 0) {
-        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));   /* start Hz */
+        v->aux = 1340.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];   /* start Hz */
         v->pitch = 1.0f;
     }
     float sweep = 5.0f * m_exp2(&v->memo[0], 6.3f * knob(t, part, P_SNAPPY));            /* ms */
@@ -1265,7 +1277,7 @@ static EL_DSP_VOICE float pulse(tr808_t *t, tr_voice_t *v)
 {
     const int part = D8_PU;
     if (v->age == 0) {
-        float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
+        float tune = (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part], ring = spread(t, part, P_TONE);
         svf_set(&v->r1, 341.0f * tune, 0.65f);
         /* The recording rings at ~100 Hz through two resonant high-passes
          * (97 Hz Q 2.7, 92 Hz Q 4); that low "plop" fights the bass, so
@@ -1479,11 +1491,11 @@ EL_DSP_CODE void tr808_render(tr808_t *t, float *kick, float *left, float *right
             float m = metal(t, t->hat_phase[h], spread(t, D8_CY, P_TUNE) * spread(t, part, P_TUNE), 0);
             hat_src[h] = TR808_HAT_MODEL == 2 ? m * 0.714f : svf_bp(&t->hat_bp[h], m, 0);
         }
-        if (metal_on && t->v[D8_CB].active && (t->key_on || t->pot[D8_CB][P_TUNE] != 64)) {
+        if (metal_on && t->v[D8_CB].active && (t->key_on || t->pot[D8_CB][P_TUNE] != 64 || t->shift_semis[D8_CB])) {
             if (t->v[D8_CB].age == 0) memcpy(t->cb_phase, t->metal_phase + 4, sizeof t->cb_phase);
-            if (t->key_on) cb_src = cowbell_osc(t->cb_phase, t->key_r[D8_CB], t->key_cb_hi);
+            if (t->key_on) cb_src = cowbell_osc(t->cb_phase, t->key_r[D8_CB] * t->shift[D8_CB], t->key_cb_hi * t->shift[D8_CB]);
             else {
-                float r = spread(t, D8_CY, P_TUNE) * spread(t, D8_CB, P_TUNE);
+                float r = spread(t, D8_CY, P_TUNE) * spread(t, D8_CB, P_TUNE) * t->shift[D8_CB];
                 cb_src = cowbell_osc(t->cb_phase, r, r);
             }
         }

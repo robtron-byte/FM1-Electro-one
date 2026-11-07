@@ -221,5 +221,6 @@ void dr_generate(dr_pattern_t *out, unsigned style, unsigned variation, uint32_t
         p.roll[D8_BD] = keep->roll[D8_BD];
         p.length = keep->length;
     }
+    dr_strip_hidden(&p);
     *out = p;
 }

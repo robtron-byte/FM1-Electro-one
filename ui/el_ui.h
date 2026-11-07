@@ -16,7 +16,7 @@ enum {
     BTN_GLO, BTN_HOME, BTN_SAVE, BTN_ARP, BTN_SEQ, BTN_PLAY, BTN_REC, BTN_COUNT
 };
 enum { EL_OCT_MIN = -3, EL_OCT_MAX = 2 };   /* the keys' octave per synth area */
-enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5 };
+enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5, UI_PARTS = 10 };   /* UI_PARTS: BEAT instruments on the black keys */
 
 typedef struct {
     el_engine_t *engine;
@@ -35,7 +35,7 @@ typedef struct {
     /* SAVE in the editor: slot and name of the sound being stored. */
     uint8_t sound_save, sound_slot, name_cursor;
     char sound_name[EL_SOUND_NAME + 1];
-    uint8_t area, overview, follow, part, beat_layer, arp_tap;
+    uint8_t area, overview, follow, part, arp_tap;
     uint8_t options, opt_item;          /* OPTIONS menu (HOME + SAVE) */
     /* Synth editor (EDIT + area button): section and page per area. */
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];
@@ -53,6 +53,11 @@ typedef struct {
     uint8_t sh_key, sh_area, sh_step, sh_part, sh_cond, sh_used, sh_remove;
     uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
     uint8_t sh_show_prob;               /* the big readout shows the chance (else the passes) */
+    /* Parameter locks of the held drum step (docs/adr/0028): pitch in
+     * semitones (SELECT), fixed level 0..7 (KNOB 1); sh_lock = which the
+     * big readout shows: 0 passes / chance, 1 pitch, 2 level. */
+    int8_t sh_pitch;
+    uint8_t sh_vol, sh_lock;
     uint32_t sh_at;                     /* when it went down: the big readout after a moment */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,

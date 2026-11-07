@@ -835,5 +835,123 @@ int main(int argc, char **argv)
         printf("store: erased ahead, the save erases nothing %s\n", prep_ok ? "ok" : "FAIL");
     }
     printf("steps: conditions 2:2 / 1:4, probability, under Repeat, held step + PRESETS / ALGORITHM %s\n", sc_ok ? "ok" : "FAIL");
+
+    /* Drum parameter locks and the kit without toms (docs/adr/0028). */
+    {
+        int lk_ok = 1;
+        el_engine_t *sim = ui.engine;
+        dr_machine_t *m = &sim->drums;
+        if (sim->transport.running) { tap_button(BTN_PLAY); run(100); }
+        ui.overview = 0; ui.editor = 0; ui.area = EL_AREA_BEAT; ui.part = D8_BD; ui.step_page[0] = 0;
+        dr_post(m, DR_CMD_LENGTH, 0, 16, 0, 0);
+        run(30);
+        const unsigned step = 14, key = 24;                                        /* white key 24 = step 15 */
+        if (!((m->pattern[m->current].hit[D8_BD] >> step) & 1u)) { tap_key(key); run(30); }
+        /* hold the step: SELECT three semitones up, KNOB 1 three levels up */
+        panel.keys |= 1u << key; run(30);
+        panel.encoders[0] = 3; run(10);
+        shot(dir, "24_step_pitch");
+        panel.encoders[2] = 1; run(10); panel.encoders[2] = 1; run(10); panel.encoders[2] = 5; run(10);   /* (one level a turn, whatever the count) */
+        shot(dir, "23_step_locks");
+        int pitch = dr_pitch(m, m->current, D8_BD, step), level = (int)dr_vol(m, m->current, D8_BD, step);
+        panel.encoders[0] = -20; run(10);                                      /* far down: stops at -12 */
+        int low = dr_pitch(m, m->current, D8_BD, step);
+        panel.encoders[0] = 9; run(10);
+        panel.keys &= ~(1u << key); run(30);
+        lk_ok = lk_ok && pitch == 3 && level == 3 && low == -12 && dr_pitch(m, m->current, D8_BD, step) == -3 &&
+                ((m->pattern[m->current].hit[D8_BD] >> step) & 1u);                   /* the step stays on */
+        /* an instrument without a pitch takes the level but no pitch */
+        ui.part = D8_CH;
+        if (!((m->pattern[m->current].hit[D8_CH] >> step) & 1u)) { tap_key(key); run(30); }
+        panel.keys |= 1u << key; run(30);
+        panel.encoders[0] = 4; run(10);
+        panel.encoders[2] = -1; run(10); panel.encoders[2] = 1; run(10); panel.encoders[2] = 1; run(10);
+        panel.keys &= ~(1u << key); run(30);
+        lk_ok = lk_ok && dr_pitch(m, m->current, D8_CH, step) == 0 && dr_vol(m, m->current, D8_CH, step) == 2;
+        /* the hit: pitch and level reach the kit; a step switched off forgets them */
+        dr_rewind(m);
+        m->pos = (uint8_t)((step + m->pattern[m->current].length - 1u) % m->pattern[m->current].length);
+        m->playing = 1;
+        dr_step(m, 0, 1000.0f);
+        lk_ok = lk_ok && m->kit.shift_semis[D8_BD] == -3 && m->kit.shift[D8_BD] < 0.85f && m->kit.v[D8_BD].volts > 0.0f &&
+                m->kit.v[D8_BD].accent == 0.0f;
+        float normal_volts = 0;
+        {
+            static tr808_t kit;
+            tr808_init(&kit);
+            tr808_trigger_pitch(&kit, D8_BD, 0.66f, 0);
+            normal_volts = kit.v[D8_BD].volts;
+        }
+        lk_ok = lk_ok && m->kit.v[D8_BD].volts < normal_volts * 0.8f;               /* level 3 of 7: quieter than a normal hit */
+        /* sounds one octave up: twice the zero crossings of the bass drum's body */
+        {
+            static tr808_t k0, k1;
+            unsigned c[2];
+            tr808_t *ks[2] = {&k0, &k1};
+            for (unsigned v = 0; v < 2; ++v) {
+                tr808_init(ks[v]);
+                tr808_trigger_pitch(ks[v], D8_BD, 0.9f, v ? 12 : 0);
+                static float kick[EL_BLOCK], l[EL_BLOCK], r[EL_BLOCK], rv[EL_BLOCK], g[EL_BLOCK], d[EL_BLOCK];
+                float last = 0;
+                c[v] = 0;
+                for (unsigned f = 0; f < 44100u / 4u; f += EL_BLOCK) {
+                    memset(kick, 0, sizeof kick); memset(l, 0, sizeof l); memset(r, 0, sizeof r);
+                    memset(rv, 0, sizeof rv); memset(g, 0, sizeof g); memset(d, 0, sizeof d);
+                    tr808_render(ks[v], kick, l, r, rv, g, d, EL_BLOCK);
+                    for (unsigned i = 0; i < EL_BLOCK; ++i) {
+                        float y = kick[i] + l[i];
+                        if (f + i > 2000u && ((y > 0) != (last > 0))) ++c[v];
+                        last = y;
+                    }
+                }
+            }
+            lk_ok = lk_ok && c[0] > 8 && c[1] * 10 > c[0] * 17 && c[1] * 10 < c[0] * 23;   /* x2 within 15 % */
+            if (!lk_ok) printf("debug locks: crossings %u / %u\n", c[0], c[1]);
+        }
+        dr_post(m, DR_CMD_TOGGLE, D8_BD, (uint8_t)step, 0, 0);
+        run(30);
+        lk_ok = lk_ok && dr_pitch(m, m->current, D8_BD, step) == 0 && dr_vol(m, m->current, D8_BD, step) == 0;
+        /* stored and loaded again, copied with the slot, cleared with the part */
+        dr_post(m, DR_CMD_TOGGLE, D8_SD, 3, 0, 0);
+        dr_post(m, DR_CMD_PITCH, D8_SD, 3, 0, 7);
+        dr_post(m, DR_CMD_VOL, D8_SD, 3, 0, 6);
+        run(30);
+        static el_engine_t again2;
+        el_init(&again2);
+        lk_ok = lk_ok && el_store_save(sim) == 0 && el_store_load(&again2) == 0 &&
+                !memcmp(again2.drums.pitch, m->pitch, sizeof m->pitch) && !memcmp(again2.drums.vol, m->vol, sizeof m->vol) &&
+                dr_pitch(&again2.drums, again2.drums.current, D8_SD, 3) == 7 && dr_vol(&again2.drums, again2.drums.current, D8_SD, 3) == 6;
+        unsigned slot = m->current, other = (slot + 1u) % DR_PATTERNS;
+        dr_post(m, DR_CMD_COPY, (uint8_t)slot, (uint8_t)other, 0, 0);
+        run(30);
+        lk_ok = lk_ok && dr_pitch(m, other, D8_SD, 3) == 7 && dr_vol(m, other, D8_SD, 3) == 6;
+        dr_post(m, DR_CMD_CLEAR_PART, D8_SD, 0, 0, 0);
+        run(30);
+        lk_ok = lk_ok && dr_pitch(m, slot, D8_SD, 3) == 0 && dr_vol(m, slot, D8_SD, 3) == 0 && dr_pitch(m, other, D8_SD, 3) == 7;
+        /* no toms: no key, no MIDI note, no sound, no hits left in a pattern */
+        lk_ok = lk_ok && dr_note_part(41) < 0 && dr_note_part(43) < 0 && dr_note_part(48) < 0 && dr_note_part(36) == D8_BD;
+        dr_pattern_t g;
+        dr_generate(&g, 6, 40, 12345u, NULL);
+        int toms = 0;
+        for (unsigned part = 0; part < DR_PARTS; ++part) if (DR_HIDDEN(part) && (g.hit[part] || g.roll[part])) toms = 1;
+        static dr_pattern_t dirty;
+        dirty = g;
+        dirty.hit[D8_LT] = dirty.hit[D8_HT] = 0xffu;
+        dr_post_pattern(m, other, &dirty, 0);
+        run(30);
+        toms = toms || m->pattern[other].hit[D8_LT] || m->pattern[other].hit[D8_HT];
+        dr_hit(m, D8_LT, 1.0f, 0, 0);
+        toms = toms || m->kit.v[D8_LT].active;
+        lk_ok = lk_ok && !toms;
+        /* the black keys: the third is the rim shot, then zap and pulse */
+        tap_key(5); run(30);
+        lk_ok = lk_ok && ui.part == D8_RS;
+        tap_key(20); run(30);
+        lk_ok = lk_ok && ui.part == D8_ZP;
+        tap_key(22); run(30);
+        lk_ok = lk_ok && ui.part == D8_PU;
+        ui.part = D8_BD;
+        printf("locks: step pitch and level (SELECT / KNOB 1), stored, copied, cleared; no toms or congas %s\n", lk_ok ? "ok" : "FAIL");
+    }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }

@@ -119,7 +119,7 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
         if (part == D8_SD) {
             /* ---- snare(): model 0 */
             const float *k = tr808_sd_cal;
-            float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE), decay = spread(t, part, P_DECAY);
+            float tune = (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part], decay = spread(t, part, P_DECAY);
             if (fresh) dm_svf_set(&v->r3, k[8], 0.7f);
             float tone = knob(t, part, P_TONE);
             float early = t->pot[part][P_SOUND] ? 1.384f : 1.0f;
@@ -219,7 +219,7 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
         } else if (part == D8_RS) {
             /* ---- rim(): rim shot and claves */
             int clave = t->pot[part][P_SOUND] == 1;
-            float tune = t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE);
+            float tune = (t->key_on ? t->key_r[part] : tolerance[part] * spread(t, part, P_TUNE)) * t->shift[part];
             if (fresh) {
                 dm_svf_set(&v->r1, 455.0f * tune, 6.7f * tr808_mx_cal[7]);
                 dm_svf_set(&v->r2, 1667.0f * tune, 13.5f * tr808_mx_cal[7]);
@@ -255,7 +255,7 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
              * sample and its log2 by a constant step. Worked out at each 16th
              * sample as the float code does, stepped in between. */
             if (fresh) {
-                tv->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE));
+                tv->aux = 12350.0f * (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part];
                 tv->aux2 = 1.0f / spread(t, part, P_SNAPPY);
                 tv->lag2 = 11.0f - 5.0f * knob(t, part, P_SOUND);   /* (the phase runs on, as the float one) */
             }
@@ -301,7 +301,7 @@ static EL_DSP_CODE unsigned dr_render(tr808_t *t, int frames)
         } else if (part == D8_PU) {
             /* ---- pulse(): the trigger out through the coupling and three high-passes */
             if (fresh) {
-                float tune = t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE), ring = spread(t, part, P_TONE);
+                float tune = (t->key_on ? t->key_r[part] : spread(t, part, P_TUNE) * spread(t, part, P_TUNE)) * t->shift[part], ring = spread(t, part, P_TONE);
                 dm_svf_set(&v->r1, 341.0f * tune, 0.65f);
                 dm_svf_set(&v->r2, 250.0f * tune, 0.7f * ring);
                 dm_svf_set(&v->r3, 250.0f * tune, 0.55f * ring);

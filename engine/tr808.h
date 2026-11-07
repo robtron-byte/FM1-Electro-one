@@ -64,6 +64,11 @@ typedef struct {
     uint8_t key_on;
     uint8_t key_sig[12], key_sig_ok;          /* key_update's inputs as last worked out (tr808.c) */
     float key_r[D8_NUM], key_cb_hi;
+    /* Pitch lock of the hit sounding (docs/adr/0028): the semitones a step
+     * adds to its part and the pitch ratio of them (1 = none), set by
+     * tr808_trigger_pitch. Only the tuned parts follow: BD SD RS CB ZP PU. */
+    int8_t shift_semis[D8_NUM];
+    float shift[D8_NUM];
     tr_voice_t v[D8_NUM];
     po_voice_t po[D8_NUM];                   /* the PO-12 kit's voices */
     float metal_phase[6];                    /* shared six-oscillator metal source */
@@ -107,6 +112,10 @@ EL_DSP_CODE void tr808_set(tr808_t *t, int part, int parameter, int value);
 EL_DSP_CODE int tr808_get(const tr808_t *t, int part, int parameter);
 /* velocity 0..1: 0.66 and below = normal trigger, 1 = full accent. */
 EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity);
+/* The same with the part's pitch moved by semitones (-12..12; parts that
+ * are not tuned ignore it, see TR808_TUNED). */
+EL_DSP_CODE void tr808_trigger_pitch(tr808_t *t, int part, float velocity, int semitones);
+#define TR808_TUNED(p) ((p) == D8_BD || (p) == D8_SD || (p) == D8_RS || (p) == D8_CB || (p) == D8_ZP || (p) == D8_PU)
 EL_DSP_CODE void tr808_silence(tr808_t *t);
 EL_DSP_CODE int tr808_active(const tr808_t *t);
 /* Adds frames to the buses: kick on its own (mono, for the mix bus and

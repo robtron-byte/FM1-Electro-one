@@ -379,7 +379,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         e->master = el_clampi(c->value, 0, 127) / 127.0f;
         break;
     case EL_CMD_DRUM_HIT:
-        dr_hit(&e->drums, c->a, el_clampi(c->value, 1, 127) / 127.0f, 1);
+        dr_hit(&e->drums, c->a, el_clampi(c->value, 1, 127) / 127.0f, 1, 0);
         break;
     case EL_CMD_MIX:
         e->mix.enabled = c->a ? 1 : 0;

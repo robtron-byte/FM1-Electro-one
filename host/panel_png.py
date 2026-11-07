@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 
 BUTTONS = ["OCT-", "OCT+", "FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"]
 BLACK = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25}
-PARTS = ["BD", "SD", "LT", "HT", "RS", "CP", "CB", "CY", "OH", "CH", "ZP"]
+PARTS = ["BD", "SD", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU", ""]
 
 
 def compose(ppm, leds_path, out):

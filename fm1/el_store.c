@@ -19,8 +19,9 @@
  * records 19 and 20 are its first part, every slot gets their one sound; 22
  * the drums' step conditions (docs/adr/0025), appended again (the synths'
  * are in their step flags; records before 22 hold 0 there: always); 23 the
- * drums' step probabilities, appended (the synths' in their step bytes). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * drums' step probabilities, appended (the synths' in their step bytes); 24
+ * the drums' pitch and level locks (docs/adr/0028), appended. */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -61,10 +62,14 @@ typedef struct {
 typedef struct { FIELDS_V21 } payload_v21_t;
 #define FIELDS_V22 FIELDS_V21 uint32_t drum_cond[DR_PATTERNS][3][DR_PARTS];   /* dr_machine_t.cond */
 typedef struct { FIELDS_V22 } payload_v22_t;
+#define FIELDS_V23 FIELDS_V22 uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
+typedef struct { FIELDS_V23 } payload_v23_t;
 typedef struct {
-    FIELDS_V22
-    uint32_t drum_prob[DR_PATTERNS][4][DR_PARTS];   /* dr_machine_t.prob */
+    FIELDS_V23
+    uint32_t drum_pitch[DR_PATTERNS][5][DR_PITCH_PARTS];   /* dr_machine_t.pitch */
+    uint32_t drum_vol[DR_PATTERNS][3][DR_PARTS];           /* dr_machine_t.vol */
 } payload_t;
+#define V23_BYTES sizeof(payload_v23_t)
 #define V22_BYTES sizeof(payload_v22_t)
 #define V21_BYTES sizeof(payload_v21_t)
 #define V19_BYTES sizeof(payload_v19_t)
@@ -205,6 +210,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_23 && record.bytes == V23_BYTES) ||
                   (record.version == VERSION_22 && record.bytes == V22_BYTES) ||
                   (record.version == VERSION_21 && record.bytes == V21_BYTES) ||
                   (record.version >= VERSION_19 && record.version <= VERSION_20 && record.bytes == V19_BYTES);
@@ -280,6 +286,7 @@ static int el_store_load_held(el_engine_t *e)
         p.swing = (uint8_t)el_clampi(p.swing, 50, 75);
         p.kit = (uint8_t)(p.kit % DR_KITS);
         p.style = (uint8_t)(p.style % DR_STYLES);
+        dr_strip_hidden(&p);
         m->pattern[i] = p;
     }
     /* Audio is not running yet: the kit can be set directly. DR_CMD_KIT also
@@ -308,8 +315,15 @@ static int el_store_load_held(el_engine_t *e)
     }
     if (version >= VERSION_22) memcpy(m->cond, d->drum_cond, sizeof m->cond);
     else memset(m->cond, 0, sizeof m->cond);
-    if (version >= VERSION) memcpy(m->prob, d->drum_prob, sizeof m->prob);
+    if (version >= VERSION_23) memcpy(m->prob, d->drum_prob, sizeof m->prob);
     else memset(m->prob, 0, sizeof m->prob);
+    if (version >= VERSION) {
+        memcpy(m->pitch, d->drum_pitch, sizeof m->pitch);
+        memcpy(m->vol, d->drum_vol, sizeof m->vol);
+    } else {
+        memset(m->pitch, 0, sizeof m->pitch);
+        memset(m->vol, 0, sizeof m->vol);
+    }
     /* Drum key and Follow (KIT parameters 4, 5) live in the former reserved
      * field: older records hold 0 there = key OFF (docs/adr/0016). */
     tr808_set(&m->kit, D8_KIT, 4, el_clampi(d->reserved & 0xffu, 0, 12));
@@ -435,6 +449,8 @@ static int el_store_save_held(el_engine_t *e)
     }
     memcpy(d->drum_cond, m->cond, sizeof d->drum_cond);
     memcpy(d->drum_prob, m->prob, sizeof d->drum_prob);
+    memcpy(d->drum_pitch, m->pitch, sizeof d->drum_pitch);
+    memcpy(d->drum_vol, m->vol, sizeof d->drum_vol);
     d->reserved = (uint16_t)(tr808_get(&m->kit, D8_KIT, 4) | tr808_get(&m->kit, D8_KIT, 5) << 8);
     d->kit = m->kit_index;
     d->level = m->level_value;

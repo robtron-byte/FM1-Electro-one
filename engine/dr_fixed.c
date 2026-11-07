@@ -57,7 +57,7 @@ void drf_silence(void) { drf_init(); }
 static void drf_params(const tr808_t *t, int part, dv_param_t *p)
 {
     const uint8_t *k = t->pot[part];
-    int tune = (k[S_TUNE] - 64) * 3;   /* about +-12 semitones, in 1/16 */
+    int tune = (k[S_TUNE] - 64) * 3 + t->shift_semis[part] * 16;   /* about +-12 semitones, in 1/16; the step's pitch lock */
     memset(p, 0, sizeof *p);
     p->decay = k[S_DECAY];
     p->tone = 64;

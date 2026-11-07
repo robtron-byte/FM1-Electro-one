@@ -31,11 +31,11 @@
  *   SELECT                pattern (all areas)
  *   ALGORITHM             tempo; GLO: pattern length; EDIT: see the areas (HOME + GLO: fine tempo)
  *
- * BEAT    black keys pick + play a drum (BD SD LT HT RS CP CB CY OH CH ZP; SEQ:
- *         second layer with PULSE on black key 1), white keys set steps.
- *         EDIT + white accent, GLO + white roll, EDIT + black clear, GLO + black mute.
- *         KNOB 1-4 drum sound, PRESETS kit, GLO + SELECT instrument (PULSE too),
- *         EDIT + ALGORITHM swing.
+ * BEAT    black keys pick + play a drum (BD SD RS CP CB CY OH CH ZP PU), white keys
+ *         set steps. EDIT + white accent, GLO + white roll, EDIT + black clear,
+ *         GLO + black mute. KNOB 1-4 drum sound, PRESETS kit, GLO + SELECT
+ *         instrument, EDIT + ALGORITHM swing. A step key held: PRESETS passes,
+ *         ALGORITHM chance, SELECT pitch (semitones), KNOB 1 level (docs/adr/0028).
  * RHYTHM / STRINGS / BASS
  *   KEYS  (SEQ off) all keys play the sound, OCT -/+ octave. REC while running
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
@@ -72,11 +72,14 @@ enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_PRESETS = 6 };
 /* Synth areas: the sound pages, then the arpeggiator. */
 enum { PAGE_ARP = UI_PAGES, SYNTH_PAGES };
 enum { PARAM_ARP = 0xe0 };
-enum { HEADER_H = 31, GRID_X = 28, GRID_Y = 34, CELL = 12, ACC_Y = GRID_Y + DR_PARTS * CELL + 2, FOOT_Y = 194 };
+enum { HEADER_H = 31, GRID_X = 28, GRID_Y = 34, CELL = 12, ACC_Y = GRID_Y + UI_PARTS * CELL + 2, FOOT_Y = 194 };
 enum { ROLL_Y = 52, ROLL_H = 118 };
 
 static const uint8_t white_keys[UI_WHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
 static const uint8_t black_keys[UI_BLACK] = {1, 3, 5, 8, 10, 13, 15, 17, 20, 22, 25};
+/* The BEAT instruments in the order of the black keys and of the rows: the
+ * low and high tom (conga) are gone (docs/adr/0028). */
+static const uint8_t ui_parts[UI_PARTS] = {D8_BD, D8_SD, D8_RS, D8_CP, D8_CB, D8_CY, D8_OH, D8_CH, D8_ZP, D8_PU};
 static const uint8_t area_buttons[EL_AREAS] = {BTN_FX, BTN_SEL, BTN_ENV, BTN_LFO};
 static const char *const area_names[EL_AREAS] = {"BEAT", "RHYTHM", "STRINGS", "BASS"};
 static const char *const area_tabs[EL_AREAS] = {"BEAT", "RHYT", "STRG", "BASS"};
@@ -674,25 +677,59 @@ static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, i
     ui->sh_cond = (uint8_t)(on ? cond : 0u);
     ui->sh_used = 0;
     ui->sh_remove = (uint8_t)(on != 0);
+    ui->sh_lock = 0;
+    ui->sh_pitch = 0;
+    ui->sh_vol = 0;
+}
+
+/* Hear the held drum step as it is now (after its pitch or level changed). */
+static void step_audition(el_ui_t *ui)
+{
+    dr_machine_t *m = &ui->engine->drums;
+    unsigned velocity = ui->sh_vol ? (unsigned)(dr_vol_velocity(ui->sh_vol) * 127.0f + 0.5f) : (m->pattern[m->current].accent >> ui->sh_step) & 1u ? 127u : 84u;
+    dr_post(m, DR_CMD_HIT, ui->sh_part, (uint8_t)velocity, 0, (int16_t)ui->sh_pitch);
 }
 
 /* The held step: PRESETS sets its passes (1:1, 1:2 .. 4:4), ALGORITHM its
  * chance (100 .. 10 %, left rarer); the big readout shows the one turned
- * last. Other encoders keep their jobs; any turn keeps the step. Returns
- * what is left of PRESETS; *algo is used up likewise. */
-static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets, int *algo)
+ * last. On a drum step also SELECT sets its pitch (semitones, the tuned
+ * instruments only) and KNOB 1 its level (7 steps, one per turn; docs/adr/0028);
+ * both are used up here. Other encoders keep their jobs; any turn keeps the
+ * step. Returns what is left of PRESETS; *algo is used up likewise. */
+static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
 {
     if (!ui->sh_key) return presets;
     for (unsigned i = 0; i < UI_ENCODERS; ++i) if (enc[i]) ui->sh_used = 1;
     el_engine_t *e = ui->engine;
     int beat = ui->sh_area == EL_AREA_BEAT;
     uint8_t track = (uint8_t)(ui->sh_area - 1u);
+    if (beat && enc[ENC_SELECT]) {
+        if (dr_pitch_slot(ui->sh_part) >= 0) {
+            int semis = el_clampi(ui->sh_pitch + enc[ENC_SELECT], -12, 12);
+            if (dr_post(&e->drums, DR_CMD_PITCH, ui->sh_part, ui->sh_step, 0, (int16_t)semis) == 0) {
+                ui->sh_pitch = (int8_t)semis;
+                step_audition(ui);
+            }
+        }
+        ui->sh_lock = 1;
+        enc[ENC_SELECT] = 0;
+    }
+    if (beat && enc[ENC_KNOB1]) {
+        int level = el_clampi((int)ui->sh_vol + (enc[ENC_KNOB1] > 0 ? 1 : -1), 0, 7);
+        if (dr_post(&e->drums, DR_CMD_VOL, ui->sh_part, ui->sh_step, 0, (int16_t)level) == 0) {
+            ui->sh_vol = (uint8_t)level;
+            step_audition(ui);
+        }
+        ui->sh_lock = 2;
+        enc[ENC_KNOB1] = 0;
+    }
     if (*algo) {
         unsigned prob = (unsigned)el_clampi((int)ui->sh_prob - *algo, 0, EL_PROBS - 1);   /* a detent: 10 % */
         int r = beat ? dr_post(&e->drums, DR_CMD_PROB, ui->sh_part, ui->sh_step, 0, (int16_t)prob)
                      : el_post3(e, EL_CMD_STEP_PROB, track, ui->sh_step, 0, (int16_t)prob);
         if (r == 0) ui->sh_prob = (uint8_t)prob;
         ui->sh_show_prob = 1;
+        ui->sh_lock = 0;
         *algo = 0;
     }
     if (presets) {
@@ -701,6 +738,7 @@ static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets, int 
                      : el_post3(e, EL_CMD_STEP_COND, track, ui->sh_step, 0, (int16_t)cond);
         if (r == 0) ui->sh_cond = (uint8_t)cond;
         ui->sh_show_prob = 0;
+        ui->sh_lock = 0;
     }
     return 0;
 }
@@ -718,8 +756,15 @@ static void step_hold_release(el_ui_t *ui, uint32_t keys)
 
 static int beat_part(const el_ui_t *ui, int black)
 {
-    int part = black < 0 ? -1 : black + (ui->beat_layer ? UI_BLACK : 0);
-    return part >= 0 && part < DR_PARTS && (ui->beat_layer || black < UI_BLACK) ? part : -1;
+    (void)ui;
+    return black >= 0 && black < UI_PARTS ? ui_parts[black] : -1;
+}
+
+/* Row of a part in the list of instruments (0 if it is not in it). */
+static unsigned part_row(unsigned part)
+{
+    for (unsigned i = 0; i < UI_PARTS; ++i) if (ui_parts[i] == part) return i;
+    return 0;
 }
 
 static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
@@ -744,6 +789,10 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     else {
         int on = (p->hit[ui->part] >> s) & 1u;
         step_hold(ui, key, s, ui->part, on, dr_cond(m, m->current, ui->part, s), dr_prob(m, m->current, ui->part, s));
+        if (on) {
+            ui->sh_pitch = (int8_t)dr_pitch(m, m->current, ui->part, s);
+            ui->sh_vol = (uint8_t)dr_vol(m, m->current, ui->part, s);
+        }
         if (!on) dr_post(m, DR_CMD_TOGGLE, ui->part, (uint8_t)s, 0, 0);
     }
 }
@@ -1043,10 +1092,6 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");   /* everything, all slots */
         ui->prep_pending = 1;
     }
-    if ((pressed & BIT(BTN_SEQ)) && !ui->overview && ui->area == EL_AREA_BEAT) {
-        ui->beat_layer = !ui->beat_layer;
-        notice(ui, ui->beat_layer ? "BLACK KEY 1: PULSE" : "BLACK KEYS: BD .. ZAP");
-    }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui) && (hold & HOLD_GLO)) {
         /* GLO + SEQ: TRANSPOSE, the keys move the sequence (KeyStep). */
         release_keys(ui, ~0u);
@@ -1135,10 +1180,12 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         ui->prev_keys = c->keys;
         return;
     }
-    const int16_t *enc = c->encoders;
+    int16_t enc_now[UI_ENCODERS];   /* a copy: the held step's encoders are used up */
+    for (unsigned i = 0; i < UI_ENCODERS; ++i) enc_now[i] = c->encoders[i];
+    const int16_t *enc = enc_now;
+    int algo_left = enc_now[ENC_ALGORITHM];
+    const int presets = step_hold_encoders(ui, enc_now, enc_now[ENC_PRESETS], &algo_left);
     const int select = enc[ENC_SELECT];
-    int algo_left = enc[ENC_ALGORITHM];
-    const int presets = step_hold_encoders(ui, enc, enc[ENC_PRESETS], &algo_left);
     const int algo = algo_left;
     int dist_page = ui->overview && (hold & HOLD_EDIT);
     if (dist_page) {
@@ -1156,9 +1203,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     } else if (select && !dist_page) {
         if ((hold & HOLD_GLO) && !ui->overview && ui->area == EL_AREA_BEAT) {
             /* GLO + SELECT: the instrument, PULSE included, without playing it. */
-            ui->part = (uint8_t)el_clampi((int)ui->part + select, 0, DR_PARTS - 1);
+            ui->part = ui_parts[el_clampi((int)part_row(ui->part) + select, 0, UI_PARTS - 1)];
             ui->page[0] = 0;
-            ui->beat_layer = ui->part >= UI_BLACK;
         } else if ((hold & HOLD_GLO) && synth_area(ui) && ui->step_mode[ui->area]) {
             /* GLO + SELECT in STEP mode: the step being edited. */
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
@@ -1261,7 +1307,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
-    mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 : 0u);
+    mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 |
+                                      (uint32_t)((ui->sh_pitch + 16) & 31) << 17 | (uint32_t)ui->sh_vol << 22 | (uint32_t)ui->sh_lock << 25 : 0u);
     mix(&sig[0], (uint32_t)(uint16_t)ui->load | (uint32_t)ui->load_drops << 16);
     for (unsigned a = 0; a < EL_AREAS; ++a)
         mix(&sig[0], (uint32_t)area_muted(ui, a) | (uint32_t)(a ? e->track[a - 1].recording : m->recording) << 1);
@@ -1382,7 +1429,7 @@ static void update_leds(el_ui_t *ui)
     }
     if ((m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording) && fast) blink |= 1ull << BTN_REC;
     if (((synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) || (ui->hold & HOLD_GEN)) && slow) blink |= 1ull << BTN_ARP;
-    if (((synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) || (!ui->overview && ui->area == EL_AREA_BEAT && ui->beat_layer)) && slow)
+    if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor && slow)
         blink |= 1ull << BTN_SEQ;
     if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
@@ -1507,8 +1554,9 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
     int playing = ui->engine->transport.running && m->playing;
     unsigned pos = playing ? ui->show_pos[0] : 0xffu;
     if (shown > 16) shown = 16;
-    for (unsigned part = 0; part < DR_PARTS; ++part) {
-        int y = GRID_Y + (int)part * CELL;
+    for (unsigned row = 0; row < UI_PARTS; ++row) {
+        unsigned part = ui_parts[row];
+        int y = GRID_Y + (int)row * CELL;
         if (!gfx_touches(b, y, CELL)) continue;
         int muted = (m->mute >> part) & 1u || m->muted;
         if (part == ui->part) gfx_fill(b, 0, y - 1, GRID_X - 2, CELL, 0x3186);
@@ -1525,6 +1573,7 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
                 else gfx_fill(b, x + 2, y + 2, CELL - 6, CELL - 6, c);
                 if ((p->roll[part] >> s) & 1u) gfx_fill(b, x + 4, y + 4, 3, 3, BACK);
                 if (dr_cond(m, m->current, part, s) || dr_prob(m, m->current, part, s)) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
+                if (dr_pitch(m, m->current, part, s) || dr_vol(m, m->current, part, s)) gfx_fill(b, x, y + CELL - 4, 4, 2, AMBER);   /* a pitch or level lock (ADR 0028) */
             }
         }
     }
@@ -1888,7 +1937,26 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
     el_snprintf(text, sizeof text, "STEP %u", ui->sh_step + 1u);
     gfx_text(b, OX + 8, OY + 6, text, DIM, 1);
     unsigned cond = ui->sh_cond % EL_CONDS;
-    if (ui->sh_show_prob) {
+    if (ui->sh_lock == 1) {
+        /* pitch: the semitones big, a bar around the middle */
+        if (dr_pitch_slot(ui->sh_part) < 0) el_snprintf(text, sizeof text, "NO PITCH");
+        else el_snprintf(text, sizeof text, "%+d ST", ui->sh_pitch);
+        gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 22, text, AMBER, 4);
+        gfx_frame(b, OX + 20, OY + 66, OW - 40, 24, DIM);
+        gfx_fill(b, OX + OW / 2 - 1, OY + 62, 2, 32, DIM);
+        int half = (OW - 44) / 2, w = half * ui->sh_pitch / 12;
+        if (dr_pitch_slot(ui->sh_part) >= 0 && w) gfx_fill(b, w > 0 ? OX + OW / 2 : OX + OW / 2 + w, OY + 68, w > 0 ? w : -w, 20, color);
+    } else if (ui->sh_lock == 2) {
+        /* level: the percent big, seven steps */
+        if (ui->sh_vol) el_snprintf(text, sizeof text, "%d%%", dr_vol_percent(ui->sh_vol));
+        else el_snprintf(text, sizeof text, "AS SET");
+        gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 22, text, AMBER, 4);
+        for (unsigned i = 1; i <= 7; ++i) {
+            int x = OX + 20 + (int)(i - 1u) * 26;
+            gfx_frame(b, x, OY + 66, 22, 24, DIM);
+            if (i <= ui->sh_vol) gfx_fill(b, x + 2, OY + 68, 18, 20, color);
+        }
+    } else if (ui->sh_show_prob) {
         /* chance: the percent big, a bar */
         int pct = el_prob_percent(ui->sh_prob);
         el_snprintf(text, sizeof text, "%d%%", pct);
@@ -1907,6 +1975,7 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
         }
     }
     gfx_text(b, OX + 8, OY + OH - 14, "PRESETS: PASSES  ALGO: CHANCE", DIM, 1);
+    if (ui->sh_area == EL_AREA_BEAT) gfx_text(b, OX + 8, OY + OH - 25, "SELECT: PITCH  KNOB 1: LEVEL", DIM, 1);
 }
 
 void el_ui_draw_band(el_ui_t *ui, unsigned band)
