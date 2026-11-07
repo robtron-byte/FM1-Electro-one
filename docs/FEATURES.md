@@ -98,3 +98,4 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | Nr | Feature | Status |
 |---|---|---|
 | N1 | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ○ |
+| N2 | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus schalten | ○ |
