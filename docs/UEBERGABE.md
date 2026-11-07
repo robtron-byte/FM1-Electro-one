@@ -89,3 +89,4 @@ github.com/aroum/fm1-custom-fw.
 - 28. Build: Branch claude/loving-hopper-0mxdty (ba8447e, ADR 0028 Drum-Locks, Store 24) gemergt; mein CLUB-ADR auf 0029 umbenannt. make test/web/metal-fixed-check, check.sh, Emulator PEAK 63 % ok.
 - 29. Build: Takt-Anzeige in OPTIONS (Plattform), Messung vor einer Taktänderung. Kein Takt-Umbau ohne gemessenen Ausgangswert (falsche PLL = Gerät steht bis zur Rettung).
 - 30. Build: Branch e1e665d (ADR 0030, Verzerrung phasengleich) gemergt; strict Emulator mit Verzerrung + DARK STR PEAK 72 %, LATE 0.
+- 31. Build: Branch 256aca8 (ADR 0031 COMP MIX, Send-Sperre; Store-Version 25, EL_OPTIONS 16 / gespeichert 12 + option_ext) gemergt; strict PEAK 63 %, LATE 0.
