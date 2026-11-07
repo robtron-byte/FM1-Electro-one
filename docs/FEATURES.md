@@ -46,38 +46,38 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | B8 | Beat/Drums | Drum-Tonart (tonale Drums gestimmt, FOLLOW BASS) | ✓ | 0016 |
 | B9 | Beat/Drums | ZAP nach Referenz, PULSE | ✓ | 0017 |
 | B10 | Beat/Drums | 5 Kits inkl. PO-12 | ✓ | – |
-| B11 | Beat/Drums | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ◐ | 0028 |
-| B13 | Beat/Drums | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ◐ | 0028 |
-| B14 | Beat/Drums | Akzent-Zeile über die 11. schwarze Taste | ◐ | – |
+| B11 | Beat/Drums | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ✓ (Gerät 07.11.) | 0028 |
+| B13 | Beat/Drums | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ✓ (Gerät 07.11.) | 0028 |
+| B14 | Beat/Drums | Akzent-Zeile über die 11. schwarze Taste | ✓ (Gerät 07.11.) | – |
 | S1 | Sequencer | 4 Plätze A–D je Bereich, Wechsel am Takt | ✓ | – |
 | S2 | Sequencer | Generator (Variation / neu) je Bereich und für alles | ✓ | – |
-| S3 | Sequencer | Jeder Platz behält seinen Sound (Kit, Regler, Synth-Sound) | ◐ | 0024 |
-| S4 | Sequencer | Step-Varianz 1:2 … 4:4 (PRESETS bei gehaltenem Step) | ◐ | 0025 |
-| S5 | Sequencer | Step-Wahrscheinlichkeit 100 … 10 % (ALGORITHM bei gehaltenem Step) | ◐ | 0025 |
-| S6 | Sequencer | Große Anzeige beim Halten eines Steps (nach ¼ s) | ◐ | 0025 |
-| S7 | Sequencer | Step-Aufnahme SH-101: Pause mit der letzten Taste | ◐ | – |
-| S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ | 0027 |
-| S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ◐ | – |
+| S3 | Sequencer | Jeder Platz behält seinen Sound (Kit, Regler, Synth-Sound) | ✓ (Gerät 07.11.) | 0024 |
+| S4 | Sequencer | Step-Varianz 1:2 … 4:4 (PRESETS bei gehaltenem Step) | ✓ (Gerät 07.11.) | 0025 |
+| S5 | Sequencer | Step-Wahrscheinlichkeit 100 … 10 % (ALGORITHM bei gehaltenem Step) | ✓ (Gerät 07.11.) | 0025 |
+| S6 | Sequencer | Große Anzeige beim Halten eines Steps (nach ¼ s) | ✓ (Gerät 07.11.) | 0025 |
+| S7 | Sequencer | Step-Aufnahme SH-101: Pause mit der letzten Taste | ✓ (Gerät 07.11.) | – |
+| S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ Gerät: falsch – Live-Aufnahme soll nur den **Anfang** auf 1/8 quantisieren, die Note klingt so lange wie gehalten (nicht auf Achtel gekürzt); siehe N6 | 0027 |
+| S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ✓ (Gerät 07.11.) | – |
 | Y1 | Synths | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
 | Y2 | Synths | BASS einstimmig, mono | ✓ | 0007 |
-| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ | 0026 |
-| Y4 | Synths | 23 zusätzliche schlichte Sounds/Pads | ◐ | 0027 |
+| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ Gerät: geht noch nicht (Fehler suchen) | 0026 |
+| Y4 | Synths | 23 zusätzliche schlichte Sounds/Pads | ◐ Gerät: geht noch nicht (Fehler suchen) | 0027 |
 | F1 | Effekte/Master | Punch-in-Effekte (Stutter, Hall-Wurf, Tape-Stop, Repeat, Delay, Crusher, Phaser) | ✓ | 0011 |
-| F2 | Effekte/Master | Tape-Stop Standard 1/4 | ◐ | – |
+| F2 | Effekte/Master | Tape-Stop Standard 1/4 | ✓ (Gerät 07.11.) | – |
 | F3 | Effekte/Master | Gated Reverb (echter Hall mit Gate) | ✓ | 0013 |
-| F4 | Effekte/Master | Verzerrung als Send (OD, DIST, RAT, TUBE), phasengleich | ◐ | 0030 |
-| F5 | Effekte/Master | Send-Regler gesperrt bei Verzerrung OFF | ◐ | 0031 |
-| F6 | Effekte/Master | Master-Kompressor CLUB | ◐ | 0029 |
-| F7 | Effekte/Master | COMP MIX (Parallel-Kompression) | ◐ | 0031 |
+| F4 | Effekte/Master | Verzerrung als Send (OD, DIST, RAT, TUBE), phasengleich | ✓ (Gerät 07.11.) | 0030 |
+| F5 | Effekte/Master | Send-Regler gesperrt bei Verzerrung OFF | ✓ (Gerät 07.11.) | 0031 |
+| F6 | Effekte/Master | Master-Kompressor CLUB | ✓ (Gerät 07.11.) | 0029 |
+| F7 | Effekte/Master | COMP MIX (Parallel-Kompression) | ✓ (Gerät 07.11.) | 0031 |
 | U1 | Bedienung/Display | Tasten-LEDs: inaktive Bereiche gedimmt, OCT blinkt am Ende | ✓ | 0020 |
-| U2 | Bedienung/Display | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ◐ | – |
-| U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ | – |
-| U4 | Bedienung/Display | Display 30 MHz, Bild in einem Zug | ◐ | – |
+| U2 | Bedienung/Display | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ✓ (Gerät 07.11.) | – |
+| U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ Gerät: Hervorhebung geht noch nicht (Fehler suchen) | – |
+| U4 | Bedienung/Display | Display 30 MHz, Bild in einem Zug | ✓ (Gerät 07.11.) | – |
 | U6 | Bedienung/Display | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
-| U8 | Bedienung/Display | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ◐ | 0031 |
+| U8 | Bedienung/Display | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ✓ (Gerät 07.11.) | 0031 |
 | P1 | Plattform/Leistung | Eigene Plattform ohne SDK, zwei Kerne | ✓ | 0021 |
 | P2 | Plattform/Leistung | Bus dynamisch auf beide Kerne (Verzerrung auf Kern 1) | ✓ | 0021 |
-| P3 | Plattform/Leistung | Speichern ohne Aussetzer (vorab löschen, Autosave bei STOP) | ◐ | 0023 |
+| P3 | Plattform/Leistung | Speichern ohne Aussetzer (vorab löschen, Autosave bei STOP) | ◐ noch nicht getestet | 0023 |
 | P4 | Plattform/Leistung | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
 | P5 | Plattform/Leistung | Takt messen (`ADDS …/US` in OPTIONS): Gerät ADD 336, IND 348/µs: eine Addition je Takt, also etwa 340 MHz | ✓ | 0019 |
 | P8 | Plattform/Leistung | Web-Simulator | ✓ | – |
