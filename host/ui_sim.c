@@ -843,6 +843,27 @@ int main(int argc, char **argv)
         sc_ok = sc_ok && prep_ok;
         printf("store: erased ahead, the save erases nothing %s\n", prep_ok ? "ok" : "FAIL");
     }
+    {
+        /* Nothing stored: empty slots, a kit and sounds of each area */
+        static el_engine_t bl;
+        el_init(&bl);
+        el_blank_start(&bl, 12345u);
+        int bl_ok = 1;
+        for (unsigned i = 0; i < DR_PATTERNS; ++i)
+            for (unsigned p = 0; p < DR_PARTS; ++p) bl_ok = bl_ok && bl.drums.pattern[i].hit[p] == 0;
+        for (unsigned t = 0; t < EL_TRACKS; ++t) {
+            for (unsigned p = 0; p < ST_PATTERNS; ++p)
+                for (unsigned s = 0; s < ST_STEPS; ++s) bl_ok = bl_ok && !(bl.track[t].pattern[p].step[s].flags & ST_ON);
+            bl_ok = bl_ok && syn_sound_area(bl.track[t].preset) == t + 1u && bl.track[t].sound[3].preset == bl.track[t].preset;
+        }
+        static el_engine_t bl2;
+        el_init(&bl2);
+        el_blank_start(&bl2, 99991u);
+        int differs = bl2.track[0].preset != bl.track[0].preset || bl2.track[1].preset != bl.track[1].preset ||
+                      bl2.track[2].preset != bl.track[2].preset || bl2.drums.kit_index != bl.drums.kit_index;
+        sc_ok = sc_ok && bl_ok && differs;
+        printf("store: nothing stored: empty slots, random kit and sounds per area %s\n", bl_ok && differs ? "ok" : "FAIL");
+    }
     printf("steps: conditions 2:2 / 1:4, probability, under Repeat, held step + PRESETS / ALGORITHM %s\n", sc_ok ? "ok" : "FAIL");
 
     /* Drum parameter locks and the kit without toms (docs/adr/0028). */

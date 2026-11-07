@@ -167,6 +167,11 @@ void el_apply_comp(el_engine_t *e);
  * the three synth parts, in the style's harmony) and load the default
  * sounds. User slots are left alone. */
 void el_generate_all(el_engine_t *e, uint32_t seed);
+/* Control task, before audio starts, when nothing is stored: every slot
+ * empty (drums and the three synth areas), a random kit and a random
+ * factory sound per synth area (seed: anything that differs between
+ * starts). */
+void el_blank_start(el_engine_t *e, uint32_t seed);
 /* Control task: the three synth parts (rhythm, strings, bass) that go with
  * a drum groove, from its style. */
 void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL_TRACKS]);

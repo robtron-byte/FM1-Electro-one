@@ -127,6 +127,38 @@ void el_generate_all(el_engine_t *e, uint32_t seed)
     e->transport.swing = e->drums.pattern[e->drums.current].swing;
 }
 
+void el_blank_start(el_engine_t *e, uint32_t seed)
+{
+    dr_machine_t *m = &e->drums;
+    uint32_t r = seed ? seed : 0x2545f491u;
+    unsigned kit = el_rnd(&r) % DR_KITS;
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        dr_empty_pattern(&m->pattern[i], "EMPTY");
+        m->pattern[i].kit = (uint8_t)kit;
+        dr_kit_sound(&m->sound[i], kit);
+    }
+    m->current = m->next = 0;
+    tr808_sound_apply(&m->kit, &m->sound[0]);
+    m->kit_index = (uint8_t)kit;
+    e->transport.swing = m->pattern[0].swing;
+    for (unsigned i = 0; i < EL_TRACKS; ++i) {
+        st_track_t *t = &e->track[i];
+        for (unsigned p = 0; p < ST_PATTERNS; ++p)
+            for (unsigned s = 0; s < ST_STEPS; ++s) t->pattern[p].step[s].flags = 0;
+        /* a factory sound of this area, at random */
+        unsigned n = syn_sound_count(), pick = el_rnd(&r) % n;
+        for (unsigned k = 0; k < n; ++k) {
+            unsigned s = (pick + k) % n;
+            if (syn_sound_area(s) != i + 1u) continue;
+            syn_load(&t->part, syn_sound_engine(s), syn_sound_values(s));
+            t->preset = (uint8_t)s;
+            st_keep_sound(t, 1);
+            break;
+        }
+        t->current = t->next = 0;
+    }
+}
+
 int el_load_preset(el_engine_t *e, unsigned track, unsigned preset)
 {
     if (preset >= syn_sound_count()) return -1;

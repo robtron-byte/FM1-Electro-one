@@ -22,12 +22,41 @@ static volatile uint32_t drops;
 
 static float block[2 * EL_BLOCK];
 
+/* The CPU clock measured (docs/adr/0019): a chain of dependent integer adds
+ * (one cycle each: the next needs the last) from SRAM, 64 and 32 a round;
+ * the difference against the 24 MHz counter leaves the loop's own cost out. */
+#define CLK_ADD(x) do { x = x + 3u; __asm__ volatile("" : "+r"(x)); } while (0)
+#define CLK_ADD8(x) CLK_ADD(x); CLK_ADD(x); CLK_ADD(x); CLK_ADD(x); CLK_ADD(x); CLK_ADD(x); CLK_ADD(x); CLK_ADD(x)
+static EL_DSP_CODE uint32_t clk_chain(unsigned rounds, int wide)
+{
+    uint32_t x = 1u, t0 = el_platform_ticks();
+    for (unsigned r = 0; r < rounds; ++r) {
+        CLK_ADD8(x); CLK_ADD8(x); CLK_ADD8(x); CLK_ADD8(x);
+        if (wide) { CLK_ADD8(x); CLK_ADD8(x); CLK_ADD8(x); CLK_ADD8(x); }
+    }
+    uint32_t t = el_platform_ticks() - t0;
+    __asm__ volatile("" : : "r"(x));
+    return t;
+}
+static uint16_t clock_mhz(void)
+{
+    enum { ROUNDS = 20000 };
+    clk_chain(100, 1);                         /* (warm) */
+    uint32_t t64 = clk_chain(ROUNDS, 1), t32 = clk_chain(ROUNDS, 0);
+    if (t64 <= t32) return 0;
+    /* 32 adds x ROUNDS cycles took (t64 - t32) ticks of 24 MHz */
+    return (uint16_t)(32ull * ROUNDS * 24u / (t64 - t32));
+}
+
+static uint16_t clk_mhz;
 void el_glue_start(void)
 {
     el_init(&engine);
     /* The grooves come back from flash; only the very first start (nothing
      * stored) plays the generated factory set. */
-    el_store_load(&engine);
+    /* nothing stored: empty patterns, a random kit and random sounds */
+    if (el_store_load(&engine) == 1) el_blank_start(&engine, el_platform_ticks() * 2654435761u + 1u);
+    clk_mhz = clock_mhz();
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
     ui.prepare = el_store_prepare;
@@ -89,6 +118,7 @@ void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
             ui.clk_pll = (uint16_t)pll;
             ui.clk_src = (uint8_t)src;
             ui.clk_sys = (uint16_t)(src == 6u ? pll * 2u / 3u : 0u);
+            ui.clk_timer = clk_mhz;
         }
         ui.load_drops = 0;
         /* stage shares: their ticks against the engine blocks rendered meanwhile */

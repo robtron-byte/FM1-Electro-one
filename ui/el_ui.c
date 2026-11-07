@@ -791,6 +791,13 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     dr_machine_t *m = &ui->engine->drums;
     const dr_pattern_t *p = &m->pattern[m->current];
     int part = beat_part(ui, key_black(key)), step = key_white(key);
+    if (key_black(key) == UI_PARTS && !(hold & (HOLD_GLO | HOLD_EDIT))) {
+        /* the black key after the instruments: the accent row, as if an instrument */
+        ui->acc_lane = 1;
+        notice(ui, "ACCENT: STEP KEYS SET ACCENTS");
+        return;
+    }
+    if (part >= 0) ui->acc_lane = 0;
     if (part >= 0) {
         if (hold & HOLD_GLO) dr_post(m, DR_CMD_MUTE, (uint8_t)part, !(m->mute & BIT(part)), 0, 0);
         else if (hold & HOLD_EDIT) { dr_post(m, DR_CMD_CLEAR_PART, (uint8_t)part, 0, 0, 0); notice(ui, "PART CLEARED"); }
@@ -803,7 +810,7 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
     }
     unsigned s = (unsigned)step + ui->step_page[0] * 16u;
     if (s >= p->length) return;
-    if (hold & HOLD_EDIT) dr_post(m, DR_CMD_ACCENT, 0, (uint8_t)s, 0, 0);
+    if ((hold & HOLD_EDIT) || (ui->acc_lane && !(hold & HOLD_GLO))) dr_post(m, DR_CMD_ACCENT, 0, (uint8_t)s, 0, 0);
     else if (hold & HOLD_GLO) dr_post(m, DR_CMD_ROLL, ui->part, (uint8_t)s, 0, 0);
     else {
         int on = (p->hit[ui->part] >> s) & 1u;
@@ -1336,6 +1343,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[0], m->current | (uint32_t)m->next << 8 | (uint32_t)m->kit_index << 16);
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
+    mix(&sig[1], ui->acc_lane);
     mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 |
                                       (uint32_t)((ui->sh_pitch + 16) & 31) << 17 | (uint32_t)ui->sh_vol << 22 | (uint32_t)ui->sh_lock << 25 : 0u);
     mix(&sig[0], (uint32_t)(uint16_t)ui->load | (uint32_t)ui->load_drops << 16);
@@ -1589,8 +1597,8 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
         int y = GRID_Y + (int)row * CELL;
         if (!gfx_touches(b, y, CELL)) continue;
         int muted = (m->mute >> part) & 1u || m->muted;
-        if (part == ui->part) gfx_fill(b, 0, y - 1, GRID_X - 2, CELL, 0x3186);
-        gfx_text(b, 3, y + 1, dr_part_names[part], muted ? FAINT : part == ui->part ? TEXT : DIM, 1);
+        if (part == ui->part && !ui->acc_lane) gfx_fill(b, 0, y - 1, GRID_X - 2, CELL, 0x3186);
+        gfx_text(b, 3, y + 1, dr_part_names[part], muted ? FAINT : part == ui->part && !ui->acc_lane ? TEXT : DIM, 1);
         if ((m->mute >> part) & 1u) gfx_text(b, 17, y + 1, "M", RED, 1);
         for (unsigned i = 0; i < 16; ++i) {
             int x = GRID_X + (int)i * CELL;
@@ -1608,7 +1616,8 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
         }
     }
     if (gfx_touches(b, ACC_Y, 8)) {
-        gfx_text(b, 3, ACC_Y, "AC", DIM, 1);
+        if (ui->acc_lane) gfx_fill(b, 0, ACC_Y - 1, GRID_X - 2, 8, 0x3186);
+        gfx_text(b, 3, ACC_Y, "AC", ui->acc_lane ? TEXT : DIM, 1);
         for (unsigned i = 0; i < shown; ++i)
             if ((p->accent >> (base + i)) & 1u) gfx_fill(b, GRID_X + (int)i * CELL, ACC_Y + 1, CELL - 2, 5, AMBER);
     }
@@ -1847,7 +1856,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
                 el_snprintf(l2, sizeof l2, "PEAK %u%% MAX %u%% C1 %u%%%s", (unsigned)(ui->load < 0 ? 0 : ui->load),
                             (unsigned)ui->load_max, (unsigned)ui->c1_peak, ui->cpu1_on ? "" : " 1CORE");
                 /* with the clock as the chip reports it (PLL, source, system clock in MHz) */
-                el_snprintf(l3, sizeof l3, "LATE %u  PLL%u S%u=%u", (unsigned)ui->drops, ui->clk_pll, ui->clk_src, ui->clk_sys);
+                el_snprintf(l3, sizeof l3, "LATE %u  ADDS %u/US  S%u", (unsigned)ui->drops, ui->clk_timer, ui->clk_src);
             }
             gfx_text(b, 4, FOOT_Y, l1, ACCENT, 1);
             gfx_text(b, 4, FOOT_Y + 12, l2, ACCENT, 1);
@@ -2074,11 +2083,15 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
     if (gfx_touches(b, FOOT_Y - 4, GFX_H)) draw_footer(ui, b);
 }
 
+#ifndef EL_PAINT_MS
+#define EL_PAINT_MS 40u
+#endif
 static void paint(el_ui_t *ui)
 {
     uint32_t started = fm1_millis();
     for (unsigned visited = 0; visited < GFX_BANDS && ui->dirty; ++visited) {
         int pending = fm1_screen_pending();
+        while (pending > 0 && fm1_millis() - started < EL_PAINT_MS) pending = fm1_screen_pending();   /* the strip before still going out */
         if (pending > 0) break;
         if (pending < 0) ui->dirty = (uint32_t)((1ull << GFX_BANDS) - 1u);
         unsigned band = ui->paint_next;
@@ -2087,7 +2100,9 @@ static void paint(el_ui_t *ui)
         el_ui_draw_band(ui, band);
         if (fm1_screen_submit(0, band * GFX_BAND, GFX_W, GFX_BAND, ui->band.px, GFX_W * GFX_BAND) != 0) break;
         ui->dirty &= ~BIT(band);
-        if (fm1_millis() - started >= 4u) break;
+        /* a whole frame in one go (the screen shows no half-new frames;
+         * the audio runs in its interrupt meanwhile) */
+        if (fm1_millis() - started >= EL_PAINT_MS) break;
     }
 }
 

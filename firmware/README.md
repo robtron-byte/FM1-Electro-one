@@ -1,8 +1,19 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 30. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 33. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 30. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 33. Build:
+- **Takt-Messung:** OPTIONS zeigt unten `ADDS …/US`, gemessene Additionen pro Mikrosekunde (der Chip schafft zwei pro Takt). Etwa 490 ≙ 240 MHz, 650 ≙ 320 MHz, 730 ≙ 360 MHz. Bitte fotografieren.
+
+Aus dem 32. Build:
+- **Display schneller und ohne halbe Bilder:** 30 MHz statt 20, und ein Bild wird in einem Zug gezeichnet (vorher in 4-ms-Häppchen, dazwischen sah man halb neue Bilder).
+- **Akzent ohne Tastenkombination:** In BEAT wählt die 11. schwarze Taste (nach den zehn Instrumenten) die Akzent-Zeile, dann setzen die Step-Tasten Akzente. Eine Instrumenten-Taste schaltet zurück. EDIT + Step geht weiter.
+- **Erster Start ohne Speicherstand:** alle Plätze leer, ein zufälliges Kit und je Bereich ein zufälliger Werks-Sound.
+
+Aus dem 31. Build:
+- **Aus dem zweiten Chat (ADR 0031):** OPTIONS → **COMP MIX** (100…0 %, Parallel-Kompression; CLUB setzt 70 %). Ist der Verzerrungstyp OFF, sind die Send-Regler (HOME + EDIT) gesperrt und zeigen „OFF“.
+
+Aus dem 30. Build:
 - **Aus dem zweiten Chat (ADR 0030): Verzerrung ohne Phasenauslöschung.** Der Verzerrungs-Send kommt jetzt zeitgleich zum Original zurück (vorher 0,5 ms später: Kammfilter bei wenig Drive und bei TUBE). Der ganze Mix kommt dafür 0,5 ms später, untereinander ändert sich nichts.
 
 Aus dem 29. Build:
@@ -65,7 +76,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `c927dcad5e93eb5f5550f0e940b4e6f265103ef05bf59a556120178e397e3558`
+SHA-256: `0c6407dc20997adf90bac91c42eec1e0019e01a24e4af157834b35e8acd89eb2`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
