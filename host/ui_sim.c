@@ -561,7 +561,7 @@ int main(int argc, char **argv)
     run(20);
     printf("leds: area buttons dimmed, octave end blinks %s\n", led_ok ? "ok" : "FAIL");
     /* User sounds: SAVE in the editor, rename, slot 3, SAVE stores; PRESETS
-     * finds it after the factory sounds; another button cancels; the groove
+     * finds it before the factory sounds, GLO + PRESETS straight away; another button cancels; the groove
      * keeps pointing at it over a restart. */
     hold(BTN_EDIT, 1);
     tap_button(BTN_LFO);
@@ -584,10 +584,21 @@ int main(int argc, char **argv)
     us_ok = us_ok && !ui.sound_save && gr == 0 && got.used && got.engine == bass->part.engine && got.name[0] == typed &&
             !memcmp(got.v, syn_values(&bass->part), syn_value_count(got.engine)) && bass->preset == EL_USER_SOUND + 2;
     shot(dir, "21_sound_saved");
-    turn(6, -1);                          /* back to the factory sounds */
+    turn(6, 1);                           /* the user sounds come first: on to the factory sounds */
     run(300);
     us_ok = us_ok && bass->preset < EL_USER_SOUND;
-    turn(6, 200);                         /* to the end: the user slot */
+    turn(6, 200);                         /* to the end of the factory sounds */
+    run(300);
+    us_ok = us_ok && bass->preset < EL_USER_SOUND;
+    hold(BTN_GLO, 1);
+    turn(6, 1);                           /* GLO + PRESETS: straight to the user sounds */
+    hold(BTN_GLO, 0);
+    run(300);
+    us_ok = us_ok && bass->preset == EL_USER_SOUND + 2;
+    turn(6, 1);                           /* on to the first factory sound */
+    run(300);
+    us_ok = us_ok && bass->preset < EL_USER_SOUND;
+    turn(6, -1);                          /* one click left of it: the user sound */
     run(300);
     us_ok = us_ok && bass->preset == EL_USER_SOUND + 2;
     tap_button(BTN_SAVE);                 /* cancel with another button */

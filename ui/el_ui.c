@@ -512,8 +512,10 @@ static int load_sound_id(el_ui_t *ui, unsigned id)
     return el_load_sound(ui->engine, track, id, s.engine, s.v);
 }
 
-/* One step through the area's factory sounds (MKS-50, then JP-6), then the
- * user slots (all of them, whatever area they were made in). */
+/* One step through the sounds of the area. The user sounds come first, then
+ * the factory sounds (MKS-50, then JP-6): the sound a new area starts with
+ * is the first factory one, so the user sounds are one click to the left
+ * (docs/adr/0025). User slots hold sounds of every area. */
 static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
 {
     int count = (int)syn_sound_count();
@@ -522,20 +524,40 @@ static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
         int i = (int)id;
         do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
         if (i >= 0 && i < count) return (unsigned)i;
-        if (dir > 0)
-            for (unsigned u = 0; u < EL_USER_SOUNDS; ++u) if (ui->user_used[u]) return EL_USER_SOUND + u;
+        if (dir < 0)
+            for (int u = EL_USER_SOUNDS - 1; u >= 0; --u) if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
         return id;
     }
     for (int u = (int)(id - EL_USER_SOUND) + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
         if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
-    if (dir < 0)
-        for (int i = count - 1; i >= 0; --i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
+    if (dir > 0)
+        for (int i = 0; i < count; ++i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
     return id;
+}
+
+/* GLO + PRESETS: only the user sounds, round and round. From a factory
+ * sound the first step lands on the first (right) or last (left) one. */
+static unsigned next_user_sound(el_ui_t *ui, unsigned id, int dir)
+{
+    user_cache(ui);
+    int n = 0, first = -1, last = -1, pos = -1;
+    for (int u = 0; u < EL_USER_SOUNDS; ++u) {
+        if (!ui->user_used[u]) continue;
+        if (first < 0) first = u;
+        last = u;
+        ++n;
+        if (id >= EL_USER_SOUND && (unsigned)u == id - EL_USER_SOUND) pos = u;
+    }
+    if (!n) return id;
+    if (pos < 0) return EL_USER_SOUND + (unsigned)(dir > 0 ? first : last);
+    for (int u = pos + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
+        if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
+    return EL_USER_SOUND + (unsigned)(dir > 0 ? first : last);
 }
 
 /* PRESETS steps through the sounds; EDIT + PRESETS jumps to the other
  * engine's first factory sound. */
-static void browse_preset(el_ui_t *ui, int delta, int other_engine)
+static void browse_preset(el_ui_t *ui, int delta, int other_engine, int user_only)
 {
     st_track_t *t = track_of(ui);
     unsigned id = t->preset;
@@ -547,7 +569,7 @@ static void browse_preset(el_ui_t *ui, int delta, int other_engine)
         moves = 0;
     }
     while (moves--) {
-        unsigned n = next_sound(ui, id, dir);
+        unsigned n = user_only ? next_user_sound(ui, id, dir) : next_sound(ui, id, dir);
         if (n == id) break;
         id = n;
     }
@@ -1109,7 +1131,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             /* The beat's "sound" is its kit, as a synth area's is its sound. */
             dr_post(m, DR_CMD_KIT, (uint8_t)el_clampi((int)m->kit_index + (presets > 0 ? 1 : -1), 0, DR_KITS - 1), 0, 0, 0);
         } else {
-            browse_preset(ui, presets, (hold & HOLD_EDIT) != 0);
+            browse_preset(ui, presets, (hold & HOLD_EDIT) != 0, (hold & HOLD_GLO) != 0);
         }
     }
     ui->prev_buttons = c->buttons;
