@@ -242,6 +242,16 @@ int main(int argc, char **argv)
         hold(BTN_GLO, 0);
         int ok = ui.area == EL_AREA_STRINGS && seq[0] == 4 && seq[1] == 8 && seq[2] == 4 && seq[3] == 2;
         printf("strings length: 3 -> %u -> %u -> %u -> %u bars, powers of two %s\n", seq[0], seq[1], seq[2], seq[3], ok ? "ok" : "FAIL");
+        /* the chord board: GLO held in STRINGS, white key 4 = MIN; keys 1-9 dimmed, the active one full */
+        run(1000);   /* (the length readout first goes) */
+        hold(BTN_GLO, 1);
+        tap_key(6);
+        run(60);
+        shot(dir, "19d_chord_board");
+        int cb = sx->chord == 3 && leds[14 + 6] == 1 && leds[14 + 0] == 2 && leds[14 + 14] == 2 && !leds[14 + 16];
+        hold(BTN_GLO, 0);
+        run(30);
+        printf("chord board: GLO in STRINGS shows the chords, key LEDs dimmed, the active one full %s\n", cb ? "ok" : "FAIL");
         tap_button(BTN_FX);
     }
     {

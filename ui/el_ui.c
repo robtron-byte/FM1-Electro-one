@@ -1468,6 +1468,7 @@ static unsigned shown_step_page(el_ui_t *ui, unsigned length, unsigned pos, int 
 
 static int step_overlay(const el_ui_t *ui);
 static unsigned punch_shown(const el_ui_t *ui);
+static int chord_board(const el_ui_t *ui);
 static unsigned knob_phase(const el_ui_t *ui, unsigned i);
 static int bars_overlay(const el_ui_t *ui);
 static void signatures(el_ui_t *ui, uint32_t sig[3])
@@ -1481,6 +1482,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
     mix(&sig[1], ui->acc_lane | (uint32_t)ui->mute_mode << 1);
+    mix(&sig[1], chord_board(ui) ? 0x0c000000u | track_of(ui)->chord : 0u);
     if (ui->overview && punch_shown(ui))   /* the tiles' animation, ~12 frames a second (N10) */
         mix(&sig[1], 0x70000000u | punch_shown(ui) | (ui->now / 80u) << 8 | (uint32_t)e->punch << 24 | (uint32_t)e->punch_div[3] << 16);
     mix(&sig[2], ui->mute_mode | (uint32_t)ui->fill_edit << 1 | (uint32_t)e->drums.fill_now << 2 | (uint32_t)e->drums.fill_auto << 3 |
@@ -1701,6 +1703,14 @@ static void update_leds(el_ui_t *ui)
                 if (tplay && t->pos == s) on = !on, dimmed = 0;
                 if (on) leds |= 1ull << (14u + white_keys[i]);
                 if (on && dimmed) key_dim |= 1ull << (14u + white_keys[i]);
+            }
+        } else if (chord_board(ui)) {
+            /* GLO held: the chord choice on white keys 1-9, the active one full */
+            unsigned active = t->chord <= MKS_CHORDS ? t->chord : 0;
+            for (unsigned i = 0; i <= MKS_CHORDS; ++i) {
+                uint64_t bit = 1ull << (14u + white_keys[i]);
+                leds |= bit;
+                if (i != active) key_dim |= bit;
             }
         } else {
             /* KEYS: light the keys of the notes the sequence is playing. */
@@ -2416,6 +2426,54 @@ static void draw_bars_overlay(el_ui_t *ui, gfx_band_t *b)
     gfx_text(b, OX + (OW - gfx_text_width(unit, 2)) / 2, OY + 56, unit, TEXT, 2);
 }
 
+/* STRINGS, GLO held (feedback 07.11.): the chord the keys play, chosen with
+ * white keys 1-9. A board of the nine choices, the active one filled, and its
+ * notes on a small keyboard. */
+static int chord_board(const el_ui_t *ui)
+{
+    return (ui->hold & HOLD_GLO) && !ui->overview && !ui->options && ui->area == EL_AREA_STRINGS && !ui->editor &&
+           !ui->step_mode[ui->area] && !ui->sh_key && !bars_overlay(ui);
+}
+
+static void draw_chord_board(el_ui_t *ui, gfx_band_t *b)
+{
+    enum { OX = 8, OY = 50, OW = 224, OH = 136 };
+    if (!gfx_touches(b, OY, OH)) return;
+    uint16_t color = area_color[EL_AREA_STRINGS];
+    unsigned active = track_of(ui)->chord <= MKS_CHORDS ? track_of(ui)->chord : 0;
+    gfx_fill(b, OX, OY, OW, OH, BACK);
+    gfx_frame(b, OX, OY, OW, OH, color);
+    gfx_text(b, OX + 8, OY + 6, "CHORD", color, 2);
+    gfx_text(b, OX + OW - 8 - gfx_text_width("WHITE KEY 1-9", 1), OY + 10, "WHITE KEY 1-9", DIM, 1);
+    for (unsigned i = 0; i <= MKS_CHORDS; ++i) {
+        int cx = OX + 8 + (int)(i % 3u) * 70, cy = OY + 26 + (int)(i / 3u) * 22, cw = 66, ch = 19;
+        const char *name = i ? mks_chord_names[i - 1] : "NOTE";
+        char num[3] = {(char)('1' + i), 0, 0};
+        if (i == active) gfx_fill(b, cx, cy, cw, ch, color);
+        else gfx_frame(b, cx, cy, cw, ch, FAINT);
+        gfx_text(b, cx + 4, cy + 6, num, i == active ? BACK : DIM, 1);
+        gfx_text(b, cx + 16, cy + 6, name, i == active ? BACK : TEXT, 1);
+    }
+    /* the active chord's notes on an octave and a half of keys (C = the played key) */
+    int16_t notes[MKS_CHORD_NOTES];
+    unsigned count = st_chord_notes(60, active ? active : 0, notes);
+    int kx = OX + 8, ky = OY + 96;
+    static const uint8_t white_semis[7] = {0, 2, 4, 5, 7, 9, 11}, has_black[7] = {1, 1, 0, 1, 1, 1, 0};
+    unsigned lit_mask = 0;
+    for (unsigned n = 0; n < count; ++n) if (notes[n] >= 60 && notes[n] < 60 + 24) lit_mask |= 1u << (notes[n] - 60);
+    for (int w = 0; w < 11; ++w) {   /* white keys C .. F an octave up */
+        int semi = white_semis[w % 7] + 12 * (w / 7);
+        gfx_fill(b, kx + w * 14, ky, 13, 32, (lit_mask >> semi) & 1u ? color : DIM);
+    }
+    for (int w = 0; w < 10; ++w) {   /* black keys over them */
+        if (!has_black[w % 7]) continue;
+        int semi = white_semis[w % 7] + 1 + 12 * (w / 7);
+        gfx_fill(b, kx + w * 14 + 9, ky, 9, 19, (lit_mask >> semi) & 1u ? color : BACK);
+    }
+    gfx_text(b, OX + OW - 8 - gfx_text_width(active ? mks_chord_names[active - 1] : "SINGLE", 2), ky + 8,
+             active ? mks_chord_names[active - 1] : "SINGLE", AMBER, 2);
+}
+
 void el_ui_draw_band(el_ui_t *ui, unsigned band)
 {
     gfx_band_t *b = &ui->band;
@@ -2430,6 +2488,7 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
     }
     if (step_overlay(ui)) draw_step_overlay(ui, b);
     else if (bars_overlay(ui)) draw_bars_overlay(ui, b);
+    else if (chord_board(ui)) draw_chord_board(ui, b);
     if (gfx_touches(b, FOOT_Y - 4, GFX_H)) draw_footer(ui, b);
 }
 
