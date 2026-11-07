@@ -817,6 +817,12 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
         }
         return;
     }
+    if (ui->fill_edit && step >= 0) {   /* the fill's bar (N12): EDIT accent, GLO roll */
+        if ((hold & HOLD_EDIT) || (ui->acc_lane && !(hold & HOLD_GLO))) dr_post(m, DR_CMD_FILL_ACCENT, 0, (uint8_t)step, 0, 0);
+        else if (hold & HOLD_GLO) dr_post(m, DR_CMD_FILL_ROLL, ui->part, (uint8_t)step, 0, 0);
+        else dr_post(m, DR_CMD_FILL_TOGGLE, ui->part, (uint8_t)step, 0, 0);
+        return;
+    }
     unsigned s = (unsigned)step + ui->step_page[0] * 16u;
     if (s >= p->length) return;
     if ((hold & HOLD_EDIT) || (ui->acc_lane && !(hold & HOLD_GLO))) dr_post(m, DR_CMD_ACCENT, 0, (uint8_t)s, 0, 0);
@@ -1175,6 +1181,38 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");   /* everything, all slots */
         ui->prep_pending = 1;
     }
+    /* BEAT: SEQ plays the fill in the next bar (held: every bar while held),
+     * GLO + SEQ the fill by itself every 8 / 16 / 32 bars, EDIT + SEQ edits it (N12). */
+    if (!ui->overview && ui->area == EL_AREA_BEAT) {
+        if ((pressed & BIT(BTN_SEQ)) && (hold & HOLD_GLO)) {
+            static const uint8_t every[4] = {0, 8, 16, 32};
+            unsigned k = 0;
+            while (k < 4u && every[k] != m->fill_auto) ++k;
+            unsigned next = every[(k + 1u) % 4u];
+            if (dr_post(m, DR_CMD_FILL_AUTO, 0, (uint8_t)next, 0, 0) == 0)
+                notice(ui, next == 8 ? "FILL EVERY 8 BARS" : next == 16 ? "FILL EVERY 16 BARS" : next == 32 ? "FILL EVERY 32 BARS" : "FILL AUTO OFF");
+        } else if ((pressed & BIT(BTN_SEQ)) && (hold & HOLD_EDIT)) {
+            ui->fill_edit = (uint8_t)!ui->fill_edit;
+            dr_post(m, DR_CMD_FILL_EDIT, 0, ui->fill_edit, 0, 0);
+            notice(ui, ui->fill_edit ? "FILL EDIT: STEP KEYS 1-16" : "FILL EDIT OFF");
+        } else if (pressed & BIT(BTN_SEQ)) {
+            dr_post(m, DR_CMD_FILL, 0, 1, 0, 0);
+            ui->seq_at = ui->now | 1u;
+            ui->fill_held = 0;
+        }
+        if ((c->buttons & BIT(BTN_SEQ)) && ui->seq_at && !ui->fill_held && ui->now - ui->seq_at >= 300u &&
+            dr_post(m, DR_CMD_FILL, 0, 2, 0, 0) == 0)
+            ui->fill_held = 1;
+        if (!(c->buttons & BIT(BTN_SEQ)) && ui->seq_at) {
+            if (ui->fill_held) dr_post(m, DR_CMD_FILL, 0, 0, 0, 0);
+            ui->seq_at = 0;
+            ui->fill_held = 0;
+        }
+        pressed &= ~BIT(BTN_SEQ);
+    } else if (ui->fill_edit) {   /* left BEAT: the fill edit ends */
+        ui->fill_edit = 0;
+        dr_post(m, DR_CMD_FILL_EDIT, 0, 0, 0, 0);
+    }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui) && (hold & HOLD_GLO)) {
         /* GLO + SEQ: TRANSPOSE, the keys move the sequence (KeyStep). */
         release_keys(ui, ~0u);
@@ -1397,7 +1435,8 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
     mix(&sig[1], ui->acc_lane | (uint32_t)ui->mute_mode << 1);
-    mix(&sig[2], ui->mute_mode);
+    mix(&sig[2], ui->mute_mode | (uint32_t)ui->fill_edit << 1 | (uint32_t)e->drums.fill_now << 2 | (uint32_t)e->drums.fill_auto << 3 |
+                 (uint32_t)(e->drums.fill_auto ? e->drums.bars % e->drums.fill_auto : 0) << 10);
     mix(&sig[1], bars_overlay(ui) ? 0x40000000u | ui->bars_shown : 0u);
     mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 |
                                       (uint32_t)((ui->sh_pitch + 16) & 31) << 17 | (uint32_t)ui->sh_vol << 22 | (uint32_t)ui->sh_lock << 25 : 0u);
@@ -1424,6 +1463,11 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
         const dr_pattern_t *p = &m->pattern[m->current];
         mix(&sig[1], m->revision | (uint32_t)m->mute << 8 | (uint32_t)m->solo << 20);
         mix(&sig[1], shown_step_page(ui, p->length, ui->show_pos[0], playing) | (uint32_t)p->length << 4 | (uint32_t)p->swing << 12);
+        if (ui->fill_edit) {
+            const dr_fill_t *f = &m->fill[m->current];
+            mix(&sig[1], 0xf1110000u | f->accent);
+            for (unsigned i = 0; i < DR_PARTS; ++i) mix(&sig[1], f->hit[i] | (uint32_t)f->roll[i] << 16);
+        }
     } else if (in_editor(ui)) {
         st_track_t *t = track_of(ui);
         unsigned section, page;
@@ -1528,6 +1572,7 @@ static void update_leds(el_ui_t *ui)
         blink |= 1ull << BTN_SEQ;
     if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
     if (ui->mute_mode && !ui->overview && ui->area == EL_AREA_BEAT && slow) blink |= 1ull << BTN_GLO;   /* N13 */
+    if (!ui->overview && ui->area == EL_AREA_BEAT && ((m->fill_now && playing && fast) || (ui->fill_edit && slow))) blink |= 1ull << BTN_SEQ;   /* N12 */
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
     dim |= (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
           ~(1ull << (ui->overview ? BTN_HOME : BTN_FX + ui->area));
@@ -1560,6 +1605,10 @@ static void update_leds(el_ui_t *ui)
             if (s >= p->length) continue;
             int on = (ui->hold & HOLD_EDIT) ? (p->accent >> s) & 1u :
                      (ui->hold & HOLD_GLO) ? (p->roll[ui->part] >> s) & 1u : (p->hit[ui->part] >> s) & 1u;
+            if (ui->fill_edit) {   /* the fill's bar (N12) */
+                const dr_fill_t *f = &m->fill[m->current];
+                on = (ui->hold & HOLD_EDIT) ? (f->accent >> i) & 1u : (ui->hold & HOLD_GLO) ? (f->roll[ui->part] >> i) & 1u : (f->hit[ui->part] >> i) & 1u;
+            }
             if (playing && m->pos == s) on = !on;
             if (on) leds |= 1ull << (14u + white_keys[i]);
         }
@@ -1654,9 +1703,21 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
 {
     const dr_machine_t *m = &ui->engine->drums;
     const dr_pattern_t *p = &m->pattern[m->current];
+    /* Editing the fill (N12): its bar in the grid instead of the groove. */
+    static dr_pattern_t fill_view;
+    if (ui->fill_edit) {
+        const dr_fill_t *f = &m->fill[m->current];
+        fill_view = *p;
+        fill_view.length = DR_FILL_STEPS;
+        for (unsigned i = 0; i < DR_PARTS; ++i) { fill_view.hit[i] = f->hit[i]; fill_view.roll[i] = f->roll[i]; }
+        fill_view.accent = f->accent;
+        p = &fill_view;
+        ui->step_page[0] = 0;
+    }
     unsigned base = ui->step_page[0] * 16u, shown = p->length > base ? p->length - base : 0;
     int playing = ui->engine->transport.running && m->playing;
     unsigned pos = playing ? ui->show_pos[0] : 0xffu;
+    if (ui->fill_edit && pos != 0xffu) pos %= DR_FILL_STEPS;
     if (shown > 16) shown = 16;
     for (unsigned row = 0; row < UI_PARTS; ++row) {
         unsigned part = ui_parts[row];
@@ -1676,8 +1737,8 @@ static void draw_beat(el_ui_t *ui, gfx_band_t *b)
                 if ((p->accent >> s) & 1u) gfx_fill(b, x, y, CELL - 2, CELL - 2, c);
                 else gfx_fill(b, x + 2, y + 2, CELL - 6, CELL - 6, c);
                 if ((p->roll[part] >> s) & 1u) gfx_fill(b, x + 4, y + 4, 3, 3, BACK);
-                if (dr_cond(m, m->current, part, s) || dr_prob(m, m->current, part, s)) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
-                if (dr_pitch(m, m->current, part, s) || dr_vol(m, m->current, part, s)) gfx_fill(b, x, y + CELL - 4, 4, 2, AMBER);   /* a pitch or level lock (ADR 0028) */
+                if (!ui->fill_edit && (dr_cond(m, m->current, part, s) || dr_prob(m, m->current, part, s))) gfx_fill(b, x, y, 4, 2, TEXT);   /* not every pass (ADR 0025) */
+                if (!ui->fill_edit && (dr_pitch(m, m->current, part, s) || dr_vol(m, m->current, part, s))) gfx_fill(b, x, y + CELL - 4, 4, 2, AMBER);   /* a pitch or level lock (ADR 0028) */
             }
         }
     }
@@ -2002,6 +2063,12 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
     char line[48];
     if (!hint && synth_area(ui) && !ui->overview && !in_editor(ui) && track_of(ui)->recording && rec_step_mode(ui)) {
         el_snprintf(line, sizeof line, "STEP REC %u/32  TOP KEY=REST GLO=TIE", ui->rec_fresh ? 0u : ui->cursor[ui->area]);
+        hint = line;
+    } else if (!hint && !ui->overview && ui->area == EL_AREA_BEAT && (ui->fill_edit || ui->engine->drums.fill_now || ui->engine->drums.fill_auto)) {
+        const dr_machine_t *dm = &ui->engine->drums;
+        if (ui->fill_edit) el_snprintf(line, sizeof line, "FILL %c: KEYS 1-16  EDIT+SEQ = DONE", 'A' + dm->current);
+        else if (dm->fill_now && ui->engine->transport.running) el_snprintf(line, sizeof line, "FILL PLAYING");
+        else el_snprintf(line, sizeof line, "FILL EVERY %u BARS: NEXT IN %u", dm->fill_auto, dm->fill_auto - (unsigned)(dm->bars % dm->fill_auto));
         hint = line;
     } else if (!hint && ui->mute_mode && !ui->overview && ui->area == EL_AREA_BEAT) {
         el_snprintf(line, sizeof line, "MUTE: KEYS MUTE / UNMUTE  GLO = OFF");

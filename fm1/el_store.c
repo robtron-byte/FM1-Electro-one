@@ -25,7 +25,7 @@
  * 26 the drums without toms and congas (B12: ten parts, older records are
  * mapped part by part), every option in one array, no separate copy of the
  * playing kit (each slot has its sound), each kit as last set (N1), a length
- * per synth step (N6). */
+ * per synth step (N6), a fill per drum slot (N12). */
 enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
@@ -125,6 +125,8 @@ typedef struct {
     uint32_t drum_vol[DR_PATTERNS][3][DR_PARTS];
     drum_sound_payload_t kit_mem[DR_KITS];  /* dr_machine_t.kit_mem (N1) */
     uint8_t kit_mem_used;
+    uint8_t fill_auto;                      /* every how many bars the fill plays by itself (N12) */
+    dr_fill_t fill[DR_PATTERNS];            /* each slot's fill (N12) */
 } payload_t;
 #define V25_BYTES sizeof(payload_v25_t)
 #define V24_BYTES sizeof(payload_v24_t)
@@ -423,6 +425,9 @@ static int el_store_load_held(el_engine_t *e)
         p.style = (uint8_t)(p.style % DR_STYLES);
         m->pattern[i] = p;
     }
+    /* the fills (N12): records before 26 have none, they are made when needed */
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) { m->fill[i] = d->fill[i]; m->fill[i].used = d->fill[i].used ? 1 : 0; }
+    m->fill_auto = d->fill_auto == 8 || d->fill_auto == 16 || d->fill_auto == 32 ? d->fill_auto : 0;
     /* each kit as last set (N1) */
     m->kit_mem_used = (uint8_t)(d->kit_mem_used & ((1u << DR_KITS) - 1u));
     for (unsigned k = 0; k < DR_KITS; ++k) {
@@ -573,6 +578,8 @@ static int el_store_save_held(el_engine_t *e)
     for (unsigned i = 0; i < DR_PATTERNS; ++i) sound_to_payload(&m->sound[i], &d->drum_sound[i]);
     for (unsigned k = 0; k < DR_KITS; ++k) sound_to_payload(&m->kit_mem[k], &d->kit_mem[k]);
     d->kit_mem_used = m->kit_mem_used;
+    memcpy(d->fill, m->fill, sizeof d->fill);
+    d->fill_auto = m->fill_auto;
     memcpy(d->drum_cond, m->cond, sizeof d->drum_cond);
     memcpy(d->drum_prob, m->prob, sizeof d->drum_prob);
     memcpy(d->drum_pitch, m->pitch, sizeof d->drum_pitch);

@@ -23,7 +23,6 @@ Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N4 | Neu | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ (die LEDs können keine Farbe: nur hell/blinkend möglich) | – |
 | N7 | Neu | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) | – |
 | N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ | – |
-| N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ○ · **ausgewählt 07.11. (erste Runde)** | – |
 
 ## Umgesetzt
 
@@ -83,6 +82,7 @@ Stand: 36. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N1 | Neu | Drum-Kits merken sich deine Einstellungen: Kit wechseln und zurück bringt das Kit so, wie du es eingestellt hattest (nicht das Werks-Kit) | ◐ umgesetzt (37. Build): gespeichert (Version 26); EDIT + PRESETS holt den Werksklang des Kits | – |
 | S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ umgesetzt (37. Build) mit N6: Anfang auf 1/8, Länge wie gehalten | 0027 |
 | N6 | Neu | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ◐ umgesetzt (37. Build): Länge in 32steln wie gehalten (nicht auf Achtel gerundet, Wunsch S8), Pattern 1–4 Takte | – |
+| N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ◐ umgesetzt (37. Build): SEQ tippen/halten, GLO + SEQ 8/16/32, EDIT + SEQ bearbeiten, Generator legt Fills an | – |
 
 ## Gestrichen
 

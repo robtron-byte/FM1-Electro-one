@@ -58,8 +58,25 @@ enum dr_command {
     DR_CMD_COND,        /* a = part, b = step, value = EL_COND_* (the current pattern) */
     DR_CMD_PROB,        /* a = part, b = step, value = 0..EL_PROBS-1 (the current pattern) */
     DR_CMD_PITCH,       /* a = part, b = step, value = -12..12 semitones (docs/adr/0028; tuned parts only) */
-    DR_CMD_VOL          /* a = part, b = step, value = 0 as played, 1..7 a fixed level (docs/adr/0028) */
+    DR_CMD_VOL,         /* a = part, b = step, value = 0 as played, 1..7 a fixed level (docs/adr/0028) */
+    /* Fill-ins (N12): a bar of their own per slot. */
+    DR_CMD_FILL,        /* b = 0 none, 1 once in the next bar, 2 every bar while held */
+    DR_CMD_FILL_AUTO,   /* b = 0 off, else every b bars (8, 16, 32): the phrase's last bar */
+    DR_CMD_FILL_EDIT,   /* b = on: the playing slot's fill is edited (an unused one starts as the groove's first bar) */
+    DR_CMD_FILL_TOGGLE, /* a = part, b = step 0..15: hit on/off in the playing slot's fill */
+    DR_CMD_FILL_ACCENT, /* b = step */
+    DR_CMD_FILL_ROLL    /* a = part, b = step (sets the hit too) */
 };
+
+/* A fill-in (N12): one bar of 16ths in the slot's kit, played instead of a
+ * bar of the groove; unused ones are made from the groove when needed. */
+enum { DR_FILL_STEPS = 16 };
+typedef struct {
+    uint16_t hit[DR_PARTS], roll[DR_PARTS], accent;
+    uint8_t used;
+} dr_fill_t;
+/* A fill from a groove: its first bar, the end of the bar a snare / clap run. */
+EL_DSP_CODE void dr_generate_fill(const dr_pattern_t *groove, uint32_t seed, dr_fill_t *out);
 
 /* Harmony family of a style: chord progressions for the strings. */
 enum { DR_HARMONY_ROTHER, DR_HARMONY_KRAFT, DR_HARMONY_ELECTRO, DR_HARMONY_EGYPT, DR_HARMONIES };
@@ -117,6 +134,12 @@ typedef struct {
      * this, not its factory sound; bit n of kit_mem_used: kit n was edited. */
     tr808_sound_t kit_mem[DR_KITS];
     uint8_t kit_mem_used;
+    /* Fill-ins (N12): one per slot; what is asked for (DR_CMD_FILL), every
+     * how many bars by itself (0 off), the bars played since the start, and
+     * whether the bar playing now is the fill. */
+    dr_fill_t fill[DR_PATTERNS];
+    uint8_t fill_req, fill_auto, fill_now, fill_edit;
+    uint32_t bars;
     volatile uint32_t revision; /* bumps on every applied edit, for the UI */
 } dr_machine_t;
 

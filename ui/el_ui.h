@@ -37,6 +37,8 @@ typedef struct {
     char sound_name[EL_SOUND_NAME + 1];
     uint8_t area, overview, follow, part, arp_tap, edit_tap, glo_tap;
     uint8_t mute_mode;                  /* BEAT: GLO tapped, the instrument keys mute (N13) */
+    uint8_t fill_edit, fill_held;       /* BEAT: EDIT + SEQ edits the slot's fill; SEQ held repeats it (N12) */
+    uint32_t seq_at;                    /* when SEQ went down in BEAT */
     uint8_t bars_shown;                 /* GLO + ALGORITHM: the length in bars shown big (N11) */
     uint32_t bars_at;
     uint8_t options, opt_item;          /* OPTIONS menu (HOME + SAVE) */

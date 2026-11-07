@@ -171,6 +171,44 @@ int main(int argc, char **argv)
         n1 = n1 && dm->kit_index == k0 && !memcmp(&dm->sound[dm->current].pot, &f.pot, sizeof f.pot);
         printf("kits: a kit keeps its settings, EDIT + PRESETS factory (N1) %s\n", n1 ? "ok" : "FAIL");
     }
+    {
+        /* N12: SEQ plays the fill in the next bar, GLO + SEQ every 8 bars, EDIT + SEQ edits it;
+         * a new groove brings a fill; fills are stored. */
+        dr_machine_t *dm = &engine.drums;
+        static const uint8_t wk[16] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
+        int fl = 1;
+        if (!engine.transport.running) { tap_button(BTN_PLAY); run(50); }
+        tap_button(BTN_SEQ);
+        int seen = 0;
+        for (int i = 0; i < 120 && !seen; ++i) { run(25); seen = dm->fill_now; }
+        int gone = 0;
+        for (int i = 0; i < 200 && !gone && seen; ++i) { run(25); gone = !dm->fill_now; }
+        fl = fl && seen && gone && dm->fill[dm->current].used;
+        hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
+        fl = fl && dm->fill_auto == 8 && !ui.mute_mode;
+        hold(BTN_EDIT, 1); tap_button(BTN_SEQ); hold(BTN_EDIT, 0);
+        run(30);
+        uint16_t was = dm->fill[dm->current].hit[ui.part];
+        tap_key(wk[5]);
+        run(30);
+        fl = fl && ui.fill_edit && dm->fill_edit && (dm->fill[dm->current].hit[ui.part] ^ was) == (1u << 5);
+        shot(dir, "07b_fill_edit");
+        hold(BTN_EDIT, 1); tap_button(BTN_SEQ); hold(BTN_EDIT, 0);
+        fl = fl && !ui.fill_edit && !ui.edit_tap;
+        static el_engine_t f26;
+        fl = fl && el_store_save(&engine) == 0;
+        el_init(&f26);
+        fl = fl && el_store_load(&f26) == 0 && f26.drums.fill_auto == 8 &&
+             !memcmp(&f26.drums.fill[dm->current], &dm->fill[dm->current], sizeof dm->fill[0]);
+        hold(BTN_GLO, 1); tap_button(BTN_SEQ); tap_button(BTN_SEQ); tap_button(BTN_SEQ); hold(BTN_GLO, 0);   /* 16, 32, off */
+        fl = fl && dm->fill_auto == 0;
+        dr_pattern_t g;
+        dr_generate(&g, 3, 20, 99u, NULL);
+        dr_fill_t gf;
+        dr_generate_fill(&g, 7u, &gf);
+        fl = fl && gf.used && (gf.hit[D8_SD] | gf.hit[D8_CP]) & 0xf000u;
+        printf("fills: SEQ next bar, GLO + SEQ every 8 bars, EDIT + SEQ edit, stored, generated (N12) %s\n", fl ? "ok" : "FAIL");
+    }
     shot(dir, "02b_beat_pulse");
     turn(6, -1);
     hold(BTN_GLO, 1);

@@ -119,6 +119,7 @@ void dr_init(dr_machine_t *m)
     m->random = 0x2545f491u;
     tr808_init(&m->kit);
     apply_kit(m, m->pattern[0].kit, 0);
+    dr_generate_fill(&m->pattern[0], 0x2545f491u, &m->fill[0]);
     for (unsigned i = 1; i < DR_PATTERNS; ++i) m->sound[i] = m->sound[0];
 }
 
@@ -190,6 +191,39 @@ static const uint8_t vol_q7[8] EL_DSP_DATA = {0, 19, 36, 51, 66, 84, 106, 127};
 float dr_vol_velocity(unsigned level) { return level && level < 8 ? vol_q7[level] / 127.0f : 0.0f; }
 int dr_vol_percent(unsigned level) { return level && level < 8 ? (int)(vol_q7[level] * 100 + 63) / 127 : 0; }
 
+static EL_DSP_CODE uint32_t fill_random(uint32_t *s)
+{
+    uint32_t n = *s;
+    n ^= n << 13; n ^= n >> 17; n ^= n << 5;
+    return *s = n ? n : 0x9e3779b9u;
+}
+
+/* Fills (N12): the groove's first bar, its end turned into a run on the
+ * snare (or clap): four kinds, chosen by the seed. The closed hat makes way
+ * for the run, the kick keeps its downbeat. */
+EL_DSP_CODE void dr_generate_fill(const dr_pattern_t *g, uint32_t seed, dr_fill_t *out)
+{
+    uint32_t rng = seed ? seed : 0x2545f491u;
+    memset(out, 0, sizeof *out);
+    uint16_t bar = g->length >= DR_FILL_STEPS ? 0xffffu : (uint16_t)((1u << g->length) - 1u);
+    for (unsigned i = 0; i < DR_PARTS; ++i) { out->hit[i] = (uint16_t)(g->hit[i] & bar); out->roll[i] = (uint16_t)(g->roll[i] & bar); }
+    out->accent = (uint16_t)(g->accent & bar);
+    unsigned kind = fill_random(&rng) % 4u;
+    /* the run's steps and which get an accent (bit n = step n) */
+    static const uint16_t runs[4] = {0xf000u, 0xaa00u | 0xf000u, 0x5500u | 0xf000u, 0x9240u | 0xd000u};
+    static const uint16_t accents[4] = {0x8800u, 0xa000u, 0x8800u, 0x9000u};
+    uint16_t run = runs[kind], from = (uint16_t)~((kind == 1 || kind == 2) ? 0x00ffu : 0x0fffu);
+    unsigned lead = (fill_random(&rng) & 1u) && kind != 3 ? D8_CP : D8_SD;
+    for (unsigned i = 0; i < DR_PARTS; ++i)
+        if (i != D8_BD && i != D8_CY) { out->hit[i] &= (uint16_t)~from; out->roll[i] &= (uint16_t)~from; }
+    out->hit[lead] |= run;
+    if (lead == D8_CP) out->hit[D8_SD] |= run & 0x8000u;   /* the last one with the snare */
+    if (kind == 0) out->roll[D8_SD] |= 0x4000u;            /* a 32nd roll before the end */
+    out->hit[D8_BD] = (uint16_t)((out->hit[D8_BD] & ~from) | 0x0001u | (kind == 3 ? 0x0100u : 0));
+    out->accent = (uint16_t)((out->accent & ~from) | accents[kind]);
+    out->used = 1;
+}
+
 static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
 {
     m->current = (uint8_t)index;
@@ -231,6 +265,8 @@ EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int reco
 
 EL_DSP_CODE void dr_rewind(dr_machine_t *m)
 {
+    m->fill_now = 0;
+    m->bars = 0;
     m->playing = 0;
     m->pos = 0;
     m->roll_pending = 0;
@@ -262,10 +298,35 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     m->pos = (uint8_t)pos;
     m->step_frames = step_frames;
     m->since_step = 0.0f;
+    /* Fill-ins (N12): at each bar, whether this one is the fill. */
+    uint32_t sixteenth = step;
+    if (sixteenth % DR_FILL_STEPS == 0u) {
+        if (sixteenth) ++m->bars;
+        unsigned every = m->fill_auto;
+        m->fill_now = m->fill_req || (every && (m->bars + 1u) % every == 0u);
+        if (m->fill_req == 1) m->fill_req = 0;
+        dr_fill_t *f = &m->fill[m->current];
+        if (m->fill_now && !f->used) dr_generate_fill(p, m->random ^ m->bars, f);
+    }
     uint32_t bit = 1u << pos, suppress = m->suppress;
     m->suppress = 0;
-    float velocity = (p->accent & bit) ? 1.0f : DR_NORMAL;
+    const dr_fill_t *fill = m->fill_now ? &m->fill[m->current] : 0;
+    uint32_t fbit = 1u << (sixteenth % DR_FILL_STEPS);
+    float velocity = (fill ? (fill->accent & fbit) != 0 : (p->accent & bit) != 0) ? 1.0f : DR_NORMAL;
     m->roll_pending = 0;
+    if (fill) {
+        for (unsigned part = 0; part < DR_PARTS; ++part) {
+            if (!(fill->hit[part] & fbit) || !audible(m, part) || m->muted) continue;
+            if (!(suppress & (1u << part))) tr808_trigger_pitch(&m->kit, (int)part, velocity, 0);
+            if (fill->roll[part] & fbit) {
+                m->roll_pending |= 1u << part;
+                m->roll_velocity[part] = velocity * (DR_ROLL_SCALE_Q7 / 127.0f);
+                m->roll_semis[part] = 0;
+            }
+        }
+        m->roll_countdown = 0.5f * step_frames;
+        return;
+    }
     for (unsigned part = 0; part < DR_PARTS; ++part) {
         if (!(p->hit[part] & bit) || !audible(m, part) || m->muted) continue;
         if (!el_cond_plays(dr_cond(m, m->current, part, pos), m->pass)) continue;
@@ -377,6 +438,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_COPY:
         if (part < DR_PATTERNS && step < DR_PATTERNS) {
             m->pattern[step] = m->pattern[part];
+            m->fill[step] = m->fill[part];
             m->sound[step] = m->sound[part];
             memcpy(m->cond[step], m->cond[part], sizeof m->cond[step]);
             memcpy(m->prob[step], m->prob[part], sizeof m->prob[step]);
@@ -394,6 +456,8 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
                 if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
             }
             m->pattern[part] = m->staging;
+            /* a new groove brings its fill (N12); a variation keeps the slot's */
+            if (!c->c || !m->fill[part].used) dr_generate_fill(&m->pattern[part], m->random ^ 0x9e3779b9u, &m->fill[part]);
             if (!c->c) {
                 memset(m->cond[part], 0, sizeof m->cond[part]);
                 memset(m->prob[part], 0, sizeof m->prob[part]);
@@ -443,6 +507,47 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_PITCH:
         if (part < DR_PARTS && step < DR_STEPS) set_pitch(m, m->current, part, step, c->value);
+        break;
+    case DR_CMD_FILL:
+        m->fill_req = (uint8_t)(step > 2 ? 0 : step);
+        break;
+    case DR_CMD_FILL_AUTO:
+        m->fill_auto = (uint8_t)step;
+        break;
+    case DR_CMD_FILL_EDIT: {
+        dr_fill_t *f = &m->fill[m->current];
+        m->fill_edit = step ? 1 : 0;
+        if (step && !f->used) {   /* an unused fill starts as the groove's first bar */
+            memset(f, 0, sizeof *f);
+            for (unsigned i = 0; i < DR_PARTS; ++i) { f->hit[i] = (uint16_t)p->hit[i]; f->roll[i] = (uint16_t)p->roll[i]; }
+            f->accent = (uint16_t)p->accent;
+            if (p->length < DR_FILL_STEPS) {
+                uint16_t keep = (uint16_t)((1u << p->length) - 1u);
+                for (unsigned i = 0; i < DR_PARTS; ++i) { f->hit[i] &= keep; f->roll[i] &= keep; }
+                f->accent &= keep;
+            }
+            f->used = 1;
+        }
+        break;
+    }
+    case DR_CMD_FILL_TOGGLE:
+        if (part < DR_PARTS && step < DR_FILL_STEPS) {
+            dr_fill_t *f = &m->fill[m->current];
+            f->hit[part] ^= (uint16_t)(1u << step);
+            if (!(f->hit[part] & (1u << step))) f->roll[part] &= (uint16_t)~(1u << step);
+            f->used = 1;
+        }
+        break;
+    case DR_CMD_FILL_ACCENT:
+        if (step < DR_FILL_STEPS) { m->fill[m->current].accent ^= (uint16_t)(1u << step); m->fill[m->current].used = 1; }
+        break;
+    case DR_CMD_FILL_ROLL:
+        if (part < DR_PARTS && step < DR_FILL_STEPS) {
+            dr_fill_t *f = &m->fill[m->current];
+            f->roll[part] ^= (uint16_t)(1u << step);
+            if (f->roll[part] & (1u << step)) f->hit[part] |= (uint16_t)(1u << step);
+            f->used = 1;
+        }
         break;
     case DR_CMD_VOL:
         if (part < DR_PARTS && step < DR_STEPS) set_vol(m, m->current, part, step, (unsigned)el_clampi(c->value, 0, 7));
