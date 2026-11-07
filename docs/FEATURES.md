@@ -88,8 +88,8 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | P2 | Bus dynamisch auf beide Kerne (Verzerrung auf Kern 1) | ✓ | 0021 |
 | P3 | Speichern ohne Aussetzer (vorab löschen, Autosave bei STOP) | ◐ | 0023 |
 | P4 | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
-| P5 | Takt messen (`ADDS …/US` in OPTIONS) | ◐ | 0019 |
-| P6 | Auf 320 MHz (Herstellervorgabe) umstellen, falls niedriger | ○ | 0019 |
+| P5 | Takt messen (`ADDS …/US` in OPTIONS): Gerät 335/µs, also etwa 320–360 MHz | ✓ | 0019 |
+| P6 | Auf 320 MHz umstellen: nicht nötig, das Gerät läuft schon mit 320–360 MHz | ✗ (nicht nötig) | 0019 |
 | P7 | Überlastschutz (sparsamer rechnen bei Überlast) | ✗ (auf Wunsch) | – |
 | P8 | Web-Simulator | ✓ | – |
 
