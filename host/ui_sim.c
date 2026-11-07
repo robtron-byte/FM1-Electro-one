@@ -96,6 +96,7 @@ static void shot(const char *dir, const char *name)
     printf("%s\n", name);
 }
 
+static int in_editor_sim(void) { return ui.editor && !ui.overview && ui.area != EL_AREA_BEAT; }
 static void hold(unsigned b, int on) { if (on) panel.buttons |= 1u << b; else panel.buttons &= ~(1u << b); run(20); }
 
 int main(int argc, char **argv)
@@ -114,12 +115,12 @@ int main(int argc, char **argv)
     run(900);
     shot(dir, "02_beat_playing");
 
-    /* BEAT by the panel layout: PRESETS kit, GLO + ALGORITHM length,
+    /* BEAT by the panel layout: PRESETS kit, GLO + ALGORITHM length (whole bars, N11),
      * EDIT + ALGORITHM swing, GLO + SELECT instrument (PULSE too). */
     unsigned kit_before = engine.drums.kit_index;
     turn(6, 1);
     hold(BTN_GLO, 1);
-    turn(1, -4);
+    turn(1, 1);    /* 1 bar -> 2 bars */
     turn(0, 20);
     hold(BTN_GLO, 0);
     hold(BTN_EDIT, 1);
@@ -127,7 +128,7 @@ int main(int argc, char **argv)
     hold(BTN_EDIT, 0);
     run(100);
     const dr_pattern_t *bp = &engine.drums.pattern[engine.drums.current];
-    int beat_ok = engine.drums.kit_index == kit_before + 1 && bp->length == 12 && bp->swing > 50 && ui.part == DR_PARTS - 1;
+    int beat_ok = engine.drums.kit_index == kit_before + 1 && bp->length == 32 && bp->swing > 50 && ui.part == DR_PARTS - 1;
     printf("layout: beat kit %s, length %u, swing %u, part %s %s\n", dr_kit_names[engine.drums.kit_index], bp->length,
            bp->swing, dr_part_names[ui.part], beat_ok ? "ok" : "FAIL");
     shot(dir, "02b_beat_pulse");
@@ -575,7 +576,7 @@ int main(int argc, char **argv)
     turn(6, 1);
     hold(BTN_EDIT, 0);
     run(300);
-    turn(0, -10);
+    turn(0, -(int)ui.ed_section[EL_AREA_BASS]);   /* the first section (SELECT goes round, N9) */
     turn(0, 5);                           /* JP-6: ENVELOPE 1 */
     run(100);
     shot(dir, "17_editor_jp6_env1");
@@ -591,6 +592,37 @@ int main(int argc, char **argv)
     /* Outside it every function button is lit (ADR 0020), EDIT too. */
     ed_ok = ed_ok && !ui.editor && leds[BTN_EDIT] && leds[BTN_FX] && leds[BTN_GLO] && leds[BTN_HOME];
     printf("editor: all parameters, navigation, keys, leave %s\n", ed_ok ? "ok" : "FAIL");
+    {
+        /* N8: EDIT tapped alone opens the editor of the area, again: back;
+         * N9: SELECT and ALGORITHM go round. */
+        tap_button(BTN_EDIT);
+        int n8 = ui.editor && in_editor_sim();
+        unsigned secs = ed_sections(bass->part.engine);
+        turn(0, -(int)ui.ed_section[EL_AREA_BASS] - 1);   /* left of the first: the last */
+        int n9 = ui.ed_section[EL_AREA_BASS] == secs - 1u;
+        turn(0, 1);                                       /* right of the last: the first */
+        n9 = n9 && ui.ed_section[EL_AREA_BASS] == 0;
+        unsigned pages = ed_pages(ed_section(bass->part.engine, 0));
+        turn(1, -1);                                      /* page left of the first: the last */
+        n9 = n9 && ui.ed_page[EL_AREA_BASS] == pages - 1u;
+        tap_button(BTN_EDIT);
+        n8 = n8 && !ui.editor;
+        hold(BTN_EDIT, 1); turn(2, 1); hold(BTN_EDIT, 0);  /* EDIT used with a knob: no switch */
+        n8 = n8 && !ui.editor;
+        printf("editor: EDIT tap opens and leaves (N8) %s, pages and sections go round (N9) %s\n", n8 ? "ok" : "FAIL", n9 ? "ok" : "FAIL");
+        /* N5: REC dimmed while nothing records. N11: GLO + ALGORITHM in whole bars (16ths: 16 steps), big. */
+        int n5 = leds[BTN_REC] == 2;
+        if (ui.step_mode[EL_AREA_BASS]) tap_button(BTN_SEQ);
+        const st_pattern_t *bp2 = &bass->pattern[bass->current];
+        unsigned rate = bp2->rate;
+        hold(BTN_GLO, 1); turn(1, -1); turn(1, 1); hold(BTN_GLO, 0);
+        run(50);
+        unsigned spb = rate < ST_RATE_BAR ? 16u >> rate : 1u;
+        int n11 = bp2->length % spb == 0 && ui.bars_shown >= 1;
+        shot(dir, "19b_length_bars");
+        printf("leds: REC dimmed while not recording (N5) %s; length in bars %u x %u (N11) %s\n", n5 ? "ok" : "FAIL",
+               bp2->length / spb, spb, n11 ? "ok" : "FAIL");
+    }
     /* Area buttons: the chosen one full, the others dimmed (2); at the end
      * of the keys' octave its OCT button blinks, the other stays lit. */
     int led_ok = ui.area == EL_AREA_BASS && leds[BTN_LFO] == 1 && leds[BTN_FX] == 2 && leds[BTN_SEL] == 2 &&

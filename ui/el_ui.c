@@ -1025,6 +1025,24 @@ static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pr
     }
 }
 
+static int wrap(int v, int n) { v %= n; return v < 0 ? v + n : v; }
+
+/* Steps of a bar at a step length (BEAT: 16ths); 1 for steps of a bar and longer. */
+static unsigned bar_steps(unsigned rate)
+{
+    return rate < ST_RATE_BAR ? 16u >> rate : 1u;
+}
+
+/* GLO + ALGORITHM: the length in whole bars, shown big (N11); in STEP mode step by step. */
+static unsigned bar_length(el_ui_t *ui, unsigned length, unsigned spb, unsigned max, int delta)
+{
+    unsigned bars = (length + spb - 1u) / spb, most = max / spb;
+    bars = (unsigned)el_clampi((int)bars + (delta > 0 ? 1 : -1), 1, (int)most);
+    ui->bars_shown = (uint8_t)(spb > 1u ? bars : 0u);
+    ui->bars_at = ui->now | 1u;
+    return bars * spb;
+}
+
 static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
 {
     el_engine_t *e = ui->engine;
@@ -1066,6 +1084,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     if ((ui->prev_buttons & ~c->buttons & BIT(BTN_ARP)) && ui->arp_tap) {
         ui->arp_tap = 0;
         toggle_arp(ui, (hold & HOLD_EDIT) != 0);
+    }
+    /* EDIT tapped alone: the editor of the area shown, again: back (N8). */
+    if (pressed & BIT(BTN_EDIT)) ui->edit_tap = 1;
+    if ((pressed & ~BIT(BTN_EDIT)) || keys_down || (c->buttons & ~BIT(BTN_EDIT))) ui->edit_tap = 0;
+    for (unsigned i = 0; i < UI_ENCODERS; ++i) if (c->encoders[i]) ui->edit_tap = 0;
+    if ((ui->prev_buttons & ~c->buttons & BIT(BTN_EDIT)) && ui->edit_tap) {
+        ui->edit_tap = 0;
+        if (synth_area(ui)) { release_keys(ui, ~0u); ui->editor = (uint8_t)!ui->editor; }
+        else notice(ui, "EDITOR: RHYTHM STRINGS BASS");
     }
 
     for (unsigned a = 0; a < EL_AREAS; ++a) {
@@ -1243,7 +1270,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     int editor_nav = in_editor(ui) && !(hold & (HOLD_GLO | HOLD_EDIT | HOLD_GEN));
     if (select && editor_nav) {
         unsigned n = ed_sections(track_of(ui)->part.engine);
-        ui->ed_section[ui->area] = (uint8_t)el_clampi((int)ui->ed_section[ui->area] + select, 0, (int)n - 1);
+        ui->ed_section[ui->area] = (uint8_t)wrap((int)ui->ed_section[ui->area] + select, (int)n);   /* in a circle (N9) */
         ui->ed_page[ui->area] = 0;
     } else if (select && !dist_page) {
         if ((hold & HOLD_GLO) && !ui->overview && ui->area == EL_AREA_BEAT) {
@@ -1267,7 +1294,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         unsigned section, page;
         ed_position(ui, &section, &page);
         unsigned pages = ed_pages(ed_section(track_of(ui)->part.engine, section));
-        ui->ed_page[ui->area] = (uint8_t)el_clampi((int)page + algo, 0, (int)pages - 1);
+        ui->ed_page[ui->area] = (uint8_t)wrap((int)page + algo, (int)pages);
     } else if (algo && !dist_page) {
         int bpm = (int)(e->transport.bpm * 10.0f + 0.5f);
         if (ui->overview || !(hold & (HOLD_GLO | HOLD_EDIT))) {
@@ -1275,13 +1302,15 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             el_post(e, EL_CMD_BPM, 0, (int16_t)el_clampi(bpm + algo * ((hold & HOLD_GLO) ? 1 : 10), 300, 3000));
         } else if (ui->area == EL_AREA_BEAT) {
             const dr_pattern_t *p = &m->pattern[m->current];
-            if (hold & HOLD_GLO) dr_post(m, DR_CMD_LENGTH, 0, (uint8_t)el_clampi(p->length + algo, 1, DR_STEPS), 0, 0);
+            if (hold & HOLD_GLO) dr_post(m, DR_CMD_LENGTH, 0, (uint8_t)bar_length(ui, p->length, 16u, DR_STEPS, algo), 0, 0);
             else dr_post(m, DR_CMD_SWING, 0, (uint8_t)el_clampi(p->swing + algo, 50, 75), 0, 0);
         } else {
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
             uint8_t track = (uint8_t)(ui->area - 1u);
-            if (hold & HOLD_GLO)
+            if ((hold & HOLD_GLO) && ui->step_mode[ui->area])   /* odd lengths only here */
                 el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)el_clampi(p->length + algo, 1, ST_STEPS), 0, 0);
+            else if (hold & HOLD_GLO)
+                el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)bar_length(ui, p->length, bar_steps(p->rate), ST_STEPS, algo), 0, 0);
             else if (ui->area == EL_AREA_STRINGS)   /* step length 1/16 .. 2 bars, for long chord sequences */
                 el_post3(e, EL_CMD_TRACK_RATE, track, (uint8_t)el_clampi(p->rate + (algo > 0 ? 1 : -1), 0, ST_RATES - 1), 0, 0);
             else
@@ -1342,6 +1371,7 @@ static unsigned shown_step_page(el_ui_t *ui, unsigned length, unsigned pos, int 
 }
 
 static int step_overlay(const el_ui_t *ui);
+static int bars_overlay(const el_ui_t *ui);
 static void signatures(el_ui_t *ui, uint32_t sig[3])
 {
     el_engine_t *e = ui->engine;
@@ -1353,6 +1383,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     for (unsigned a = 1; a < EL_AREAS; ++a) mix(&sig[0], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
     mix(&sig[0], (uint32_t)(e->transport.bpm * 10.0f + 0.5f));
     mix(&sig[1], ui->acc_lane);
+    mix(&sig[1], bars_overlay(ui) ? 0x40000000u | ui->bars_shown : 0u);
     mix(&sig[1], step_overlay(ui) ? 0x80000000u | ui->sh_step | ui->sh_cond << 8 | (uint32_t)ui->sh_prob << 12 | (uint32_t)ui->sh_show_prob << 16 |
                                       (uint32_t)((ui->sh_pitch + 16) & 31) << 17 | (uint32_t)ui->sh_vol << 22 | (uint32_t)ui->sh_lock << 25 : 0u);
     mix(&sig[0], (uint32_t)(uint16_t)ui->load | (uint32_t)ui->load_drops << 16);
@@ -1474,13 +1505,15 @@ static void update_leds(el_ui_t *ui)
         uint32_t step = e->transport.step ? e->transport.step - 1u : 0u;   /* the step sounding now */
         if ((step & 3u) >= 2u) blink |= 1ull << BTN_PLAY;   /* lit on the first half of each quarter */
     }
-    if ((m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording) && fast) blink |= 1ull << BTN_REC;
+    int recording = m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording;
+    if (recording && fast) blink |= 1ull << BTN_REC;
+    if (!recording) dim |= 1ull << BTN_REC;   /* N5: dimmed until it records */
     if (((synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) || (ui->hold & HOLD_GEN)) && slow) blink |= 1ull << BTN_ARP;
     if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor && slow)
         blink |= 1ull << BTN_SEQ;
     if (in_editor(ui) && slow) blink |= 1ull << BTN_EDIT;
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
-    dim = (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
+    dim |= (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
           ~(1ull << (ui->overview ? BTN_HOME : BTN_FX + ui->area));
     if (!ui->overview && synth_area(ui) && !ui->step_mode[ui->area] && slow) {
         if (ui->octave[ui->area] <= EL_OCT_MIN) blink |= 1ull << BTN_OCT_DOWN;
@@ -2077,6 +2110,27 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
     }
 }
 
+/* The pattern length in bars, big, while GLO + ALGORITHM turns (N11). */
+static int bars_overlay(const el_ui_t *ui)
+{
+    return ui->bars_at && ui->bars_shown && ui->now - ui->bars_at < 900u && !ui->options && !ui->overview;
+}
+
+static void draw_bars_overlay(el_ui_t *ui, gfx_band_t *b)
+{
+    enum { OX = 50, OY = 70, OW = 140, OH = 80 };
+    if (!gfx_touches(b, OY, OH)) return;
+    uint16_t color = area_color[ui->area % EL_AREAS];
+    char text[12];
+    gfx_fill(b, OX, OY, OW, OH, BACK);
+    gfx_frame(b, OX, OY, OW, OH, color);
+    gfx_text(b, OX + 8, OY + 6, "LENGTH", DIM, 1);
+    el_snprintf(text, sizeof text, "%u", ui->bars_shown);
+    gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 20, text, AMBER, 4);
+    const char *unit = ui->bars_shown == 1 ? "BAR" : "BARS";
+    gfx_text(b, OX + (OW - gfx_text_width(unit, 2)) / 2, OY + 56, unit, TEXT, 2);
+}
+
 void el_ui_draw_band(el_ui_t *ui, unsigned band)
 {
     gfx_band_t *b = &ui->band;
@@ -2090,6 +2144,7 @@ void el_ui_draw_band(el_ui_t *ui, unsigned band)
         else draw_synth(ui, b);
     }
     if (step_overlay(ui)) draw_step_overlay(ui, b);
+    else if (bars_overlay(ui)) draw_bars_overlay(ui, b);
     if (gfx_touches(b, FOOT_Y - 4, GFX_H)) draw_footer(ui, b);
 }
 

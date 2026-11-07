@@ -35,7 +35,9 @@ typedef struct {
     /* SAVE in the editor: slot and name of the sound being stored. */
     uint8_t sound_save, sound_slot, name_cursor;
     char sound_name[EL_SOUND_NAME + 1];
-    uint8_t area, overview, follow, part, arp_tap;
+    uint8_t area, overview, follow, part, arp_tap, edit_tap;
+    uint8_t bars_shown;                 /* GLO + ALGORITHM: the length in bars shown big (N11) */
+    uint32_t bars_at;
     uint8_t options, opt_item;          /* OPTIONS menu (HOME + SAVE) */
     /* Synth editor (EDIT + area button): section and page per area. */
     uint8_t editor, ed_section[EL_AREAS], ed_page[EL_AREAS];
