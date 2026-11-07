@@ -1567,6 +1567,7 @@ static void update_leds(el_ui_t *ui)
     int recording = m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording;
     if (recording && fast) blink |= 1ull << BTN_REC;
     if (!recording) dim |= 1ull << BTN_REC;   /* N5: dimmed until it records */
+    if (!e->transport.running) dim |= 1ull << BTN_PLAY;   /* N4: dimmed while stopped (the LEDs have no colour) */
     if (((synth_area(ui) && track_of(ui)->arp.v[ARP_ON]) || (ui->hold & HOLD_GEN)) && slow) blink |= 1ull << BTN_ARP;
     if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor && slow)
         blink |= 1ull << BTN_SEQ;

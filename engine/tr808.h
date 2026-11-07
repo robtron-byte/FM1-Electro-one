@@ -116,6 +116,8 @@ EL_DSP_CODE void tr808_trigger(tr808_t *t, int part, float velocity);
  * are not tuned ignore it, see TR808_TUNED). */
 EL_DSP_CODE void tr808_trigger_pitch(tr808_t *t, int part, float velocity, int semitones);
 #define TR808_TUNED(p) ((p) == D8_BD || (p) == D8_SD || (p) == D8_RS || (p) == D8_CB || (p) == D8_ZP || (p) == D8_PU)
+/* A hat (OH / CH) fades out as if the other one choked it (drums.c B16). */
+EL_DSP_CODE void tr808_choke(tr808_t *t, int part);
 EL_DSP_CODE void tr808_silence(tr808_t *t);
 EL_DSP_CODE int tr808_active(const tr808_t *t);
 /* Adds frames to the buses: kick on its own (mono, for the mix bus and

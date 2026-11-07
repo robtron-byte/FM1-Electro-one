@@ -13,16 +13,14 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
-| B16 | Beat/Drums | Open Hat und Closed Hat auf demselben Step wie bei der TR-808: Statt dass die CH die OH abwürgt, klingt eine kurze OH (Nutzerwunsch 07.11.) | ○ | – |
-| S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ | – |
+| S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
-| U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ | – |
-| N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ | – |
-| N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ | – |
-| N4 | Neu | PLAY leuchtet grün, solange der Groove läuft (nur wenn die LED Farbe kann; sonst hell/blinkend wie bisher) | ○ (die LEDs können keine Farbe: nur hell/blinkend möglich) | – |
-| N7 | Neu | Später vielleicht: STRINGS-Aufnahmen länger als 4 Takte (mehr Schritte pro Pattern oder gröbere Auflösung, neues Speicherformat) | ○ (Merkposten) | – |
-| N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ | – |
+| U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
+| N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
+| N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
+| N7 | Neu | STRINGS-Aufnahmen länger als 4 Takte: läuft eine Aufnahme über 4 Takte hinaus, rastet sie auf Viertel um und wächst bis 8 Takte (Entscheidung Nutzer 07.11.: Viertel-Raster statt mehr Speicher) | ○ (Merkposten) · **ausgewählt 07.11. (zweite Runde)** | – |
+| N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
 
 ## Umgesetzt
 
@@ -83,6 +81,8 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S8 | Sequencer | STRINGS-Schritte bis 8 Takte, Generator-Stil LONG, Live-Aufnahme in Achteln | ◐ umgesetzt (37. Build) mit N6: Anfang auf 1/8, Länge wie gehalten | 0027 |
 | N6 | Neu | STRINGS-**Live**-Aufnahme ohne feste Länge: Das Pattern wächst, bis REC gestoppt wird, gerundet auf ganze Takte, höchstens 4 Takte (32 Achtel). Jede Note wird als **eine** Note mit ihrer ganzen Haltedauer gespeichert (Anfang + Länge, keine aneinander gebundenen Schritte), Anfang und Länge auf Achtel gerundet (mindestens eine Achtel); dafür bekommt ein Step ein Längenfeld (neues Speicherformat) | ◐ umgesetzt (37. Build): Länge in 32steln wie gehalten (nicht auf Achtel gerundet, Wunsch S8), Pattern 1–4 Takte | – |
 | N12 | Neu | Fill-ins in BEAT: je Platz A–D ein eigener Fill, immer ein ganzer Takt; manuell (SEQ tippen: im nächsten Takt einmal; halten: wiederholen, solange gehalten) oder automatisch alle 8/16/32 Takte im letzten Takt der Phrase (GLO + SEQ: AUS/8/16/32, Countdown im Display); bearbeiten mit EDIT + SEQ (leerer Fill startet als Kopie des Grooves); der Generator legt einen passenden Fill mit an | ◐ umgesetzt (37. Build): SEQ tippen/halten, GLO + SEQ 8/16/32, EDIT + SEQ bearbeiten, Generator legt Fills an | – |
+| B16 | Beat/Drums | Open Hat und Closed Hat auf demselben Step wie bei der TR-808: Statt dass die CH die OH abwürgt, klingt eine kurze OH (Nutzerwunsch 07.11.) | ◐ umgesetzt (38. Build): kurze OH (90 ms), dann abgewürgt | – |
+| N4 | Neu | PLAY leuchtet grün, solange der Groove läuft – die LEDs können keine Farbe; Entscheidung Nutzer 07.11.: PLAY gedimmt bei Stopp, beim Spielen voll und im Viertel blinkend | ◐ umgesetzt (38. Build): PLAY gedimmt bei Stopp | – |
 
 ## Gestrichen
 

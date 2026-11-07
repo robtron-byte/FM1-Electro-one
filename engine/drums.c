@@ -9,6 +9,10 @@
 #include "drums.h"
 #include <string.h>
 
+#ifndef DR_OH_SHORT_MS
+#define DR_OH_SHORT_MS 90.0f   /* B16: how long the open hat sounds when the closed one is on its step */
+#endif
+
 const char *const dr_part_names[DR_PARTS] = {"BD", "SD", "RS", "CP", "CB", "CY", "OH", "CH", "ZP", "PU"};
 const char *const dr_kit_names[DR_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT", "PO-12"};
 
@@ -265,6 +269,7 @@ EL_DSP_CODE void dr_hit(dr_machine_t *m, unsigned part, float velocity, int reco
 
 EL_DSP_CODE void dr_rewind(dr_machine_t *m)
 {
+    m->oh_short = 0.0f;
     m->fill_now = 0;
     m->bars = 0;
     m->playing = 0;
@@ -314,6 +319,11 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
     uint32_t fbit = 1u << (sixteenth % DR_FILL_STEPS);
     float velocity = (fill ? (fill->accent & fbit) != 0 : (p->accent & bit) != 0) ? 1.0f : DR_NORMAL;
     m->roll_pending = 0;
+    /* B16: OH and CH on this step with the hats choking each other: the open
+     * hat alone, cut short (the closed one would choke it at once). */
+    int both = m->kit.kit[2] && (fill ? (fill->hit[D8_OH] & fill->hit[D8_CH] & fbit) : (p->hit[D8_OH] & p->hit[D8_CH] & bit)) &&
+               audible(m, D8_OH) && audible(m, D8_CH);
+    if (both) { suppress |= 1u << D8_CH; m->oh_short = DR_OH_SHORT_MS * (EL_SAMPLE_RATE / 1000.0f); }
     if (fill) {
         for (unsigned part = 0; part < DR_PARTS; ++part) {
             if (!(fill->hit[part] & fbit) || !audible(m, part) || m->muted) continue;
@@ -348,6 +358,11 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
 
 EL_DSP_CODE int dr_frames_until(const dr_machine_t *m, int limit)
 {
+    if (m->oh_short > 0.0f) {
+        int f = (int)m->oh_short;
+        if ((float)f < m->oh_short) ++f;
+        if (f < limit) limit = f < 1 ? 1 : f;
+    }
     if (!m->roll_pending) return limit;
     int frames = (int)m->roll_countdown;
     if ((float)frames < m->roll_countdown) ++frames;
@@ -374,6 +389,10 @@ EL_DSP_CODE void dr_render(dr_machine_t *m, float *kick, float *left, float *rig
         }
     }
     m->since_step += (float)frames;
+    if (m->oh_short > 0.0f) {
+        m->oh_short -= (float)frames;
+        if (m->oh_short <= 0.0f) { m->oh_short = 0.0f; tr808_choke(&m->kit, D8_OH); }
+    }
     if (!m->roll_pending) return;
     m->roll_countdown -= (float)frames;
     if (m->roll_countdown > 0.0f) return;

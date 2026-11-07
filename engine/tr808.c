@@ -320,6 +320,13 @@ EL_DSP_CODE void tr808_trigger_pitch(tr808_t *t, int part, float velocity, int s
 #endif
 }
 
+EL_DSP_CODE void tr808_choke(tr808_t *t, int part)
+{
+    if ((unsigned)part >= D8_NUM) return;
+    if (t->v[part].active) t->v[part].aux2 = 1.0f;   /* fades out in ~7 ms, as when the other hat chokes it */
+    if (t->po[part].active) t->po[part].choke = 1;
+}
+
 EL_DSP_CODE void tr808_silence(tr808_t *t)
 {
     for (int i = 0; i < D8_NUM; ++i) t->v[i].active = t->po[i].active = 0;

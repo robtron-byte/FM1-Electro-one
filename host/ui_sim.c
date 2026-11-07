@@ -209,6 +209,23 @@ int main(int argc, char **argv)
         fl = fl && gf.used && (gf.hit[D8_SD] | gf.hit[D8_CP]) & 0xf000u;
         printf("fills: SEQ next bar, GLO + SEQ every 8 bars, EDIT + SEQ edit, stored, generated (N12) %s\n", fl ? "ok" : "FAIL");
     }
+    {
+        /* B16: OH and CH on one step: the open hat alone, cut short after ~90 ms. */
+        static el_engine_t h;
+        float buf[EL_BLOCK * 2];
+        el_init(&h);
+        dr_machine_t *hm = &h.drums;
+        dr_post(hm, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
+        dr_post(hm, DR_CMD_TOGGLE, D8_OH, 0, 0, 0);
+        dr_post(hm, DR_CMD_TOGGLE, D8_CH, 0, 0, 0);
+        el_post(&h, EL_CMD_START, 0, 0);
+        unsigned done = 0;
+        while (done < 44100u * 40u / 1000u) { el_render_float(&h, buf, EL_BLOCK); done += EL_BLOCK; }
+        int ok = hm->kit.v[D8_OH].active && !hm->kit.v[D8_CH].active && hm->kit.v[D8_OH].aux2 == 0.0f;
+        while (done < 44100u * 100u / 1000u) { el_render_float(&h, buf, EL_BLOCK); done += EL_BLOCK; }
+        ok = ok && (hm->kit.v[D8_OH].aux2 > 0.0f || !hm->kit.v[D8_OH].active);
+        printf("hats: OH + CH on one step -> a short open hat (B16) %s\n", ok ? "ok" : "FAIL");
+    }
     shot(dir, "02b_beat_pulse");
     turn(6, -1);
     hold(BTN_GLO, 1);
@@ -726,7 +743,7 @@ int main(int argc, char **argv)
         n8 = n8 && !ui.editor;
         printf("editor: EDIT tap opens and leaves (N8) %s, pages and sections go round (N9) %s\n", n8 ? "ok" : "FAIL", n9 ? "ok" : "FAIL");
         /* N5: REC dimmed while nothing records. N11: GLO + ALGORITHM in whole bars (16ths: 16 steps), big. */
-        int n5 = leds[BTN_REC] == 2;
+        int n5 = leds[BTN_REC] == 2 && (ui.engine->transport.running || leds[BTN_PLAY] == 2);
         if (ui.step_mode[EL_AREA_BASS]) tap_button(BTN_SEQ);
         const st_pattern_t *bp2 = &bass->pattern[bass->current];
         unsigned rate = bp2->rate;

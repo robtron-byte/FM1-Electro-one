@@ -139,6 +139,9 @@ typedef struct {
      * whether the bar playing now is the fill. */
     dr_fill_t fill[DR_PATTERNS];
     uint8_t fill_req, fill_auto, fill_now, fill_edit;
+    /* B16: open and closed hat on one step (choke on): the open hat alone,
+     * choked after this many frames (a short open hat, as on the 808). */
+    float oh_short;
     uint32_t bars;
     volatile uint32_t revision; /* bumps on every applied edit, for the UI */
 } dr_machine_t;
