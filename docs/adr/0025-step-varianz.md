@@ -14,7 +14,7 @@ Wunsch des Nutzers: Im Sequencer (Drums und Synths) einem Step per Halten eine V
 - **Synths** (`engine/synth_track.c`): in den freien Bits 3–5 der Step-Flags (`ST_COND`), `EL_CMD_STEP_COND`. Ein übersprungener Step wirkt wie eine Pause.
 - **Wahrscheinlichkeit** (seit 2026-11-07): 100 % bis 10 % in Zehnerschritten (`EL_PROBS`, `el_prob_plays`), zusätzlich zur Bedingung: Ein Step spielt in seinem Durchlauf nur, wenn auch der Würfel (xorshift je Drum-Maschine bzw. Synth-Bereich) es will. Drums: vier weitere Bitebenen (`dr_machine_t.prob`, `DR_CMD_PROB`); Synths: Bits 6–7 der Flags und Bits 6–7 des Akkord-Bytes (`ST_PROB`, `EL_CMD_STEP_PROB`; die Akkordbefehle lassen sie stehen). Speicher-Version 23 hängt die Drum-Wahrscheinlichkeiten an.
 - **Repeat** (Punch-in): Die Bedingung gilt nach dem Durchlauf der unsichtbar weiterlaufenden Abspielposition.
-- **Bedienung** (`ui/el_ui.c`, seit 2026-11-07): Step-Taste halten (BEAT; Synth-Bereich im STEP-Modus) und **einen Regler** drehen (PRESETS, ALGORITHM gleich): rechts der Mitte die Durchläufe (`1:2`, `2:2`, `1:4` … `4:4`), links die Wahrscheinlichkeit (90 % … 10 %), in der Mitte immer. Ein Step hat eins von beiden. Nach ½ s Halten (oder sobald gedreht wird) zeigt das Display groß nur die gewählte Art: Bedingung mit einem Kästchen je Durchlauf (gefüllt, wo er spielt) oder Prozent mit einem Balken.
+- **Bedienung** (`ui/el_ui.c`, seit 2026-11-07): Step-Taste halten (BEAT; Synth-Bereich im STEP-Modus): **PRESETS** stellt die Durchläufe ein (`1:1`, `1:2`, `2:2`, `1:4` … `4:4`), **ALGORITHM** die Wahrscheinlichkeit (100 % … 10 %, links seltener); beides kombinierbar. Nach ¼ s Halten (oder sobald gedreht wird) zeigt das Display groß den Wert des zuletzt gedrehten Reglers: Bedingung mit einem Kästchen je Durchlauf oder Prozent mit einem Balken.
 - **Anzeige:** ein kleiner weißer Strich oben links im Feld (Drums) bzw. unten in der Spalte (Synths); im STEP-Modus steht die Bedingung in der Infozeile.
 - **Speicher** (`fm1/el_store.c`, Version 22): die Drum-Bedingungen hinten angehängt; die der Synths stecken in den Flags. Ältere Stände laden ohne Bedingungen.
 
@@ -33,3 +33,4 @@ Wunsch des Nutzers: Im Sequencer (Drums und Synths) einem Step per Halten eine V
 - 2026-11-06: angelegt auf Wunsch des Nutzers
 - 2026-11-07: Wahrscheinlichkeit pro Step und große Anzeige beim Halten, auf Wunsch des Nutzers
 - 2026-11-07: ein Regler, rechts Durchläufe, links Prozent, getrennt angezeigt, nach ½ s (Wunsch des Nutzers)
+- 2026-11-07: je Regler eine Art (PRESETS Durchläufe, ALGORITHM Prozent), Anzeige nach ¼ s (Wunsch des Nutzers: einfacher und schneller)

@@ -1,9 +1,9 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 21. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 22. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 20./21. Build:
-- **Varianz und Wahrscheinlichkeit pro Step** (ADR 0025): Step-Taste halten und **PRESETS** drehen: nach rechts `1:2`, `2:2`, `1:4` … `4:4` (nur in diesen Durchläufen), nach links 90 % … 10 % (Wahrscheinlichkeit), in der Mitte immer. Nach einer halben Sekunde Halten erscheint der Wert groß im Display, getrennt: Kästchen je Durchlauf oder ein Prozentbalken.
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 20.–22. Build:
+- **Varianz und Wahrscheinlichkeit pro Step** (ADR 0025): Step-Taste halten: **PRESETS** stellt die Varianz ein (`1:1`, `1:2`, `2:2`, `1:4` … `4:4`), **ALGORITHM** die Wahrscheinlichkeit (100 % … 10 %, links seltener); beides kombinierbar. Nach einer Viertelsekunde zeigt das Display groß den Wert des zuletzt gedrehten Reglers.
 
 Aus dem 18./19. Build:
 - **Master sparsamer** (19. Build, bitgleich): Zustände während der Schleife in lokalen Variablen. Emulator mit DARK STR: PEAK 70 → 63 %.

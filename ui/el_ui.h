@@ -52,6 +52,7 @@ typedef struct {
      * (then it goes off at the release, unless an encoder turned). */
     uint8_t sh_key, sh_area, sh_step, sh_part, sh_cond, sh_used, sh_remove;
     uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
+    uint8_t sh_show_prob;               /* the big readout shows the chance (else the passes) */
     uint32_t sh_at;                     /* when it went down: the big readout after a moment */
     uint8_t gen_style[EL_AREAS], gen_density[EL_AREAS], gen_keep;
     /* New or varied groove for all areas: posted piece by piece (drums,
