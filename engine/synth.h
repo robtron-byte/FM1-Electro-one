@@ -4,7 +4,8 @@
  * so every area can pick its engine and all three play at once.
  *
  * Sounds are one list: the MKS-50 factory sounds first, then the JP-6
- * ones; a sound index picks engine and patch together. */
+ * ones, then FM1-Electro's own; a sound index picks engine and patch
+ * together. */
 #ifndef EL_SYNTH_H
 #define EL_SYNTH_H
 #include "mks.h"
@@ -19,6 +20,16 @@ typedef struct {
 } syn_part_t;
 
 extern const char *const syn_engine_names[SYN_ENGINES];
+
+/* FM1-Electro's own factory sounds (engine/extra_presets.c, docs/adr/0026):
+ * after the sounds of both engines, so saved sound numbers stay valid. */
+typedef struct {
+    char name[11];
+    uint8_t area, engine;
+    uint8_t v[SYN_VALUES];
+} syn_extra_t;
+extern const syn_extra_t syn_extras[];
+extern const unsigned syn_extra_count;
 
 /* Sound list (control side, Flash tables). */
 unsigned syn_sound_count(void);

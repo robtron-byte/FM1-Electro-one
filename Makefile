@@ -5,7 +5,7 @@ CPPFLAGS += -DFM1_HOST_TEST -DFM1_OPEN_WEB -Iengine -Iui -Ifm1 -Ithird_party/dai
 
 ENGINE = engine/transport.c engine/drums.c engine/drum_factory.c engine/electro.c \
          engine/tr808.c engine/mks.c engine/mixbus.c engine/mks_presets.c engine/synth_track.c engine/fx.c \
-         engine/synth.c engine/jp6.c engine/jp6_presets.c engine/dist.c engine/po12.c \
+         engine/synth.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c engine/po12.c \
          engine/arp.c engine/dr_fixed.c
 
 build/fmt_test: host/fmt_test.c ui/el_fmt.c ui/el_fmt.h
@@ -56,6 +56,17 @@ build/hit_render: host/hit_render.c engine/tr808.c engine/tr808.h engine/po12.c 
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/hit_render.c engine/tr808.c engine/dr_fixed.c engine/po12.c -lm
 
+# Own sounds (docs/adr/0026): tools/extra_presets.py writes engine/extra_presets.c.
+build/preset_probe: host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c
+	@mkdir -p build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c -lm
+
+# Which bass sounds sit on the 808 kick (40-90 Hz), at the bass root C2.
+bass-check: build/preset_probe
+	@mkdir -p build/probe && rm -f build/probe/*.f32
+	./build/preset_probe build/probe 36 2.5 --area=3
+	python3 tools/preset_check.py build/probe
+
 build/po_render: host/po_render.c engine/po12.c engine/po12.h
 	@mkdir -p build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/po_render.c engine/po12.c -lm
@@ -87,14 +98,14 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	  grep -E "^(two cores|timing|midi clock|punch|dist send|tape|punch together|punch colour|808 tune|808 key)" build/render_demo.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/render_demo.log
 	./build/ui_sim build/screens > build/ui_sim.log; s=$$?; \
-	  grep "^store\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
+	  grep "^store\|^extras\|^strings\|^engine\|^dist\|^comp\|^options\|^slots\|^punch keys\|^steprec\|^rec modes\|^arp\|^layout\|^editor\|^sounds" build/ui_sim.log; \
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check mb-fixed-check
+.PHONY: demo test screens presets soundcheck clean web bass-check kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check mb-fixed-check
 
 # The fixed-point mix bus (engine/mixbus.c, MB_FIXED, own platform) against
 # the float one: MASTER FX on, off, and hot into the limiter; within -60 dB.

@@ -329,7 +329,15 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_RECORD_AREA:
         e->drums.recording = c->a == EL_AREA_BEAT && c->b;
-        for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].recording = c->a == i + 1u && c->b;
+        for (unsigned i = 0; i < EL_TRACKS; ++i) {
+            st_track_t *rt = &e->track[i];
+            rt->recording = c->a == i + 1u && c->b;
+            if (rt->recording && st_live_grid_needed(&rt->pattern[rt->current], rt->area, !(e->option[EL_OPT_REC_STEP] & (1 << i)))) {
+                rt->pattern[rt->current].rate = ST_RATE_8TH;
+                rt->pattern[rt->current].length = ST_STEPS;
+                rt->tick = 0;
+            }
+        }
         break;
     case EL_CMD_START:
         /* MIDI Start hands the clock to the sender; PLAY on the panel takes

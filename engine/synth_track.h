@@ -2,7 +2,7 @@
  * One synth area (rhythm sounds, strings, bass): an MKS-50 sound plus a
  * step sequencer with notes, chords (type + inversion), accents and ties.
  * Live keys can run through an arpeggiator.
- * Each pattern has its own step length, from a 16th up to two bars, so the
+ * Each pattern has its own step length, from a 16th up to eight bars, so the
  * strings can run long chord sequences (e.g. 8 steps of one bar each).
  * Audio-owned; the engine applies queued edits. */
 #ifndef EL_SYNTH_TRACK_H
@@ -12,8 +12,9 @@
 
 enum { ST_STEPS = 32, ST_PATTERNS = 4, ST_NO_CHORD = 0 };   /* slots A-D */
 enum { ST_ON = 1, ST_ACCENT = 2, ST_TIE = 4 };      /* step flags */
-/* Step lengths: 1/16, 1/8, 1/4, 1/2, 1 bar, 2 bars (in 16ths: 1..32). */
-enum { ST_RATE_16TH, ST_RATE_8TH, ST_RATE_QUARTER, ST_RATE_HALF, ST_RATE_BAR, ST_RATE_2BARS, ST_RATES };
+/* Step lengths: 1/16, 1/8, 1/4, 1/2, 1 bar, 2, 4, 8 bars (in 16ths: 1..128).
+ * With 32 steps a pattern can run up to 256 bars (docs/adr/0026). */
+enum { ST_RATE_16TH, ST_RATE_8TH, ST_RATE_QUARTER, ST_RATE_HALF, ST_RATE_BAR, ST_RATE_2BARS, ST_RATE_4BARS, ST_RATE_8BARS, ST_RATES };
 /* chord byte: low nibble = type (0 single note, 1..8 chord memory slot + 1),
  * bits 4-5 = inversion 0..2 (lowest notes moved up an octave). */
 #define ST_CHORD_TYPE(c) ((unsigned)(c) & 15u)
@@ -38,6 +39,20 @@ typedef struct {
     uint8_t engine, preset;
     uint8_t v[SYN_VALUES];
 } st_sound_t;
+
+/* No step switched on. */
+static inline int st_pattern_empty(const st_pattern_t *p)
+{
+    for (unsigned i = 0; i < ST_STEPS; ++i) if (p->step[i].flags & ST_ON) return 0;
+    return 1;
+}
+/* Live recording in STRINGS onto an empty pattern whose steps are coarser
+ * than an 8th would put every note on a bar line: such a take is recorded
+ * in 8ths instead (docs/adr/0026). */
+static inline int st_live_grid_needed(const st_pattern_t *p, unsigned area, int live)
+{
+    return live && area == MKS_AREA_STRINGS && p->rate > ST_RATE_8TH && st_pattern_empty(p);
+}
 
 typedef struct {
     syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */
@@ -88,14 +103,14 @@ extern const char *const st_rate_names[ST_RATES];
 /* Control side: groove generator for an area (writes a pattern).
  * style: 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI; strings: 0 PADS (one chord per
  * bar, 4 bars), 1 SLOW (one chord per 2 bars, 8 bars), 2 PULSE (8th chords,
- * changes every bar), 3 STABS (16th stabs). length is ignored for strings. */
+ * changes every bar), 3 STABS (16th stabs), 4 LONG (one chord per 4 bars, 16 bars). length is ignored for strings. */
 /* Variation of a pattern: amount 0..127 changes notes (to ones the
  * pattern already uses or octaves), moves notes by a step, flips ties and
  * accents; strings change inversions and swap chord types. The first note
  * stays. */
 void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed);
 /* Melodic styles (rhythm, bass): 0 KRAFT, 1 ROTHER, 2 ROBOT, 3 ACID, 4 MIAMI. */
-enum { ST_STYLES = 5, ST_STRING_STYLES = 4 };
+enum { ST_STYLES = 5, ST_STRING_STYLES = 5 };
 unsigned st_styles(unsigned area);
 const char *st_style_name(unsigned area, unsigned style);
 /* harmony: DR_HARMONY_ROTHER / _KRAFT / _ELECTRO / _EGYPT (strings chord family). */

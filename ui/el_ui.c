@@ -44,9 +44,10 @@
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32, GLO + SELECT step.
  *         KNOB 1 note, 2 octave, 3 chord (STRINGS) or accent, 4 inversion
  *         (STRINGS) or tie.
- *   KNOB 1-4 sound page, PRESETS sound (MKS-50 sounds, then JP-6; EDIT +
- *   PRESETS switches the engine), EDIT + ALGORITHM note length (STRINGS: step
- *   length 1/16 .. 2 bars for long chord sequences). After the five sound
+ *   KNOB 1-4 sound page, PRESETS sound (your own first, then MKS-50, JP-6 and
+ *   the own factory sounds; EDIT + PRESETS switches the engine, GLO + PRESETS
+ *   steps through your own only), EDIT + ALGORITHM note length (STRINGS: step
+ *   length 1/16 .. 8 bars for long chord sequences). After the five sound
  *   pages: ARP (mode, rate, octaves, gate).
  *   EDIT + area button: synth editor for that area, every parameter of the
  *   engine in the sections of the original panel (EDIT LED on). SELECT
@@ -934,11 +935,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             notice(ui, "PATTERN CLEARED");
         } else {
             int armed = ui->area == EL_AREA_BEAT ? m->recording : track_of(ui)->recording;
+            int grid = !armed && ui->area != EL_AREA_BEAT && !rec_step_mode(ui) &&
+                       st_live_grid_needed(&track_of(ui)->pattern[track_of(ui)->current], track_of(ui)->area, 1);
             el_post3(e, EL_CMD_RECORD_AREA, ui->area, (uint8_t)!armed, 0, 0);
             ui->cursor[ui->area] = 0;
             ui->rec_key = ui->rec_note = 0xff;
             ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
             if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
+            else if (grid) notice(ui, "STRINGS REC IN 8THS");
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
@@ -1507,7 +1511,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                  (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "");
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
-        static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
+        static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32, 64, 128};
         unsigned sixteenths = p->length * ticks[p->rate < ST_RATES ? p->rate : 0];
         el_snprintf(text, sizeof text, "%u x %s = %u BARS  CHORD %s", p->length, st_rate_names[p->rate < ST_RATES ? p->rate : 0],
                  (sixteenths + 15u) / 16u, t->chord ? mks_chord_names[ST_CHORD_TYPE(t->chord) - 1] : "OFF");
