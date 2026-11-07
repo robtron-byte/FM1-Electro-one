@@ -26,8 +26,10 @@ int fm1_flash_read(uint32_t offset, void *data, size_t bytes)
     memcpy(data, flash + offset, bytes);
     return 0;
 }
+static unsigned erases;   /* (the store test: a prepared save erases nothing) */
 int fm1_flash_erase(uint32_t offset)
 {
+    ++erases;
     if (offset % FM1_FLASH_SECTOR_BYTES || offset >= flash_bytes) return FM1_FLASH_INVALID;
     memset(flash + offset, 0xff, FM1_FLASH_SECTOR_BYTES);
     return 0;
@@ -718,6 +720,26 @@ int main(int argc, char **argv)
         int panel_ok = on && cond == EL_COND_1_2 && kept_on && off;
         if (!panel_ok) printf("debug panel: on %u cond %u kept %u off %u\n", on, cond, kept_on, off);
         sc_ok = sc_ok && panel_ok;
+    }
+    {
+        /* Erased ahead (docs/adr/0023): the save that follows erases
+         * nothing and loads back; without, it erases. */
+        el_engine_t *sim = ui.engine;
+        int pr = el_store_prepare();
+        unsigned before = erases;
+        int sv = el_store_save(sim);
+        unsigned during = erases - before;
+        static el_engine_t back;
+        el_init(&back);
+        int lb = el_store_load(&back);
+        before = erases;
+        el_store_save(sim);   /* not prepared: the older copy holds the save before */
+        unsigned unprepared = erases - before;
+        int prep_ok = pr == 0 && sv == 0 && during == 0 && lb == 0 && unprepared > 0 &&
+                      !memcmp(back.drums.pattern, sim->drums.pattern, sizeof back.drums.pattern);
+        if (!prep_ok) printf("debug prepare: %d %d erases %u load %d unprepared %u\n", pr, sv, during, lb, unprepared);
+        sc_ok = sc_ok && prep_ok;
+        printf("store: erased ahead, the save erases nothing %s\n", prep_ok ? "ok" : "FAIL");
     }
     printf("steps: conditions 2:2 / 1:4, under Repeat, held step + PRESETS %s\n", sc_ok ? "ok" : "FAIL");
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;

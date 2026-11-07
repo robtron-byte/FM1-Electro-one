@@ -417,7 +417,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
             x = acc * 0.5f;
             acc = 0.0f;
 #endif
-#pragma clang loop unroll(full)
+EL_UNROLL
             for (int d = 0; d < 2; ++d) {
                 float delayed = fx->mem.b.diff[d][(fw - dsize[d]) & (FX_DIFF_CAP - 1)] * (1.0f / FX_LINE_SCALE);
                 float w = x + diffusion * delayed;
@@ -425,7 +425,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 x = delayed - diffusion * w;
             }
             float y[4], sum = 0;
-#pragma clang loop unroll(full)
+EL_UNROLL
             for (int i = 0; i < 4; ++i) {
                 lfo[i] += inc[i];
                 if (lfo[i] >= 1.0f) lfo[i] -= 1.0f;
@@ -441,7 +441,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 sum += y[i] * gains[i];
             }
             sum *= 0.5f; /* Householder: 2 / N */
-#pragma clang loop unroll(full)
+EL_UNROLL
             for (int i = 0; i < 4; ++i)
                 fx->mem.b.lines[i][rw & (FX_REVERB_CAP - 1)] = line_store(y[i] * gains[i] - sum + x * ((i & 1) ? -0.5f : 0.5f));
             rw = (rw + 1u) & (FX_REVERB_CAP - 1);
@@ -485,7 +485,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 float in = x;   /* before the diffusers: the gate's onset detector */
                 static const unsigned sizes[2] = {142, 107};
                 const float k = 0.6f;
-#pragma clang loop unroll(full)
+EL_UNROLL
                 for (int d = 0; d < FX_GATE_DIFFS; ++d) {
                     float delayed = fx->gate_diff[d][(gfw - sizes[d]) & 255u] * (1.0f / FX_LINE_SCALE);
                     float w = x + k * delayed;
@@ -502,7 +502,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 gain += (target - gain) * (target > gain ? 0.045f : 0.0035f);
                 unsigned w = gw & (GATE_LINE - 1u);
                 float y[4];
-#pragma clang loop unroll(full)
+EL_UNROLL
                 for (int i = 0; i < 4; ++i) {
                     float r = line[i * GATE_LINE + ((w - gate_len[i]) & (GATE_LINE - 1u))] * (1.0f / 8191.0f);
                     dmp[i] += (r - dmp[i]) * 0.8f;   /* ~5.6 kHz per pass */
@@ -510,7 +510,7 @@ EL_DSP_CODE void fx_render(el_fx_t *fx, const float *dly, const float *rev, cons
                 }
                 float g = 0.5f * FX_GATE_FB * gain;
                 float h[4] = {y[0] + y[1] + y[2] + y[3], y[0] - y[1] + y[2] - y[3], y[0] + y[1] - y[2] - y[3], y[0] - y[1] - y[2] + y[3]};
-#pragma clang loop unroll(full)
+EL_UNROLL
                 for (int i = 0; i < 4; ++i)
                     line[i * GATE_LINE + w] = (int16_t)(dsp_clamp((i & 1 ? -x : x) + g * h[i], -3.9998f, 3.9998f) * 8191.0f);
                 float gl = (y[0] - y[2]) * gain * FX_GATE_OUT;

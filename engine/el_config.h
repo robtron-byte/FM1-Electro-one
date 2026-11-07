@@ -36,6 +36,13 @@
 
 #define EL_FENCE() __sync_synchronize()
 
+/* Unroll the next loop fully (clang, the device's compiler; others ignore it). */
+#if defined(__clang__)
+#define EL_UNROLL _Pragma("clang loop unroll(full)")
+#else
+#define EL_UNROLL
+#endif
+
 /* Step condition (docs/adr/0025): a step plays on pass n of every m of its
  * pattern (passes counted from the pattern's start): 1:1 always, 1:2 the
  * first of every two, 2:2 the second, 1:4 .. 4:4 one of every four. */

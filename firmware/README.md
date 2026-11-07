@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 06.11.2026, 17. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 18. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 17. Build (alles bitgleicher Klang):
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 18. Build:
+- **SAVE ohne Aussetzer:** Der Speicherplatz für das nächste Speichern wird gelöscht, während der Groove kurz stillsteht (1,5 s nach dem Einschalten bzw. nach STOP). SAVE während des Spielens schreibt dann nur noch und unterbricht den Ton nicht mehr. Nur ein zweites SAVE ohne STOP dazwischen hat wieder die kurze Lücke.
+- **Display flüssiger:** Das Display wird mit 20 statt 12 MHz angesteuert (ein ganzes Bild ~46 statt ~77 ms).
+
+Aus dem 17. Build (alles bitgleicher Klang):
 - **Synths sparsamer:** Die Rechenfunktionen (exp2, log2, Wurzel) riefen bei jeder Umwandlung ein langsames Kopierprogramm im Flash auf; die Hüllkurven-Zeiten werden pro Stimme gemerkt. Emulator: DARK STR STRINGS 45 → 39 %, Kern 1 81 → 68 %; JX STRINGS 38 → 32 %. Master, RHYTHM und BASS profitieren auch.
 - **Hall, Delay, Gated Reverb sparsamer:** jeder Effekt in eigener Schleife, ohne Funktionsaufrufe pro Sample. Emulator: FX 18 → 15 %.
 - Kitwechsel rechnet das Werks-Kit nicht mehr im Audio-Interrupt aus.
@@ -39,7 +43,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `0632ca549e041798d52a565e7a324fe6a201055d4e73b94b851bf6b5bb47ffc0`
+SHA-256: `18307dccc65c117581562edc012ce2d05c5fc928f93dc0706843a29b4785cc46`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -150,7 +150,7 @@ static inline EL_DSP_HELPER int32_t dist_oversampled_q(el_dist_ch_t *c, unsigned
     int32_t even = in[-12];
     /* each pair halved, then summed: one product per pair (x18 up to 2^31) */
     int64_t acc = 0;
-#pragma clang loop unroll(full)
+EL_UNROLL
     for (unsigned k = 0; k < 12; ++k) acc += (int64_t)half_band_q[k] * ((in[-12 - (int)k] >> 1) + (in[-11 + (int)k] >> 1));
     int64_t od = acc >> 28;                       /* x 2 */
     int32_t odd = od > INT32_MAX ? INT32_MAX : od < -INT32_MAX ? -INT32_MAX : (int32_t)od;
@@ -159,7 +159,7 @@ static inline EL_DSP_HELPER int32_t dist_oversampled_q(el_dist_ch_t *c, unsigned
     c->qos[newest] = c->qos[newest + 64u] = dist_curve_q(odd, mode);
     const int32_t *os = c->qos + newest + 64u - 25u;
     int64_t y = (int64_t)os[0] << 29;             /* 0.5 x the centre */
-#pragma clang loop unroll(full)
+EL_UNROLL
     for (unsigned k = 0; k < 12; ++k) y += (int64_t)half_band_q[k] * (int32_t)(os[2 * (int)k + 1] + os[-2 * (int)k - 1]);   /* (Q24 curves: the pair fits) */
     return (int32_t)(y >> 30);
 }

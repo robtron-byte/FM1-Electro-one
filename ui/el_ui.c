@@ -125,6 +125,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     ui->follow = 1;
     ui->load = -1;
     ui->rec_key = ui->rec_note = 0xff;
+    ui->prep_pending = 1;
     ui->octave[EL_AREA_STRINGS] = -1;
     ui->octave[EL_AREA_BASS] = -2;
     for (unsigned a = 0; a < EL_AREAS; ++a) ui->gen_density[a] = 64;
@@ -439,6 +440,15 @@ static void run_jobs(el_ui_t *ui)
         e->drums.staging_posted == e->drums.staging_taken && e->staged_posted == e->staged_taken) {
         ui->autosave = 0;
         if (ui->save && ui->save(e) != 0) notice(ui, "SAVE FAILED");
+        ui->prep_pending = 1;
+    }
+    /* The next save's copy erased ahead, while the groove has stood still
+     * for 1.5 s (the erase stops the sound ~150 ms; nothing plays then). */
+    if (e->transport.running) ui->still_since = ui->now;
+    if (ui->prepare && ui->prep_pending && !ui->autosave && !e->transport.running &&
+        ui->now - ui->still_since >= 1500u) {
+        ui->prep_pending = 0;
+        ui->prepare();
     }
 }
 
@@ -876,7 +886,7 @@ static void options_input(el_ui_t *ui, const struct fm1_controls *c, uint32_t pr
         for (unsigned i = 0; i < EL_OPTIONS; ++i) changed |= ui->opt_snap[i] != e->option[i];
         if (!changed) notice(ui, "OPTIONS");
         else if (e->transport.running) { ui->autosave = 1; ui->autosave_at = ui->now; notice(ui, "OPTIONS SET: SAVED AT STOP"); }
-        else notice(ui, ui->save && ui->save(e) == 0 ? "OPTIONS SAVED" : "OPTIONS SET");
+        else { notice(ui, ui->save && ui->save(e) == 0 ? "OPTIONS SAVED" : "OPTIONS SET"); ui->prep_pending = 1; }
         return;
     }
     int move = enc[ENC_SELECT] + enc[ENC_ALGORITHM];
@@ -998,6 +1008,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         else sound_save_start(ui);
     } else if ((pressed & BIT(BTN_SAVE)) && ui->save) {
         notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");   /* everything, all slots */
+        ui->prep_pending = 1;
     }
     if ((pressed & BIT(BTN_SEQ)) && !ui->overview && ui->area == EL_AREA_BEAT) {
         ui->beat_layer = !ui->beat_layer;

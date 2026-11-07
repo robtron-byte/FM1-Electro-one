@@ -376,12 +376,40 @@ static int el_store_load_held(el_engine_t *e)
     return 0;
 }
 
+/* Whether copy `which` is erased throughout (then a save needs no erase,
+ * which stops the sound ~50 ms a sector: docs/adr/0023). */
+static int copy_blank(unsigned which)
+{
+    const uint32_t *w = (const uint32_t *)(const void *)&buffer;
+    for (unsigned s = 0; s < SECTORS; ++s) {
+        if (fm1_flash_read(el_store_address(which) + s * FM1_FLASH_SECTOR_BYTES, &buffer, FM1_FLASH_SECTOR_BYTES) != FM1_FLASH_OK)
+            return 0;
+        for (unsigned i = 0; i < FM1_FLASH_SECTOR_BYTES / 4u; ++i) if (w[i] != 0xffffffffu) return 0;
+    }
+    return 1;
+}
+
+/* The copy the next save writes (the older one) erased ahead, while it
+ * costs no sound (the groove stopped): the newest valid copy stays. */
+static int el_store_prepare_held(void)
+{
+    if (!fm1_flash_size()) return FM1_FLASH_UNAVAILABLE;
+    uint32_t a = read_valid(0), b = read_valid(1);
+    unsigned target = (int32_t)(a - b) > 0 ? 1u : 0u;
+    if (!a && !b) target = 0;
+    if (copy_blank(target)) return 0;
+    int r = 0;
+    for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(el_store_address(target) + s * FM1_FLASH_SECTOR_BYTES);
+    return r;
+}
+
 static int el_store_save_held(el_engine_t *e)
 {
     uint32_t a = read_valid(0), b = read_valid(1);
     uint32_t sequence = ((int32_t)(a - b) > 0 ? a : b) + 1u;
     unsigned target = (int32_t)(a - b) > 0 ? 1u : 0u; /* overwrite the older one */
     if (!a && !b) target = 0;
+    int blank = copy_blank(target);   /* (before the record: it uses the same buffer) */
     const dr_machine_t *m = &e->drums;
     memset(&record, 0, sizeof record);
     payload_t *d = &record.data;
@@ -433,7 +461,8 @@ static int el_store_save_held(el_engine_t *e)
     record.crc = crc32(d, sizeof *d);
     uint32_t address = el_store_address(target);
     int r = 0;
-    for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
+    if (!blank)   /* erased ahead (el_store_prepare): no gap in the sound */
+        for (unsigned s = 0; s < SECTORS && !r; ++s) r = fm1_flash_erase(address + s * FM1_FLASH_SECTOR_BYTES);
     if (!r) r = fm1_flash_write(address, &record, sizeof record);
     return r;
 }
@@ -525,6 +554,14 @@ int el_store_load(el_engine_t *e)
 {
     if (!take()) return -1;
     int r = el_store_load_held(e);
+    give();
+    return r;
+}
+
+int el_store_prepare(void)
+{
+    if (!take()) return -1;
+    int r = el_store_prepare_held();
     give();
     return r;
 }

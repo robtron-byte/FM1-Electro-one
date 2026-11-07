@@ -21,6 +21,12 @@ enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5
 typedef struct {
     el_engine_t *engine;
     int (*save)(el_engine_t *engine); /* SAVE button; 0 on success */
+    /* Erase the copy the next save writes, ahead (docs/adr/0023); may be
+     * NULL. Called once the groove has stood still a while after the start
+     * and after each save; then SAVE while it plays leaves no gap. */
+    int (*prepare)(void);
+    uint8_t prep_pending;
+    uint32_t still_since;
     /* User sound slots (fm1/el_store.c); may be NULL. */
     int (*sound_get)(unsigned slot, el_sound_t *out);
     int (*sound_put)(unsigned slot, const el_sound_t *in);

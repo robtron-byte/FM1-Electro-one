@@ -14,6 +14,10 @@ uint32_t el_store_address(unsigned which);
 int el_store_load(el_engine_t *e);
 /* Save the current state. Briefly silences audio while Flash is written. */
 int el_store_save(el_engine_t *e);
+/* Erase the copy the next save writes, ahead (while the groove stands
+ * still): that save then needs no erase and keeps the sound going
+ * (docs/adr/0023). 0 when done or nothing to do. */
+int el_store_prepare(void);
 /* User sounds: 32 slots in their own sector (two alternating copies), so
  * saving a sound never touches the grooves. get returns 0 (out->used tells
  * whether the slot holds a sound) or <0 on Flash errors. */
