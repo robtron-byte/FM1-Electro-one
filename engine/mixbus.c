@@ -399,6 +399,92 @@ EL_DSP_CODE void mb_process(el_mixbus_t *mb, const float *kick,
         return;
     }
     const float inv_drum = 1.0f / mb->drum_drive, inv_master = 1.0f / mb->master_drive;
+#if MB_LITE_EQ && !defined(MB_KICK_THROUGH_MASTER)
+    if (mb->enabled) {
+        /* MASTER FX on (the usual case): the loop below with its states in
+         * locals (the buffers are floats: the compiler would reload every
+         * state each sample) and no on / off tests; the same arithmetic. */
+        float ql0 = mb->lite[0][0], ql1 = mb->lite[0][1], ql2 = mb->lite[0][2], ql3 = mb->lite[0][3], ql4 = mb->lite[0][4], ql5 = mb->lite[0][5];
+        float qr0 = mb->lite[1][0], qr1 = mb->lite[1][1], qr2 = mb->lite[1][2], qr4 = mb->lite[1][4], qr5 = mb->lite[1][5];
+        float duck_env = mb->duck_env, duck_attack = mb->duck_attack, duck_release = mb->duck_release;
+        float dcx0 = mb->dc_x[0], dcx1 = mb->dc_x[1], dcy0 = mb->dc_y[0], dcy1 = mb->dc_y[1];
+        float drum_drive = mb->drum_drive, master_drive = mb->master_drive;
+        mb_comp_t *dc = &mb->drum_comp, *mc = &mb->master_comp;
+        float dgain = dc->gain, dstep = dc->gain_step, mgain = mc->gain, mstep = mc->gain_step, mgain_db = mc->gain_db;
+        unsigned dphase = dc->phase, mphase = mc->phase;
+        float lgain = lim->gain, ceiling = lim->ceiling, release = lim->release;
+        unsigned pos = lim->pos;
+        for (int n = 0; n < frames; ++n) {
+            float dl = drum_l[n], dr = drum_r[n], bl = bass_l[n], sl = synth_l[n], sr = synth_r[n];
+            /* Drum bus: tilt EQ, compressor, tape saturation. */
+            ql0 += (dl - ql0) * LITE_DRUM_LOW_C; qr0 += (dr - qr0) * LITE_DRUM_LOW_C;
+            ql1 += (dl - ql1) * LITE_DRUM_HIGH_C; qr1 += (dr - qr1) * LITE_DRUM_HIGH_C;
+            dl += LITE_DRUM_LOW_G * ql0 + LITE_DRUM_HIGH_G * (dl - ql1);
+            dr += LITE_DRUM_LOW_G * qr0 + LITE_DRUM_HIGH_G * (dr - qr1);
+            if (++dphase >= COMP_EVERY) {
+                dphase = 0;
+                float target = comp_detect(dc, dsp_max(dsp_abs(dl), dsp_abs(dr)));
+                dstep = (target - dgain) * (1.0f / COMP_EVERY);
+            }
+            dgain += dstep;
+            dl = tape(dl * dgain, drum_drive, inv_drum);
+            dr = tape(dr * dgain, drum_drive, inv_drum);
+            /* Kick-keyed ducking: the bass makes room for the kick, pads breathe. */
+            float k = dsp_abs(kick[n]);
+            duck_env += (k - duck_env) * (k > duck_env ? duck_attack : duck_release);
+            float duck = dsp_clamp(duck_env * 2.5f, 0.0f, 1.0f);
+            float bass_gain = 1.0f - 0.55f * duck, synth_gain = 1.0f - 0.25f * duck;
+            /* BASS is mono here (electro.c folds it): one high-pass for both. */
+            ql3 += (bl - ql3) * LITE_BASS_HP_C;
+            float bm = (bl - ql3) * bass_gain;
+            ql2 += (sl - ql2) * LITE_SYNTH_HP_C; qr2 += (sr - qr2) * LITE_SYNTH_HP_C;
+            sl = (sl - ql2) * synth_gain;
+            sr = (sr - qr2) * synth_gain;
+            float l = dl + bm + sl, r = dr + bm + sr;
+            ql4 += (l - ql4) * LITE_MASTER_LOW_C; qr4 += (r - qr4) * LITE_MASTER_LOW_C;
+            ql5 += (l - ql5) * LITE_MASTER_HIGH_C; qr5 += (r - qr5) * LITE_MASTER_HIGH_C;
+            l += LITE_MASTER_LOW_G * ql4 + LITE_MASTER_HIGH_G * (l - ql5);
+            r += LITE_MASTER_LOW_G * qr4 + LITE_MASTER_HIGH_G * (r - qr5);
+            if (++mphase >= COMP_EVERY) {
+                mphase = 0;
+                float target = comp_detect(mc, dsp_max(dsp_abs(l), dsp_abs(r)));
+                mgain_db = mc->gain_db;
+                mstep = (target - mgain) * (1.0f / COMP_EVERY);
+            }
+            mgain += mstep;
+            reduction = dsp_min(reduction, mgain_db);
+            l = tube(l * mgain, master_drive, inv_master);
+            r = tube(r * mgain, master_drive, inv_master);
+            l += kick[n] * MB_KICK_GAIN;    /* as loud as through the master's make-up */
+            r += kick[n] * MB_KICK_GAIN;
+            /* DC blocker after the asymmetric stage. */
+            float yl = l - dcx0 + 0.9995f * dcy0;
+            dcx0 = l; dcy0 = yl; l = yl;
+            float yr = r - dcx1 + 0.9995f * dcy1;
+            dcx1 = r; dcy1 = yr; r = yr;
+            l *= 1.19f; r *= 1.19f;
+            /* Look-ahead peak limiter (as below). */
+            float peak = dsp_max(dsp_abs(l), dsp_abs(r));
+            float target = ceiling / dsp_max(peak, ceiling);
+            if (target < lgain) lgain += (target - lgain) * 0.25f;
+            else lgain += (target - lgain) * release;
+            float delayed_l = lim->buffer[0][pos], delayed_r = lim->buffer[1][pos];
+            lim->buffer[0][pos] = l;
+            lim->buffer[1][pos] = r;
+            if (++pos >= MB_LOOKAHEAD) pos = 0;
+            out_l[n] = dsp_clamp(delayed_l * lgain, -ceiling, ceiling);
+            out_r[n] = dsp_clamp(delayed_r * lgain, -ceiling, ceiling);
+            out_peak = dsp_max(out_peak, dsp_max(dsp_abs(out_l[n]), dsp_abs(out_r[n])));
+        }
+        mb->lite[0][0] = ql0; mb->lite[0][1] = ql1; mb->lite[0][2] = ql2; mb->lite[0][3] = ql3; mb->lite[0][4] = ql4; mb->lite[0][5] = ql5;
+        mb->lite[1][0] = qr0; mb->lite[1][1] = qr1; mb->lite[1][2] = qr2; mb->lite[1][4] = qr4; mb->lite[1][5] = qr5;
+        mb->duck_env = duck_env;
+        mb->dc_x[0] = dcx0; mb->dc_x[1] = dcx1; mb->dc_y[0] = dcy0; mb->dc_y[1] = dcy1;
+        dc->gain = dgain; dc->gain_step = dstep; dc->phase = (uint8_t)dphase;
+        mc->gain = mgain; mc->gain_step = mstep; mc->phase = (uint8_t)mphase;
+        lim->gain = lgain; lim->pos = pos;
+    } else
+#endif
     for (int n = 0; n < frames; ++n) {
         float dl = drum_l[n], dr = drum_r[n], bl = bass_l[n], br = bass_r[n], sl = synth_l[n], sr = synth_r[n];
         if (mb->enabled) {

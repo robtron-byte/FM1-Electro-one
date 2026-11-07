@@ -1,8 +1,9 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 18. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 19. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 18. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 18./19. Build:
+- **Master sparsamer** (19. Build, bitgleich): Zustände während der Schleife in lokalen Variablen. Emulator mit DARK STR: PEAK 70 → 63 %.
 - **SAVE ohne Aussetzer:** Der Speicherplatz für das nächste Speichern wird gelöscht, während der Groove kurz stillsteht (1,5 s nach dem Einschalten bzw. nach STOP). SAVE während des Spielens schreibt dann nur noch und unterbricht den Ton nicht mehr. Nur ein zweites SAVE ohne STOP dazwischen hat wieder die kurze Lücke.
 - **Display flüssiger:** Das Display wird mit 20 statt 12 MHz angesteuert (ein ganzes Bild ~46 statt ~77 ms).
 
@@ -43,7 +44,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `18307dccc65c117581562edc012ce2d05c5fc928f93dc0706843a29b4785cc46`
+SHA-256: `bd81721b0b33b109ced29d3c5b489b3f2f46a1eb7a356bd8aec356eca6e2dfc2`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
