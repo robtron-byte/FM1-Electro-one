@@ -637,14 +637,6 @@ static void sound_save_edit(el_ui_t *ui, const int16_t *enc)
 
 static const char *const cond_names[EL_CONDS] = {"1:1", "1:2", "2:2", "1:4", "2:4", "3:4", "4:4"};
 
-static void cond_notice(el_ui_t *ui)
-{
-    static char text[40];
-    static const char *const what[EL_CONDS] = {"EVERY PASS", "1ST OF 2", "2ND OF 2", "1ST OF 4", "2ND OF 4", "3RD OF 4", "4TH OF 4"};
-    el_snprintf(text, sizeof text, "STEP %u: %s %s", ui->sh_step + 1u, cond_names[ui->sh_cond % EL_CONDS], what[ui->sh_cond % EL_CONDS]);
-    notice(ui, text);
-}
-
 /* A step key goes down: a silent step sounds at once; a sounding one goes
  * off when its key is let go, unless an encoder turned meanwhile. */
 static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, int on, unsigned cond, unsigned prob)
@@ -660,30 +652,32 @@ static void step_hold(el_ui_t *ui, unsigned key, unsigned step, unsigned part, i
     ui->sh_remove = (uint8_t)(on != 0);
 }
 
-/* The held step: PRESETS sets its condition, ALGORITHM its probability
- * (the other encoders keep their jobs; any turn keeps the step). Returns
- * what is left of PRESETS; *algo is used up likewise. */
+/* The held step: one dial (PRESETS, or ALGORITHM likewise). Right of the
+ * middle the passes (1:2, 2:2, 1:4 .. 4:4), left of it the chance (90 ..
+ * 10 %); a step has one of the two, the middle is always. Other encoders
+ * keep their jobs; any turn keeps the step. Returns what is left of
+ * PRESETS; *algo is used up likewise. */
 static int step_hold_encoders(el_ui_t *ui, const int16_t *enc, int presets, int *algo)
 {
     if (!ui->sh_key) return presets;
     for (unsigned i = 0; i < UI_ENCODERS; ++i) if (enc[i]) ui->sh_used = 1;
+    int turn = presets + *algo;
+    *algo = 0;
+    if (!turn) return 0;
     el_engine_t *e = ui->engine;
-    if (*algo) {
-        /* turned right: plays more often (100 % = 0) */
-        unsigned prob = (unsigned)el_clampi((int)ui->sh_prob - *algo, 0, EL_PROBS - 1);   /* a detent: 10 % */
-        int r = ui->sh_area == EL_AREA_BEAT ? dr_post(&e->drums, DR_CMD_PROB, ui->sh_part, ui->sh_step, 0, (int16_t)prob)
-                                            : el_post3(e, EL_CMD_STEP_PROB, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, (int16_t)prob);
-        if (r == 0) ui->sh_prob = (uint8_t)prob;
-        *algo = 0;
+    int dial = ui->sh_cond ? (int)ui->sh_cond : -(int)ui->sh_prob;
+    dial = el_clampi(dial + turn, -(EL_PROBS - 1), EL_CONDS - 1);
+    unsigned cond = dial > 0 ? (unsigned)dial : 0u, prob = dial < 0 ? (unsigned)-dial : 0u;
+    int r;
+    if (ui->sh_area == EL_AREA_BEAT) {
+        r = dr_post(&e->drums, DR_CMD_COND, ui->sh_part, ui->sh_step, 0, (int16_t)cond) |
+            dr_post(&e->drums, DR_CMD_PROB, ui->sh_part, ui->sh_step, 0, (int16_t)prob);
+    } else {
+        uint8_t track = (uint8_t)(ui->sh_area - 1u);
+        r = el_post3(e, EL_CMD_STEP_COND, track, ui->sh_step, 0, (int16_t)cond) |
+            el_post3(e, EL_CMD_STEP_PROB, track, ui->sh_step, 0, (int16_t)prob);
     }
-    if (!presets) return 0;
-    unsigned cond = (unsigned)el_clampi((int)ui->sh_cond + (presets > 0 ? 1 : -1), 0, EL_CONDS - 1);
-    int r = ui->sh_area == EL_AREA_BEAT ? dr_post(&e->drums, DR_CMD_COND, ui->sh_part, ui->sh_step, 0, (int16_t)cond)
-                                        : el_post3(e, EL_CMD_STEP_COND, (uint8_t)(ui->sh_area - 1u), ui->sh_step, 0, (int16_t)cond);
-    if (r == 0) {
-        ui->sh_cond = (uint8_t)cond;
-        cond_notice(ui);
-    }
+    if (r == 0) { ui->sh_cond = (uint8_t)cond; ui->sh_prob = (uint8_t)prob; }
     return 0;
 }
 
@@ -1846,7 +1840,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
  * filled where the step may play, and a bar for its chance there. */
 static int step_overlay(const el_ui_t *ui)
 {
-    return ui->sh_key && !ui->options && !ui->overview && (ui->sh_used || ui->now - ui->sh_at >= 250u);
+    return ui->sh_key && !ui->options && !ui->overview && (ui->sh_used || ui->now - ui->sh_at >= 500u);
 }
 
 static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
@@ -1860,22 +1854,25 @@ static void draw_step_overlay(el_ui_t *ui, gfx_band_t *b)
     el_snprintf(text, sizeof text, "STEP %u", ui->sh_step + 1u);
     gfx_text(b, OX + 8, OY + 6, text, DIM, 1);
     unsigned cond = ui->sh_cond % EL_CONDS;
-    gfx_text(b, OX + 8, OY + 22, cond_names[cond], TEXT, 4);
-    el_snprintf(text, sizeof text, "%d%%", el_prob_percent(ui->sh_prob));
-    gfx_text(b, OX + OW - 8 - gfx_text_width(text, 4), OY + 22, text, ui->sh_prob ? AMBER : TEXT, 4);
-    /* the passes: 1:1 one box, 1:2 / 2:2 two, n:4 four; filled where it plays */
-    static const uint8_t every[EL_CONDS] = {1, 2, 2, 4, 4, 4, 4}, which[EL_CONDS] = {0, 0, 1, 0, 1, 2, 3};
-    unsigned n = every[cond], bw = 40, gap = 6, x0 = OX + (OW - (n * bw + (n - 1u) * gap)) / 2u;
-    int pct = el_prob_percent(ui->sh_prob);
-    for (unsigned i = 0; i < n; ++i) {
-        int x = (int)(x0 + i * (bw + gap)), y = OY + 66;
-        gfx_frame(b, x, y, (int)bw, 24, DIM);
-        if (i == which[cond]) {
-            gfx_fill(b, x + 2, y + 2, (int)bw - 4, 20, FAINT);
-            gfx_fill(b, x + 2, y + 2, ((int)bw - 4) * pct / 100, 20, color);   /* its chance */
+    if (ui->sh_prob) {
+        /* chance: the percent big, a bar */
+        int pct = el_prob_percent(ui->sh_prob);
+        el_snprintf(text, sizeof text, "%d%%", pct);
+        gfx_text(b, OX + (OW - gfx_text_width(text, 4)) / 2, OY + 22, text, AMBER, 4);
+        gfx_frame(b, OX + 20, OY + 66, OW - 40, 24, DIM);
+        gfx_fill(b, OX + 22, OY + 68, (OW - 44) * pct / 100, 20, color);
+    } else {
+        /* passes: the condition big, a box per pass of the cycle, filled where it plays */
+        gfx_text(b, OX + (OW - gfx_text_width(cond_names[cond], 4)) / 2, OY + 22, cond_names[cond], TEXT, 4);
+        static const uint8_t every[EL_CONDS] = {1, 2, 2, 4, 4, 4, 4}, which[EL_CONDS] = {0, 0, 1, 0, 1, 2, 3};
+        unsigned n = every[cond], bw = 40, gap = 6, x0 = OX + (OW - (n * bw + (n - 1u) * gap)) / 2u;
+        for (unsigned i = 0; i < n; ++i) {
+            int x = (int)(x0 + i * (bw + gap)), y = OY + 66;
+            gfx_frame(b, x, y, (int)bw, 24, DIM);
+            if (i == which[cond]) gfx_fill(b, x + 2, y + 2, (int)bw - 4, 20, color);
         }
     }
-    gfx_text(b, OX + 8, OY + OH - 14, "PRESETS: PASSES  ALGO: CHANCE", DIM, 1);
+    gfx_text(b, OX + 8, OY + OH - 14, "LEFT: CHANCE   RIGHT: PASSES", DIM, 1);
 }
 
 void el_ui_draw_band(el_ui_t *ui, unsigned band)

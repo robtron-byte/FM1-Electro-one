@@ -729,7 +729,8 @@ int main(int argc, char **argv)
         if ((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) { tap_key(24); run(30); }
         panel.keys |= 1u << 24; run(30);
         panel.encoders[6] = 1; run(10);
-        panel.encoders[1] = -5; run(300);   /* ALGORITHM left: 50 %; held long enough for the big readout */
+        unsigned cond_right = dr_cond(m, m->current, D8_BD, 14);   /* right: 1:2 */
+        panel.encoders[6] = -6; run(600);   /* left past the middle: 50 %, the passes cleared; the big readout */
         unsigned on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u, cond = dr_cond(m, m->current, D8_BD, 14);
         unsigned prob = dr_prob(m, m->current, D8_BD, 14);
         shot(dir, "22_step_cond");
@@ -737,7 +738,7 @@ int main(int argc, char **argv)
         unsigned kept_on = (m->pattern[m->current].hit[D8_BD] >> 14) & 1u;
         tap_key(24); run(30);
         unsigned off = !((m->pattern[m->current].hit[D8_BD] >> 14) & 1u) && dr_cond(m, m->current, D8_BD, 14) == 0;
-        int panel_ok = on && cond == EL_COND_1_2 && prob == 5 && kept_on && off && dr_prob(m, m->current, D8_BD, 14) == 0;
+        int panel_ok = on && cond_right == EL_COND_1_2 && cond == EL_COND_ALWAYS && prob == 5 && kept_on && off && dr_prob(m, m->current, D8_BD, 14) == 0;
         if (!panel_ok) printf("debug panel: on %u cond %u kept %u off %u\n", on, cond, kept_on, off);
         sc_ok = sc_ok && panel_ok;
     }

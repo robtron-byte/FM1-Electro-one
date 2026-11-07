@@ -79,3 +79,4 @@ github.com/aroum/fm1-custom-fw.
 - 18. Build: SAVE ohne Aussetzer (Vorab-Löschen, ADR 0023, `el_store_prepare`, `ui->prepare`), Display-SPI 20 MHz (`-DLCD_BAUD=2` in `tools/build_platform.py`). Falls das Display Fehler zeigt: zurück auf 4.
 - 19. Build: Master-Schleife mit lokalen Zuständen (bitgleich). Weitere Kandidaten: Drums (dr_render/dm_render/db_render), Tasten-Timer (fm1_timer5_irq ~3.6 %).
 - 20. Build: Step-Wahrscheinlichkeit (ADR 0025, Store-Version 23, Synths in Flag-/Akkord-Bits 6–7), große Anzeige beim Halten (`draw_step_overlay`).
+- 21. Build: Step-Regler: rechts Durchläufe, links Prozent (ein Step hat eins), Anzeige nach ½ s getrennt.
