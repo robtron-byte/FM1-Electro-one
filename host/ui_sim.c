@@ -793,6 +793,16 @@ int main(int argc, char **argv)
         unsigned spb = rate < ST_RATE_BAR ? 16u >> rate : 1u;
         int n11 = bp2->length % spb == 0 && ui.bars_shown >= 1;
         shot(dir, "19b_length_bars");
+        /* N3 / U7: in STEP mode the step's values in the footer, the turned one big on amber */
+        if (!ui.step_mode[EL_AREA_BASS]) tap_button(BTN_SEQ);
+        panel.encoders[2] = 1; run(10); panel.encoders[2] = 0;
+        run(120);
+        int n3 = ui.knob_at[0] && ui.now - ui.knob_at[0] >= 80u && ui.now - ui.knob_at[0] < 420u;
+        shot(dir, "19c_step_knob");
+        run(500);
+        n3 = n3 && ui.now - ui.knob_at[0] >= 500u;
+        tap_button(BTN_SEQ);
+        printf("knobs: the turned value pops in, big, and goes after 0.5 s, STEP mode too (N3, U7) %s\n", n3 ? "ok" : "FAIL");
         printf("leds: REC dimmed while not recording (N5) %s; length in bars %u x %u (N11) %s\n", n5 ? "ok" : "FAIL",
                bp2->length / spb, spb, n11 ? "ok" : "FAIL");
     }

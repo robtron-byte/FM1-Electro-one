@@ -739,6 +739,8 @@ static int step_hold_encoders(el_ui_t *ui, int16_t *enc, int presets, int *algo)
     el_engine_t *e = ui->engine;
     int beat = ui->sh_area == EL_AREA_BEAT;
     uint8_t track = (uint8_t)(ui->sh_area - 1u);
+    if (beat && enc[ENC_KNOB1]) ui->knob_at[0] = ui->now | 1u;
+    if (beat && enc[ENC_KNOB1 + 1]) ui->knob_at[1] = ui->now | 1u;
     if (beat && enc[ENC_KNOB1]) {
         if (dr_pitch_slot(ui->sh_part) >= 0) {
             int semis = el_clampi(ui->sh_pitch + enc[ENC_KNOB1], -12, 12);
@@ -1396,6 +1398,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
     } else if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
         uint8_t track = (uint8_t)(ui->area - 1u), s = ui->cursor[ui->area];
         const int16_t *k = enc + ENC_KNOB1;
+        for (unsigned i = 0; i < 4; ++i) if (k[i]) ui->knob_at[i] = ui->now | 1u;   /* U7: highlighted in the footer */
         if (k[0]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, k[0]);
         if (k[1]) el_post3(e, EL_CMD_STEP_NOTE, track, s, 0, (int16_t)(k[1] * 12));
         if (k[2]) {
@@ -1445,6 +1448,7 @@ static unsigned shown_step_page(el_ui_t *ui, unsigned length, unsigned pos, int 
 }
 
 static int step_overlay(const el_ui_t *ui);
+static unsigned knob_phase(const el_ui_t *ui, unsigned i);
 static int bars_overlay(const el_ui_t *ui);
 static void signatures(el_ui_t *ui, uint32_t sig[3])
 {
@@ -1528,7 +1532,7 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[2], ((ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice_id : 0) | (uint32_t)ui->ask << 30);
     for (unsigned i = 0; i < 4; ++i) {
         knob_t k = knob(ui, i);
-        mix(&sig[2], (uint32_t)k.value | (uint32_t)(ui->knob_at[i] && ui->now - ui->knob_at[i] < 500u) << 31);
+        mix(&sig[2], (uint32_t)k.value | (uint32_t)knob_phase(ui, i) << 28);
     }
     mix(&sig[2], lock_knobs(ui) ? 0x40000000u | (uint32_t)((ui->sh_pitch + 16) & 31) | (uint32_t)ui->sh_vol << 5 : 0u);
     unsigned a = ui->overview ? 0 : ui->area;
@@ -1536,6 +1540,10 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     if (synth_area(ui))
         mix(&sig[2], ui->step_mode[ui->area] | (uint32_t)track_of(ui)->chord << 4 | (uint32_t)ui->cursor[ui->area] << 8 |
                      (uint32_t)track_of(ui)->arp.v[ARP_HOLD] << 20);
+    if (synth_area(ui) && ui->step_mode[ui->area]) {   /* the step's values in the footer (U7) */
+        const st_step_t *st = &track_of(ui)->pattern[track_of(ui)->current].step[ui->cursor[ui->area] % ST_STEPS];
+        mix(&sig[2], st->note | (uint32_t)st->flags << 8 | (uint32_t)st->chord << 16);
+    }
 }
 
 static void mark_dirty(el_ui_t *ui)
@@ -1984,6 +1992,27 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
     gfx_text(b, 4, 180, "5 STUT 6 HALL 7 STOP 8 REP 9 DLY 10 BIT 11 PHA", DIM, 1);
 }
 
+/* The value being turned (U3, N3, U7): an amber panel behind name and value
+ * that pops in (two frames), shows the value a size larger, and shrinks back
+ * after the turn (half a second). Phase 0: off, 1-2 growing, 3 full, 4-5 going. */
+static unsigned knob_phase(const el_ui_t *ui, unsigned i)
+{
+    if (!ui->knob_at[i]) return 0;
+    uint32_t e = ui->now - ui->knob_at[i];
+    return e < 40u ? 1u : e < 80u ? 2u : e < 420u ? 3u : e < 460u ? 4u : e < 500u ? 5u : 0u;
+}
+
+static void draw_knob_cell(gfx_band_t *b, int x, const char *name, const char *value, int small, uint16_t color, unsigned phase, int steady)
+{
+    static const uint8_t inset[6] = {0, 6, 3, 0, 3, 6};
+    int lit = phase || steady, in = phase ? inset[phase] : 0;
+    if (lit) gfx_fill(b, x - 3 + in, FOOT_Y - 2 + in / 2, 57 - 2 * in, 30 - in, AMBER);
+    gfx_text(b, x, FOOT_Y, name, lit ? BACK : DIM, 1);
+    if (small) { gfx_text(b, x, FOOT_Y + 14, value, lit ? BACK : color, 1); return; }
+    int big = phase == 3 && gfx_text_width(value, 3) <= 54;
+    gfx_text(b, x, big ? FOOT_Y + 9 : FOOT_Y + 12, value, lit ? BACK : color, big ? 3 : 2);
+}
+
 static void draw_footer(el_ui_t *ui, gfx_band_t *b)
 {
     char value[24];
@@ -2052,11 +2081,23 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         char letter[2] = {ui->sound_name[ui->name_cursor] == ' ' ? '_' : ui->sound_name[ui->name_cursor], 0};
         gfx_text(b, 63, FOOT_Y + 12, letter, area_color[ui->area], 2);
     } else if (synth_area(ui) && ui->step_mode[ui->area] && !ui->editor) {
+        /* STEP mode (U7): the step's values on KNOB 1-4, the turned one highlighted */
         static const char *const labels[4] = {"NOTE", "OCTAVE", "CHORD", "INVERS"};
         static const char *const other[4] = {"NOTE", "OCTAVE", "ACCENT", "TIE"};
-        for (unsigned i = 0; i < 4; ++i)
-            gfx_text(b, 4 + (int)i * 59, FOOT_Y, ui->area == EL_AREA_STRINGS ? labels[i] : other[i], DIM, 1);
-        gfx_text(b, 4, FOOT_Y + 12, "KNOB 1-4 EDIT THE STEP", area_color[ui->area], 1);
+        const st_track_t *t = track_of(ui);
+        const st_step_t *st = &t->pattern[t->current].step[ui->cursor[ui->area] % ST_STEPS];
+        static const char *const inv_names[3] = {"ROOT", "INV 1", "INV 2"};
+        for (unsigned i = 0; i < 4; ++i) {
+            char v[12];
+            int small = 0;
+            if (i == 0) note_name(v, sizeof v, st->note);
+            else if (i == 1) el_snprintf(v, sizeof v, "%d", st->note / 12 - 1);
+            else if (ui->area == EL_AREA_STRINGS && i == 2) { el_snprintf(v, sizeof v, "%s", ST_CHORD_TYPE(st->chord) ? mks_chord_names[ST_CHORD_TYPE(st->chord) - 1] : "NOTE"); small = 1; }
+            else if (ui->area == EL_AREA_STRINGS) { el_snprintf(v, sizeof v, "%s", inv_names[ST_CHORD_INV(st->chord) % 3u]); small = 1; }
+            else el_snprintf(v, sizeof v, "%s", (st->flags & (i == 2 ? ST_ACCENT : ST_TIE)) ? "ON" : "OFF");
+            draw_knob_cell(b, 4 + (int)i * 59, ui->area == EL_AREA_STRINGS ? labels[i] : other[i], (st->flags & ST_ON) || i ? v : "---",
+                           small, area_color[ui->area], knob_phase(ui, i), 0);
+        }
     } else {
         for (unsigned i = 0; i < 4; ++i) {
             knob_t k = knob(ui, i);
@@ -2064,23 +2105,16 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             if (i < 2 && lock_knobs(ui)) {
                 /* the held step's pitch and velocity (docs/adr/0028) on the first two knobs */
                 int pitch = i == 0, turning = ui->sh_lock == (pitch ? 1u : 2u);
-                if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, 0x31a6);
-                gfx_text(b, x, FOOT_Y, pitch ? "PITCH" : "VELOCITY", turning ? TEXT : DIM, 1);
                 if (pitch && dr_pitch_slot(ui->sh_part) < 0) el_snprintf(value, sizeof value, "---");
                 else if (pitch) pitch_text(value, sizeof value, ui->sh_pitch);
                 else if (ui->sh_vol) el_snprintf(value, sizeof value, "%d%%", dr_vol_percent(ui->sh_vol));
                 else el_snprintf(value, sizeof value, "AUTO");
-                gfx_text(b, x, FOOT_Y + 12, value, part_color[ui->sh_part], 2);
+                draw_knob_cell(b, x, pitch ? "PITCH" : "VELOCITY", value, 0, part_color[ui->sh_part], turning ? knob_phase(ui, i) : 0, turning);
                 continue;
             }
             if (!k.name) continue;
-            /* the value being turned: a light panel behind it, its name bright */
-            int turning = ui->knob_at[i] && ui->now - ui->knob_at[i] < 500u;
-            /* the value being turned (U3): name and value on an amber panel, dark letters, for half a second */
-            if (turning) gfx_fill(b, x - 3, FOOT_Y - 2, 57, 30, AMBER);
-            gfx_text(b, x, FOOT_Y, k.name, turning ? BACK : DIM, 1);
-            if (k.text) gfx_text(b, x, FOOT_Y + 14, k.text, turning ? BACK : k.color, 1);
-            else { el_snprintf(value, sizeof value, "%d", k.value); gfx_text(b, x, FOOT_Y + 12, value, turning ? BACK : k.color, 2); }
+            if (!k.text) el_snprintf(value, sizeof value, "%d", k.value);
+            draw_knob_cell(b, x, k.name, k.text ? k.text : value, k.text != 0, k.color, knob_phase(ui, i), 0);
         }
     }
     const char *hint = (ui->notice && (int32_t)(ui->now - ui->notice_until) < 0) ? ui->notice : 0;
