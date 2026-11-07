@@ -1,8 +1,19 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 37. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 38. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 37. Build (erste Runde deiner Auswahl, Feature-Nummern wie in `docs/FEATURES.md`):
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 38. Build (zweite Runde deiner Auswahl):
+- **Hi-Hats (B16):** Open und Closed Hat auf demselben Step: eine kurze Open Hat (90 ms) wie bei der 808, statt dass die Closed Hat sie sofort abwürgt.
+- **Drum-Vorschau (N2):** OCT+ in BEAT schaltet sie an/aus (OCT+ gedimmt = aus). Aus: die Instrumenten-Taste wählt nur, bei REC wird ohne Ton aufgenommen. OCT− blättert die Step-Seiten 1–16 / 17–32.
+- **Leerer Start (S11):** HOME, ARP halten + 16. weiße Taste zweimal: alles leer, Zufalls-Kit und -Sounds. Erst SAVE macht es dauerhaft.
+- **STRINGS länger als 4 Takte (N7):** Läuft eine Live-Aufnahme über 4 Takte hinaus, rasten ihre Noten auf Viertel und sie wächst bis 8 Takte.
+- **Gedrehter Wert (N3, U7):** Die Amber-Fläche springt kurz auf, der Wert ist eine Größe größer und geht nach 0,5 s zurück. Im STEP-Modus zeigen KNOB 1–4 jetzt die Werte des Steps (Note, Oktave, Akkord/Akzent, Umkehrung/Tie).
+- **Live-Effekte (N10):** In HOME bekommt jeder gehaltene Effekt eine Kachel mit kleiner Animation.
+- **PLAY (N4):** gedimmt bei Stopp (die LEDs können keine Farbe).
+
+Emulator: ein Groove des 36. Builds lädt und spielt; PEAK 58 %, MAX 72 %.
+
+Aus dem 37. Build:
 - **Speicher (B12):** Tom und Conga sind ganz entfernt, ~3,1 KB RAM frei. Deine gespeicherten Grooves werden beim Start umgerechnet (Speicherversion 26; im Emulator mit einem Stand des 36. Builds geprüft). Nach dem Start einmal SAVE, dann ist der neue Stand gespeichert.
 - **Kits merken sich deine Einstellungen (N1):** Kit wechseln und zurück bringt dein eingestelltes Kit. EDIT + PRESETS holt den Werksklang des Kits zurück.
 - **Fill-ins (N12):** In BEAT spielt SEQ tippen im nächsten Takt den Fill, SEQ halten wiederholt ihn. GLO + SEQ: automatisch alle 8 / 16 / 32 Takte (Countdown unten), noch mal: AUS. EDIT + SEQ: Fill bearbeiten (Step-Tasten 1–16, EDIT = Akzent, GLO = Roll), EDIT + SEQ: fertig. Neue Grooves bringen einen Fill mit.
@@ -99,7 +110,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `d5f8974562fb70e432b417020e5d0cd4807366399261a9b535dbff176d97f0b7`
+SHA-256: `b2cffb19ced23259370f3b2bc1d8aca2c1b3ab68e7e4266f5d97098633375708`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
