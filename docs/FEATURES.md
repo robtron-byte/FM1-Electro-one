@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B16, S12, Y5, F11, U9, P10, N14).
+Neue Nummern: im Bereich die nächste freie (B16, S12, Y5, F11, U9, P11, N14).
 
 Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge laut Nutzer: erst Rechenlast und offene Gerätetests, dann die offenen Features.
 
@@ -81,6 +81,7 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | P4 | Plattform/Leistung | Bitgleiche Optimierungen (STRINGS, Hall, Master, JP-6, Saw 5 …) | ✓ | 0019 |
 | P5 | Plattform/Leistung | Takt messen (`ADDS …/US` in OPTIONS): Gerät ADD 336, IND 348/µs: eine Addition je Takt, also etwa 340 MHz | ✓ | 0019 |
 | P8 | Plattform/Leistung | Web-Simulator | ✓ | – |
+| P10 | Plattform/Leistung | Leise Releases der MKS-50-Stimmen enden früher (`MKS_RELEASE_HURRY`, Standard an): Stimmen schneller frei, v. a. bei vollen Akkorden | ◐ ab dem 35. Build | 0019 |
 
 ## Gestrichen
 
@@ -91,4 +92,4 @@ Stand: 34. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Reihenfolge la
 | F10 | Effekte/Master | Master in Festkomma (gebaut, langsamer, aus) | ✗ | 0019 |
 | P6 | Plattform/Leistung | Auf 320 MHz umstellen: nicht nötig, das Gerät läuft schon mit 320–360 MHz | ✗ (nicht nötig) | 0019 |
 | P7 | Plattform/Leistung | Überlastschutz (sparsamer rechnen bei Überlast) | ✗ (auf Wunsch) | – |
-| P9 | Plattform/Leistung | STRINGS sparsamer: Chorus mit halber Rate, leise Releases enden früher (Schalter, `make chorus-ab`; Emulator Kern 1 −2,7 Punkte) | ✗ (Knackser in B, Nutzer 07.11.; Schalter bleiben aus) | 0019 |
+| P9 | Plattform/Leistung | STRINGS-Chorus mit halber Rate (`MKS_CHORUS_HALF`, `make chorus-ab`) | ✗ (Knackser, Nutzer 07.11.; bleibt aus) | 0019 |

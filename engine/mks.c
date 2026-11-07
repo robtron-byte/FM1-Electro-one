@@ -355,7 +355,7 @@ static inline EL_DSP_HELPER float env_next(mks_env_t *e, const mks_env_settings_
  * interpolated linearly (one ladder sample later). 2 on the own platform
  * (docs/adr/0021: the strings took 55 % of a core there), 1 elsewhere. */
 #ifndef MKS_RELEASE_HURRY
-#define MKS_RELEASE_HURRY 0   /* 1: faded releases finish faster, voices free sooner (make chorus-ab) */
+#define MKS_RELEASE_HURRY 1   /* 1 (default since 07.11.2026): faded releases finish faster, voices free sooner (make chorus-ab) */
 #endif
 #ifndef MKS_VCF_DECIM
 #if defined(EL_PLATFORM)
