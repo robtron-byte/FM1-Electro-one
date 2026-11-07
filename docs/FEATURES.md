@@ -17,7 +17,6 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | U7 | Bedienung/Display | Hervorhebung auch im Synth-Editor und STEP-Modus | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
 | N3 | Neu | Gedrehter Wert hebt sich ab: etwas größer und in Highlight-Farbe, nach kurzer Pause zurück zum Normalzustand, beides mit kurzer Animation (Ausbau von U3; gilt auch für Synth-Editor und STEP-Modus, vgl. U7) | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
-| N7 | Neu | STRINGS-Aufnahmen länger als 4 Takte: läuft eine Aufnahme über 4 Takte hinaus, rastet sie auf Viertel um und wächst bis 8 Takte (Entscheidung Nutzer 07.11.: Viertel-Raster statt mehr Speicher) | ○ (Merkposten) · **ausgewählt 07.11. (zweite Runde)** | – |
 | N10 | Neu | Live-Effekte (Punch-ins) im Display: solange gedrückt eine Kachel je Effekt mit Name und kleiner passender Animation (Stutter: Balken im Takt, Hall-Wurf: auslaufende Wellen, Tape-Stop: sinkende Kurve, Repeat: gewählter Step blinkt, Delay: Echos, Crusher: Treppe, Phaser: wandernde Kerbe); mehrere gleichzeitig nebeneinander (bis 7) | ○ · **ausgewählt 07.11. (zweite Runde)** | – |
 
 ## Umgesetzt
@@ -83,6 +82,7 @@ Stand: 37. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N4 | Neu | PLAY leuchtet grün, solange der Groove läuft – die LEDs können keine Farbe; Entscheidung Nutzer 07.11.: PLAY gedimmt bei Stopp, beim Spielen voll und im Viertel blinkend | ◐ umgesetzt (38. Build): PLAY gedimmt bei Stopp | – |
 | N2 | Neu | Drum-Vorschau (Instrument klingt beim Drücken seiner Taste) mit OCT+ in BEAT an/aus; OCT+ leuchtet, solange sie an ist; bei REC wird ohne Ton weiter aufgenommen. Die Step-Seiten (1–16 / 17–32) schaltet in BEAT dann OCT− um (hin und her) | ◐ umgesetzt (38. Build): OCT+ Vorschau an/aus (gedimmt = aus), OCT− Seiten | – |
 | S11 | Sequencer | Zurücksetzen auf leeren Start per Tastenkombination | ◐ umgesetzt (38. Build): HOME, ARP + 16. weiße Taste zweimal | – |
+| N7 | Neu | STRINGS-Aufnahmen länger als 4 Takte: läuft eine Aufnahme über 4 Takte hinaus, rastet sie auf Viertel um und wächst bis 8 Takte (Entscheidung Nutzer 07.11.: Viertel-Raster statt mehr Speicher) | ◐ umgesetzt (38. Build): über 4 Takte → Viertel-Raster, bis 8 Takte | – |
 
 ## Gestrichen
 

@@ -630,6 +630,28 @@ int main(int argc, char **argv)
             n6_ok = n6_ok && guard < 4000 && still && tr->long_count == 0;
             printf("strings: live take, note on the nearest 8th, held 1.5 bars -> len %u 32nds, pattern %u steps (N6, S8) %s\n",
                    st1->len, np->length, n6_ok ? "ok" : "FAIL");
+            /* N7: a take past 4 bars goes on in quarters up to 8 bars: an 8th
+             * note in bar 1, a note at bar 6 held one bar -> 6 bars of quarters. */
+            static el_engine_t n7;
+            el_init(&n7);
+            el_post3(&n7, EL_CMD_TRACK_CLEAR, 1, 0, 0, 0);
+            el_post3(&n7, EL_CMD_RECORD_AREA, 2, 1, 0, 0);
+            el_post(&n7, EL_CMD_START, 0, 0);
+            float sx = 44100.0f * 60.0f / (n7.transport.bpm * 4.0f);
+            unsigned at = 0;
+            #define N7_TO(sixteenths) while (at < (unsigned)(sx * (sixteenths))) { el_render_float(&n7, buf, EL_BLOCK); at += EL_BLOCK; }
+            N7_TO(4.1f) el_post3(&n7, EL_CMD_NOTE, 1, 62, 0, 100);   /* beat 2 of bar 1 */
+            N7_TO(6.0f) el_post3(&n7, EL_CMD_NOTE, 1, 62, 0, 0);
+            N7_TO(80.1f) el_post3(&n7, EL_CMD_NOTE, 1, 65, 0, 100);  /* bar 6 */
+            N7_TO(96.0f) el_post3(&n7, EL_CMD_NOTE, 1, 65, 0, 0);
+            el_render_float(&n7, buf, EL_BLOCK);
+            el_post3(&n7, EL_CMD_RECORD_AREA, 2, 0, 0, 0);
+            el_render_float(&n7, buf, EL_BLOCK);
+            #undef N7_TO
+            const st_pattern_t *q = &n7.track[1].pattern[n7.track[1].current];
+            int n7_ok = q->rate == ST_RATE_QUARTER && q->length == 24 && (q->step[1].flags & ST_ON) && q->step[1].note == 62 &&
+                        (q->step[20].flags & ST_ON) && q->step[20].note == 65 && q->step[20].len >= 31 && q->step[20].len <= 33;
+            printf("strings: a take past 4 bars in quarters, 6 bars kept (N7) %s\n", n7_ok ? "ok" : "FAIL");
         }
         if (!(live_8th && step_kept && long_ok))
             printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);

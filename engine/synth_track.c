@@ -127,15 +127,16 @@ EL_DSP_CODE void st_take_end(st_track_t *t)
     if (!t->grow) return;
     t->grow = 0;
     st_pattern_t *p = &t->pattern[t->current];
-    unsigned end = 0;   /* in 32nds; a step of the take is an 8th (4) */
+    unsigned unit = p->rate == ST_RATE_QUARTER ? 8u : 4u;   /* a step in 32nds: an 8th, or a quarter after N7 */
+    unsigned end = 0, most = ST_STEPS * unit / 32u;
     for (unsigned s = 0; s < ST_STEPS; ++s)
         if (p->step[s].flags & ST_ON) {
-            unsigned e = s * 4u + (p->step[s].len ? p->step[s].len : 4u);
+            unsigned e = s * unit + (p->step[s].len ? p->step[s].len : unit);
             if (e > end) end = e;
         }
     if (!end) return;   /* nothing played: as it was */
     unsigned bars = (end + 31u) / 32u;
-    p->length = (uint8_t)(8u * (bars < 1u ? 1u : bars > 4u ? 4u : bars));
+    p->length = (uint8_t)(32u / unit * (bars < 1u ? 1u : bars > most ? most : bars));
     ++t->revision;
 }
 
@@ -179,11 +180,29 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     arp_play(t, arp_sync(&t->arp, step, sixteenth_frames));
     if (t->next >= ST_PATTERNS) t->next = 0;
     if (t->next != t->current && (step % 16u == 0 || !t->playing)) st_enter(t, t->next);
-    const st_pattern_t *p = &t->pattern[t->current];
+    st_pattern_t *p = &t->pattern[t->current];
     unsigned ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0];
     if (t->playing && ++t->tick < ticks) return;
     t->tick = 0;
     unsigned pos = t->playing ? t->pos + 1u : 0u;
+    if (pos >= p->length && t->grow && t->recording && p->rate == ST_RATE_8TH) {
+        /* N7: the take runs past 4 bars: its notes move to quarters (32
+         * steps = 8 bars) and it goes on in bar 5. */
+        st_step_t q[ST_STEPS];
+        memset(q, 0, sizeof q);
+        for (unsigned s = 0; s < ST_STEPS; ++s)
+            if ((p->step[s].flags & ST_ON) && !(q[s / 2u].flags & ST_ON)) q[s / 2u] = p->step[s];
+        for (unsigned s = 0; s < ST_STEPS; ++s) {
+            q[s].note = q[s].flags & ST_ON ? q[s].note : t->last_note;
+            p->step[s] = q[s];
+        }
+        for (unsigned i = 0; i < t->rec_count; ++i) t->rec_step[i] = (uint8_t)(t->rec_step[i] / 2u);
+        p->rate = ST_RATE_QUARTER;
+        p->length = ST_STEPS;
+        ticks = rate_ticks[ST_RATE_QUARTER];
+        pos = ST_STEPS / 2u;
+        ++t->revision;
+    }
     if (pos >= p->length) pos = 0;
     if (!t->playing) t->pass = 0;
     else if (pos == 0) ++t->pass;
