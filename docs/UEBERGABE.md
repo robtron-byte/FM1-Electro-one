@@ -82,3 +82,4 @@ github.com/aroum/fm1-custom-fw.
 - 21. Build: Step-Regler: rechts Durchläufe, links Prozent (ein Step hat eins), Anzeige nach ½ s getrennt.
 - 22. Build: Step: PRESETS = Durchläufe, ALGORITHM = Prozent (kombinierbar), Anzeige nach ¼ s, zeigt den zuletzt gedrehten.
 - 23. Build: Step-Aufnahme Pause = letzte Taste (UI_KEYS-1), Hervorhebung des gerade gedrehten Werts (`knob_at`, 700 ms).
+- 24. Build: korrigiert; 20.–23. waren wegen eines unbemerkten Linkfehlers (`strlen` fehlt auf der Plattform) noch Build 19. Bauen jetzt nur mit Prüfung von Rückgabewert, frischer `dinghy.elf` und Log (kein 'undefined'/'failed'/'truncated').
