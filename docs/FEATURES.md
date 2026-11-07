@@ -22,7 +22,7 @@ Stand: 33. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`.
 | B9 | ZAP nach Referenz, PULSE | ✓ | 0017 |
 | B10 | 5 Kits inkl. PO-12 | ✓ | – |
 | B11 | Tom und Conga aus der Bedienung genommen (Code noch drin, ~3,5 KB) | ◐ | 0028 |
-| B12 | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit) | ○ | – |
+| B12 | Tom/Conga-Code komplett entfernen (spart ~3,5 KB, keine Rechenzeit): Instrumentenliste ohne LT/HT, alle Tabellen verkürzt, alte Stände beim Laden umgerechnet (Speicherversion 26) | ○ gewünscht, wartet auf „los“ |
 | B13 | Drum-Locks pro Step: Tonhöhe (KNOB 1, ±12 Halbtöne, nur BD SD RS CB ZP PU), Velocity (KNOB 2, 7 Stufen); zwei Felder auf dem Display | ◐ | 0028 |
 | B14 | Akzent-Zeile über die 11. schwarze Taste | ◐ | – |
 | B15 | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
