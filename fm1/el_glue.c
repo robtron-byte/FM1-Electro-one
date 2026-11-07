@@ -27,7 +27,8 @@ void el_glue_start(void)
     el_init(&engine);
     /* The grooves come back from flash; only the very first start (nothing
      * stored) plays the generated factory set. */
-    el_store_load(&engine);
+    /* nothing stored: empty patterns, a random kit and random sounds */
+    if (el_store_load(&engine) == 1) el_blank_start(&engine, el_platform_ticks() * 2654435761u + 1u);
     el_ui_init(&ui, &engine);
     ui.save = el_store_save;
     ui.prepare = el_store_prepare;

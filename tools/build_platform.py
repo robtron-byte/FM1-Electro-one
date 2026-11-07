@@ -36,7 +36,7 @@ def build_app():
     flags = [*b.CFLAGS, *b.BOARD_DEFS[b.BOARD], "-Ifirmware/hal", "-Ifirmware/src", "-Ifirmware/gen",
              f'-DFELUCCA_ID="{b.PRODUCT}"', f'-DAPP_VER="{b.VERSION or "0.0"}"', "-DSTORE_MAGIC=0x43454C45u",
              *INC, "-DEL_PLATFORM=1",
-             "-DLCD_BAUD=2"]   # display SPI 60 / 3 = 20 MHz (the platform's 12 MHz: ~77 ms a frame)
+             "-DLCD_BAUD=1"]   # display SPI 60 / 2 = 30 MHz (the platform's 12 MHz: ~77 ms a frame; ST7789 up to ~60 MHz)
     eng = ["-O2", "-ffunction-sections", "-fdata-sections", "-fno-common", "-fno-builtin", *FPU, *INC,
            "-DEL_PLATFORM=1", "-isystem", str(tc / "pi32v2" / "include")]
     cmds = [("cc", "-c", fw / "crt0.S", "-o", out / "crt0.o"),

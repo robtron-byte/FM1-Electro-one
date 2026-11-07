@@ -1,8 +1,13 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 31. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 32. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 31. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 32. Build:
+- **Display schneller und ohne halbe Bilder:** 30 MHz statt 20, und ein Bild wird in einem Zug gezeichnet (vorher in 4-ms-Häppchen, dazwischen sah man halb neue Bilder).
+- **Akzent ohne Tastenkombination:** In BEAT wählt die 11. schwarze Taste (nach den zehn Instrumenten) die Akzent-Zeile, dann setzen die Step-Tasten Akzente. Eine Instrumenten-Taste schaltet zurück. EDIT + Step geht weiter.
+- **Erster Start ohne Speicherstand:** alle Plätze leer, ein zufälliges Kit und je Bereich ein zufälliger Werks-Sound.
+
+Aus dem 31. Build:
 - **Aus dem zweiten Chat (ADR 0031):** OPTIONS → **COMP MIX** (100…0 %, Parallel-Kompression; CLUB setzt 70 %). Ist der Verzerrungstyp OFF, sind die Send-Regler (HOME + EDIT) gesperrt und zeigen „OFF“.
 
 Aus dem 30. Build:
@@ -68,7 +73,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `c8350bc2ceef22f532604653e8d63c7e6ccc063f9eebcba60c6f376a531bedaf`
+SHA-256: `b4b53dc8916659c0e22de38ffd8fda9b660a2a2aea6e0d3b8f45a0dbc2c5abd0`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

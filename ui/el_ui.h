@@ -52,7 +52,8 @@ typedef struct {
      * (then it goes off at the release, unless an encoder turned). */
     uint8_t sh_key, sh_area, sh_step, sh_part, sh_cond, sh_used, sh_remove;
     uint8_t sh_prob;                    /* its probability (EL_PROBS; ALGORITHM while held) */
-    uint8_t sh_show_prob;               /* the big readout shows the chance (else the passes) */
+    uint8_t sh_show_prob;
+    uint8_t acc_lane;                   /* BEAT: the 11th black key chose the accents (the steps set them) */               /* the big readout shows the chance (else the passes) */
     /* Parameter locks of the held drum step (docs/adr/0028): pitch in
      * semitones (KNOB 1), fixed velocity 0..7 (KNOB 2); sh_lock = which the
      * big readout shows: 0 passes / chance, 1 pitch, 2 level. */
