@@ -1,8 +1,10 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 23. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 24. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 23. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. **Wichtig:** Die Dateien des 20.–23. Builds waren versehentlich noch der 19. Build (das Linken scheiterte unbemerkt an einer fehlenden Bibliotheksfunktion). Der 24. Build enthält alles, was für 20–23 beschrieben ist.
+
+Neu im 23. Build:
 - **Step-Aufnahme (REC 101): Pause mit der letzten Taste der Tastatur** statt EDIT + Taste.
 - **Der Wert, an dem du drehst** (KNOB 1–4), ist im Display hinterlegt, sein Name hell, solange gedreht wird.
 
@@ -51,7 +53,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `bd81721b0b33b109ced29d3c5b489b3f2f46a1eb7a356bd8aec356eca6e2dfc2`
+SHA-256: `f768f56080512dad770c0be3cff04d4edc6d30b1312cfd0fbf9cc8fb3e54b920`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

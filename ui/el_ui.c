@@ -1586,7 +1586,7 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
                  type ? mks_chord_names[type - 1] : "", type ? inv_names[inv] : "",
                  (st->flags & ST_ACCENT) ? " ACC" : "", (st->flags & ST_TIE) ? " TIE" : "",
                  ST_COND(st->flags) ? " " : "", ST_COND(st->flags) ? cond_names[ST_COND(st->flags) % EL_CONDS] : "");
-        if (ST_PROB(st)) { size_t l = strlen(text); el_snprintf(text + l, sizeof text - l, " %d%%", el_prob_percent(ST_PROB(st))); }
+        if (ST_PROB(st)) { size_t l = 0; while (text[l]) ++l; el_snprintf(text + l, sizeof text - l, " %d%%", el_prob_percent(ST_PROB(st))); }
     } else if (ui->area == EL_AREA_STRINGS) {
         /* Long sequences: show the step length and the whole duration. */
         static const uint8_t ticks[ST_RATES] = {1, 2, 4, 8, 16, 32};
