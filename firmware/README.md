@@ -3,7 +3,7 @@
 ## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 37. Build)
 
 Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 37. Build (erste Runde deiner Auswahl, Feature-Nummern wie in `docs/FEATURES.md`):
-- **Speicher (B12):** Tom und Conga sind ganz entfernt, ~3,1 KB RAM frei. Deine gespeicherten Grooves werden beim ersten Start umgerechnet (Speicherversion 26). Tipp: vorher nichts tun, nach dem Start einmal SAVE.
+- **Speicher (B12):** Tom und Conga sind ganz entfernt, ~3,1 KB RAM frei. Deine gespeicherten Grooves werden beim Start umgerechnet (Speicherversion 26; im Emulator mit einem Stand des 36. Builds geprüft). Nach dem Start einmal SAVE, dann ist der neue Stand gespeichert.
 - **Kits merken sich deine Einstellungen (N1):** Kit wechseln und zurück bringt dein eingestelltes Kit. EDIT + PRESETS holt den Werksklang des Kits zurück.
 - **Fill-ins (N12):** In BEAT spielt SEQ tippen im nächsten Takt den Fill, SEQ halten wiederholt ihn. GLO + SEQ: automatisch alle 8 / 16 / 32 Takte (Countdown unten), noch mal: AUS. EDIT + SEQ: Fill bearbeiten (Step-Tasten 1–16, EDIT = Akzent, GLO = Roll), EDIT + SEQ: fertig. Neue Grooves bringen einen Fill mit.
 - **Mute-Modus (N13):** GLO kurz tippen in BEAT, dann schalten die Instrumenten-Tasten stumm/laut. Tasten: voll = spielt, gedimmt = nichts aufgenommen, blinkend = stumm. GLO noch mal tippen: aus.
@@ -99,7 +99,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `6b1bc27bbeee1204bcacfed2b1f2f67f9e455d52a27936a9aa46e3751367039c`
+SHA-256: `d5f8974562fb70e432b417020e5d0cd4807366399261a9b535dbff176d97f0b7`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

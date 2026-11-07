@@ -213,7 +213,9 @@ _Static_assert(sizeof(bank_t) <= FM1_FLASH_SECTOR_BYTES, "sound bank fits one se
  * SDK's start 2.6 KB of heap it is short of (docs/adr/0019). */
 typedef union {
     record_t r;
-    uint8_t v25[offsetof(record_t, data) + V25_BYTES];   /* records 19-25: converted on loading */
+    /* Records 19-25: read into the front, converted into version 26 behind
+     * them (the device has this one buffer only, fm1/el_app.c). */
+    struct { uint8_t v25[offsetof(record_t, data) + V25_BYTES]; payload_t conv; } up;
 #if EL_STORE_UPGRADE
     uint8_t v13[offsetof(record_t, data) + V13_BYTES];
     uint8_t v18[offsetof(record_t, data) + V18_BYTES];
@@ -407,12 +409,10 @@ static int el_store_load_held(el_engine_t *e)
     if (!a && !b) return 1;
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
     unsigned version = record.version;
-    payload_t *converted = NULL;
     const payload_t *d = &record.data;
     if (version < VERSION) {
-        if (!(converted = malloc(sizeof *converted))) return -1;
-        from_v25(upgrade(), version, converted);
-        d = converted;
+        from_v25(upgrade(), version, &buffer.up.conv);
+        d = &buffer.up.conv;
     }
     dr_machine_t *m = &e->drums;
     int old_chords = version < VERSION_16;
@@ -533,7 +533,6 @@ static int el_store_load_held(el_engine_t *e)
                 e->track[i].arp.v[p] = (uint8_t)el_clampi(d->arp[i][p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
     if (version >= VERSION_17)   /* older records keep el_init's channels */
         for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = (uint8_t)el_clampi(d->midi_channel[a], 0, EL_MIDI_OFF);
-    free(converted);
     return 0;
 }
 
