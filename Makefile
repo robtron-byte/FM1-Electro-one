@@ -197,6 +197,15 @@ hall-ab: host/hall_ab.c host/fixed_cmp.py $(ENGINE) $(wildcard engine/*.h)
 	@python3 host/fixed_cmp.py build/hall_A.raw build/hall_B.raw 1 0 "B (every 4th)"; true
 	@python3 host/fixed_cmp.py build/hall_A.raw build/hall_C.raw 1 0 "C (every 8th)"; true
 
+# STRINGS cheaper (docs/adr/0019): A as now, B with the chorus at half rate
+# and faded releases finishing sooner (MKS_CHORUS_HALF, MKS_RELEASE_HURRY);
+# the default groove and STRINGS alone, 16 s each.
+chorus-ab: host/strings_ab.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/wav
+	@for n in A B; do f=0; [ $$n = B ] && f=1; \
+	  $(CC) $(CPPFLAGS) $(CFLAGS) -DMKS_CHORUS_HALF=$$f -DMKS_RELEASE_HURRY=$$f -o build/strings_ab_$$n host/strings_ab.c $(ENGINE) -lm && \
+	  ./build/strings_ab_$$n build/wav/strings_groove_$$n.wav 0 && ./build/strings_ab_$$n build/wav/strings_solo_$$n.wav 1; done
+
 # The master compressor as set from the factory (A) and as CLUB (B, COMP
 # RATIO CLUB, docs/adr/0029): the default groove, 16 s.
 comp-ab: host/comp_ab.c $(ENGINE) $(wildcard engine/*.h)

@@ -314,6 +314,59 @@ static void hpf_configure(jp6_part_t *p, float raw)
 
 /* ---- chorus (Chorus.swift: MN3009 BBD, free rate or Juno-60 modes) ------- */
 
+#ifndef MKS_CHORUS_HALF
+#define MKS_CHORUS_HALF 0   /* 1: the chorus at half rate (pairs of samples), ~half its cost (make chorus-ab) */
+#endif
+#if MKS_CHORUS_HALF
+/* The same chorus at half the sample rate: the BBD's input is low-passed at
+ * 8 kHz anyway. One delay-line sample per pair of output samples; the wet
+ * signal is interpolated linearly in between. Times and filters as at the
+ * full rate. */
+static EL_DSP_CODE void chorus(jp6_chorus_t *c, float *left, float *right, int frames, int enabled, int mode, float rate)
+{
+    const float lp = 0.8960f; /* 1 - exp(-2 pi 8000 / 22050) */
+    float hz, depth_seconds;
+    if (!enabled && c->mix < 0.0001f) return;
+    switch (mode) {
+    case 1: hz = 0.513f; depth_seconds = 0.00185f; break;
+    case 2: hz = 0.863f; depth_seconds = 0.00185f; break;
+    case 3: hz = 9.75f; depth_seconds = 0.0002f; break;
+    default: hz = rate; depth_seconds = 0.0019f - (rate < 8 ? rate : 8) * 0.0001f; break;
+    }
+    const float half_rate = EL_SAMPLE_RATE * 0.5f;
+    float target = enabled ? 1.0f : 0.0f, inc = hz / half_rate;
+    float center = 0.0035f * half_rate, depth_target = depth_seconds * half_rate;
+    for (int n = 0; n + 1 < frames; n += 2) {
+        c->lp1 += (0.25f * (left[n] + right[n] + left[n + 1] + right[n + 1]) - c->lp1) * lp;
+        c->lp2 += (c->lp1 - c->lp2) * lp;
+        c->buffer[c->write] = soft_clip(c->lp2 * 0.8f) * 1.25f;
+        c->mix += (target - c->mix) * 0.002f;
+        c->depth += (depth_target - c->depth) * 0.001f;
+        c->phase += inc;
+        if (c->phase >= 1.0f) c->phase -= 1.0f;
+        float tri = 4.0f * dsp_abs(c->phase - 0.5f) - 1.0f;
+        float wet[2];
+        for (int side = 0; side < 2; ++side) {
+            float pos = (float)c->write - (center + (side ? -c->depth : c->depth) * tri);
+            int i = (int)pos;
+            if ((float)i > pos) --i;
+            float frac = pos - (float)i, a = c->buffer[i & (JP6_CHORUS_SIZE - 1)];
+            wet[side] = a + (c->buffer[(i + 1) & (JP6_CHORUS_SIZE - 1)] - a) * frac;
+        }
+        float noise = xorshift(&c->hiss) * 0.00006f, ol = c->wl2, orr = c->wr2;
+        c->wl1 += (wet[0] + noise - c->wl1) * lp;
+        c->wr1 += (wet[1] - noise - c->wr1) * lp;
+        c->wl2 += (c->wl1 - c->wl2) * lp;
+        c->wr2 += (c->wr1 - c->wr2) * lp;
+        float dry = 1.0f - 0.3f * c->mix, g = 0.75f * c->mix;
+        left[n] = left[n] * dry + 0.5f * (ol + c->wl2) * g;
+        right[n] = right[n] * dry + 0.5f * (orr + c->wr2) * g;
+        left[n + 1] = left[n + 1] * dry + c->wl2 * g;
+        right[n + 1] = right[n + 1] * dry + c->wr2 * g;
+        c->write = (c->write + 1u) & (JP6_CHORUS_SIZE - 1);
+    }
+}
+#else
 static EL_DSP_CODE void chorus(jp6_chorus_t *c, float *left, float *right, int frames, int enabled, int mode, float rate)
 {
     const float lp = 0.6801192f; /* 1 - exp(-2 pi 8000 / 44100) */
@@ -358,6 +411,7 @@ static EL_DSP_CODE void chorus(jp6_chorus_t *c, float *left, float *right, int f
         c->write = (c->write + 1u) & (JP6_CHORUS_SIZE - 1);
     }
 }
+#endif
 
 /* ---- part ------------------------------------------------------------------ */
 

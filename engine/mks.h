@@ -51,7 +51,7 @@ typedef struct { float t1, l1, t2, l2, t3, l3, t4; } mks_env_settings_t;
 typedef struct { float b0, b1, b2, a1, a2; } mks_biquad_t;
 
 typedef struct {
-    uint8_t stage;
+    uint8_t stage, hurry;     /* hurry: the release sped up (MKS_RELEASE_HURRY) */
     float value, start, target, progress, increment, curve, curve_decay;
 } mks_env_t;
 
