@@ -300,7 +300,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         break;
     case EL_CMD_TRACK_LENGTH:
         p->length = (uint8_t)el_clampi(c->b, 1, ST_STEPS);
-        if (t->pos >= p->length) t->pos = (uint8_t)(p->length - 1u);
+        if (t->pos >= p->length) t->pos = (uint8_t)(t->pos % p->length);   /* keeps its place in the bar */
         break;
     case EL_CMD_TRACK_GATE:
         p->gate = (uint8_t)el_clampi(c->b, 10, 100);

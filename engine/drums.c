@@ -228,6 +228,14 @@ EL_DSP_CODE void dr_generate_fill(const dr_pattern_t *g, uint32_t seed, dr_fill_
     out->used = 1;
 }
 
+/* Steps old..len-1 of bits as a copy of the steps a pattern length before. */
+static EL_DSP_CODE uint32_t repeat_bits(uint32_t bits, unsigned old, unsigned len)
+{
+    for (unsigned s = old; s < len && s < 32u; ++s)
+        bits = (bits & ~(1u << s)) | (((bits >> (s % old)) & 1u) << s);
+    return bits;
+}
+
 static EL_DSP_CODE void enter(dr_machine_t *m, unsigned index)
 {
     m->current = (uint8_t)index;
@@ -440,10 +448,32 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
             p->accent = 0;
         }
         break;
-    case DR_CMD_LENGTH:
-        p->length = (uint8_t)el_clampi(step, 1, DR_STEPS);
-        if (m->pos >= p->length) m->pos = (uint8_t)(p->length - 1u);
+    case DR_CMD_LENGTH: {
+        unsigned old = p->length ? p->length : 1u, len = (unsigned)el_clampi(step, 1, DR_STEPS);
+        /* Longer (feedback 08.11.): the new steps take the pattern so far,
+         * when they hold nothing yet (hits, rolls, accents and the step
+         * settings, each step from the one a pattern length before). */
+        uint32_t fresh = 0;
+        for (unsigned s = old; s < len; ++s) fresh |= 1u << s;
+        int empty = (p->accent & fresh) == 0;
+        for (unsigned i = 0; i < DR_PARTS && empty; ++i) empty = !((p->hit[i] | p->roll[i]) & fresh);
+        if (len > old && empty) {
+            p->accent = repeat_bits(p->accent, old, len);
+            for (unsigned i = 0; i < DR_PARTS; ++i) { p->hit[i] = repeat_bits(p->hit[i], old, len); p->roll[i] = repeat_bits(p->roll[i], old, len); }
+            unsigned c = m->current;
+            for (unsigned i = 0; i < DR_PARTS; ++i) {
+                for (unsigned k = 0; k < 3; ++k) { m->cond[c][k][i] = repeat_bits(m->cond[c][k][i], old, len); m->vol[c][k][i] = repeat_bits(m->vol[c][k][i], old, len); }
+                for (unsigned k = 0; k < 4; ++k) m->prob[c][k][i] = repeat_bits(m->prob[c][k][i], old, len);
+            }
+            for (unsigned i = 0; i < DR_PITCH_PARTS; ++i)
+                for (unsigned k = 0; k < 5; ++k) m->pitch[c][k][i] = repeat_bits(m->pitch[c][k][i], old, len);
+        }
+        p->length = (uint8_t)len;
+        /* Shorter: the playhead keeps its place in the bar (it used to jump to
+         * the last step and the beat ran out of step with the other areas). */
+        if (m->pos >= p->length) m->pos = (uint8_t)(m->pos % p->length);
         break;
+    }
     case DR_CMD_SWING:
         p->swing = (uint8_t)el_clampi(step, 50, 75);
         break;

@@ -314,6 +314,28 @@ int main(int argc, char **argv)
         printf("leds: accents in the running light with the accent row only %s\n", ok ? "ok" : "FAIL");
     }
     {
+        /* Beat length (feedback 08.11.): 1 -> 2 bars copies bar 1 into bar 2; 2 -> 1 bar while
+         * playing in bar 2 keeps the place in the bar (in step with the transport). */
+        static el_engine_t lb;
+        float buf[EL_BLOCK * 2];
+        el_init(&lb);
+        dr_machine_t *lm = &lb.drums;
+        dr_post(lm, DR_CMD_LENGTH, 0, 16, 0, 0);
+        el_render_float(&lb, buf, EL_BLOCK);
+        dr_pattern_t one = lm->pattern[lm->current];
+        dr_post(lm, DR_CMD_LENGTH, 0, 32, 0, 0);
+        el_render_float(&lb, buf, EL_BLOCK);
+        const dr_pattern_t *two = &lm->pattern[lm->current];
+        int ok = two->length == 32 && two->hit[D8_BD] == ((one.hit[D8_BD] & 0xffffu) | (one.hit[D8_BD] & 0xffffu) << 16) &&
+                 two->accent == ((one.accent & 0xffffu) | (one.accent & 0xffffu) << 16);
+        el_post(&lb, EL_CMD_START, 0, 0);
+        while (!(lm->playing && lm->pos == 21)) el_render_float(&lb, buf, EL_BLOCK);
+        dr_post(lm, DR_CMD_LENGTH, 0, 16, 0, 0);
+        el_render_float(&lb, buf, EL_BLOCK);
+        ok = ok && lm->pos == 5;
+        printf("beat length: longer copies the pattern, shorter keeps the place in the bar %s\n", ok ? "ok" : "FAIL");
+    }
+    {
         /* N2: OCT+ in BEAT switches the drum preview off (the key only picks
          * the part, OCT+ dimmed) and on again; OCT- turns the step page. */
         if (ui.overview || ui.area != EL_AREA_BEAT) tap_button(BTN_FX);
