@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N17).
+Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N24).
 
 Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -17,6 +17,13 @@ Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
 | N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers und dem Korg Monotron Delay: Delay 34 ms (kürzeste Zeit des Monotron, PT2399 bei 20 MHz), Feedback 1, Hochpass 100 Hz, Softclip, Korg-35-Tiefpass; Regler GLO + ALGORITHM überall (unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz); nicht gespeichert; Pattern-Länge → EDIT + SELECT, Feintempo → EDIT + ALGORITHM | ○ geplant, wartet auf „los“ (Zweig `claude/n15-mono-delay`) | 0033 |
+| N17 | Neu | DENSITY: ein Regler dünnt das ganze Pattern aus oder verdichtet es (alle Bereiche oder der gewählte), live und ohne die Steps zu verändern (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N18 | Neu | Notenlänge pro Step im STEP-Modus der Synths einstellbar (das Längenfeld aus N6 auch von Hand), z. B. KNOB bei gehaltenem Step (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N19 | Neu | Bibliothek im Flash: viele Kits und Sounds (Elixir: je 128) zum Blättern, Speichern und Laden; hängt mit N14 zusammen (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N20 | Neu | Umschalt-Hilfe: solange GLO oder EDIT gehalten wird, zeigt das Display alle Kombinationen dieser Taste in der aktuellen Ansicht (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N21 | Neu | Farbschemata für den Bildschirm (z. B. GREY, GREEN, AMBER, ICE, VIOLET, PAPER, HI-CON, NIGHT) in OPTIONS (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N22 | Neu | Plattenhall nach Mutable Instruments Clouds als zweite Hallart (Elixir hat ihn in Festkomma; MIT-Lizenz) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
+| N23 | Neu | Neue Klangquellen nach Mutable Instruments Rings (Resonator: modal, String, FM) und Plaits (Engines), z. B. als Drum- oder Synth-Modell (Rechenlast prüfen) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 
 ## Umgesetzt
 
