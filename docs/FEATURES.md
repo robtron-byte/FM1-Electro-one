@@ -16,7 +16,7 @@ Stand: 39. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
-| N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers (Dropbox Notizen): kurzer Delay-Loop (~2 ms, Feedback 1) mit HP 100 Hz, Softclip und Korg-35-Tiefpass; ein Drehregler: unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz; überall nutzbar | ○ geplant, wartet auf „los“ | – |
+| N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers (Dropbox Notizen): Delay-Loop 30 ms (Wunsch Nutzer; Monotron Delay laut Tests: wenige ms bis ~1 s), Feedback 1 mit HP 100 Hz, Softclip und Korg-35-Tiefpass; Regler GLO + ALGORITHM überall (unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz); wird nicht gespeichert, beim Start aus; Pattern-Länge und Feintempo brauchen einen neuen Platz | ○ geplant, wartet auf „los“ | – |
 
 ## Umgesetzt
 
