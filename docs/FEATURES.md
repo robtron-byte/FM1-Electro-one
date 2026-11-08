@@ -6,7 +6,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N17).
 
-Stand: 44. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 45. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -45,7 +45,7 @@ Stand: 44. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S10 | Sequencer | Erster Start ohne Speicher: leere Plätze, Zufalls-Kit und -Sounds | ✓ (Gerät 07.11.) | – |
 | Y1 | Synths | MKS-50- und JP-6-Engine je Bereich | ✓ | – |
 | Y2 | Synths | BASS einstimmig, mono | ✓ | 0007 |
-| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ 39. Build: im Emulator geprüft (EDIT tippen, SAVE, SAVE → U01 in PRESETS); ohne eigene Sounds zeigt PRESETS links den Hinweis, wie man einen anlegt | 0026 |
+| Y3 | Synths | Eigene Sounds (32 Plätze) vor den Werks-Sounds, GLO + PRESETS nur eigene | ◐ 45. Build: GLO + SAVE speichert den aktuellen Sound als eigenen (auch ohne Editor); Emulator mit Neustart geprüft | 0026 |
 | Y4 | Synths | 23 zusätzliche schlichte Sounds/Pads | ✓ (Gerät 07.11.) | 0027 |
 | F1 | Effekte/Master | Punch-in-Effekte (Stutter, Hall-Wurf, Tape-Stop, Repeat, Delay, Crusher, Phaser) | ✓ | 0011 |
 | F2 | Effekte/Master | Tape-Stop Standard 1/4 | ✓ (Gerät 07.11.) | – |
