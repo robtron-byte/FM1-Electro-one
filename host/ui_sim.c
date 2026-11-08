@@ -865,7 +865,7 @@ int main(int argc, char **argv)
         panel.encoders[2] = 1; run(10); panel.encoders[2] = 0;   /* a second detent: the panel stays, no new opening */
         run(20);
         int still = ui.knob_start[0] == started;
-        int n3 = still && ui.knob_at[0] && ui.now - ui.knob_start[0] >= 80u && ui.now - ui.knob_at[0] < 420u;
+        int n3 = still && ui.knob_at[0] && ui.now - ui.knob_at[0] < 420u;
         shot(dir, "19c_step_knob");
         run(500);
         n3 = n3 && ui.now - ui.knob_at[0] >= 500u;

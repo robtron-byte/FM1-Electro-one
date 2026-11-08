@@ -2134,12 +2134,9 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
  * last detent. Phase 0: off, 1-2 opening, 3 open, 4-5 closing. */
 static unsigned knob_phase(const el_ui_t *ui, unsigned i)
 {
+    /* (feedback: the opening frames flickered when a turn went on) no animation: open at once, closed 0.5 s after the last detent */
     if (!ui->knob_at[i]) return 0;
-    uint32_t last = ui->now - ui->knob_at[i], since = ui->now - ui->knob_start[i];
-    if (last >= 500u) return 0;
-    if (last >= 460u) return 5u;
-    if (last >= 420u) return 4u;
-    return since < 40u ? 1u : since < 80u ? 2u : 3u;
+    return ui->now - ui->knob_at[i] < 500u ? 3u : 0u;
 }
 
 /* A detent of KNOB i: a turn starts when the panel was closed. */
