@@ -1382,6 +1382,22 @@ int main(int argc, char **argv)
         printf("comp mix: stored (version 25), an older CLUB record keeps its 30 %% dry %s\n", cm_ok ? "ok" : "FAIL");
     }
     {
+        /* GLO + SAVE in a synth area: the sound as it sounds now becomes an own sound, found in PRESETS */
+        tap_button(BTN_ENV);
+        if (ui.area != EL_AREA_STRINGS) tap_button(BTN_ENV);
+        if (ui.editor) tap_button(BTN_EDIT);
+        turn(2, 5); run(100);                               /* the sound changed */
+        hold(BTN_GLO, 1); tap_button(BTN_SAVE); hold(BTN_GLO, 0);
+        int ok = ui.sound_save && ui.editor;
+        tap_button(BTN_SAVE);                               /* stored */
+        run(50);
+        unsigned pre = ui.engine->track[1].preset;
+        ok = ok && !ui.sound_save && pre >= EL_USER_SOUND;
+        printf("own sound: GLO + SAVE stores the sound, the area shows U%02u %s\n", pre >= EL_USER_SOUND ? pre - EL_USER_SOUND + 1u : 0u, ok ? "ok" : "FAIL");
+        if (ui.editor) tap_button(BTN_EDIT);
+        tap_button(BTN_FX);
+    }
+    {
         /* S11: HOME, ARP + the last white key twice: everything empty again, stopped. */
         if (!ui.overview) tap_button(BTN_HOME);
         hold(BTN_ARP, 1);

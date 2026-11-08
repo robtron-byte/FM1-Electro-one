@@ -623,7 +623,7 @@ static void browse_preset(el_ui_t *ui, int delta, int other_engine, int user_onl
         int any = 0;
         user_cache(ui);
         for (unsigned u = 0; u < EL_USER_SOUNDS; ++u) any |= ui->user_used[u];
-        if (!any) notice(ui, "NO OWN SOUNDS YET: EDIT, THEN SAVE");
+        if (!any) notice(ui, "NO OWN SOUNDS YET: GLO + SAVE STORES THIS ONE");
     }
 }
 
@@ -665,7 +665,11 @@ static void sound_save_store(el_ui_t *ui)
     if (!ui->sound_put || ui->sound_put(ui->sound_slot, &s) != 0) { notice(ui, "SOUND SAVE FAILED"); return; }
     ui->user_cached = 0;   /* names read again */
     load_sound_id(ui, EL_USER_SOUND + ui->sound_slot);   /* the area now shows the slot */
-    notice(ui, "SOUND SAVED");
+    {
+        static char done[32];
+        el_snprintf(done, sizeof done, "SOUND SAVED AS U%02u", ui->sound_slot + 1u);
+        notice(ui, done);
+    }
 }
 
 static void sound_save_edit(el_ui_t *ui, const int16_t *enc)
@@ -1213,7 +1217,14 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
-    if ((pressed & BIT(BTN_SAVE)) && in_editor(ui) && ui->sound_put) {
+    if ((pressed & BIT(BTN_SAVE)) && (hold & HOLD_GLO) && synth_area(ui) && ui->sound_put && !ui->sound_save) {
+        /* GLO + SAVE in RHYTHM / STRINGS / BASS: store the sound as it sounds now
+         * as an own sound (feedback 08.11.: plain SAVE keeps the groove) */
+        release_keys(ui, ~0u);
+        ui->editor = 1;
+        sound_save_start(ui);
+        notice(ui, "OWN SOUND: PRESETS SLOT, KNOB 1-2 NAME, SAVE");
+    } else if ((pressed & BIT(BTN_SAVE)) && in_editor(ui) && ui->sound_put) {
         if (ui->sound_save) sound_save_store(ui);
         else sound_save_start(ui);
     } else if ((pressed & BIT(BTN_SAVE)) && ui->save) {
