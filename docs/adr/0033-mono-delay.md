@@ -33,3 +33,4 @@ Recherche Delayzeit (08.11.2026): Das Monotron Delay nutzt laut DIY-Analyse eine
 ## Verlauf
 
 - 2026-11-08: angelegt (Plan, Recherche Delayzeit; Nutzer: 30 ms → 34 ms laut PT2399, GLO + ALGORITHM, nicht speichern)
+- 2026-11-08: `mdtest.c` des Nutzers nach der Recherche angepasst und als `tools/mdtest.c` abgelegt: Delayzeit in ms (Standard 34 ms, erlaubt 1–340 ms = Bereich des PT2399), Länge in Samples aus der Abtastrate (48 kHz im Test, 44,1 kHz auf dem Gerät klingen gleich). Noch keine Umsetzung im Gerät (Nutzer: erst Code anpassen)
