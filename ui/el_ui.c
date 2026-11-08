@@ -1209,7 +1209,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             ui->rec_key = ui->rec_note = 0xff;
             ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
             if (ui->rec_fresh) notice(ui, "STEP REC: KEYS WRITE A NEW SEQUENCE");
-            else if (grid) notice(ui, "STRINGS REC: 8THS, NOTES AS LONG AS HELD");
+            else if (grid) notice(ui, ui->area == EL_AREA_BASS ? "BASS REC: 16THS, NOTES AS LONG AS HELD" : "STRINGS REC: 8THS, NOTES AS LONG AS HELD");
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
     }
@@ -1404,7 +1404,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         } else {
             const st_pattern_t *p = &track_of(ui)->pattern[track_of(ui)->current];
             uint8_t track = (uint8_t)(ui->area - 1u);
-            if ((hold & HOLD_GLO) && ui->area == EL_AREA_STRINGS)   /* 1, 2, 4, 8 ... bars only */
+            if ((hold & HOLD_GLO) && (ui->area == EL_AREA_STRINGS || ui->area == EL_AREA_BASS))   /* 1, 2, 4, 8 ... bars only */
                 el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)strings_length(ui, p, algo), 0, 0);
             else if ((hold & HOLD_GLO) && ui->step_mode[ui->area])   /* odd lengths only here */
                 el_post3(e, EL_CMD_TRACK_LENGTH, track, (uint8_t)el_clampi(p->length + algo, 1, ST_STEPS), 0, 0);

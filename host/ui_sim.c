@@ -716,6 +716,37 @@ int main(int argc, char **argv)
             int n7_ok = q->rate == ST_RATE_QUARTER && q->length == 32 && (q->step[1].flags & ST_ON) && q->step[1].note == 62 &&
                         (q->step[20].flags & ST_ON) && q->step[20].note == 65 && q->step[20].len >= 31 && q->step[20].len <= 33;
             printf("strings: a take past 4 bars in quarters, 6 bars used -> 8 bars (N7, no odd lengths) %s\n", n7_ok ? "ok" : "FAIL");
+            /* N16: BASS takes the same way in 16ths: a note on the 3rd 16th held a quarter -> 1 bar;
+             * a take past 2 bars moves to 8ths. */
+            static el_engine_t bs;
+            el_init(&bs);
+            el_post3(&bs, EL_CMD_TRACK_CLEAR, 2, 0, 0, 0);
+            el_post3(&bs, EL_CMD_RECORD_AREA, 3, 1, 0, 0);
+            el_post(&bs, EL_CMD_START, 0, 0);
+            float bx = 44100.0f * 60.0f / (bs.transport.bpm * 4.0f);
+            unsigned bt = 0;
+            #define BS_TO(sixteenths) while (bt < (unsigned)(bx * (sixteenths))) { el_render_float(&bs, buf, EL_BLOCK); bt += EL_BLOCK; }
+            BS_TO(2.1f) el_post3(&bs, EL_CMD_NOTE, 2, 36, 0, 100);
+            BS_TO(6.1f) el_post3(&bs, EL_CMD_NOTE, 2, 36, 0, 0);
+            el_render_float(&bs, buf, EL_BLOCK);
+            el_post3(&bs, EL_CMD_RECORD_AREA, 3, 0, 0, 0);
+            el_render_float(&bs, buf, EL_BLOCK);
+            const st_pattern_t *bq = &bs.track[2].pattern[bs.track[2].current];
+            int b1 = bq->rate == ST_RATE_16TH && bq->length == 16 && (bq->step[2].flags & ST_ON) && bq->step[2].len >= 7 && bq->step[2].len <= 9;
+            el_init(&bs);
+            el_post3(&bs, EL_CMD_TRACK_CLEAR, 2, 0, 0, 0);
+            el_post3(&bs, EL_CMD_RECORD_AREA, 3, 1, 0, 0);
+            el_post(&bs, EL_CMD_START, 0, 0);
+            bt = 0;
+            BS_TO(40.1f) el_post3(&bs, EL_CMD_NOTE, 2, 38, 0, 100);   /* bar 3 */
+            BS_TO(42.0f) el_post3(&bs, EL_CMD_NOTE, 2, 38, 0, 0);
+            el_render_float(&bs, buf, EL_BLOCK);
+            el_post3(&bs, EL_CMD_RECORD_AREA, 3, 0, 0, 0);
+            el_render_float(&bs, buf, EL_BLOCK);
+            #undef BS_TO
+            bq = &bs.track[2].pattern[bs.track[2].current];
+            int b2 = bq->rate == ST_RATE_8TH && bq->length == 32 && (bq->step[20].flags & ST_ON) && bq->step[20].note == 38;
+            printf("bass: live take in 16ths with held lengths, 1 bar; past 2 bars in 8ths, 4 bars (N16) %s\n", b1 && b2 ? "ok" : "FAIL");
         }
         if (!(live_8th && step_kept && long_ok))
             printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);

@@ -65,8 +65,11 @@ static inline int st_pattern_empty(const st_pattern_t *p)
  * take used when REC ends (st_take_end). */
 static inline int st_live_grid_needed(const st_pattern_t *p, unsigned area, int live)
 {
-    return live && area == MKS_AREA_STRINGS && st_pattern_empty(p);
+    return live && (area == MKS_AREA_STRINGS || area == MKS_AREA_BASS) && st_pattern_empty(p);
 }
+/* The take's grid (N6, N16): STRINGS 8ths (4 bars), BASS 16ths (2 bars);
+ * past them the notes move one step coarser (STRINGS quarters, 8 bars; BASS 8ths, 4 bars). */
+static inline unsigned st_take_rate(unsigned area) { return area == MKS_AREA_BASS ? ST_RATE_16TH : ST_RATE_8TH; }
 
 typedef struct {
     syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */

@@ -127,7 +127,7 @@ EL_DSP_CODE void st_take_end(st_track_t *t)
     if (!t->grow) return;
     t->grow = 0;
     st_pattern_t *p = &t->pattern[t->current];
-    unsigned unit = p->rate == ST_RATE_QUARTER ? 8u : 4u;   /* a step in 32nds: an 8th, or a quarter after N7 */
+    unsigned unit = 2u << (p->rate < ST_RATE_BAR ? p->rate : ST_RATE_HALF);   /* a step in 32nds (16th 2, 8th 4, quarter 8) */
     unsigned end = 0, most = ST_STEPS * unit / 32u;
     for (unsigned s = 0; s < ST_STEPS; ++s)
         if (p->step[s].flags & ST_ON) {
@@ -188,9 +188,10 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     if (t->playing && ++t->tick < ticks) return;
     t->tick = 0;
     unsigned pos = t->playing ? t->pos + 1u : 0u;
-    if (pos >= p->length && t->grow && t->recording && p->rate == ST_RATE_8TH) {
-        /* N7: the take runs past 4 bars: its notes move to quarters (32
-         * steps = 8 bars) and it goes on in bar 5. */
+    if (pos >= p->length && t->grow && t->recording && p->rate == st_take_rate(t->area)) {
+        /* N7: the take runs past its 32 steps: its notes move one step
+         * coarser (STRINGS quarters = 8 bars, BASS 8ths = 4 bars) and it goes on
+         * in the second half. */
         st_step_t q[ST_STEPS];
         memset(q, 0, sizeof q);
         for (unsigned s = 0; s < ST_STEPS; ++s)
@@ -200,9 +201,9 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
             p->step[s] = q[s];
         }
         for (unsigned i = 0; i < t->rec_count; ++i) t->rec_step[i] = (uint8_t)(t->rec_step[i] / 2u);
-        p->rate = ST_RATE_QUARTER;
+        p->rate = (uint8_t)(st_take_rate(t->area) + 1u);
         p->length = ST_STEPS;
-        ticks = rate_ticks[ST_RATE_QUARTER];
+        ticks = rate_ticks[p->rate];
         pos = ST_STEPS / 2u;
         ++t->revision;
     }
@@ -350,7 +351,7 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
     for (unsigned i = 0; i < count; ++i) syn_note_on(&t->part, notes[i], velocity, 0);
     t->last_note = (uint8_t)el_clampi(note, 0, 127);
     int step = record_step(t, note, t->chord, velocity);
-    if (step >= 0 && t->area == MKS_AREA_STRINGS && t->rec_count < ST_REC_HELD) {
+    if (step >= 0 && (t->area == MKS_AREA_STRINGS || t->area == MKS_AREA_BASS) && t->rec_count < ST_REC_HELD) {
         t->rec_note[t->rec_count] = (uint8_t)note;
         t->rec_step[t->rec_count] = (uint8_t)step;
         t->rec_frames[t->rec_count] = 0;

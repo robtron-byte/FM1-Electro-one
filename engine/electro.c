@@ -384,7 +384,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
             rt->recording = c->a == i + 1u && c->b;
             if (was && !rt->recording) st_take_end(rt);
             if (rt->recording && !was && st_live_grid_needed(&rt->pattern[rt->current], rt->area, !(e->option[EL_OPT_REC_STEP] & (1 << i)))) {
-                rt->pattern[rt->current].rate = ST_RATE_8TH;
+                rt->pattern[rt->current].rate = (uint8_t)st_take_rate(rt->area);   /* STRINGS 8ths, BASS 16ths */
                 rt->pattern[rt->current].length = ST_STEPS;
                 rt->tick = 0;
                 rt->grow = 1;   /* cut to the bars the take uses when REC ends (N6) */
