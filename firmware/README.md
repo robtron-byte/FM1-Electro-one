@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 07.11.2026, 39. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 40. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 39. Build (deine Feedback-Liste):
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 40. Build:
+- **Hervorhebung beim Drehen flackert nicht mehr:** keine Öffnungsanimation mehr; die Fläche steht sofort und bleibt ruhig, solange gedreht wird, und geht 0,5 s nach dem letzten Schritt (im Emulator Bild für Bild geprüft).
+
+Aus dem 39. Build (deine Feedback-Liste):
 - **Speichern ohne Hänger:** Die nächste Kopie wird schon beim Einschalten gelöscht; SAVE beim Spielen braucht kein Löschen mehr (erst ein zweites SAVE ohne Stopp dazwischen löscht wieder).
 - **Arpeggiator in STRINGS:** Mit ARP an spielt jeder STRINGS-Step seinen Akkord als Arpeggio (so lange der Step klingt); gehaltene Tasten haben Vorrang.
 - **Akzente in der Lauflicht-Leiste:** BEAT: ein Step mit Akzent ohne Schlag leuchtet gedimmt. STEP-Modus: akzentuierte Steps voll, andere gedimmt.
@@ -121,7 +124,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `f30d878ba9a09287b54c2fd12db7ff381b85c173c6c349007c4ce223825f4693`
+SHA-256: `f3d7042e05e109547e0ab3106cef01a01630c1e208313dc73e1957aa295e9d62`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
