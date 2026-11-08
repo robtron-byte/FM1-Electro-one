@@ -291,6 +291,29 @@ int main(int argc, char **argv)
         printf("hats: OH + CH on one step -> a short open hat (B16) %s\n", ok ? "ok" : "FAIL");
     }
     {
+        /* Accents in the running light only with the accent row (11th black key) chosen. */
+        if (ui.overview || ui.area != EL_AREA_BEAT) tap_button(BTN_FX);
+        dr_machine_t *am = &engine.drums;
+        static dr_pattern_t keep_pat;
+        keep_pat = am->pattern[am->current];
+        int was_running = engine.transport.running;
+        dr_post(am, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
+        dr_post(am, DR_CMD_ACCENT, 0, 3, 0, 0);   /* an accent on step 4, no hit */
+        if (engine.transport.running) tap_button(BTN_PLAY);
+        tap_key(1);                                /* BD */
+        run(30);
+        int ok = !leds[14 + 6];                    /* white key 4: not lit for BD */
+        tap_key(25);                               /* the accent row */
+        run(30);
+        ok = ok && leds[14 + 6] == 1;
+        tap_key(1);
+        dr_post_pattern(am, am->current, &keep_pat, 1);
+        run(30);
+        if (was_running) tap_button(BTN_PLAY);
+        run(30);
+        printf("leds: accents in the running light with the accent row only %s\n", ok ? "ok" : "FAIL");
+    }
+    {
         /* N2: OCT+ in BEAT switches the drum preview off (the key only picks
          * the part, OCT+ dimmed) and on again; OCT- turns the step page. */
         if (ui.overview || ui.area != EL_AREA_BEAT) tap_button(BTN_FX);

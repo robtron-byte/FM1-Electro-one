@@ -1666,19 +1666,16 @@ static void update_leds(el_ui_t *ui)
         for (unsigned i = 0; i < UI_WHITE; ++i) {
             unsigned s = i + page * 16u;
             if (s >= p->length) continue;
-            int on = (ui->hold & HOLD_EDIT) ? (p->accent >> s) & 1u :
+            /* the accent row chosen (11th black key) or EDIT held: the accents; else the part's hits */
+            int on = ((ui->hold & HOLD_EDIT) || (ui->acc_lane && !(ui->hold & HOLD_GLO))) ? (p->accent >> s) & 1u :
                      (ui->hold & HOLD_GLO) ? (p->roll[ui->part] >> s) & 1u : (p->hit[ui->part] >> s) & 1u;
-            uint32_t acc = p->accent;
             if (ui->fill_edit) {   /* the fill's bar (N12) */
                 const dr_fill_t *f = &m->fill[m->current];
-                on = (ui->hold & HOLD_EDIT) ? (f->accent >> i) & 1u : (ui->hold & HOLD_GLO) ? (f->roll[ui->part] >> i) & 1u : (f->hit[ui->part] >> i) & 1u;
-                acc = (uint32_t)f->accent << (page * 16u);
+                on = ((ui->hold & HOLD_EDIT) || (ui->acc_lane && !(ui->hold & HOLD_GLO))) ? (f->accent >> i) & 1u :
+                     (ui->hold & HOLD_GLO) ? (f->roll[ui->part] >> i) & 1u : (f->hit[ui->part] >> i) & 1u;
             }
-            /* accents in the running light: a step with an accent but no hit dimmed */
-            int accent_only = !on && !(ui->hold & (HOLD_EDIT | HOLD_GLO)) && (acc >> s) & 1u;
-            if (playing && m->pos == s) on = !on, accent_only = 0;
+            if (playing && m->pos == s) on = !on;
             if (on) leds |= 1ull << (14u + white_keys[i]);
-            else if (accent_only) { leds |= 1ull << (14u + white_keys[i]); key_dim |= 1ull << (14u + white_keys[i]); }
         }
         for (unsigned k = 0; k < UI_BLACK; ++k) {
             int part = beat_part(ui, (int)k);
@@ -1705,11 +1702,8 @@ static void update_leds(el_ui_t *ui)
                 if (s >= p->length) continue;
                 int on = (ui->hold & HOLD_EDIT) ? (p->step[s].flags & ST_ACCENT) != 0 :
                          (ui->hold & HOLD_GLO) ? (p->step[s].flags & ST_TIE) != 0 : (p->step[s].flags & ST_ON) != 0;
-                /* an accented step dimmed, a plain one full (accents in the running light) */
-                int dimmed = on && !(ui->hold & (HOLD_EDIT | HOLD_GLO)) && !(p->step[s].flags & ST_ACCENT);
-                if (tplay && t->pos == s) on = !on, dimmed = 0;
+                if (tplay && t->pos == s) on = !on;
                 if (on) leds |= 1ull << (14u + white_keys[i]);
-                if (on && dimmed) key_dim |= 1ull << (14u + white_keys[i]);
             }
         } else if (chord_board(ui)) {
             /* GLO held: the chord choice on white keys 1-9, the active one full */
