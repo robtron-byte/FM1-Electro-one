@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 43. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 44. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 43. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 44. Build:
+- **Beat länger (S13):** GLO + ALGORITHM von 1 auf 2 Takte übernimmt das bisherige Pattern in den neuen Takt (wenn der leer ist), mit Akzenten, Rolls und Step-Einstellungen.
+- **Fehler behoben (S14):** Beat kürzer machen beim Spielen brachte ihn aus dem Takt; jetzt behält der Playhead seinen Platz im Takt (auch in den Synth-Bereichen).
+
+Aus dem 43. Build:
 - **Debug-Anzeigen aus:** keine Last-% oben, keine Last- und Taktzeilen unten in OPTIONS, kein Takttest beim Start (Schalter `EL_DEBUG_PANEL`, bei Bedarf wieder an).
 
 Aus dem 42. Build:
@@ -133,7 +137,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `f77631483d0a60c9a4a67f887bdccbe90825207fe20db4bd0e48b59c200ed272`
+SHA-256: `fb67849c33d1a4db09a89c9ca33daae19a4c34ebfee0af9e28844714515cd197`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
