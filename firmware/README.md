@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 40. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 41. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 40. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 41. Build:
+- **BASS-Live-Aufnahme wie STRINGS (N16):** REC auf ein leeres BASS-Pattern: der Notenanfang rastet auf die nächste 1/16, die Note klingt so lange wie gehalten. Nach REC wird auf 1 oder 2 Takte gekürzt; läuft die Aufnahme über 2 Takte, rastet sie auf 1/8 um und wächst bis 4 Takte. BASS-Längen (GLO + ALGORITHM) nur 1, 2, 4, 8 Takte.
+
+Aus dem 40. Build:
 - **Hervorhebung beim Drehen flackert nicht mehr:** keine Öffnungsanimation mehr; die Fläche steht sofort und bleibt ruhig, solange gedreht wird, und geht 0,5 s nach dem letzten Schritt (im Emulator Bild für Bild geprüft).
 
 Aus dem 39. Build (deine Feedback-Liste):
@@ -124,7 +127,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `f3d7042e05e109547e0ab3106cef01a01630c1e208313dc73e1957aa295e9d62`
+SHA-256: `7b5b401d2c9bcb73159a3daba97476668c7648c5011938ad59b6e480b6a17443`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
