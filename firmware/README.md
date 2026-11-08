@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 41. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 42. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 41. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 42. Build:
+- **Akzente im Lauflicht nur in der Akzent-Zeile:** Mit der 11. schwarzen Taste (Akzent-Zeile) gewählt zeigt das Lauflicht die Akzente voll; bei BD, SD usw. wieder nur die Schläge des Instruments (keine gedimmten Akzente mehr). STEP-Modus der Synths wie vor dem 39. Build.
+
+Aus dem 41. Build:
 - **BASS-Live-Aufnahme wie STRINGS (N16):** REC auf ein leeres BASS-Pattern: der Notenanfang rastet auf die nächste 1/16, die Note klingt so lange wie gehalten. Nach REC wird auf 1 oder 2 Takte gekürzt; läuft die Aufnahme über 2 Takte, rastet sie auf 1/8 um und wächst bis 4 Takte. BASS-Längen (GLO + ALGORITHM) nur 1, 2, 4, 8 Takte.
 
 Aus dem 40. Build:
@@ -127,7 +130,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `7b5b401d2c9bcb73159a3daba97476668c7648c5011938ad59b6e480b6a17443`
+SHA-256: `81285c04fbedadf87d610df8177f30a435edff7719fc78529c8dff92e56da050`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
