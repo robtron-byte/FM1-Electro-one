@@ -15,7 +15,8 @@ enum {
     BTN_OCT_DOWN, BTN_OCT_UP, BTN_FX, BTN_SEL, BTN_ENV, BTN_LFO, BTN_EDIT,
     BTN_GLO, BTN_HOME, BTN_SAVE, BTN_ARP, BTN_SEQ, BTN_PLAY, BTN_REC, BTN_COUNT
 };
-enum { EL_OCT_MIN = -3, EL_OCT_MAX = 2 };   /* the keys' octave per synth area */
+enum { EL_OCT_MIN = -3, EL_OCT_MAX = 2 };
+enum { EL_LED_PLAY_GREEN = 41 };   /* fm1_led_set: PLAY's green LED (N4; the matrix place column 8, row PA5, unused by the keys) */   /* the keys' octave per synth area */
 enum { UI_KEYS = 27, UI_WHITE = 16, UI_BLACK = 11, UI_ENCODERS = 7, UI_PAGES = 5, UI_PARTS = 10 };   /* UI_PARTS: BEAT instruments on the black keys */
 
 typedef struct {

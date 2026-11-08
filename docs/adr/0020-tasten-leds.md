@@ -40,3 +40,4 @@ Unter dem SDK von FM1 Open kennen die LEDs nur an und aus (`fm1_led_set`). Die e
 
 - 2026-11-05: angelegt auf Wunsch des Nutzers nach dem ersten Gerätetest
 - 2026-11-06: auf Wunsch des Nutzers: inaktive Bereichstasten gedimmt (etwa halb), OCT blinkt am Ende der Oktave wie in der Original-Firmware
+- 2026-11-08: PLAY hat eine zweite, grüne LED an der Matrix-Stelle Spalte 8, Zeile PA5 (dort ist keine Taste; Fund in Elixir von Dan Majka, GPL-3.0, nur gelesen). FM1-Electro: grün beim Spielen, in der zweiten Hälfte jedes Viertels dunkel, weiß aus; gestoppt weiß gedimmt (N4). `fm1_led_set(41, …)` (`EL_LED_PLAY_GREEN`)

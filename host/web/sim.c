@@ -11,7 +11,7 @@
 
 static uint16_t screen[GFX_W * GFX_H];
 static uint8_t flash[640 * 1024];
-static uint8_t leds[41];
+static uint8_t leds[42];
 static uint32_t clock_ms, flash_writes;
 static el_engine_t engine;
 static el_ui_t ui;
@@ -19,7 +19,7 @@ static struct fm1_controls panel;
 static float audio[EL_BLOCK * 2];
 
 uint32_t fm1_millis(void) { return clock_ms; }
-void fm1_led_set(unsigned key, int on) { if (key < 41) leds[key] = (uint8_t)(on != 0); }
+void fm1_led_set(unsigned key, int on) { if (key < 42) leds[key] = (uint8_t)(on != 0); }
 int fm1_screen_pending(void) { return 0; }
 uint32_t fm1_flash_size(void) { return sizeof flash; }
 int fm1_flash_read(uint32_t offset, void *data, size_t bytes)

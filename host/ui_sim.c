@@ -12,12 +12,12 @@
 static uint16_t screen[GFX_W * GFX_H];
 static uint8_t flash[640 * 1024];
 static uint32_t flash_bytes = sizeof flash;   /* the partition size reported */
-static int leds[41];
+static int leds[42];
 static uint32_t clock_ms;
 
 /* Stubs for the SDK panel API. */
 uint32_t fm1_millis(void) { return clock_ms; }
-void fm1_led_set(unsigned key, int on) { if (key < 41) leds[key] = on; }
+void fm1_led_set(unsigned key, int on) { if (key < 42) leds[key] = on; }
 int fm1_screen_pending(void) { return 0; }
 uint32_t fm1_flash_size(void) { return flash_bytes; }
 int fm1_flash_read(uint32_t offset, void *data, size_t bytes)
@@ -334,6 +334,18 @@ int main(int argc, char **argv)
         el_render_float(&lb, buf, EL_BLOCK);
         ok = ok && lm->pos == 5;
         printf("beat length: longer copies the pattern, shorter keeps the place in the bar %s\n", ok ? "ok" : "FAIL");
+    }
+    {
+        /* N4: PLAY green while the groove runs (on and off with the beat), the white LED off; stopped: green off */
+        if (!ui.engine->transport.running) tap_button(BTN_PLAY);
+        int on = 0, off = 0, white = 0;
+        for (int i = 0; i < 40; ++i) { run(25); if (leds[41]) ++on; else ++off; white |= leds[BTN_PLAY] == 1; }
+        int ok = on && off && !white;
+        tap_button(BTN_PLAY);
+        run(30);
+        ok = ok && !leds[41];
+        tap_button(BTN_PLAY);
+        printf("leds: PLAY green while running, with the beat (N4) %s\n", ok ? "ok" : "FAIL");
     }
     {
         /* N2: OCT+ in BEAT switches the drum preview off (the key only picks

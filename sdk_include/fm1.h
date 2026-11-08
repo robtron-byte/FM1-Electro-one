@@ -116,7 +116,7 @@ struct fm1_controls {
 };
 void fm1_controls_init(void);
 void fm1_controls_read(struct fm1_controls *state);
-void fm1_led_set(unsigned key, int on); /* 0..13 buttons, 14..40 note keys */
+void fm1_led_set(unsigned key, int on); /* 0..13 buttons, 14..40 note keys, 41 PLAY's green LED (own platform) */
 /* Control millisecond clock, wrapping at 2^32. Measure intervals by unsigned
  * subtraction; do not compare absolute timestamps across a wrap. */
 uint32_t fm1_millis(void);

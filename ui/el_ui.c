@@ -1633,8 +1633,11 @@ static void update_leds(el_ui_t *ui)
     uint64_t leds = (1ull << BTN_COUNT) - 1u, blink = 0, dim = 0, key_dim = 0;
     int slow = (ui->now / 400u) & 1u, fast = (ui->now / 125u) & 1u;
     if (playing) {
+        /* N4: PLAY green while the groove runs (the button's second LED), dark
+         * for the second half of each quarter; the white LED off meanwhile */
         uint32_t step = e->transport.step ? e->transport.step - 1u : 0u;   /* the step sounding now */
-        if ((step & 3u) >= 2u) blink |= 1ull << BTN_PLAY;   /* lit on the first half of each quarter */
+        if ((step & 3u) < 2u) leds |= 1ull << EL_LED_PLAY_GREEN;
+        blink |= 1ull << BTN_PLAY;
     }
     int recording = m->recording || e->track[0].recording || e->track[1].recording || e->track[2].recording;
     if (recording && fast) blink |= 1ull << BTN_REC;
@@ -1738,7 +1741,7 @@ static void update_leds(el_ui_t *ui)
     dim |= key_dim;
     dim &= leds;
     uint64_t changed = ui->leds_valid ? (leds ^ ui->leds) | (dim ^ ui->leds_dim) : ~0ull;
-    for (unsigned i = 0; i < 14u + UI_KEYS; ++i)
+    for (unsigned i = 0; i <= EL_LED_PLAY_GREEN; ++i)
         if (changed & (1ull << i)) fm1_led_set(i, (dim >> i) & 1u ? EL_LED_DIM : (int)((leds >> i) & 1u));
     ui->leds = leds;
     ui->leds_dim = dim;
