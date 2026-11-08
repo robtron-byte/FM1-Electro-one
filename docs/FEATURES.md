@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S13, Y6, F11, U12, P11, N15).
+Neue Nummern: im Bereich die nächste freie (B17, S13, Y6, F11, U12, P11, N16).
 
 Stand: 39. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -16,6 +16,7 @@ Stand: 39. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
+| N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers (Dropbox Notizen): kurzer Delay-Loop (~2 ms, Feedback 1) mit HP 100 Hz, Softclip und Korg-35-Tiefpass; ein Drehregler: unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz; überall nutzbar | ○ geplant, wartet auf „los“ | – |
 
 ## Umgesetzt
 
