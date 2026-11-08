@@ -189,6 +189,9 @@ static void app_idle(void)
 }
 
 /* ---- the main loop: the panel as FM1 Open's fm1_controls_read gave it */
+#ifndef EL_LED_PROBE
+#define EL_LED_PROBE 0   /* 1: a test build that lights the unused LED places (docs/FEATURES.md N4) */
+#endif
 static void app_main(void)
 {
     struct fm1_controls c;
@@ -205,6 +208,19 @@ static void app_main(void)
             c.knob = (uint16_t)(a < 0 ? 1023 : a);
         }
         c.battery = 0;
+#if EL_LED_PROBE
+        /* LED test build (green PLAY?): the three LED places of the matrix no
+         * key uses (row PA5, columns 8, 9, 10) lit one after the other, 2 s
+         * each from 3 s after the start, then all three 2 s, then off. */
+        {
+            uint32_t t = fm1_ms;
+            int k = t < 3000u ? -1 : (int)((t - 3000u) / 2000u);
+            for (uint32_t col = 8; col < 11u; col++) {
+                int on = k >= 0 && k < 4 && (k == 3 || (uint32_t)k == col - 8u);
+                if (on) fm1_led[col] |= 1u << 1; else fm1_led[col] &= (uint8_t)~(1u << 1);
+            }
+        }
+#endif
         idle_ok = 1;   /* the screen's DMA waits may read MIDI meanwhile */
         el_glue_control(&c, fm1_ms);
         idle_ok = 0;
