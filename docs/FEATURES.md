@@ -6,7 +6,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B17, S13, Y6, F11, U12, P11, N17).
 
-Stand: 42. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 43. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -58,7 +58,7 @@ Stand: 42. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | U2 | Bedienung/Display | Regler mit vielen Werten beschleunigen beim schnellen Drehen | ✓ (Gerät 07.11.) | – |
 | U3 | Bedienung/Display | Gerade gedrehter Wert hervorgehoben | ◐ 36. Build: Amber-Fläche, 0,5 s (Wunsch 07.11.) | – |
 | U4 | Bedienung/Display | Display 30 MHz, Bild in einem Zug | ✓ (Gerät 07.11.) | – |
-| U6 | Bedienung/Display | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) | ✓ | 0019 |
+| U6 | Bedienung/Display | Lastanzeige in OPTIONS (DR…PU, PEAK, MAX, C1, LATE) – seit 43. Build aus (Schalter `EL_DEBUG_PANEL`, Wunsch 08.11.) | ✓ | 0019 |
 | U8 | Bedienung/Display | OPTIONS: alle 16 Zeilen sichtbar (9 statt 10 Pixel, HELP LINE war abgeschnitten) | ✓ (Gerät 07.11.) | 0031 |
 | P1 | Plattform/Leistung | Eigene Plattform ohne SDK, zwei Kerne | ✓ | 0021 |
 | P2 | Plattform/Leistung | Bus dynamisch auf beide Kerne (Verzerrung auf Kern 1) | ✓ | 0021 |

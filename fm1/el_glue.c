@@ -16,12 +16,19 @@ static volatile uint8_t ready;
  * 256 frames, two engine blocks) and per engine block; the slowest callback
  * of each half second; the stage times per engine block (ADR 0019). */
 #define TICKS_PER_FRAME_Q8 (24000000ull * 256u / 44100u)
+/* EL_DEBUG_PANEL 1: the load in the header, the stage lines and the clock
+ * test in OPTIONS (ADR 0019); off while not needed (user 08.11.2026). The
+ * engine still times its stages: they decide where the bus runs (two cores). */
+#ifndef EL_DEBUG_PANEL
+#define EL_DEBUG_PANEL 0
+#endif
 static volatile uint32_t load_peak, load_frames;
 static uint32_t load_at, prof_blocks;
 static volatile uint32_t drops;
 
 static float block[2 * EL_BLOCK];
 
+#if EL_DEBUG_PANEL
 /* The CPU clock measured (docs/adr/0019): a chain of dependent integer adds
  * (one cycle each: the next needs the last) from SRAM, 64 and 32 a round;
  * the difference against the 24 MHz counter leaves the loop's own cost out. */
@@ -71,6 +78,7 @@ static uint16_t clock_mhz(void)
     return (uint16_t)(32ull * ROUNDS * 24u / (t64 - t32));
 }
 
+#endif
 static uint16_t clk_mhz, clk_ind;
 void el_glue_start(void)
 {
@@ -85,8 +93,10 @@ void el_glue_start(void)
                                                     el_platform_ticks() * 2654435761u + 1u
 #endif
                                                     );
+#if EL_DEBUG_PANEL
     clk_mhz = clock_mhz();
     clk_ind = clock_par();
+#endif
     /* The copy the next save writes erased now, before the sound starts: the
      * first SAVE while the groove plays has no erase (~150 ms without
      * interrupts) and no hang (docs/adr/0023). */
@@ -132,7 +142,7 @@ void el_glue_midi(const uint8_t *message, size_t bytes)
 void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms)
 {
     if (!ready) return;
-    if (now_ms - load_at >= 500u && load_frames) {
+    if (EL_DEBUG_PANEL && now_ms - load_at >= 500u && load_frames) {
         uint32_t budget = (uint32_t)(TICKS_PER_FRAME_Q8 * load_frames / 256u);
         uint32_t peak = load_peak;
         load_peak = 0;

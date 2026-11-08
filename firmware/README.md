@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 42. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 43. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 42. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 43. Build:
+- **Debug-Anzeigen aus:** keine Last-% oben, keine Last- und Taktzeilen unten in OPTIONS, kein Takttest beim Start (Schalter `EL_DEBUG_PANEL`, bei Bedarf wieder an).
+
+Aus dem 42. Build:
 - **Akzente im Lauflicht nur in der Akzent-Zeile:** Mit der 11. schwarzen Taste (Akzent-Zeile) gewählt zeigt das Lauflicht die Akzente voll; bei BD, SD usw. wieder nur die Schläge des Instruments (keine gedimmten Akzente mehr). STEP-Modus der Synths wie vor dem 39. Build.
 
 Aus dem 41. Build:
@@ -130,7 +133,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `81285c04fbedadf87d610df8177f30a435edff7719fc78529c8dff92e56da050`
+SHA-256: `f77631483d0a60c9a4a67f887bdccbe90825207fe20db4bd0e48b59c200ed272`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
