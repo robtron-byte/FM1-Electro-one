@@ -207,7 +207,21 @@ int main(int argc, char **argv)
         dr_fill_t gf;
         dr_generate_fill(&g, 7u, &gf);
         fl = fl && gf.used && (gf.hit[D8_SD] | gf.hit[D8_CP]) & 0xf000u;
-        printf("fills: SEQ next bar, GLO + SEQ every 8 bars, EDIT + SEQ edit, stored, generated (N12) %s\n", fl ? "ok" : "FAIL");
+        /* the whole bar (feedback 09.11.): the run has hits in the first half too, for every kind */
+        for (uint32_t sd = 1; sd < 40u; ++sd) {
+            dr_generate_fill(&g, sd, &gf);
+            uint16_t run = gf.hit[D8_SD] | gf.hit[D8_CP] | gf.hit[D8_RS];
+            fl = fl && (run & 0x00ffu) && (run & 0xff00u);
+        }
+        /* SEQ in HOME too: the fill in the bar after this one */
+        tap_button(BTN_HOME);
+        if (!ui.engine->transport.running) { tap_button(BTN_PLAY); run(50); }
+        tap_button(BTN_SEQ);
+        int home_fill = 0;
+        for (int i = 0; i < 120 && !home_fill; ++i) { run(25); home_fill = dm->fill_now; }
+        fl = fl && ui.overview && home_fill;
+        tap_button(BTN_HOME);
+        printf("fills: SEQ next bar (HOME too), GLO + SEQ every 8 bars, EDIT + SEQ edit, stored, generated over the whole bar (N12) %s\n", fl ? "ok" : "FAIL");
     }
     {
         /* N10: live effects held in HOME: a tile each with its animation */

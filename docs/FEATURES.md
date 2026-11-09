@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N26).
+Neue Nummern: im Bereich die nächste freie (B17, S16, Y6, F11, U13, P11, N26).
 
 Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -102,6 +102,8 @@ Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N16 | Neu | BASS-Live-Aufnahme wie STRINGS (N6): Anfang auf 1/16, Note so lang wie gehalten; über 2 Takte hinaus auf 1/8 (bis 4 Takte); BASS-Patterns nur 1, 2, 4, 8 Takte (Wunsch 08.11.) | ◐ umgesetzt (41. Build) | 0027 |
 | S13 | Sequencer | Beat länger machen übernimmt das bisherige Pattern in den neuen Takt (wenn der noch leer ist), mit Akzenten, Rolls und Step-Einstellungen (Wunsch 08.11.) | ◐ umgesetzt (44. Build) | – |
 | S14 | Sequencer | Fehler: Beat kürzer machen beim Spielen brachte ihn aus dem Takt (Playhead sprang auf den letzten Step); jetzt behält er seinen Platz im Takt, ebenso die Synth-Bereiche (Bug 08.11.) | ◐ behoben (44. Build) | – |
+| S15 | Sequencer | Fill-ins (Feedback 09.11.): über den ganzen Takt generiert (vier Arten, die sich aufbauen), SEQ auch in HOME, immer im Takt nach dem aktuellen | ◐ umgesetzt (47. Build) | 0032 |
+| U12 | Bedienung/Display | Fehler: Zeitstempel `now | 1` lag bei geradem `now` 1 ms in der Zukunft → ein kurzer SEQ-Druck galt als gehalten (Fill gleich wieder aus), die Regler-Hervorhebung und die Taktanzeige fielen für ein Bild aus (Flackern) | ◐ behoben (47. Build) | – |
 
 ## Gestrichen
 

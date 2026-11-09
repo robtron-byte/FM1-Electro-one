@@ -207,24 +207,30 @@ static EL_DSP_CODE uint32_t fill_random(uint32_t *s)
  * for the run, the kick keeps its downbeat. */
 EL_DSP_CODE void dr_generate_fill(const dr_pattern_t *g, uint32_t seed, dr_fill_t *out)
 {
+    /* Feedback 09.11.: the fill goes through the whole bar, not only its end.
+     * Four kinds, each a bar that builds up (sparse at the start, densest at
+     * the end), the groove's kick on the one and its cymbal kept; the closed
+     * hat thins to quarters, then stops. A little variation from the seed. */
+    static const uint16_t kick[4] = {0x0211u, 0x0049u, 0x0c49u, 0x1041u};
+    static const uint16_t lead[4] = {0xf544u, 0xf555u, 0xd6a4u, 0xf0a0u};   /* the main voice of the run */
+    static const uint16_t second[4] = {0x0a00u, 0x0000u, 0x2004u, 0x0f00u};  /* a second voice in between */
+    static const uint16_t accents[4] = {0x9100u, 0xc110u, 0x9220u, 0xa101u};
     uint32_t rng = seed ? seed : 0x2545f491u;
     memset(out, 0, sizeof *out);
-    uint16_t bar = g->length >= DR_FILL_STEPS ? 0xffffu : (uint16_t)((1u << g->length) - 1u);
-    for (unsigned i = 0; i < DR_PARTS; ++i) { out->hit[i] = (uint16_t)(g->hit[i] & bar); out->roll[i] = (uint16_t)(g->roll[i] & bar); }
-    out->accent = (uint16_t)(g->accent & bar);
     unsigned kind = fill_random(&rng) % 4u;
-    /* the run's steps and which get an accent (bit n = step n) */
-    static const uint16_t runs[4] = {0xf000u, 0xaa00u | 0xf000u, 0x5500u | 0xf000u, 0x9240u | 0xd000u};
-    static const uint16_t accents[4] = {0x8800u, 0xa000u, 0x8800u, 0x9000u};
-    uint16_t run = runs[kind], from = (uint16_t)~((kind == 1 || kind == 2) ? 0x00ffu : 0x0fffu);
-    unsigned lead = (fill_random(&rng) & 1u) && kind != 3 ? D8_CP : D8_SD;
-    for (unsigned i = 0; i < DR_PARTS; ++i)
-        if (i != D8_BD && i != D8_CY) { out->hit[i] &= (uint16_t)~from; out->roll[i] &= (uint16_t)~from; }
-    out->hit[lead] |= run;
-    if (lead == D8_CP) out->hit[D8_SD] |= run & 0x8000u;   /* the last one with the snare */
-    if (kind == 0) out->roll[D8_SD] |= 0x4000u;            /* a 32nd roll before the end */
-    out->hit[D8_BD] = (uint16_t)((out->hit[D8_BD] & ~from) | 0x0001u | (kind == 3 ? 0x0100u : 0));
-    out->accent = (uint16_t)((out->accent & ~from) | accents[kind]);
+    unsigned lv = kind == 1 ? D8_CP : D8_SD;                       /* clap run or snare run */
+    unsigned sv = kind == 3 ? D8_RS : (fill_random(&rng) & 1u) ? D8_CP : D8_RS;
+    if (sv == lv) sv = D8_RS;
+    out->hit[D8_BD] = (uint16_t)(kick[kind] | 0x0001u);
+    out->hit[lv] = lead[kind];
+    out->hit[sv] |= second[kind];
+    out->hit[D8_CH] = (uint16_t)(g->hit[D8_CH] & 0x0111u);           /* quarters of the groove's hat, first half */
+    out->hit[D8_CY] = (uint16_t)(g->hit[D8_CY] & 0x0001u);
+    out->roll[lv] = (uint16_t)((fill_random(&rng) & 1u) ? 0x4000u : 0x2000u);   /* a 32nd roll near the end */
+    out->hit[lv] |= out->roll[lv];
+    if (fill_random(&rng) & 1u) out->hit[lv] &= (uint16_t)~(1u << (2u + fill_random(&rng) % 6u));   /* a gap early on */
+    if (lv == D8_CP) out->hit[D8_SD] |= 0x8000u;                     /* the last one with the snare */
+    out->accent = accents[kind];
     out->used = 1;
 }
 

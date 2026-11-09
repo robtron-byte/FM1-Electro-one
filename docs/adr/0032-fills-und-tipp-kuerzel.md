@@ -30,3 +30,4 @@ Erste Runde der Feature-Liste (Auswahl des Nutzers vom 07.11.): Fill-ins in BEAT
 
 - 2026-11-07: angelegt (N8, N11, N12, N13 umgesetzt, 37. Build)
 - 2026-11-07: Zweite Runde (38. Build): OCT+ in BEAT schaltet die Drum-Vorschau (N2), OCT− blättert die Step-Seiten; HOME, ARP + 16. weiße Taste zweimal = leerer Start (S11, wie die Generator-Tasten mit Rückfrage); PLAY gedimmt bei Stopp (N4); OH + CH auf einem Step = kurze OH (B16, 90 ms)
+- 2026-11-09: Feedback: Fills über den ganzen Takt (neuer Generator, vier Arten mit Aufbau: Kick, Snare-/Clap-Lauf, zweite Stimme RS/CP, Hat in Vierteln, Akzente; Rolls nahe dem Ende); SEQ auch in HOME; Fill immer im Takt nach dem aktuellen. Fehler gefunden: ein kurzer SEQ-Druck galt oft als gehalten (Zeitstempel `now | 1`), der Fill wurde gleich abgebrochen – behoben

@@ -1072,7 +1072,7 @@ static unsigned bar_length(el_ui_t *ui, unsigned length, unsigned spb, unsigned 
     unsigned bars = (length + spb - 1u) / spb, most = max / spb;
     bars = (unsigned)el_clampi((int)bars + (delta > 0 ? 1 : -1), 1, (int)most);
     ui->bars_shown = (uint8_t)(spb > 1u ? bars : 0u);
-    ui->bars_at = ui->now | 1u;
+    ui->bars_at = (ui->now ? ui->now : 1u);
     return bars * spb;
 }
 
@@ -1088,7 +1088,7 @@ static unsigned strings_length(el_ui_t *ui, const st_pattern_t *p, int delta)
     if (n * unit > ST_STEPS) n = ST_STEPS / unit;
     unsigned steps = n * unit, ticks = 1u << (p->rate < ST_RATES ? p->rate : 0);
     ui->bars_shown = (uint8_t)el_clampi((int)(steps * ticks / 16u), 1, 255);
-    ui->bars_at = ui->now | 1u;
+    ui->bars_at = (ui->now ? ui->now : 1u);
     return steps;
 }
 
@@ -1231,9 +1231,11 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         notice(ui, ui->save(e) == 0 ? "SAVED" : "SAVE FAILED");   /* everything, all slots */
         ui->prep_pending = 1;
     }
-    /* BEAT: SEQ plays the fill in the next bar (held: every bar while held),
-     * GLO + SEQ the fill by itself every 8 / 16 / 32 bars, EDIT + SEQ edits it (N12). */
-    if (!ui->overview && ui->area == EL_AREA_BEAT) {
+    /* BEAT and HOME: SEQ plays the fill in the bar after this one, whenever
+     * it is pressed (held: every bar while held), GLO + SEQ the fill by itself
+     * every 8 / 16 / 32 bars, EDIT + SEQ (BEAT) edits it (N12). */
+    if (ui->overview && ui->fill_edit) { ui->fill_edit = 0; dr_post(m, DR_CMD_FILL_EDIT, 0, 0, 0, 0); }
+    if (ui->overview || ui->area == EL_AREA_BEAT) {
         if ((pressed & BIT(BTN_SEQ)) && (hold & HOLD_GLO)) {
             static const uint8_t every[4] = {0, 8, 16, 32};
             unsigned k = 0;
@@ -1241,13 +1243,13 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             unsigned next = every[(k + 1u) % 4u];
             if (dr_post(m, DR_CMD_FILL_AUTO, 0, (uint8_t)next, 0, 0) == 0)
                 notice(ui, next == 8 ? "FILL EVERY 8 BARS" : next == 16 ? "FILL EVERY 16 BARS" : next == 32 ? "FILL EVERY 32 BARS" : "FILL AUTO OFF");
-        } else if ((pressed & BIT(BTN_SEQ)) && (hold & HOLD_EDIT)) {
+        } else if ((pressed & BIT(BTN_SEQ)) && (hold & HOLD_EDIT) && !ui->overview) {
             ui->fill_edit = (uint8_t)!ui->fill_edit;
             dr_post(m, DR_CMD_FILL_EDIT, 0, ui->fill_edit, 0, 0);
             notice(ui, ui->fill_edit ? "FILL EDIT: STEP KEYS 1-16" : "FILL EDIT OFF");
         } else if (pressed & BIT(BTN_SEQ)) {
-            dr_post(m, DR_CMD_FILL, 0, 1, 0, 0);
-            ui->seq_at = ui->now | 1u;
+            if (dr_post(m, DR_CMD_FILL, 0, 1, 0, 0) == 0) notice(ui, "FILL IN THE NEXT BAR");
+            ui->seq_at = (ui->now ? ui->now : 1u);
             ui->fill_held = 0;
         }
         if ((c->buttons & BIT(BTN_SEQ)) && ui->seq_at && !ui->fill_held && ui->now - ui->seq_at >= 300u &&
@@ -2151,7 +2153,7 @@ static unsigned knob_phase(const el_ui_t *ui, unsigned i)
 static void knob_turned(el_ui_t *ui, unsigned i)
 {
     if (!ui->knob_at[i] || ui->now - ui->knob_at[i] >= 500u) ui->knob_start[i] = ui->now;
-    ui->knob_at[i] = ui->now | 1u;
+    ui->knob_at[i] = (ui->now ? ui->now : 1u);
 }
 
 static void draw_knob_cell(gfx_band_t *b, int x, const char *name, const char *value, int small, uint16_t color, unsigned phase, int steady)
