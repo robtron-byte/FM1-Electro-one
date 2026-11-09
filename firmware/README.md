@@ -1,8 +1,13 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 08.11.2026, 46. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 09.11.2026, 47. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 46. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 47. Build:
+- **Fills über den ganzen Takt:** neue Grooves bekommen Fills, die sich über den ganzen Takt aufbauen (vier Arten). Schon gespeicherte Fills bleiben; einen neuen bekommst du mit einem neuen Groove.
+- **SEQ spielt den Fill auch in HOME,** immer im Takt nach dem aktuellen („FILL IN THE NEXT BAR“).
+- **Fehler behoben:** Ein kurzer SEQ-Druck galt oft als „gehalten“ und der Fill wurde gleich wieder abgebrochen; dieselbe Ursache ließ die Hervorhebung beim Drehen kurz ausfallen.
+
+Aus dem 46. Build:
 - **PLAY leuchtet grün (N4):** solange der Groove läuft, grün, in der zweiten Hälfte jedes Viertels dunkel; gestoppt weiß gedimmt. (Die grüne LED gefunden in der Firmware Elixir.)
 
 Aus dem 45. Build:
@@ -143,7 +148,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `2694ef2a10fa1b59605c0be50610802a878e0668c31b29f0cb5a01009f349c1c`
+SHA-256: `fb5645f96ab12f1277e713079a617cee4982156ef3aedc44cb7cd6c09f01347a`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 
