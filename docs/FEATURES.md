@@ -25,7 +25,7 @@ Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N22 | Neu | Plattenhall nach Mutable Instruments Clouds als zweite Hallart (Elixir hat ihn in Festkomma; MIT-Lizenz) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N23 | Neu | Neue Klangquellen nach Mutable Instruments Rings (Resonator: modal, String, FM) und Plaits (Engines), z. B. als Drum- oder Synth-Modell (Rechenlast prüfen) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N24 | Neu | Neue Firmware „808 + PO-12 + SH-101“, von Anfang an auf flüssige Bedienung und Klang ausgelegt; Plan in `docs/plaene/neue-firmware-808-po12-sh101.md` | ○ Plan, wartet auf „los“ | – |
-| N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.) | ○ | – |
+| N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.); Kette je Bereich (BEAT, RHYTHM, STRINGS, BASS getrennt); ein einfacher Druck auf einen Platz löst die Kette auf | ○ | – |
 
 ## Umgesetzt
 
