@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N25).
+Neue Nummern: im Bereich die nächste freie (B17, S15, Y6, F11, U12, P11, N26).
 
 Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -25,6 +25,7 @@ Stand: 46. Build (07.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N22 | Neu | Plattenhall nach Mutable Instruments Clouds als zweite Hallart (Elixir hat ihn in Festkomma; MIT-Lizenz) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N23 | Neu | Neue Klangquellen nach Mutable Instruments Rings (Resonator: modal, String, FM) und Plaits (Engines), z. B. als Drum- oder Synth-Modell (Rechenlast prüfen) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N24 | Neu | Neue Firmware „808 + PO-12 + SH-101“, von Anfang an auf flüssige Bedienung und Klang ausgelegt; Plan in `docs/plaene/neue-firmware-808-po12-sh101.md` | ○ Plan, wartet auf „los“ | – |
+| N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.) | ○ | – |
 
 ## Umgesetzt
 
