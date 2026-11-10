@@ -30,7 +30,7 @@ MASTER behält seinen Knopf: Das ist der Lautstärkeregler, mit eigener Markieru
 
 | Teil | Sitz |
 |---|---|
-| Drehknöpfe | Die Encoder haben gerändelte Achsen (Ø 6, 20 Zähne, außen 5,88, Grund 5,08) ohne Knopf. Die Bohrung hat dieselben 20 Zähne (Spiel `fit` 0,20 pro Seite, mit 0,05 war es zu eng) und über dem glatten Bund Luft. Der Knopf sitzt auf dem Achsende und steht 0,7 mm über dem Gehäuse. Zwischen den Knöpfen bleiben 7 mm. |
+| Drehknöpfe | Die Encoder haben gerändelte Achsen (Ø 6, 20 Zähne, außen 5,88, Grund 5,08) ohne Knopf. Die Bohrung hat dieselben 20 Zähne (Spiel `fit` 0,30 pro Seite: im Passungstest saß Loch 4 sehr stramm, mit 0,05 und 0,20 war es zu eng) und über dem glatten Bund Luft. Der Knopf sitzt auf dem Achsende und steht 0,7 mm über dem Gehäuse. Zwischen den Knöpfen bleiben 7 mm. |
 | Kappen rechts und OCT | Sie stecken mit 0,1 mm Luft auf den oberen 0,3 mm der Silikontaste. Darunter bleiben bis zur Matte 1,0 mm (OCT 1,25 mm) frei zum Drücken. Gehen die Tasten bei dir tiefer, `P['skirt']` verkleinern. |
 | Tastenkappen | genauso, 0,3 mm über die Flanke, 1,25 mm Weg bleibt frei. Das Fenster (1,4 × 8,4) lässt den LED-Streifen ganz frei. |
 | Leisten | Sie liegen auf dem flachen Gehäuse vor und hinter der Tastatur und bleiben 0,4 mm von den Taschen der Silikonmatten weg. Sie sind 0,8 mm dick. |
@@ -47,7 +47,7 @@ Die Silikontasten haben keinen Hinterschnitt, der eine Kappe hält. Klebe die Ka
 
 ## Erst testen
 
-1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind durchgehende Rändelbohrungen mit Spiel 0,00 bis +0,60 mm pro Seite (die Achse stößt also nicht oben an), die Punkte zählen von 1 (0,00) bis 7 (+0,60), in Schritten von 0,10. Der erste Druck mit 0,05 war zu eng. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
+1. `fit_test.stl` drucken und jede Bohrung auf eine Encoder-Achse stecken (nicht MASTER). Es sind durchgehende Rändelbohrungen mit Spiel 0,00 bis +0,60 mm pro Seite (die Achse stößt also nicht oben an), die Punkte zählen von 1 (0,00) bis 7 (+0,60), in Schritten von 0,10. Der erste Druck mit 0,05 war zu eng, im zweiten saß Loch 4 (0,30) sehr stramm. Geht der Knopf damit zu schwer ab, 0,35 oder 0,40 nehmen. Die Bohrung, die stramm sitzt und sich ohne Kraft wieder abziehen lässt, ergibt `P['fit']` in `make_parts.py`.
 2. Eine Tastenkappe und eine Kappe rechts einzeln drucken und probieren. Klemmen sie, `P['clr']` um 0,05 erhöhen. Wackeln sie zu sehr, um 0,05 senken.
 3. Dann `python3 make_parts.py` ausführen. Das braucht `pip install manifold3d trimesh numpy matplotlib networkx lxml` und die Schrift Inter. Danach alles drucken.
 

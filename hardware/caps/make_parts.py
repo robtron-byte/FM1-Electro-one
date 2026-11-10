@@ -97,7 +97,7 @@ P = dict(
     skirt=0.30,      # how far a cap reaches down the key: the rest is travel
     lid=1.00,        # cap top
     inlay=0.40,      # depth of the text (two layers at 0.2)
-    fit=0.20,        # knurled bore over the knurl, per side (fit test: 0.00 .. +0.60; 0.05 was too tight)
+    fit=0.30,        # knurled bore over the knurl, per side (fit test 0.00 .. +0.60: hole 4 = 0.30 sits very firm; 0.05 and 0.20 too tight)
     knob_gap=0.70,   # knob above the housing
     knob_left=10.0,  # SELECT, PRESETS, ALGORITHM (17 mm apart)
     knob_right=11.0, # KNOB 1-4 (18 mm apart)
