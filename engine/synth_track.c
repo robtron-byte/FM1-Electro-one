@@ -109,6 +109,15 @@ static EL_DSP_CODE int record_step(st_track_t *t, int note, unsigned chord, floa
     st_pattern_t *p = &t->pattern[t->current];
     unsigned step = t->pos;
     if (t->since_step > 0.5f * t->step_frames) step = (step + 1u) % p->length;
+    if (t->grow && !t->take_started) {
+        /* a fresh take (N6): the bar of the first key becomes bar 1, the
+         * empty bars before it are not part of the take (feedback 12.11.) */
+        unsigned unit = 2u << (p->rate < ST_RATE_BAR ? p->rate : ST_RATE_HALF), bar = 32u / unit;
+        unsigned start = t->pos / bar * bar;
+        t->pos = (uint8_t)(t->pos - start);
+        step = (step + p->length - start) % p->length;
+        t->take_started = 1;
+    }
     p->step[step].note = (uint8_t)note;
     p->step[step].chord = (uint8_t)chord;
     p->step[step].flags = (uint8_t)(ST_ON | (velocity > 0.9f ? ST_ACCENT : 0));
@@ -143,9 +152,35 @@ EL_DSP_CODE void st_take_end(st_track_t *t)
             if (e > end) end = e;
         }
     if (!end) return;   /* nothing played: as it was */
-    unsigned bars = (end + 31u) / 32u, pow2 = 1;
+    /* Bars without a note before the first one go (the take starts in the
+     * bar of its first key; a key just before the bar line lands in the next). */
+    unsigned bar = 32u / unit, first = ST_STEPS;
+    for (unsigned s = 0; s < ST_STEPS; ++s) if ((p->step[s].flags & ST_ON) && s < first) first = s;
+    unsigned shift = first / bar * bar;
+    if (shift) {
+        st_step_t q[ST_STEPS];
+        for (unsigned s = 0; s < ST_STEPS; ++s) q[s] = p->step[(s + shift) % ST_STEPS];
+        memcpy(p->step, q, sizeof q);
+        t->pos = (uint8_t)((t->pos + ST_STEPS - shift) % ST_STEPS);
+    }
+    /* The bars: those with a note start; a note held on past the last bar
+     * line by less than a quarter does not add a bar (a one-bar take stays one). */
+    unsigned bars = 1;
+    for (unsigned s = 0; s < ST_STEPS; ++s)
+        if (p->step[s].flags & ST_ON) {
+            unsigned b = s / bar + 1u, e = s * unit + (p->step[s].len ? p->step[s].len : unit);
+            if (e > 8u) { unsigned be = (e - 8u + 31u) / 32u; if (be > b) b = be; }
+            if (b > bars) bars = b;
+        }
+    unsigned pow2 = 1;
     while (pow2 < bars) pow2 <<= 1;   /* 1, 2, 4, 8 bars (STRINGS: no odd lengths) */
-    p->length = (uint8_t)(32u / unit * (pow2 > most ? most : pow2));
+    if (pow2 > most) pow2 = most;
+    p->length = (uint8_t)(32u / unit * pow2);
+    for (unsigned s = 0; s < p->length; ++s) {   /* no note sounds past the loop's end */
+        unsigned room = (p->length - s) * unit;
+        if ((p->step[s].flags & ST_ON) && p->step[s].len > room) p->step[s].len = (uint8_t)room;
+    }
+    t->pos = (uint8_t)(t->pos % p->length);
     ++t->revision;
 }
 
@@ -210,7 +245,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
     if (t->playing && ++t->tick < ticks) return;
     t->tick = 0;
     unsigned pos = t->playing ? t->pos + 1u : 0u;
-    if (pos >= p->length && t->grow && t->recording && p->rate == st_take_rate(t->area)) {
+    if (pos >= p->length && t->grow && t->take_started && t->recording && p->rate == st_take_rate(t->area)) {
         /* N7: the take runs past its 32 steps: its notes move one step
          * coarser (STRINGS quarters = 8 bars, BASS 8ths = 4 bars) and it goes on
          * in the second half. */

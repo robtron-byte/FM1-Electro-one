@@ -159,6 +159,8 @@ void el_blank_start(el_engine_t *e, uint32_t seed)
         for (unsigned k = 0; k < n; ++k) {
             unsigned s = (pick + k) % n;
             if (syn_sound_area(s) != i + 1u) continue;
+            const char *nm = syn_sound_name(s);
+            if (nm[0] == 'I' && nm[1] == 'N' && nm[2] == 'I' && nm[3] == 'T') continue;   /* a start sound with character, not the plain INIT */
             syn_load(&t->part, syn_sound_engine(s), syn_sound_values(s));
             t->preset = (uint8_t)s;
             st_keep_sound(t, 1);
@@ -407,6 +409,7 @@ static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
                 rt->pattern[rt->current].length = ST_STEPS;
                 rt->tick = 0;
                 rt->grow = 1;   /* cut to the bars the take uses when REC ends (N6) */
+                rt->take_started = 0;   /* the take starts with the first key */
             }
         }
         break;

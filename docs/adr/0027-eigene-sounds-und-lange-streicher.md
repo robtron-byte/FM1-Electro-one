@@ -1,7 +1,7 @@
 # 0027: Eigene schlichte Sounds, Bässe neben der Bassdrum, längere Streicher
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-07
+- **Stand:** 2026-11-12
 
 ## Kontext
 
@@ -43,3 +43,5 @@ Messung (`make bass-check`, Bässe bei C2 = MIDI 36): Die Bässe der Apps spiele
 - 2026-11-07: N7 (Entscheidung Nutzer: Viertel-Raster statt mehr Speicher): Läuft eine solche Aufnahme über 4 Takte hinaus, rücken ihre Noten auf Viertel (32 Steps = 8 Takte) und sie geht in Takt 5 weiter; beim Ende von REC auf die genutzten ganzen Takte gekürzt (1–8)
 - 2026-11-07: Feedback: STRINGS-Patterns nie ungerade lang. GLO + ALGORITHM verdoppelt/halbiert in STRINGS (1, 2, 4, 8 … Takte, auch im STEP-Modus); eine Live-Aufnahme rundet beim Ende auf die nächste dieser Längen auf
 - 2026-11-08: N16: dieselbe Live-Aufnahme für BASS, Raster 1/16 (32 Steps = 2 Takte), darüber 1/8 bis 4 Takte; BASS-Längen ebenfalls nur 1, 2, 4, 8 Takte
+- 2026-11-12: S17 (Feedback): Die Live-Aufnahme beginnt mit der ersten Taste, nicht mit REC: deren Takt wird Takt 1, leere Takte davor gehören nicht dazu (`take_started`, Playhead dabei auf den Taktanfang gelegt; beim Ende werden leere Takte vor der ersten Note zusätzlich abgeschnitten). Die Takte zählen nach den Notenanfängen; eine Note, die weniger als ein Viertel über den letzten Taktstrich gehalten wird, macht keinen weiteren Takt (vorher wurde aus einem Takt oft zwei) und wird am Ende der Schleife gekürzt. Das Umrastern über 4 Takte (N7) setzt erst nach der ersten Taste ein. Gilt für STRINGS und BASS
+- 2026-11-12: Y7: Init-Sounds je Bereich und Engine am Ende der Liste (INIT RHY, INIT STR, INIT BASS, INIT RHY 6, INIT STR 6, INIT BASS6): ein Sägezahn, Filter offen, keine Modulation, Hüllkurve voll, kein Chorus, keine Sends; BASS monophon und in 4' (130 Hz bei C2, über der Bassdrum, auch auf kleinen Lautsprechern hörbar). Der Leerstart wählt sie nicht als Zufallssound. Messung `make bass-check`: die meisten Bässe liegen mit dem Grundton bei 32 Hz und sind leise (Y8, offen)

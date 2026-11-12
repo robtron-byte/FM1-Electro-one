@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 49. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 50. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 49. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 50. Build:
+- **Live-Aufnahme STRINGS (und BASS) beginnt mit der ersten Taste (S17):** REC drücken, dann wartet die Aufnahme; der Takt der ersten Taste wird Takt 1 (leere Takte davor kommen nicht ins Pattern). Ein Takt bleibt ein Takt, auch wenn die letzte Note etwas über den Taktstrich gehalten wird.
+- **Init-Sounds (Y7):** am Ende der Sound-Liste jedes Bereichs (PRESETS ganz nach rechts): INIT RHY / INIT STR / INIT BASS (MKS-50) und INIT RHY 6 / INIT STR 6 / INIT BASS6 (JP-6): ein Sägezahn, Filter offen, keine Modulation. INIT BASS spielt eine Oktave höher (gut hörbar, über der Bassdrum). BEAT: EDIT + PRESETS setzt das Kit auf den Werksklang.
+
+Aus dem 49. Build:
 - **Pattern-Ketten in HOME (S16):** einen Platz halten (z. B. BEAT A) und einen anderen derselben Bank drücken (B): A und B laufen nacheinander, jedes einen ganzen Durchlauf. Weitere Drücke hängen an, bis 4 Plätze, auch mehrfach (A gehalten, B, B → A>B>B). Ist der Platz leer, wird der gehaltene dorthin kopiert („A COPIED TO B, CHAIN A>B“) und gleich gespielt. In HOME steht die Kette neben dem Bereich (spielender Platz hell), die Tasten der Kette leuchten gedimmt, die spielende voll. Ein einfacher Druck auf einen Platz löst die Kette auf. SAVE speichert die Ketten (Speicherversion 27; ältere Grooves laden ohne Kette).
 
 Aus dem 48. Build:
@@ -154,7 +158,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `bd16041c1d0af414111aa538394f75493d079b6d4d9a2a25492b48a299b0b33a`
+SHA-256: `e5394afe9e84a4f5f713f9763292aa96b335fddda803f249083baf28f6cfad28`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

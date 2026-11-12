@@ -99,6 +99,7 @@ typedef struct {
     uint8_t long_count;
     /* A live STRINGS take (N6): the keys held, the step each went to and how long it is held. */
     uint8_t rec_note[ST_REC_HELD], rec_step[ST_REC_HELD], rec_count, grow;
+    uint8_t take_started;      /* the take's first key came: its bar is bar 1 (feedback 12.11.) */
     float rec_frames[ST_REC_HELD];
     arp_t arp;
     volatile uint32_t revision;

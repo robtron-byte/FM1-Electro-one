@@ -32,6 +32,18 @@ MKS_NAMES, JP_NAMES = enum_names("mks.h", "enum mks_param", "MP_"), enum_names("
 MKS, JP = table("mks_presets.c"), table("jp6_presets.c")
 RHYTHM, STRINGS, BASS = 1, 2, 3
 
+MKS_INIT = dict(DCO_ENV_MODE=0, VCF_ENV_MODE=0, VCA_ENV_MODE=0, PULSE=0, SAW=3, SUB=0, RANGE=1, SUB_LEVEL=0, NOISE=0,
+                HPF=1, CHORUS=0, DCO_LFO=0, DCO_ENV=0, DCO_AFTER=0, PW=0, PWM_RATE=0, CUTOFF=127, RESO=0, VCF_LFO=0,
+                VCF_ENV=0, VCF_KEY=0, VCF_AFTER=0, VCA_LEVEL=110, VCA_AFTER=0, LFO_DELAY=0, T1=0, L1=127, T2=0, L2=127,
+                T3=0, L3=127, ENV_KEY=0, KEY_MODE=0, PORTA=0, PORTA_TIME=0, VOLUME=100, KEY_SHIFT=12, PULSE_DETUNE=0,
+                PULSE_SYNC=0, PULSE_ENV=0, DRIFT=0, LFO_SYNC=0, DELAY_SEND=0, REVERB_SEND=0, CHORD=0)
+JP_INIT = dict(VCO1_TRI=0, VCO1_SAW=1, VCO1_PULSE=0, VCO1_SQUARE=0, VCO1_RANGE=2, XMOD=0, SYNC=0, VCO2_TRI=0, VCO2_SAW=0,
+               VCO2_PULSE=0, VCO2_NOISE=0, VCO2_TUNE=12, VCO2_FINE=64, PWM_DEPTH=0, VCO_LFO=0, VCO_ENV=0, MIX=0, HPF=0,
+               VCF_MODE=0, CUTOFF=127, RESO=0, VCF_ENV=0, VCF_LFO=0, VCF_KEY=0, VCF_VELO=0, VCA_LEVEL=110, VCA_LFO=0,
+               LFO_DELAY=0, ENV1_A=0, ENV1_D=0, ENV1_S=127, ENV1_KEY=0, ENV1_POL=0, ENV2_A=0, ENV2_D=0, ENV2_S=127,
+               ENV2_KEY=0, XMOD_ENV=0, KEY_MODE=0, PORTA=0, PORTA_TIME=0, VOLUME=100, KEY_SHIFT=12, DRIFT=0, CHORUS=0,
+               DIST_MODE=0, DELAY_SEND=0, REVERB_SEND=0, CHORD=0)
+
 # (engine, area, name, base sound, changes). Plain sounds do little by
 # themselves (no LFO, no sweeps, no arpeggio): the sequence makes them
 # interesting. The bass sounds keep the low end out of the 808 kick's way.
@@ -64,6 +76,19 @@ SOUNDS = [
     ("jp6", STRINGS, "SLOW PAD 6", "JUPI PAD", dict(PWM_DEPTH=0, VCO1_PULSE=0, CUTOFF=56, RESO=6, VCF_ENV=24, ENV1_A=108, ENV1_S=80, ENV1_R=110, ENV2_A=104, ENV2_R=112)),
     ("jp6", STRINGS, "AIR PAD 6", "JUPI PAD", dict(PWM_DEPTH=0, VCO1_PULSE=0, HPF=44, CUTOFF=88, RESO=0, VCF_ENV=10, ENV1_A=90, ENV2_A=90)),
     ("jp6", STRINGS, "PLAIN STR6", "JP STRINGS", dict(VCO_LFO=0, DRIFT=8, CHORUS=1)),
+    # ---- INIT (feedback 12.11.): a neutral start in every area, at the end of
+    # the list (the numbers of saved sounds stay). One saw at 8', filter open,
+    # no modulation, envelope full on, no chorus or sends; BASS mono. ---------
+] + [
+    ("mks", area, "INIT " + tag, base, dict(MKS_INIT, **extra)) for area, tag, base, extra in (
+        (RHYTHM, "RHY", "PLUCK KEYS", dict(T4=20)),
+        (STRINGS, "STR", "WARM PAD", dict(T4=50)),
+        (BASS, "BASS", "FAT BASS", dict(KEY_MODE=2, T4=12, RANGE=0)))   # 4': 130 Hz at C2, clear of the kick, audible
+] + [
+    ("jp6", area, name, base, dict(JP_INIT, **extra)) for area, name, base, extra in (
+        (RHYTHM, "INIT RHY 6", "SYNPOP KEY", dict(ENV1_R=20, ENV2_R=20)),
+        (STRINGS, "INIT STR 6", "JUPI PAD", dict(ENV1_R=50, ENV2_R=50)),
+        (BASS, "INIT BASS6", "JUPI BASS", dict(KEY_MODE=2, ENV1_R=12, ENV2_R=12, VCO1_RANGE=3)))
 ]
 
 

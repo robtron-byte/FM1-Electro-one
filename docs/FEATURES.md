@@ -4,9 +4,9 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B17, S17, Y7, F11, U13, P11, N26).
+Neue Nummern: im Bereich die nächste freie (B18, S18, Y9, F11, U13, P11, N26).
 
-Stand: 49. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 50. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -15,6 +15,8 @@ Stand: 49. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | B15 | Beat/Drums | Abgleich mit Referenzen (Mz808, ReplicantTr8s nur für 808-Klang) | ○ | `docs/TR808.md` |
 | F8 | Effekte/Master | EP-133-Kompressor nachbauen (braucht Zugriff auf teenage.engineering) | ○ | 0029 |
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
+| B17 | Beat/Drums | 808-Bassdrum: zu wenig Attack, geht im Mix oft unter (Feedback 12.11.); mehr Klick/Anschlag (z. B. kürzerer Pitch-Sweep, Klick-Anteil, Transient), als A/B-Schalter (ADR 0006) | ○ für später | `docs/TR808.md` |
+| Y8 | Synths | Bass-Sounds fast nicht hörbar (Feedback 12.11.): Messung `make bass-check`: die meisten Bässe (FAT BASS, PLAIN BASS, SAW BASS, JUPI BASS …) haben den Grundton bei 32 Hz unter dem Lowcut des Mix und sind leise (RMS 0,02–0,06); anheben (Oktave höher bzw. Sub-Anteil statt 16'), Lowcut prüfen, Pegel angleichen, als A/B | ○ für später | 0027 |
 | N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
 | N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers und dem Korg Monotron Delay: Delay 34 ms (kürzeste Zeit des Monotron, PT2399 bei 20 MHz), Feedback 1, Hochpass 100 Hz, Softclip, Korg-35-Tiefpass; Regler GLO + ALGORITHM überall (unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz); nicht gespeichert; Pattern-Länge → EDIT + SELECT, Feintempo → EDIT + ALGORITHM | ○ geplant, wartet auf „los“ (Zweig `claude/n15-mono-delay`) | 0033 |
 | N17 | Neu | DENSITY: ein Regler dünnt das ganze Pattern aus oder verdichtet es (alle Bereiche oder der gewählte), live und ohne die Steps zu verändern (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
@@ -103,6 +105,8 @@ Stand: 49. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S14 | Sequencer | Fehler: Beat kürzer machen beim Spielen brachte ihn aus dem Takt (Playhead sprang auf den letzten Step); jetzt behält er seinen Platz im Takt, ebenso die Synth-Bereiche (Bug 08.11.) | ◐ behoben (44. Build) | – |
 | S15 | Sequencer | Fill-ins (Feedback 09.11.): über den ganzen Takt generiert (vier Arten, die sich aufbauen), SEQ auch in HOME, immer im Takt nach dem aktuellen | ◐ umgesetzt (47. Build) | 0032 |
 | S16 | Sequencer | Pattern-Chaining (Wunsch 09.11./12.11.): in HOME einen Platz (A–D) halten und weitere derselben Bank drücken → Kette, bis 4 Glieder, Wiederholungen erlaubt (A>B>B); jedes Glied spielt einen ganzen Durchlauf; ist der neue Platz leer, wird der gehaltene dorthin kopiert und gleich gekettet; Kette je Bereich; ein einfacher Druck löst sie auf; mit SAVE gespeichert (Version 27) | ◐ umgesetzt (49. Build) | 0034 |
+| S17 | Sequencer | Live-Aufnahme STRINGS/BASS (Feedback 12.11.): beginnt mit der ersten Taste (ihr Takt = Takt 1, leere Takte davor nicht aufgenommen); ein Takt bleibt ein Takt (Note kurz über den Taktstrich gehalten macht keinen zweiten) | ◐ behoben (50. Build) | 0027 |
+| Y7 | Synths | Init-Sounds für RHYTHM, STRINGS, BASS (je MKS-50 und JP-6) am Ende der Sound-Liste: ein Sägezahn, Filter offen, keine Modulation; BASS mono in 4' (gut hörbar). BEAT: EDIT + PRESETS setzt das Kit auf den Werksklang (N1) | ◐ umgesetzt (50. Build) | 0027 |
 | Y6 | Synths | Fehler: In RHYTHM wurde immer ein Akkord aufgenommen. Stab-Sounds mit Akkordspeicher (KEY MODE CHORD, z. B. HOUSE STAB, ELEC STAB, GATE CHORD, 4THS STAB, POWER 5+8, ORCH HIT) setzten den Akkord der Spur, und der blieb auch nach dem Wechsel auf einen Sound ohne Akkord. Jetzt endet ein Akkord, der vom Sound kam, mit dem nächsten Sound ohne Akkordspeicher (oder KEY MODE ≠ CHORD im Editor); von Hand gewählte bleiben. GLO + weiße Taste 1–9 wählt den Akkord jetzt auch in RHYTHM (Taste 1 = Einzeltöne), mit der Tafel CHORD. Bei der Schritt-Aufnahme (SH-101) bleibt GLO + Taste das Binden (Feedback 12.11.) | ◐ behoben (48. Build) | 0024 |
 | U12 | Bedienung/Display | Fehler: Zeitstempel `now | 1` lag bei geradem `now` 1 ms in der Zukunft → ein kurzer SEQ-Druck galt als gehalten (Fill gleich wieder aus), die Regler-Hervorhebung und die Taktanzeige fielen für ein Bild aus (Flackern) | ◐ behoben (47. Build) | – |
 

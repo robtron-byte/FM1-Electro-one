@@ -846,15 +846,42 @@ int main(int argc, char **argv)
             el_post3(&bs, EL_CMD_RECORD_AREA, 3, 1, 0, 0);
             el_post(&bs, EL_CMD_START, 0, 0);
             bt = 0;
-            BS_TO(40.1f) el_post3(&bs, EL_CMD_NOTE, 2, 38, 0, 100);   /* bar 3 */
+            BS_TO(40.1f) el_post3(&bs, EL_CMD_NOTE, 2, 38, 0, 100);   /* bar 3: the take's bar 1 (feedback 12.11.) */
             BS_TO(42.0f) el_post3(&bs, EL_CMD_NOTE, 2, 38, 0, 0);
+            BS_TO(72.1f) el_post3(&bs, EL_CMD_NOTE, 2, 40, 0, 100);   /* its bar 3: past 2 bars */
+            BS_TO(74.0f) el_post3(&bs, EL_CMD_NOTE, 2, 40, 0, 0);
             el_render_float(&bs, buf, EL_BLOCK);
             el_post3(&bs, EL_CMD_RECORD_AREA, 3, 0, 0, 0);
             el_render_float(&bs, buf, EL_BLOCK);
             #undef BS_TO
             bq = &bs.track[2].pattern[bs.track[2].current];
-            int b2 = bq->rate == ST_RATE_8TH && bq->length == 32 && (bq->step[20].flags & ST_ON) && bq->step[20].note == 38;
+            int b2 = bq->rate == ST_RATE_8TH && bq->length == 32 && (bq->step[4].flags & ST_ON) && bq->step[4].note == 38 &&
+                     (bq->step[20].flags & ST_ON) && bq->step[20].note == 40;
+            if (!b2) printf("debug bass: rate %u len %u s4 %u/%u s20 %u/%u\n", bq->rate, bq->length, bq->step[4].flags, bq->step[4].note, bq->step[20].flags, bq->step[20].note);
             printf("bass: live take in 16ths with held lengths, 1 bar; past 2 bars in 8ths, 4 bars (N16) %s\n", b1 && b2 ? "ok" : "FAIL");
+            /* STRINGS (feedback 12.11.): REC, the first key only in bar 3, held to a
+             * little past the bar's end: a one-bar take, the note on its first step. */
+            static el_engine_t sf;
+            el_init(&sf);
+            el_post3(&sf, EL_CMD_TRACK_CLEAR, 1, 0, 0, 0);
+            el_post3(&sf, EL_CMD_RECORD_AREA, 2, 1, 0, 0);
+            el_post(&sf, EL_CMD_START, 0, 0);
+            float fx = 44100.0f * 60.0f / (sf.transport.bpm * 4.0f);
+            unsigned ft = 0;
+            #define SF_TO(sixteenths) while (ft < (unsigned)(fx * (sixteenths))) { el_render_float(&sf, buf, EL_BLOCK); ft += EL_BLOCK; }
+            SF_TO(31.8f) el_post3(&sf, EL_CMD_NOTE, 1, 60, 0, 100);   /* just before bar 3: lands on its first 8th */
+            SF_TO(40.0f) el_post3(&sf, EL_CMD_NOTE, 1, 64, 0, 100);   /* beat 3 */
+            SF_TO(48.6f) el_post3(&sf, EL_CMD_NOTE, 1, 60, 0, 0);     /* let go a little after the bar line */
+            el_post3(&sf, EL_CMD_NOTE, 1, 64, 0, 0);
+            SF_TO(52.0f)
+            el_post3(&sf, EL_CMD_RECORD_AREA, 2, 0, 0, 0);
+            el_render_float(&sf, buf, EL_BLOCK);
+            #undef SF_TO
+            const st_pattern_t *fq = &sf.track[1].pattern[sf.track[1].current];
+            int f1 = fq->rate == ST_RATE_8TH && fq->length == 8 && (fq->step[0].flags & ST_ON) && fq->step[0].note == 60 &&
+                     (fq->step[4].flags & ST_ON) && fq->step[4].note == 64 && fq->step[0].len <= 32;
+            if (!f1) printf("debug strings take: rate %u len %u s0 %u/%u/%u s4 %u/%u\n", fq->rate, fq->length, fq->step[0].flags, fq->step[0].note, fq->step[0].len, fq->step[4].flags, fq->step[4].note);
+            printf("strings: the take starts with the first key (bar 3 -> bar 1), held a little past the bar: 1 bar %s\n", f1 ? "ok" : "FAIL");
         }
         if (!(live_8th && step_kept && long_ok))
             printf("debug live_8th %d step_kept %d long_ok %d (moves %u first %u second %u)\n", live_8th, step_kept, long_ok, moves, first, second);
