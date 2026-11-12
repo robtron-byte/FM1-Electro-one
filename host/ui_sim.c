@@ -266,6 +266,43 @@ int main(int argc, char **argv)
         hold(BTN_GLO, 0);
         run(30);
         printf("chord board: GLO in STRINGS shows the chords, key LEDs dimmed, the active one full %s\n", cb ? "ok" : "FAIL");
+        /* RHYTHM (feedback 12.11.): a chord sound's chord ends with the next sound
+         * without one; GLO + white key picks the chord there too, key 1 = single notes. */
+        tap_button(BTN_SEL);
+        if (ui.area != EL_AREA_RHYTHM) tap_button(BTN_SEL);
+        if (ui.step_mode[EL_AREA_RHYTHM]) tap_button(BTN_SEQ);
+        const st_track_t *rx = &ui.engine->track[0];
+        unsigned km = rx->part.engine == SYN_JP6 ? JP_KEY_MODE : MP_KEY_MODE;
+        unsigned ck = rx->part.engine == SYN_JP6 ? JP_CHORD : MP_CHORD;
+        unsigned km0 = syn_values(&rx->part)[km], ck0 = syn_values(&rx->part)[ck], chord0 = rx->chord;
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)ck, 0, 2);
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, 1);   /* KEY MODE CHORD */
+        run(30);
+        unsigned with = rx->chord;
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, 0);   /* POLY: the chord ends */
+        run(30);
+        unsigned without = rx->chord;
+        hold(BTN_GLO, 1);
+        tap_key(6);   /* as in STRINGS: MIN */
+        run(60);
+        int board = leds[14 + 6] == 1 && leds[14 + 0] == 2;
+        unsigned picked = rx->chord;
+        tap_key(0);   /* white key 1: single notes */
+        run(30);
+        hold(BTN_GLO, 0);
+        unsigned off = rx->chord;
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, 1);
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, 0);
+        run(30);
+        int rok = ui.area == EL_AREA_RHYTHM && with == 3 && without == 0 && board && picked == 3 && off == 0 && rx->chord == 0;
+        printf("rhythm chord: from the sound %u, POLY ends it %u, GLO + key picks %u, key 1 off %u %s\n", with, without, picked, off,
+               rok ? "ok" : "FAIL");
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)ck, 0, (int16_t)ck0);   /* as it was for the tests below */
+        el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, (int16_t)km0);
+        el_post3(ui.engine, EL_CMD_TRACK_CHORD, 0, (uint8_t)chord0, 0, 0);
+        run(30);
+        tap_button(BTN_ENV);
+        if (ui.area != EL_AREA_STRINGS) tap_button(BTN_ENV);
         tap_button(BTN_FX);
     }
     {
@@ -312,8 +349,8 @@ int main(int argc, char **argv)
         keep_pat = am->pattern[am->current];
         int was_running = engine.transport.running;
         dr_post(am, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
-        dr_post(am, DR_CMD_ACCENT, 0, 3, 0, 0);   /* an accent on step 4, no hit */
         if (engine.transport.running) tap_button(BTN_PLAY);
+        dr_post(am, DR_CMD_ACCENT, 0, (uint8_t)(3u + 16u * ui.step_page[0]), 0, 0);   /* an accent on step 4 of the page shown, no hit */
         tap_key(1);                                /* BD */
         run(30);
         int ok = !leds[14 + 6];                    /* white key 4: not lit for BD */

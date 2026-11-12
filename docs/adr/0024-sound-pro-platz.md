@@ -1,7 +1,7 @@
 # 0024: Jeder Pattern-Platz behält seinen Sound
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-06
+- **Stand:** 2026-11-12
 
 ## Kontext
 
@@ -20,7 +20,7 @@ Jeder Platz hat seinen eigenen Sound. Er wird gesetzt, wenn der Platz zu spielen
   - Kit wählen (PRESETS) gibt dem spielenden Platz das Werks-Kit.
   - Ein Generator-Groove mit einem anderen Kit gibt dem Platz dessen Werks-Kit; mit demselben Kit bleiben die Regler. Das gilt jetzt auch sofort für den spielenden Platz (vorher erst nach einem Platzwechsel).
   - Platz kopieren nimmt den Sound mit.
-- **RHYTHM, STRINGS, BASS** (`engine/synth_track.c`, `st_track_t.sound[ST_PATTERNS]`: Engine, Sound-Nummer, Werte): `st_enter` lädt den Sound des Platzes, wenn ein anderer geladen ist (Werte verglichen), mit Akkordspeicher wie beim Laden eines Sounds. `EL_CMD_TRACK_PARAM` und `EL_CMD_TRACK_PRESET` schreiben in den spielenden Platz. Neue Patterns vom Generator behalten den Sound ihres Platzes.
+- **RHYTHM, STRINGS, BASS** (`engine/synth_track.c`, `st_track_t.sound[ST_PATTERNS]`: Engine, Sound-Nummer, Werte): `st_enter` lädt den Sound des Platzes, wenn ein anderer geladen ist (Werte verglichen), mit Akkordspeicher wie beim Laden eines Sounds: `st_follow_chord` setzt den Akkord eines Sounds mit Akkordspeicher; ein Akkord, der vom vorigen Sound kam, endet mit einem Sound ohne Akkordspeicher (auch wenn im Editor KEY MODE oder CHORD geändert wird); ein von Hand gewählter Akkord (GLO + Taste 1–9 in STRINGS und RHYTHM) bleibt. `EL_CMD_TRACK_PARAM` und `EL_CMD_TRACK_PRESET` schreiben in den spielenden Platz. Neue Patterns vom Generator behalten den Sound ihres Platzes.
 - **Speicher** (`fm1/el_store.c`, Version 21): die Sounds aller Plätze hinten angehängt (Drums 4 × 124 Byte, Synths 3 × 4 × (Werte + 2)). Records der Versionen 19 und 20 sind der vordere Teil davon und werden weiter gelesen: Jeder Platz bekommt den einen gespeicherten Sound; Drum-Plätze mit einem anderen Kit dessen Werks-Kit, so wie sie bisher klangen.
 
 ## Alternativen
@@ -38,3 +38,4 @@ Jeder Platz hat seinen eigenen Sound. Er wird gesetzt, wenn der Platz zu spielen
 ## Verlauf
 
 - 2026-11-06: angelegt nach den Rückmeldungen „in jedem Pattern den Sound speichern“ und „die Drum-Einstellungen setzen sich zurück, wenn ich von A zu B gehe“
+- 2026-11-12: Akkordspeicher folgt dem Sound (Y6, Feedback „in RHYTHM wird immer ein Akkord aufgenommen“): vorher blieb der Akkord eines Stab-Sounds an der Spur hängen; Akkordwahl mit GLO + Taste auch in RHYTHM

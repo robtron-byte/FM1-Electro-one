@@ -305,18 +305,23 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_TRACK_GATE:
         p->gate = (uint8_t)el_clampi(c->b, 10, 100);
         break;
-    case EL_CMD_TRACK_PARAM:
+    case EL_CMD_TRACK_PARAM: {
+        unsigned old = syn_chord_memory(&t->part);
         syn_set(&t->part, c->b, c->value);
+        st_follow_chord(t, old);   /* KEY MODE / CHORD in the editor */
         if (c->b < SYN_VALUES) t->sound[t->current].v[c->b] = syn_values(&t->part)[c->b];
         break;
-    case EL_CMD_TRACK_PRESET:
+    }
+    case EL_CMD_TRACK_PRESET: {
+        unsigned old = syn_chord_memory(&t->part);
         syn_load(&t->part, c->c, e->staged_patch);
         t->preset = c->b;
-        if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
+        st_follow_chord(t, old);
         st_keep_sound(t, 0);
         EL_FENCE();
         ++e->staged_taken;
         break;
+    }
     case EL_CMD_TRACK_PATTERN:
         if (c->b < ST_PATTERNS) t->pattern[c->b] = e->staged_pattern;
         EL_FENCE();

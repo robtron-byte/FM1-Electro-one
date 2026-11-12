@@ -52,8 +52,16 @@ EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot)
     unsigned n = syn_value_count(s->engine), same = s->engine == t->part.engine;
     for (unsigned i = 0; i < n && same; ++i) same = v[i] == s->v[i];
     if (same) return;
+    unsigned old = syn_chord_memory(&t->part);
     syn_load(&t->part, s->engine, s->v);
-    if (syn_chord_memory(&t->part)) t->chord = (uint8_t)syn_chord_memory(&t->part);
+    st_follow_chord(t, old);
+}
+
+EL_DSP_CODE void st_follow_chord(st_track_t *t, unsigned old)
+{
+    unsigned now = syn_chord_memory(&t->part);
+    if (now) t->chord = (uint8_t)now;
+    else if (old && t->chord == old) t->chord = 0;
 }
 
 const char *const st_rate_names[ST_RATES] = {"1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS", "4 BARS", "8 BARS"};

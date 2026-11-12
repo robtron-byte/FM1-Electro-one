@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 09.11.2026, 47. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 48. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 47. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 48. Build:
+- **RHYTHM nimmt nicht mehr ungewollt Akkorde auf (Y6):** Stab-Sounds mit Akkordspeicher (HOUSE STAB, ELEC STAB, GATE CHORD, 4THS STAB, POWER 5+8, ORCH HIT …) setzen den Akkord der Spur; der blieb bisher auch nach dem Wechsel auf einen anderen Sound hängen. Jetzt endet er mit dem nächsten Sound ohne Akkord. Abschalten von Hand: GLO halten + weiße Taste 1 („SINGLE NOTES“); Tasten 2–9 wählen einen Akkord, wie in STRINGS (GLO zeigt die Tafel CHORD).
+
+Aus dem 47. Build:
 - **Fills über den ganzen Takt:** neue Grooves bekommen Fills, die sich über den ganzen Takt aufbauen (vier Arten). Schon gespeicherte Fills bleiben; einen neuen bekommst du mit einem neuen Groove.
 - **SEQ spielt den Fill auch in HOME,** immer im Takt nach dem aktuellen („FILL IN THE NEXT BAR“).
 - **Fehler behoben:** Ein kurzer SEQ-Druck galt oft als „gehalten“ und der Fill wurde gleich wieder abgebrochen; dieselbe Ursache ließ die Hervorhebung beim Drehen kurz ausfallen.
@@ -148,7 +151,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `fb5645f96ab12f1277e713079a617cee4982156ef3aedc44cb7cd6c09f01347a`
+SHA-256: `0ec4a9e52ddd429655fd814be464e6e786ac1ffc949568ccfb46b474db82d572`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

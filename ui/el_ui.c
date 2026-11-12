@@ -39,7 +39,8 @@
  * RHYTHM / STRINGS / BASS
  *   KEYS  (SEQ off) all keys play the sound, OCT -/+ octave. REC while running
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
- *         STRINGS: GLO + white key 1-14 picks the chord (1 = single notes).
+ *         STRINGS, RHYTHM: GLO + white key 1-9 picks the chord (1 = single notes).
+ *         A chord sound (KEY MODE CHORD) sets it; the next sound without one ends it.
  *   STEP  (SEQ on) white keys switch steps on/off and select them, EDIT + white
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32, GLO + SELECT step.
  *         KNOB 1 note, 2 octave, 3 chord (STRINGS) or accent, 4 inversion
@@ -872,6 +873,12 @@ static void keys_beat(el_ui_t *ui, unsigned key, unsigned hold)
  * more step. The
  * first key after REC starts a new sequence. */
 /* REC mode of the area (GLO + REC): step by step like the SH-101, or live. */
+/* The areas whose keys can play chords (GLO + white key 1-9). */
+static int chord_area(const el_ui_t *ui)
+{
+    return ui->area == EL_AREA_STRINGS || ui->area == EL_AREA_RHYTHM;
+}
+
 static int rec_step_mode(const el_ui_t *ui)
 {
     return synth_area(ui) && (ui->engine->option[EL_OPT_REC_STEP] >> (ui->area - 1u)) & 1u;
@@ -926,7 +933,7 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
         }
         return;
     }
-    if (ui->area == EL_AREA_STRINGS && (hold & HOLD_GLO) && step >= 0 && step <= MKS_CHORDS) {
+    if (chord_area(ui) && (hold & HOLD_GLO) && step >= 0 && step <= MKS_CHORDS && !(t->recording && rec_step_mode(ui))) {   /* step rec: GLO + key ties */
         el_post3(e, EL_CMD_TRACK_CHORD, track, (uint8_t)step, 0, 0);
         notice(ui, step ? mks_chord_names[step - 1] : "SINGLE NOTES");
         return;
@@ -2317,7 +2324,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             else
                 el_snprintf(line, sizeof line, "%s %u/%u  PRESETS=SOUND SEQ=STEP", synth_page_names[page], page + 1u, SYNTH_PAGES);
             hint = (ui->hold & HOLD_GLO) ? (ui->step_mode[ui->area] ? "GLO: KEY=TIE SEL=STEP ALGO=LENGTH" :
-                                            ui->area == EL_AREA_STRINGS ? "GLO: KEY 1-9=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
+                                            chord_area(ui) ? "GLO: KEY 1-9=CHORD ALGO=LENGTH" : "GLO: ALGO=PATTERN LENGTH") :
                    (ui->hold & HOLD_EDIT) ? (ui->area == EL_AREA_STRINGS ? "EDIT: ACC/REST ALGO=STEP LEN" : "EDIT: ACC/REST ALGO=GATE") : line;
         }
     }
@@ -2442,12 +2449,13 @@ static void draw_bars_overlay(el_ui_t *ui, gfx_band_t *b)
     gfx_text(b, OX + (OW - gfx_text_width(unit, 2)) / 2, OY + 56, unit, TEXT, 2);
 }
 
-/* STRINGS, GLO held (feedback 07.11.): the chord the keys play, chosen with
+/* STRINGS and RHYTHM, GLO held (feedback 07.11. / 12.11.): the chord the keys play, chosen with
  * white keys 1-9. A board of the nine choices, the active one filled, and its
  * notes on a small keyboard. */
 static int chord_board(const el_ui_t *ui)
 {
-    return (ui->hold & HOLD_GLO) && !ui->overview && !ui->options && ui->area == EL_AREA_STRINGS && !ui->editor &&
+    return (ui->hold & HOLD_GLO) && !ui->overview && !ui->options && chord_area(ui) && !ui->editor &&
+           !(track_of(ui)->recording && rec_step_mode(ui)) &&
            !ui->step_mode[ui->area] && !ui->sh_key && !bars_overlay(ui);
 }
 
@@ -2455,7 +2463,7 @@ static void draw_chord_board(el_ui_t *ui, gfx_band_t *b)
 {
     enum { OX = 8, OY = 50, OW = 224, OH = 136 };
     if (!gfx_touches(b, OY, OH)) return;
-    uint16_t color = area_color[EL_AREA_STRINGS];
+    uint16_t color = area_color[ui->area];
     unsigned active = track_of(ui)->chord <= MKS_CHORDS ? track_of(ui)->chord : 0;
     gfx_fill(b, OX, OY, OW, OH, BACK);
     gfx_frame(b, OX, OY, OW, OH, color);

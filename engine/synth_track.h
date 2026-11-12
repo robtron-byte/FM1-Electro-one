@@ -116,6 +116,10 @@ EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot);
 /* The part's sound (as loaded and edited) into the playing slot; all = 1:
  * into every slot. */
 EL_DSP_CODE void st_keep_sound(st_track_t *t, int all);
+/* After the sound changed: a sound with chord memory sets the track's chord;
+ * a chord that came from the old sound (old = its chord memory) ends when the
+ * new one has none, a chord picked by hand stays. */
+EL_DSP_CODE void st_follow_chord(st_track_t *t, unsigned old);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);
 /* Live note from the keys or MIDI: plays (with the live chord) and records
