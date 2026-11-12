@@ -16,7 +16,7 @@ Wunsch: „wenn ich die Pattern wechsle, soll in jedem Pattern der Sound gespeic
 
 Jeder Platz hat seinen eigenen Sound. Er wird gesetzt, wenn der Platz zu spielen beginnt (am Takt oder sofort). Was man am Sound einstellt, gilt für den Platz, der gerade spielt: man hört, was man ändert.
 
-- **BEAT** (`engine/drums.c`, `dr_machine_t.sound[DR_PATTERNS]`): Kit und alle Regler der Instrumente plus KIT-Pegel, Akzent, Choke und Engine (808/PO-12) als `tr808_sound_t` (`engine/tr808.h`, `tr808_sound_apply`: Werte kopieren, Panorama nur neu rechnen, wo es sich ändert; kein `tr808_init` mehr beim Kitwechsel). Drum-Tonart und FOLLOW (KIT-Parameter 4, 5, ADR 0016) gehören weiter dem ganzen Bereich.
+- **BEAT** (`engine/drums.c`, `dr_machine_t.sound[DR_PATTERNS]`): Kit und alle Regler der Instrumente plus KIT-Pegel, Akzent, Choke und Engine (808/PO-12) als `tr808_sound_t` (`engine/tr808.h`, `tr808_sound_apply`: Werte kopieren, Panorama nur neu rechnen, wo es sich ändert; kein `tr808_init` mehr beim Kitwechsel). Drum-Tonart und FOLLOW (KIT-Parameter 4, 5, ADR 0016) gehören weiter dem ganzen Bereich. **Geändert 2026-11-12 (Wunsch des Nutzers):** BEAT hat ein Kit für alle Plätze. Jede Regleränderung (`DR_CMD_PARAM`) und jeder Kitwechsel (`DR_CMD_KIT`) gilt für A–D zugleich (`dr_share_kit`); ein neuer Groove für den spielenden Platz in einem anderen Kit stellt alle Plätze auf dieses Kit um, einer für einen anderen Platz spielt im vorhandenen Kit. Gespeichert wird weiter je Platz (gleiche Werte, Speicherversion unverändert); ältere Grooves mit verschiedenen Kits übernehmen beim Laden das Kit des spielenden Platzes. Die Synth-Bereiche behalten einen Sound pro Platz.
   - Kit wählen (PRESETS) gibt dem spielenden Platz das Werks-Kit.
   - Ein Generator-Groove mit einem anderen Kit gibt dem Platz dessen Werks-Kit; mit demselben Kit bleiben die Regler. Das gilt jetzt auch sofort für den spielenden Platz (vorher erst nach einem Platzwechsel).
   - Platz kopieren nimmt den Sound mit.
@@ -38,4 +38,5 @@ Jeder Platz hat seinen eigenen Sound. Er wird gesetzt, wenn der Platz zu spielen
 ## Verlauf
 
 - 2026-11-06: angelegt nach den Rückmeldungen „in jedem Pattern den Sound speichern“ und „die Drum-Einstellungen setzen sich zurück, wenn ich von A zu B gehe“
+- 2026-11-12: BEAT: ein Kit für alle Plätze statt einem pro Platz (B18, Wunsch „die Beat-Kits immer über alle Patterns bearbeiten und speichern, nicht für jedes einzeln“)
 - 2026-11-12: Akkordspeicher folgt dem Sound (Y6, Feedback „in RHYTHM wird immer ein Akkord aufgenommen“): vorher blieb der Akkord eines Stab-Sounds an der Spur hängen; Akkordwahl mit GLO + Taste auch in RHYTHM

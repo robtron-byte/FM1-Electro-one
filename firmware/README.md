@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 51. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 52. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 51. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 52. Build:
+- **BEAT: ein Kit für alle Patterns (B18):** Drum-Regler und Kitwechsel gelten für A–D zugleich und werden so gespeichert. Ein neuer Groove (Generator) für den spielenden Platz in einem anderen Kit stellt alle Plätze um. Ältere Grooves mit verschiedenen Kits übernehmen beim Laden das Kit des spielenden Platzes. RHYTHM, STRINGS, BASS behalten einen Sound pro Platz.
+
+Aus dem 51. Build:
 - **BEAT: Zählzeiten sichtbar (U13):** leere Steps 1, 5, 9, 13 leuchten gedimmt.
 - **OCT − / OCT + (U14):** dunkel in der Grundoktave des Bereichs; eine Oktave tiefer (höher) leuchtet OCT − (OCT +) gedimmt, zwei und mehr voll, am Ende blinkt sie.
 
@@ -162,7 +165,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `0a552fa2d4a4661d8e052d41b4ca6372897e0d2bc2142f97f033881a123bb702`
+SHA-256: `a30a960b13c5e3d1ba8376b37f62dfb50e8116e1c62be585bda863f6b0334dab`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

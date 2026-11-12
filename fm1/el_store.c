@@ -489,6 +489,7 @@ static int el_store_load_held(el_engine_t *e)
     m->current = m->next = (uint8_t)(slot_a ? 0u : d->current % DR_PATTERNS);
     tr808_sound_apply(&m->kit, &m->sound[m->current]);
     m->kit_index = (uint8_t)(m->pattern[m->current].kit % DR_KITS);
+    dr_share_kit(m);   /* one kit for every slot: older records take the playing slot's (feedback 12.11.) */
     e->transport.swing = m->pattern[m->current].swing;
     m->muted = d->muted ? 1 : 0;
     el_transport_set_bpm(&e->transport, el_clampi(d->bpm_x10, 300, 3000) * 0.1f);

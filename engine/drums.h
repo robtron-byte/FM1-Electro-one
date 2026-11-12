@@ -161,6 +161,8 @@ EL_DSP_CODE void dr_kit_sound(tr808_sound_t *s, unsigned index);
 /* Kit index as last set (N1), or its factory sound when it was never edited. */
 EL_DSP_CODE void dr_kit_recall(const dr_machine_t *m, tr808_sound_t *s, unsigned index);
 /* Control task: queue an edit. Returns 0, or -1 when the queue is full. */
+/* One kit for every slot (feedback 12.11.): the playing slot's in all. */
+EL_DSP_CODE void dr_share_kit(dr_machine_t *m);
 int dr_post(dr_machine_t *m, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value);
 /* Control task: replace a whole pattern. Returns 0, -1 queue full, -2 while
  * the previous replacement has not been applied yet (retry next frame). */

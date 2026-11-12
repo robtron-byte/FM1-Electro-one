@@ -1172,21 +1172,23 @@ int main(int argc, char **argv)
         dr_post(m, DR_CMD_SELECT, 1, 1, 0, 0);
         el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 1, 1, 0);
         el_render_float(&ps, audio, EL_BLOCK);
+        /* BEAT: one kit for every slot (feedback 12.11.): B sounds like A; the synths keep a sound per slot */
         ps_ok = ps_ok && m->current == 1 && st->current == 1 &&
-                tr808_get(&m->kit, D8_BD, 1) == 64 && syn_values(&st->part)[MP_CUTOFF] != 17;
+                tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[MP_CUTOFF] != 17;
         dr_post(m, DR_CMD_PARAM, D8_SD, 0, 0, 33);               /* B: SD level 33 */
         el_render_float(&ps, audio, EL_BLOCK);
         dr_post(m, DR_CMD_SELECT, 0, 1, 0, 0);
         el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 0, 1, 0);
         el_render_float(&ps, audio, EL_BLOCK);
-        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && tr808_get(&m->kit, D8_SD, 0) != 33 &&
+        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && tr808_get(&m->kit, D8_SD, 0) == 33 &&
                 syn_values(&st->part)[MP_CUTOFF] == 17;
         int sv = el_store_save(&ps);
         el_init(&back);
         int lb = el_store_load(&back);
         ps_ok = ps_ok && sv == 0 && lb == 0 && back.drums.current == 0 &&
                 tr808_get(&back.drums.kit, D8_BD, 1) == 100 && syn_values(&back.track[1].part)[MP_CUTOFF] == 17 &&
-                tr808_sound_get(&back.drums.sound[1], D8_SD, 0) == 33 && tr808_sound_get(&back.drums.sound[1], D8_BD, 1) == 64 &&
+                tr808_sound_get(&back.drums.sound[1], D8_SD, 0) == 33 && tr808_sound_get(&back.drums.sound[1], D8_BD, 1) == 100 &&
+                tr808_sound_get(&back.drums.sound[3], D8_SD, 0) == 33 &&
                 back.track[1].sound[1].v[MP_CUTOFF] != 17 && back.track[1].sound[0].v[MP_CUTOFF] == 17;
         int dv = el_store_test_as_v20();
         el_init(&v20);
@@ -1196,7 +1198,7 @@ int main(int argc, char **argv)
             ps_ok = ps_ok && tr808_sound_get(&v20.drums.sound[i], D8_BD, 1) == 100 && v20.track[1].sound[i].v[MP_CUTOFF] == 17;
         if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
     }
-    printf("slots: a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
+    printf("slots: BEAT one kit for all slots, synths a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
     {
         /* B12 / N1: version 26 keeps every kit as last set; a version 25 record
          * (twelve parts, toms) loads with each part where it belongs now. */

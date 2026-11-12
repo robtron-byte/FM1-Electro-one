@@ -95,7 +95,17 @@ EL_DSP_CODE void dr_kit_recall(const dr_machine_t *m, tr808_sound_t *s, unsigned
     } else dr_kit_sound(s, index);
 }
 
-/* The playing slot takes kit index as last set (factory: its factory sound, the settings forgotten). */
+/* One kit for every slot (feedback 12.11.): the playing slot's sound and kit
+ * in all of them, so A-D sound alike and are stored alike. */
+EL_DSP_CODE void dr_share_kit(dr_machine_t *m)
+{
+    for (unsigned i = 0; i < DR_PATTERNS; ++i) {
+        if (i != m->current) m->sound[i] = m->sound[m->current];
+        m->pattern[i].kit = m->kit_index;
+    }
+}
+
+/* The kit index as last set, in every slot (factory: its factory sound, the settings forgotten). */
 static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index, int factory)
 {
     if (index >= DR_KITS) return;
@@ -103,6 +113,7 @@ static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index, int factory)
     dr_kit_recall(m, &m->sound[m->current], index);
     tr808_sound_apply(&m->kit, &m->sound[m->current]);
     m->kit_index = (uint8_t)index;
+    dr_share_kit(m);
 }
 
 void dr_init(dr_machine_t *m)
@@ -509,13 +520,13 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_LOAD:
         if (part < DR_PATTERNS) {
-            /* Another kit: the slot starts from that kit's factory sound;
-             * the same kit keeps the slot's knobs. */
-            if (m->staging.kit != m->pattern[part].kit && m->staging.kit < DR_KITS) {
-                dr_kit_recall(m, &m->sound[part], m->staging.kit);
-                if (part == m->current) { tr808_sound_apply(&m->kit, &m->sound[part]); m->kit_index = m->staging.kit; }
-            }
+            /* One kit for all slots (feedback 12.11.): a new groove for the
+             * playing slot in another kit switches every slot to that kit (as
+             * last set); one for another slot plays in the kit there is. */
+            unsigned kit = m->staging.kit;
             m->pattern[part] = m->staging;
+            if (part == m->current && kit < DR_KITS && kit != m->kit_index) apply_kit(m, kit, 0);
+            m->pattern[part].kit = m->kit_index;
             /* a new groove brings its fill (N12); a variation keeps the slot's */
             if (!c->c || !m->fill[part].used) dr_generate_fill(&m->pattern[part], m->random ^ 0x9e3779b9u, &m->fill[part]);
             if (!c->c) {
@@ -536,7 +547,7 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
         break;
     case DR_CMD_PARAM:
         tr808_set(&m->kit, (int)part, (int)step, c->value);
-        tr808_sound_set(&m->sound[m->current], (int)part, (int)step, c->value);
+        for (unsigned i = 0; i < DR_PATTERNS; ++i) tr808_sound_set(&m->sound[i], (int)part, (int)step, c->value);   /* every slot */
         if (m->kit_index < DR_KITS) {   /* the kit remembers it (N1) */
             m->kit_mem[m->kit_index] = m->sound[m->current];
             m->kit_mem_used |= (uint8_t)(1u << m->kit_index);

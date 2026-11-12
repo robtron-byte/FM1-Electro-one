@@ -4,9 +4,9 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B18, S18, Y9, F11, U15, P11, N26).
+Neue Nummern: im Bereich die nächste freie (B19, S18, Y9, F11, U15, P11, N26).
 
-Stand: 51. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 52. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -105,6 +105,7 @@ Stand: 51. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S14 | Sequencer | Fehler: Beat kürzer machen beim Spielen brachte ihn aus dem Takt (Playhead sprang auf den letzten Step); jetzt behält er seinen Platz im Takt, ebenso die Synth-Bereiche (Bug 08.11.) | ◐ behoben (44. Build) | – |
 | S15 | Sequencer | Fill-ins (Feedback 09.11.): über den ganzen Takt generiert (vier Arten, die sich aufbauen), SEQ auch in HOME, immer im Takt nach dem aktuellen | ◐ umgesetzt (47. Build) | 0032 |
 | S16 | Sequencer | Pattern-Chaining (Wunsch 09.11./12.11.): in HOME einen Platz (A–D) halten und weitere derselben Bank drücken → Kette, bis 4 Glieder, Wiederholungen erlaubt (A>B>B); jedes Glied spielt einen ganzen Durchlauf; ist der neue Platz leer, wird der gehaltene dorthin kopiert und gleich gekettet; Kette je Bereich; ein einfacher Druck löst sie auf; mit SAVE gespeichert (Version 27) | ◐ umgesetzt (49. Build) | 0034 |
+| B18 | Beat/Drums | Ein Kit für alle Plätze A–D: Regler und Kitwechsel gelten für alle Patterns und werden für alle gespeichert (Wunsch 12.11.; vorher ein Kit-Sound pro Platz); ältere Grooves übernehmen das Kit des spielenden Platzes | ◐ umgesetzt (52. Build) | 0024 |
 | U13 | Bedienung/Display | BEAT: leere Steps 1, 5, 9, 13 leuchten gedimmt (Zählzeiten), damit die Drums leichter zu setzen sind (Wunsch 12.11.) | ◐ umgesetzt (51. Build) | 0020 |
 | U14 | Bedienung/Display | OCT − / OCT + leuchten erst, wenn die Oktave verstellt ist: eine tiefer bzw. höher gedimmt, weiter voll, am Ende blinkend (Wunsch 12.11.) | ◐ umgesetzt (51. Build) | 0020 |
 | S17 | Sequencer | Live-Aufnahme STRINGS/BASS (Feedback 12.11.): beginnt mit der ersten Taste (ihr Takt = Takt 1, leere Takte davor nicht aufgenommen); ein Takt bleibt ein Takt (Note kurz über den Taktstrich gehalten macht keinen zweiten) | ◐ behoben (50. Build) | 0027 |
