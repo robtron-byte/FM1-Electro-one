@@ -100,6 +100,9 @@ static const uint8_t synth_pages[SYN_ENGINES][UI_PAGES][4] = {
      {JP_CHORUS, JP_DELAY_SEND, JP_REVERB_SEND, JP_VOLUME}}};
 static const char *const note_names[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
+/* Each area's keyboard octave at the start (OCT -/+ light up away from it). */
+static const int8_t home_octave[EL_AREAS] = {0, 0, -1, -2};
+
 static int key_white(unsigned key)
 {
     for (unsigned i = 0; i < UI_WHITE; ++i) if (white_keys[i] == key) return (int)i;
@@ -132,8 +135,7 @@ void el_ui_init(el_ui_t *ui, el_engine_t *engine)
     ui->load = -1;
     ui->rec_key = ui->rec_note = 0xff;
     ui->prep_pending = 1;
-    ui->octave[EL_AREA_STRINGS] = -1;
-    ui->octave[EL_AREA_BASS] = -2;
+    for (unsigned a = 0; a < EL_AREAS; ++a) ui->octave[a] = home_octave[a];
     for (unsigned a = 0; a < EL_AREAS; ++a) ui->gen_density[a] = 64;
     ui->gen_style[EL_AREA_BEAT] = 6;   /* ROTHER */
     ui->gen_style[EL_AREA_RHYTHM] = 2;
@@ -1729,9 +1731,15 @@ static void update_leds(el_ui_t *ui)
     if (ui->sound_save && fast) blink |= 1ull << BTN_SAVE;
     dim |= (1ull << BTN_FX | 1ull << BTN_SEL | 1ull << BTN_ENV | 1ull << BTN_LFO | 1ull << BTN_HOME) &
           ~(1ull << (ui->overview ? BTN_HOME : BTN_FX + ui->area));
-    if (!ui->overview && synth_area(ui) && !ui->step_mode[ui->area] && slow) {
-        if (ui->octave[ui->area] <= EL_OCT_MIN) blink |= 1ull << BTN_OCT_DOWN;
-        if (ui->octave[ui->area] >= EL_OCT_MAX) blink |= 1ull << BTN_OCT_UP;
+    if (!ui->overview && synth_area(ui) && !ui->step_mode[ui->area]) {
+        /* OCT -/+ dark at the area's own octave; one down (up) faint, further full,
+         * blinking at the end (feedback 12.11.) */
+        int d = ui->octave[ui->area] - home_octave[ui->area];
+        leds &= ~(1ull << BTN_OCT_DOWN | 1ull << BTN_OCT_UP);
+        if (d < 0) { leds |= 1ull << BTN_OCT_DOWN; if (d == -1) dim |= 1ull << BTN_OCT_DOWN; }
+        if (d > 0) { leds |= 1ull << BTN_OCT_UP; if (d == 1) dim |= 1ull << BTN_OCT_UP; }
+        if (slow && ui->octave[ui->area] <= EL_OCT_MIN) blink |= 1ull << BTN_OCT_DOWN;
+        if (slow && ui->octave[ui->area] >= EL_OCT_MAX) blink |= 1ull << BTN_OCT_UP;
     }
     if (ui->overview) {
         /* The slot each area plays; the one it switches to blinks. While a
@@ -1774,6 +1782,7 @@ static void update_leds(el_ui_t *ui)
             }
             if (playing && m->pos == s) on = !on;
             if (on) leds |= 1ull << (14u + white_keys[i]);
+            else if (i % 4u == 0) { leds |= 1ull << (14u + white_keys[i]); key_dim |= 1ull << (14u + white_keys[i]); }   /* the beats 1 5 9 13 faintly, to find the steps (feedback 12.11.) */
         }
         for (unsigned k = 0; k < UI_BLACK; ++k) {
             int part = beat_part(ui, (int)k);

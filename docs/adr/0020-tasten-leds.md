@@ -1,7 +1,7 @@
 # 0020: Funktionstasten leuchten, aktive Zustände blinken, inaktive Bereiche gedimmt
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-06
+- **Stand:** 2026-11-12
 
 ## Kontext
 
@@ -41,3 +41,4 @@ Unter dem SDK von FM1 Open kennen die LEDs nur an und aus (`fm1_led_set`). Die e
 - 2026-11-05: angelegt auf Wunsch des Nutzers nach dem ersten Gerätetest
 - 2026-11-06: auf Wunsch des Nutzers: inaktive Bereichstasten gedimmt (etwa halb), OCT blinkt am Ende der Oktave wie in der Original-Firmware
 - 2026-11-08: PLAY hat eine zweite, grüne LED an der Matrix-Stelle Spalte 8, Zeile PA5 (dort ist keine Taste; Fund in Elixir von Dan Majka, GPL-3.0, nur gelesen). FM1-Electro: grün beim Spielen, in der zweiten Hälfte jedes Viertels dunkel, weiß aus; gestoppt weiß gedimmt (N4). `fm1_led_set(41, …)` (`EL_LED_PLAY_GREEN`)
+- 2026-11-12: Feedback: In BEAT leuchten die leeren Steps 1, 5, 9, 13 (die Zählzeiten) gedimmt, zum leichteren Setzen (U13). OCT − / OCT + in RHYTHM, STRINGS, BASS (Tastenmodus): dunkel in der eigenen Oktave des Bereichs (RHYTHM 0, STRINGS −1, BASS −2), eine Oktave tiefer bzw. höher gedimmt, zwei und mehr voll, am Ende blinkend (U14; vorher immer an). Es gibt nur eine gedimmte Stufe

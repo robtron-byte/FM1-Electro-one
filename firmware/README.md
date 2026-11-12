@@ -1,8 +1,12 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 50. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 51. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 50. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 51. Build:
+- **BEAT: Zählzeiten sichtbar (U13):** leere Steps 1, 5, 9, 13 leuchten gedimmt.
+- **OCT − / OCT + (U14):** dunkel in der Grundoktave des Bereichs; eine Oktave tiefer (höher) leuchtet OCT − (OCT +) gedimmt, zwei und mehr voll, am Ende blinkt sie.
+
+Aus dem 50. Build:
 - **Live-Aufnahme STRINGS (und BASS) beginnt mit der ersten Taste (S17):** REC drücken, dann wartet die Aufnahme; der Takt der ersten Taste wird Takt 1 (leere Takte davor kommen nicht ins Pattern). Ein Takt bleibt ein Takt, auch wenn die letzte Note etwas über den Taktstrich gehalten wird.
 - **Init-Sounds (Y7):** am Ende der Sound-Liste jedes Bereichs (PRESETS ganz nach rechts): INIT RHY / INIT STR / INIT BASS (MKS-50) und INIT RHY 6 / INIT STR 6 / INIT BASS6 (JP-6): ein Sägezahn, Filter offen, keine Modulation. INIT BASS spielt eine Oktave höher (gut hörbar, über der Bassdrum). BEAT: EDIT + PRESETS setzt das Kit auf den Werksklang.
 
@@ -158,7 +162,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `e5394afe9e84a4f5f713f9763292aa96b335fddda803f249083baf28f6cfad28`
+SHA-256: `0a552fa2d4a4661d8e052d41b4ca6372897e0d2bc2142f97f033881a123bb702`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

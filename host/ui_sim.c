@@ -354,6 +354,7 @@ int main(int argc, char **argv)
         tap_key(1);                                /* BD */
         run(30);
         int ok = !leds[14 + 6];                    /* white key 4: not lit for BD */
+        int beats = leds[14 + 7] == 2 && leds[14 + 14] == 2 && !leds[14 + 2];   /* empty steps 5 and 9 faint, 2 dark (feedback 12.11.) */
         tap_key(25);                               /* the accent row */
         run(30);
         ok = ok && leds[14 + 6] == 1;
@@ -363,6 +364,23 @@ int main(int argc, char **argv)
         if (was_running) tap_button(BTN_PLAY);
         run(30);
         printf("leds: accents in the running light with the accent row only %s\n", ok ? "ok" : "FAIL");
+        printf("leds: BEAT steps 1 5 9 13 faintly lit when empty %s\n", beats ? "ok" : "FAIL");
+        /* OCT -/+ in a synth area (feedback 12.11.): dark at its octave, one away faint, two full */
+        tap_button(BTN_SEL);
+        if (ui.area != EL_AREA_RHYTHM) tap_button(BTN_SEL);
+        if (ui.step_mode[EL_AREA_RHYTHM]) tap_button(BTN_SEQ);
+        int8_t oct0 = ui.octave[EL_AREA_RHYTHM];
+        ui.octave[EL_AREA_RHYTHM] = 0; run(30);
+        int oc = !leds[BTN_OCT_DOWN] && !leds[BTN_OCT_UP];
+        tap_button(BTN_OCT_DOWN);
+        oc = oc && leds[BTN_OCT_DOWN] == 2 && !leds[BTN_OCT_UP];
+        tap_button(BTN_OCT_DOWN);
+        oc = oc && leds[BTN_OCT_DOWN] == 1;
+        tap_button(BTN_OCT_UP); tap_button(BTN_OCT_UP); tap_button(BTN_OCT_UP);
+        oc = oc && !leds[BTN_OCT_DOWN] && leds[BTN_OCT_UP] == 2;
+        ui.octave[EL_AREA_RHYTHM] = oct0; run(30);
+        tap_button(BTN_FX);
+        printf("leds: OCT -/+ dark at the area's octave, one away faint, two full %s\n", oc ? "ok" : "FAIL");
     }
     {
         /* Beat length (feedback 08.11.): 1 -> 2 bars copies bar 1 into bar 2; 2 -> 1 bar while
@@ -1040,19 +1058,21 @@ int main(int argc, char **argv)
         printf("leds: REC dimmed while not recording (N5) %s; length in bars %u x %u (N11) %s\n", n5 ? "ok" : "FAIL",
                bp2->length / spb, spb, n11 ? "ok" : "FAIL");
     }
-    /* Area buttons: the chosen one full, the others dimmed (2); at the end
-     * of the keys' octave its OCT button blinks, the other stays lit. */
+    /* Area buttons: the chosen one full, the others dimmed (2); OCT -/+ dark
+     * at the area's octave, lit away from it, blinking at the end. */
     int led_ok = ui.area == EL_AREA_BASS && leds[BTN_LFO] == 1 && leds[BTN_FX] == 2 && leds[BTN_SEL] == 2 &&
                  leds[BTN_ENV] == 2 && leds[BTN_HOME] == 2 && leds[BTN_GLO] == 1;
     int step_was = ui.step_mode[EL_AREA_BASS], oct_was = ui.octave[EL_AREA_BASS];
     if (step_was) tap_button(BTN_SEQ);
     int down_seen[3] = {0}, up_seen[3] = {0};
-    for (int i = 0; i < 20 && !down_seen[0]; ++i) { run(50); down_seen[leds[BTN_OCT_DOWN]] = 1; }
-    led_ok = led_ok && !down_seen[0];              /* not at the end: lit */
-    for (int i = 0; i < 6; ++i) tap_button(BTN_OCT_DOWN);
-    down_seen[0] = down_seen[1] = 0;
+    ui.octave[EL_AREA_BASS] = -2;                  /* BASS's own octave: OCT -/+ dark (feedback 12.11.) */
     for (int i = 0; i < 20; ++i) { run(50); down_seen[leds[BTN_OCT_DOWN]] = 1; up_seen[leds[BTN_OCT_UP]] = 1; }
-    led_ok = led_ok && ui.octave[EL_AREA_BASS] == EL_OCT_MIN && down_seen[0] && down_seen[1] && !up_seen[0];
+    led_ok = led_ok && down_seen[0] && !down_seen[1] && !down_seen[2] && up_seen[0] && !up_seen[1] && !up_seen[2];
+    for (int i = 0; i < 6; ++i) tap_button(BTN_OCT_DOWN);
+    down_seen[0] = down_seen[1] = down_seen[2] = up_seen[0] = up_seen[1] = up_seen[2] = 0;
+    for (int i = 0; i < 20; ++i) { run(50); down_seen[leds[BTN_OCT_DOWN]] = 1; up_seen[leds[BTN_OCT_UP]] = 1; }
+    /* at the end (one below): OCT - faint and blinking, OCT + dark */
+    led_ok = led_ok && ui.octave[EL_AREA_BASS] == EL_OCT_MIN && down_seen[0] && down_seen[2] && !down_seen[1] && up_seen[0] && !up_seen[1];
     for (int i = ui.octave[EL_AREA_BASS]; i < oct_was; ++i) tap_button(BTN_OCT_UP);
     if (step_was) tap_button(BTN_SEQ);
     run(20);
