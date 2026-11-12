@@ -291,6 +291,7 @@ EL_DSP_CODE void dr_rewind(dr_machine_t *m)
     m->roll_pending = 0;
     m->suppress = 0;
     m->pass = 0;
+    if (m->chain_len >= 2) { m->chain_pos = 0; m->next = m->chain[0]; }   /* a chain starts over (S16) */
     if (m->next != m->current) enter(m, m->next);
 }
 
@@ -308,6 +309,10 @@ EL_DSP_CODE void dr_step(dr_machine_t *m, uint32_t step, float step_frames)
         if (pos >= p->length) {
             pos = 0;
             ++m->pass;
+            if (m->chain_len >= 2 && !m->chain_hold) {   /* the chain's next link (S16) */
+                if (m->current == m->chain[m->chain_pos]) m->chain_pos = (uint8_t)((m->chain_pos + 1u) % m->chain_len);
+                m->next = m->chain[m->chain_pos];
+            }
             if (m->next != m->current) {
                 enter(m, m->next);
                 p = &m->pattern[m->current];
@@ -563,6 +568,13 @@ static EL_DSP_CODE void apply(dr_machine_t *m, const el_cmd_t *c)
     case DR_CMD_PITCH:
         if (part < DR_PARTS && step < DR_STEPS) set_pitch(m, m->current, part, step, c->value);
         break;
+    case DR_CMD_CHAIN:
+        m->chain_len = (uint8_t)(step >= 2 && step <= DR_CHAIN ? step : 0);
+        for (unsigned i = 0; i < DR_CHAIN; ++i) m->chain[i] = (uint8_t)(((unsigned)c->value >> (2u * i)) & 3u);
+        m->chain_pos = 0;
+        if (m->chain_len) m->next = m->chain[0];   /* the first link from the next pass (now, when stopped) */
+        if (m->chain_len && !m->playing && m->next != m->current) enter(m, m->next);
+        break;
     case DR_CMD_FILL:
         m->fill_req = (uint8_t)(step > 2 ? 0 : step);
         break;
@@ -630,7 +642,9 @@ EL_DSP_CODE void dr_step_at(dr_machine_t *m, uint32_t step, float step_frames, u
     m->playing = 1;
     m->pos = (uint8_t)((target % len + len - 1u) % len);
     m->pass = (uint8_t)(target % len == 0 ? pass - 1u : pass);
+    m->chain_hold = 1;   /* a replayed step does not move the chain */
     dr_step(m, step, step_frames);
+    m->chain_hold = 0;
     m->next = next;
     m->pos = (uint8_t)real;
     m->pass = pass;

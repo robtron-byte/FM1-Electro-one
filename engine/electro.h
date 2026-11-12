@@ -53,7 +53,9 @@ enum el_command {
     EL_CMD_PUNCH_RATE,   /* a = EL_PUNCH_* bits, b = white key 0..5 (repeat 0..15; el_punch_value_name) */
     EL_CMD_STEP_COND,    /* b = step, value = EL_COND_* (docs/adr/0025) */
     EL_CMD_STEP_PROB,    /* b = step, value = 0..EL_PROBS-1, 0 = always (docs/adr/0025) */
-    EL_CMD_BLANK         /* S11: stop, then the empty start (el_blank_start) with seed value */
+    EL_CMD_BLANK,        /* S11: stop, then the empty start (el_blank_start) with seed value */
+    EL_CMD_TRACK_CHAIN,  /* a = track, b = links 0..4, value = slots 2 bits each (S16) */
+    EL_CMD_TRACK_COPY    /* a = track, b = from slot, c = to slot: pattern and sound (S16) */
 };
 /* Punch-in effects, active while held (HOME, black keys 5-11, in this
  * order). The bit of effect n is 1 << n. */

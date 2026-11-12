@@ -38,6 +38,9 @@ typedef struct {
     char sound_name[EL_SOUND_NAME + 1];
     uint8_t area, overview, follow, part, arp_tap, edit_tap, glo_tap;
     uint8_t mute_mode;                  /* BEAT: GLO tapped, the instrument keys mute (N13) */
+    /* HOME, pattern chain (S16): per bank the slot key held (slot + 1, 0 none)
+     * and the chain built while it is held. */
+    uint8_t chain_key[EL_AREAS], chain_build[EL_AREAS][4], chain_count[EL_AREAS];
     uint8_t fill_edit, fill_held;       /* BEAT: EDIT + SEQ edits the slot's fill; SEQ held repeats it (N12) */
     uint32_t seq_at;                    /* when SEQ went down in BEAT */
     uint8_t preview_off;                /* BEAT: OCT+ switched the drum preview off (N2) */

@@ -71,6 +71,7 @@ static inline int st_live_grid_needed(const st_pattern_t *p, unsigned area, int 
  * past them the notes move one step coarser (STRINGS quarters, 8 bars; BASS 8ths, 4 bars). */
 static inline unsigned st_take_rate(unsigned area) { return area == MKS_AREA_BASS ? ST_RATE_16TH : ST_RATE_8TH; }
 
+enum { ST_CHAIN = 4 };   /* links of a pattern chain (S16) */
 typedef struct {
     syn_part_t part;           /* MKS-50 or JP-6, chosen with the sound */
     st_pattern_t pattern[ST_PATTERNS];
@@ -79,6 +80,9 @@ typedef struct {
     st_sound_t sound[ST_PATTERNS];
     uint8_t area, preset, current, pos, playing, muted, recording, level_value;
     uint8_t next;              /* slot to switch to at the next bar */
+    /* Pattern chain (S16): the slots played one after the other, a pass of
+     * each; where the chain stands; hold: st_step_at replays a step. */
+    uint8_t chain[ST_CHAIN], chain_len, chain_pos, chain_hold;
     int8_t transpose;          /* added to the notes of the steps (keys in TRANSPOSE) */
     uint8_t chord;             /* chord for live keys (0 = none) */
     uint8_t last_note;         /* used when a step is switched on */
@@ -120,6 +124,8 @@ EL_DSP_CODE void st_keep_sound(st_track_t *t, int all);
  * a chord that came from the old sound (old = its chord memory) ends when the
  * new one has none, a chord picked by hand stays. */
 EL_DSP_CODE void st_follow_chord(st_track_t *t, unsigned old);
+/* Pattern chain (S16): links 0..ST_CHAIN (under 2: none), slots 2 bits each. */
+EL_DSP_CODE void st_chain(st_track_t *t, unsigned links, unsigned slots);
 EL_DSP_CODE int st_frames_until(const st_track_t *t, int limit);
 EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly, float *rev, int frames, float bpm);
 /* Live note from the keys or MIDI: plays (with the live chord) and records

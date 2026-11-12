@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 48. Build)
+## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 49. Build)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 48. Build:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 49. Build:
+- **Pattern-Ketten in HOME (S16):** einen Platz halten (z. B. BEAT A) und einen anderen derselben Bank drücken (B): A und B laufen nacheinander, jedes einen ganzen Durchlauf. Weitere Drücke hängen an, bis 4 Plätze, auch mehrfach (A gehalten, B, B → A>B>B). Ist der Platz leer, wird der gehaltene dorthin kopiert („A COPIED TO B, CHAIN A>B“) und gleich gespielt. In HOME steht die Kette neben dem Bereich (spielender Platz hell), die Tasten der Kette leuchten gedimmt, die spielende voll. Ein einfacher Druck auf einen Platz löst die Kette auf. SAVE speichert die Ketten (Speicherversion 27; ältere Grooves laden ohne Kette).
+
+Aus dem 48. Build:
 - **RHYTHM nimmt nicht mehr ungewollt Akkorde auf (Y6):** Stab-Sounds mit Akkordspeicher (HOUSE STAB, ELEC STAB, GATE CHORD, 4THS STAB, POWER 5+8, ORCH HIT …) setzen den Akkord der Spur; der blieb bisher auch nach dem Wechsel auf einen anderen Sound hängen. Jetzt endet er mit dem nächsten Sound ohne Akkord. Abschalten von Hand: GLO halten + weiße Taste 1 („SINGLE NOTES“); Tasten 2–9 wählen einen Akkord, wie in STRINGS (GLO zeigt die Tafel CHORD).
 
 Aus dem 47. Build:
@@ -151,7 +154,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `0ec4a9e52ddd429655fd814be464e6e786ac1ffc949568ccfb46b474db82d572`
+SHA-256: `bd16041c1d0af414111aa538394f75493d079b6d4d9a2a25492b48a299b0b33a`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

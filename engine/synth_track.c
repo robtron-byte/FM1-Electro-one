@@ -176,6 +176,20 @@ EL_DSP_CODE void st_rewind(st_track_t *t)
     t->pos = 0;
     t->tick = 0;
     t->pass = 0;
+    if (t->chain_len >= 2) {   /* a chain starts over (S16) */
+        t->chain_pos = 0;
+        t->next = t->chain[0];
+        if (t->next != t->current) st_enter(t, t->next);
+    }
+}
+
+EL_DSP_CODE void st_chain(st_track_t *t, unsigned links, unsigned slots)
+{
+    t->chain_len = (uint8_t)(links >= 2 && links <= ST_CHAIN ? links : 0);
+    for (unsigned i = 0; i < ST_CHAIN; ++i) t->chain[i] = (uint8_t)((slots >> (2u * i)) & 3u);
+    t->chain_pos = 0;
+    if (t->chain_len) t->next = t->chain[0];   /* the first link from the next bar (now, when stopped) */
+    if (t->chain_len && !t->playing && t->next != t->current) st_enter(t, t->next);
 }
 
 EL_DSP_CODE void st_mute(st_track_t *t, int on)
@@ -215,7 +229,19 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
         pos = ST_STEPS / 2u;
         ++t->revision;
     }
-    if (pos >= p->length) pos = 0;
+    if (pos >= p->length) {
+        pos = 0;
+        if (t->chain_len >= 2 && t->playing && !t->chain_hold) {   /* the chain's next link (S16) */
+            if (t->current == t->chain[t->chain_pos]) t->chain_pos = (uint8_t)((t->chain_pos + 1u) % t->chain_len);
+            unsigned slot = t->chain[t->chain_pos];
+            t->next = (uint8_t)slot;
+            if (slot != t->current) {
+                st_enter(t, slot);   /* (playing 0: the pass count starts over) */
+                p = &t->pattern[t->current];
+                ticks = rate_ticks[p->rate < ST_RATES ? p->rate : 0];
+            }
+        }
+    }
     if (!t->playing) t->pass = 0;
     else if (pos == 0) ++t->pass;
     t->pos = (uint8_t)pos;
@@ -746,7 +772,9 @@ EL_DSP_CODE void st_step_at(st_track_t *t, uint32_t step, float sixteenth_frames
     t->tick = (uint8_t)(ticks - 1u);
     t->pos = (uint8_t)((rstep + len - 1u) % len);
     t->pass = (uint8_t)(rstep == 0 ? pass - 1u : pass);
+    t->chain_hold = 1;   /* a replayed step does not move the chain */
     st_step(t, step, sixteenth_frames);
+    t->chain_hold = 0;
     t->next = next;
     t->tick = (uint8_t)tick;
     t->pos = (uint8_t)pos;

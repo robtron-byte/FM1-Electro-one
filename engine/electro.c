@@ -143,6 +143,7 @@ void el_blank_start(el_engine_t *e, uint32_t seed)
     for (unsigned i = 0; i < DR_PATTERNS; ++i) memset(&m->fill[i], 0, sizeof m->fill[i]);
     m->fill_auto = m->fill_req = m->fill_now = m->fill_edit = 0;
     m->kit_mem_used = 0;
+    m->chain_len = m->chain_pos = 0;   /* no chains (S16) */
     memset(m->cond, 0, sizeof m->cond);
     memset(m->prob, 0, sizeof m->prob);
     memset(m->pitch, 0, sizeof m->pitch);
@@ -150,6 +151,7 @@ void el_blank_start(el_engine_t *e, uint32_t seed)
     e->transport.swing = m->pattern[0].swing;
     for (unsigned i = 0; i < EL_TRACKS; ++i) {
         st_track_t *t = &e->track[i];
+        t->chain_len = t->chain_pos = 0;
         for (unsigned p = 0; p < ST_PATTERNS; ++p)
             for (unsigned s = 0; s < ST_STEPS; ++s) t->pattern[p].step[s].flags = 0;
         /* a factory sound of this area, at random */
@@ -342,6 +344,17 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
     case EL_CMD_TRACK_ARP:
         st_arp_set(t, c->b, c->value);
         break;
+    case EL_CMD_TRACK_CHAIN:
+        st_chain(t, c->b, (unsigned)c->value);
+        ++t->revision;
+        break;
+    case EL_CMD_TRACK_COPY:
+        if (c->b < ST_PATTERNS && c->c < ST_PATTERNS) {
+            t->pattern[c->c] = t->pattern[c->b];
+            t->sound[c->c] = t->sound[c->b];
+            ++t->revision;
+        }
+        break;
     default:
         return;
     }
@@ -351,7 +364,8 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
 static EL_DSP_CODE void apply(el_engine_t *e, const el_cmd_t *c)
 {
     el_transport_t *t = &e->transport;
-    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND || c->type == EL_CMD_STEP_PROB) {
+    if ((c->type >= EL_CMD_NOTE && c->type <= EL_CMD_TRACK_ARP) || c->type == EL_CMD_STEP_COND || c->type == EL_CMD_STEP_PROB ||
+        c->type == EL_CMD_TRACK_CHAIN || c->type == EL_CMD_TRACK_COPY) {
         if (c->a < EL_TRACKS) apply_track(e, c);
         return;
     }

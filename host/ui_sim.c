@@ -1475,6 +1475,69 @@ int main(int argc, char **argv)
             for (unsigned i = 0; i < ST_PATTERNS; ++i) empty = empty && st_pattern_empty(&ee->track[t].pattern[i]);
         printf("reset: HOME, ARP + key 16 twice -> empty start (S11) %s\n", empty ? "ok" : "FAIL");
     }
+    {
+        /* S16: HOME, a slot held and another of the bank pressed: a chain; an
+         * empty slot gets the held one's pattern first. Each link plays a whole
+         * pass; a single press ends the chain; SAVE keeps it (version 27). */
+        el_engine_t *ee = ui.engine;
+        if (!ui.overview) tap_button(BTN_HOME);
+        dr_post(&ee->drums, DR_CMD_TOGGLE, D8_BD, 0, 0, 0);       /* BEAT A: a kick */
+        el_post3(ee, EL_CMD_STEP_TOGGLE, 0, 0, 0, 0);             /* RHYTHM A: a note */
+        el_post3(ee, EL_CMD_TRACK_LENGTH, 0, 16, 0, 0);
+        run(30);
+        panel.keys |= 1u << 0; run(30);   /* BEAT A held ... */
+        tap_key(2);                       /* ... B (empty): copied, A>B */
+        panel.keys &= ~(1u << 0); run(30);
+        int ok = ee->drums.chain_len == 2 && ee->drums.chain[0] == 0 && ee->drums.chain[1] == 1 &&
+                 ee->drums.pattern[1].hit[D8_BD] == ee->drums.pattern[0].hit[D8_BD] && ee->drums.pattern[0].hit[D8_BD];
+        panel.keys |= 1u << 7; run(30);   /* RHYTHM A held ... */
+        tap_key(9);                       /* ... B: copied */
+        tap_key(9);                       /* ... B again: A>B>B */
+        shot(dir, "30_chain");
+        panel.keys &= ~(1u << 7); run(30);
+        const st_track_t *rt = &ee->track[0];
+        ok = ok && rt->chain_len == 3 && rt->chain[0] == 0 && rt->chain[1] == 1 && rt->chain[2] == 1 &&
+             !st_pattern_empty(&rt->pattern[1]) && rt->current == 0;
+        int leds_ok = leds[14 + 7] == 1 && leds[14 + 9] == 2 && leds[14 + 0] == 1 && leds[14 + 2] == 2;
+        /* playing: BEAT A, B, A ... a bar each; RHYTHM A one bar, B two */
+        unsigned bar = (unsigned)(240000.0f / ee->transport.bpm + 0.5f);
+        unsigned dseq[8], rseq[8], dn = 0, rn = 0, dlast = 9, rlast = 9, rat[8];
+        tap_button(BTN_PLAY);
+        for (unsigned t = 0; t < 5u * bar && dn < 8 && rn < 8; t += 10) {
+            run(10);
+            if (ee->drums.current != dlast) dseq[dn++] = dlast = ee->drums.current;
+            if (rt->current != rlast) { rat[rn] = t; rseq[rn++] = rlast = rt->current; }
+        }
+        tap_button(BTN_PLAY);
+        ok = ok && dn >= 4 && dseq[0] == 0 && dseq[1] == 1 && dseq[2] == 0 && dseq[3] == 1;
+        ok = ok && rn >= 3 && rseq[0] == 0 && rseq[1] == 1 && rseq[2] == 0;
+        if (rn >= 3) ok = ok && (rat[2] - rat[1]) > 2u * bar - 100u && (rat[2] - rat[1]) < 2u * bar + 100u;
+        /* stopped: the chain starts over on its first link */
+        run(60);
+        ok = ok && ee->drums.current == 0 && rt->current == 0 && rt->chain_pos == 0;
+        /* SAVE keeps it, a version 26 record has none */
+        static el_engine_t cb, c26;
+        int st = el_store_save(ee) == 0;
+        el_init(&cb);
+        st = st && el_store_load(&cb) == 0 && cb.drums.chain_len == 2 && cb.track[0].chain_len == 3 &&
+             cb.track[0].chain[2] == 1 && cb.track[1].chain_len == 0;
+        st = st && el_store_test_as(26) == 0;
+        el_init(&c26);
+        st = st && el_store_load(&c26) == 0 && !c26.drums.chain_len && !c26.track[0].chain_len &&
+             c26.drums.pattern[1].hit[D8_BD] == ee->drums.pattern[1].hit[D8_BD];
+        /* a single press ends the chain */
+        tap_key(9);
+        run(30);
+        int ended = !rt->chain_len && rt->next == 1 && ee->drums.chain_len == 2;
+        if (!(ok && ended)) {
+            fprintf(stderr, "chain dbg: ok %d ended %d dlen %u rlen %u cur %u/%u dn %u rn %u bar %u:", ok, ended, ee->drums.chain_len, rt->chain_len, ee->drums.current, rt->current, dn, rn, bar);
+            for (unsigned i = 0; i < dn; ++i) fprintf(stderr, " d%u", dseq[i]);
+            for (unsigned i = 0; i < rn; ++i) fprintf(stderr, " r%u@%u", rseq[i], rat[i]);
+            fprintf(stderr, "\n");
+        }
+        printf("chain: hold + press, empty slot copied, A>B>B a pass each, LEDs %s, starts over, stored %s, single press ends it %s\n",
+               leds_ok ? "ok" : "FAIL", st ? "ok" : "FAIL", ok && ended && leds_ok && st ? "ok" : "FAIL");
+    }
     }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;
 }

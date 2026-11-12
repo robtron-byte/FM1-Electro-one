@@ -39,5 +39,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0031](0031-kompressor-mix-und-send-sperre.md) | Mix-Regler für den Master-Kompressor (parallel); kein Send bei Verzerrung OFF | vorgeschlagen | 2026-11-07 |
 | [0032](0032-fills-und-tipp-kuerzel.md) | Fill-ins je Platz; EDIT, GLO und SEQ getippt (Editor, Mute-Modus, Fill) | vorgeschlagen | 2026-11-07 |
 | [0033](0033-mono-delay.md) | Live-Effekt MONO DELAY nach Korg Monotron Delay (34 ms, Korg-35, GLO + ALGORITHM) | vorgeschlagen | 2026-11-08 |
+| [0034](0034-pattern-ketten.md) | Pattern-Ketten in HOME: Platz halten + weiteren drücken, leerer Platz wird kopiert, gespeichert (Version 27) | vorgeschlagen | 2026-11-12 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

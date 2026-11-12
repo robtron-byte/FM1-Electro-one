@@ -6,7 +6,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
 Neue Nummern: im Bereich die nächste freie (B17, S17, Y7, F11, U13, P11, N26).
 
-Stand: 48. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 49. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -25,8 +25,6 @@ Stand: 48. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N22 | Neu | Plattenhall nach Mutable Instruments Clouds als zweite Hallart (Elixir hat ihn in Festkomma; MIT-Lizenz) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N23 | Neu | Neue Klangquellen nach Mutable Instruments Rings (Resonator: modal, String, FM) und Plaits (Engines), z. B. als Drum- oder Synth-Modell (Rechenlast prüfen) (Idee aus Elixir, Dan Majka, GPL-3.0; Code darf übernommen werden) | ○ | – |
 | N24 | Neu | Neue Firmware „808 + PO-12 + SH-101“, von Anfang an auf flüssige Bedienung und Klang ausgelegt; Plan in `docs/plaene/neue-firmware-808-po12-sh101.md` | ○ Plan, wartet auf „los“ | – |
-| N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.); Kette je Bereich (BEAT, RHYTHM, STRINGS, BASS getrennt); ein einfacher Druck auf einen Platz löst die Kette auf | ○ | – |
-| S16 | Sequencer | Pattern-Chaining (Wunsch 09.11.): einen Platz (A–D) gedrückt halten und einen zweiten dazu drücken → die Plätze laufen nacheinander als Kette. Ist der zweite Platz leer, wird der aktuelle Platz dorthin kopiert (und dann gekettet) | ○ | – |
 
 ## Umgesetzt
 
@@ -104,6 +102,7 @@ Stand: 48. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | S13 | Sequencer | Beat länger machen übernimmt das bisherige Pattern in den neuen Takt (wenn der noch leer ist), mit Akzenten, Rolls und Step-Einstellungen (Wunsch 08.11.) | ◐ umgesetzt (44. Build) | – |
 | S14 | Sequencer | Fehler: Beat kürzer machen beim Spielen brachte ihn aus dem Takt (Playhead sprang auf den letzten Step); jetzt behält er seinen Platz im Takt, ebenso die Synth-Bereiche (Bug 08.11.) | ◐ behoben (44. Build) | – |
 | S15 | Sequencer | Fill-ins (Feedback 09.11.): über den ganzen Takt generiert (vier Arten, die sich aufbauen), SEQ auch in HOME, immer im Takt nach dem aktuellen | ◐ umgesetzt (47. Build) | 0032 |
+| S16 | Sequencer | Pattern-Chaining (Wunsch 09.11./12.11.): in HOME einen Platz (A–D) halten und weitere derselben Bank drücken → Kette, bis 4 Glieder, Wiederholungen erlaubt (A>B>B); jedes Glied spielt einen ganzen Durchlauf; ist der neue Platz leer, wird der gehaltene dorthin kopiert und gleich gekettet; Kette je Bereich; ein einfacher Druck löst sie auf; mit SAVE gespeichert (Version 27) | ◐ umgesetzt (49. Build) | 0034 |
 | Y6 | Synths | Fehler: In RHYTHM wurde immer ein Akkord aufgenommen. Stab-Sounds mit Akkordspeicher (KEY MODE CHORD, z. B. HOUSE STAB, ELEC STAB, GATE CHORD, 4THS STAB, POWER 5+8, ORCH HIT) setzten den Akkord der Spur, und der blieb auch nach dem Wechsel auf einen Sound ohne Akkord. Jetzt endet ein Akkord, der vom Sound kam, mit dem nächsten Sound ohne Akkordspeicher (oder KEY MODE ≠ CHORD im Editor); von Hand gewählte bleiben. GLO + weiße Taste 1–9 wählt den Akkord jetzt auch in RHYTHM (Taste 1 = Einzeltöne), mit der Tafel CHORD. Bei der Schritt-Aufnahme (SH-101) bleibt GLO + Taste das Binden (Feedback 12.11.) | ◐ behoben (48. Build) | 0024 |
 | U12 | Bedienung/Display | Fehler: Zeitstempel `now | 1` lag bei geradem `now` 1 ms in der Zukunft → ein kurzer SEQ-Druck galt als gehalten (Fill gleich wieder aus), die Regler-Hervorhebung und die Taktanzeige fielen für ein Bild aus (Flackern) | ◐ behoben (47. Build) | – |
 
@@ -111,6 +110,7 @@ Stand: 48. Build (12.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 
 | Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
+| N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.); Kette je Bereich (BEAT, RHYTHM, STRINGS, BASS getrennt); ein einfacher Druck auf einen Platz löst die Kette auf | ✗ doppelt, umgesetzt als S16 | 0034 |
 | S9 | Sequencer | Repeat-Punch-in nur solange gehalten | ✗ (zurückgenommen) | 0011 |
 | F9 | Effekte/Master | Hall-Modulation seltener rechnen (gebaut, bringt nichts, aus) | ✗ | 0019 |
 | F10 | Effekte/Master | Master in Festkomma (gebaut, langsamer, aus) | ✗ | 0019 |

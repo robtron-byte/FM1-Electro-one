@@ -65,11 +65,13 @@ enum dr_command {
     DR_CMD_FILL_EDIT,   /* b = on: the playing slot's fill is edited (an unused one starts as the groove's first bar) */
     DR_CMD_FILL_TOGGLE, /* a = part, b = step 0..15: hit on/off in the playing slot's fill */
     DR_CMD_FILL_ACCENT, /* b = step */
-    DR_CMD_FILL_ROLL    /* a = part, b = step (sets the hit too) */
+    DR_CMD_FILL_ROLL,   /* a = part, b = step (sets the hit too) */
+    DR_CMD_CHAIN        /* b = links 0..4 (under 2: no chain), value = slots, 2 bits each from bit 0 (S16) */
 };
 
 /* A fill-in (N12): one bar of 16ths in the slot's kit, played instead of a
  * bar of the groove; unused ones are made from the groove when needed. */
+enum { DR_CHAIN = 4 };   /* links of a pattern chain (S16) */
 enum { DR_FILL_STEPS = 16 };
 typedef struct {
     uint16_t hit[DR_PARTS], roll[DR_PARTS], accent;
@@ -139,6 +141,9 @@ typedef struct {
      * whether the bar playing now is the fill. */
     dr_fill_t fill[DR_PATTERNS];
     uint8_t fill_req, fill_auto, fill_now, fill_edit;
+    /* Pattern chain (S16): the slots played one after the other, a pass of
+     * each; where the chain stands; hold: dr_step_at replays a step. */
+    uint8_t chain[DR_CHAIN], chain_len, chain_pos, chain_hold;
     /* B16: open and closed hat on one step (choke on): the open hat alone,
      * choked after this many frames (a short open hat, as on the 808). */
     float oh_short;

@@ -25,8 +25,9 @@
  * 26 the drums without toms and congas (B12: ten parts, older records are
  * mapped part by part), every option in one array, no separate copy of the
  * playing kit (each slot has its sound), each kit as last set (N1), a length
- * per synth step (N6), a fill per drum slot (N12). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * per synth step (N6), a fill per drum slot (N12); 27 the pattern chain of
+ * every area (S16), appended (a record of 26 is its first part: no chains). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 27, VERSION_26 = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -127,7 +128,11 @@ typedef struct {
     uint8_t kit_mem_used;
     uint8_t fill_auto;                      /* every how many bars the fill plays by itself (N12) */
     dr_fill_t fill[DR_PATTERNS];            /* each slot's fill (N12) */
+    /* version 27: each area's pattern chain (S16): links (0 none), then the slots */
+    uint8_t chain[EL_AREAS][1 + DR_CHAIN];
 } payload_t;
+#define V26_BYTES offsetof(payload_t, chain)
+_Static_assert(DR_CHAIN == ST_CHAIN, "one chain layout for every area");
 #define V25_BYTES sizeof(payload_v25_t)
 #define V24_BYTES sizeof(payload_v24_t)
 #define V23_BYTES sizeof(payload_v23_t)
@@ -270,6 +275,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_26 && record.bytes == V26_BYTES) ||
                   (record.version == VERSION_25 && record.bytes == V25_BYTES) ||
                   (record.version == VERSION_24 && record.bytes == V24_BYTES) ||
                   (record.version == VERSION_23 && record.bytes == V23_BYTES) ||
@@ -410,7 +416,8 @@ static int el_store_load_held(el_engine_t *e)
     if ((int32_t)(a - b) > 0 && !read_valid(0)) return 1; /* reload the newer one */
     unsigned version = record.version;
     const payload_t *d = &record.data;
-    if (version < VERSION) {
+    if (version == VERSION_26) memset(record.data.chain, 0, sizeof record.data.chain);   /* the part 26 did not have */
+    if (version < VERSION_26) {
         from_v25(upgrade(), version, &buffer.up.conv);
         d = &buffer.up.conv;
     }
@@ -533,6 +540,14 @@ static int el_store_load_held(el_engine_t *e)
                 e->track[i].arp.v[p] = (uint8_t)el_clampi(d->arp[i][p], p == ARP_GATE ? 5 : 0, arp_param_max(p));
     if (version >= VERSION_17)   /* older records keep el_init's channels */
         for (unsigned a = 0; a < EL_AREAS; ++a) e->midi_channel[a] = (uint8_t)el_clampi(d->midi_channel[a], 0, EL_MIDI_OFF);
+    /* the chains (S16; 0 before version 27): each starts on its first link */
+    for (unsigned a = 0; a < EL_AREAS; ++a) {
+        unsigned links = d->chain[a][0], slots = 0;
+        if (links < 2 || links > DR_CHAIN) continue;
+        for (unsigned i = 0; i < links; ++i) slots |= (d->chain[a][1 + i] & 3u) << (2u * i);
+        if (a == EL_AREA_BEAT) { dr_post(m, DR_CMD_CHAIN, 0, (uint8_t)links, 0, (int16_t)slots); dr_process_commands(m); }
+        else st_chain(&e->track[a - 1u], links, slots);
+    }
     return 0;
 }
 
@@ -611,6 +626,12 @@ static int el_store_save_held(el_engine_t *e)
     for (unsigned i = 0; i < EL_TRACKS; ++i) memcpy(d->arp[i], e->track[i].arp.v, ARP_PARAMS);
     for (unsigned a = 0; a < EL_AREAS; ++a) d->midi_channel[a] = e->midi_channel[a];
     for (unsigned i = 0; i < EL_OPTIONS; ++i) d->option[i] = e->option[i];
+    for (unsigned a = 0; a < EL_AREAS; ++a) {   /* the chains (S16) */
+        const uint8_t *links = a == EL_AREA_BEAT ? &m->chain_len : &e->track[a - 1u].chain_len;
+        const uint8_t *slots = a == EL_AREA_BEAT ? m->chain : e->track[a - 1u].chain;
+        d->chain[a][0] = *links;
+        memcpy(&d->chain[a][1], slots, DR_CHAIN);
+    }
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
@@ -784,7 +805,7 @@ static void to_v25(const payload_t *d, payload_v25_t *o)
     memcpy(o->drum_pitch, d->drum_pitch, sizeof o->drum_pitch);
 }
 
-/* The newest record rewritten as version `version` (20 or 25) wrote it. */
+/* The newest record rewritten as version `version` (20, 25 or 26) wrote it. */
 int el_store_test_as(unsigned version)
 {
     if (!take()) return -1;
@@ -793,9 +814,12 @@ int el_store_test_as(unsigned version)
     int r = -1;
     if ((a || b) && read_valid(newest) && record.version == VERSION) {
         static payload_v25_t o;
-        to_v25(&record.data, &o);
-        size_t bytes = version >= VERSION_25 ? V25_BYTES : V19_BYTES;
-        memcpy(&record.data, &o, bytes);
+        size_t bytes = V26_BYTES;   /* 26: the same, without the chains */
+        if (version < VERSION_26) {
+            to_v25(&record.data, &o);
+            bytes = version >= VERSION_25 ? V25_BYTES : V19_BYTES;
+            memcpy(&record.data, &o, bytes);
+        }
         record.version = (uint16_t)version;
         record.bytes = (uint16_t)bytes;
         record.crc = crc32(&record.data, bytes);

@@ -18,6 +18,7 @@
  *   HOME                  overview: KNOB 1-4 levels (GLO: delay time, feedback, reverb
  *                         size, decay), PRESETS reverb (GLO: delay) return, white keys
  *                         pick patterns, OCT -/+ bank 1-16 / 17-24, black keys 1-4 mute.
+ *                         A slot key held + another of its area: a chain (S16).
  *                         Slots 1-16 hold a generated groove in their style; ARP +
  *                         white key = new groove for that slot. New grooves are kept in
  *                         Flash by themselves and survive a restart.
@@ -389,6 +390,67 @@ static void select_slot(el_ui_t *ui, unsigned a, unsigned slot)
     if (slot >= DR_PATTERNS) return;
     if (a == EL_AREA_BEAT) dr_post(&ui->engine->drums, DR_CMD_SELECT, (uint8_t)slot, 0, 0, 0);
     else el_post3(ui->engine, EL_CMD_TRACK_SELECT, (uint8_t)(a - 1u), (uint8_t)slot, 0, 0);
+}
+
+/* Pattern chain (S16) of an area: links (0 none) and its slots. */
+static unsigned area_chain(const el_ui_t *ui, unsigned a, const uint8_t **slots, unsigned *at)
+{
+    const el_engine_t *e = ui->engine;
+    if (a == EL_AREA_BEAT) { *slots = e->drums.chain; *at = e->drums.chain_pos; return e->drums.chain_len; }
+    const st_track_t *t = &e->track[a - 1u];
+    *slots = t->chain; *at = t->chain_pos;
+    return t->chain_len;
+}
+
+static int slot_empty(const el_ui_t *ui, unsigned a, unsigned slot)
+{
+    const el_engine_t *e = ui->engine;
+    if (a != EL_AREA_BEAT) return st_pattern_empty(&e->track[a - 1u].pattern[slot]);
+    for (unsigned part = 0; part < DR_PARTS; ++part) if (e->drums.pattern[slot].hit[part]) return 0;
+    return 1;
+}
+
+static void post_chain(el_ui_t *ui, unsigned a, unsigned links, const uint8_t *slots)
+{
+    unsigned packed = 0;
+    for (unsigned i = 0; i < links; ++i) packed |= (slots[i] & 3u) << (2u * i);
+    if (a == EL_AREA_BEAT) dr_post(&ui->engine->drums, DR_CMD_CHAIN, 0, (uint8_t)links, 0, (int16_t)packed);
+    else el_post3(ui->engine, EL_CMD_TRACK_CHAIN, (uint8_t)(a - 1u), (uint8_t)links, 0, (int16_t)packed);
+}
+
+/* HOME, a slot key (S16). Alone: that slot plays, a chain ends. While
+ * another slot of the bank is held: the slot joins the chain (the held one
+ * first, up to four links, repeats allowed); an empty one gets the held
+ * slot's pattern and sound first. */
+static void home_slot_key(el_ui_t *ui, unsigned a, unsigned slot)
+{
+    if (!ui->chain_key[a]) {
+        const uint8_t *slots; unsigned at;
+        ui->chain_key[a] = (uint8_t)(slot + 1u);
+        ui->chain_count[a] = 0;
+        if (area_chain(ui, a, &slots, &at)) post_chain(ui, a, 0, slots);
+        select_slot(ui, a, slot);
+        return;
+    }
+    unsigned held = ui->chain_key[a] - 1u;
+    uint8_t *build = ui->chain_build[a];
+    if (!ui->chain_count[a]) { build[0] = (uint8_t)held; ui->chain_count[a] = 1; }
+    if (ui->chain_count[a] >= DR_CHAIN) { notice(ui, "CHAIN FULL: 4 PATTERNS"); return; }
+    int copied = slot != held && slot_empty(ui, a, slot) && !slot_empty(ui, a, held);
+    if (copied) {
+        if (a == EL_AREA_BEAT) dr_post(&ui->engine->drums, DR_CMD_COPY, (uint8_t)held, (uint8_t)slot, 0, 0);
+        else el_post3(ui->engine, EL_CMD_TRACK_COPY, (uint8_t)(a - 1u), (uint8_t)held, (uint8_t)slot, 0);
+    }
+    build[ui->chain_count[a]++] = (uint8_t)slot;
+    post_chain(ui, a, ui->chain_count[a], build);
+    char text[40];
+    unsigned n = (unsigned)el_snprintf(text, sizeof text, copied ? "%c COPIED TO %c, CHAIN " : "CHAIN ", 'A' + held, 'A' + slot);
+    for (unsigned i = 0; i < ui->chain_count[a] && n + 2u < sizeof text; ++i) {
+        if (i) text[n++] = '>';
+        text[n++] = (char)('A' + build[i]);
+    }
+    text[n] = 0;
+    notice(ui, text);
 }
 
 /* Variation of the pattern an area plays (amount from the generator's
@@ -1318,6 +1380,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         if (ui->punch_key[i]) punch_held |= BIT(i);
     }
     release_keys(ui, ui->prev_keys & ~c->keys);
+    for (unsigned a = 0; a < EL_AREAS; ++a)   /* S16: the held slot key let go (or HOME left) */
+        if (ui->chain_key[a] && (!ui->overview || !(c->keys & BIT(white_keys[a * 4u + ui->chain_key[a] - 1u])))) ui->chain_key[a] = 0;
     step_hold_release(ui, c->keys);
     for (unsigned key = 0; key < UI_KEYS; ++key) {
         if (!(keys_down & BIT(key))) continue;
@@ -1339,7 +1403,7 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
                     /* Repeat only starts with its step chosen. */
                     if (bits & EL_PUNCH_REPEAT) el_post3(e, EL_CMD_PUNCH, EL_PUNCH_REPEAT, 1, 0, 0);
                 }
-            } else if (w >= 0) select_slot(ui, (unsigned)w / 4u, (unsigned)w % 4u);
+            } else if (w >= 0) home_slot_key(ui, (unsigned)w / 4u, (unsigned)w % 4u);
             else if (b >= 0 && b < EL_AREAS) set_area_mute(ui, (unsigned)b, !area_muted(ui, (unsigned)b));
             else if (b >= EL_AREAS && b < EL_AREAS + EL_PUNCHES) {
                 /* Black keys 5-11: punch-in effects while held. */
@@ -1530,7 +1594,11 @@ static void signatures(el_ui_t *ui, uint32_t sig[3])
     mix(&sig[1], (uint32_t)(playing ? ui->show_pos[0] : 0xff) | (uint32_t)m->current << 8);
     if (ui->overview) {
         mix(&sig[1], m->revision | m->mute << 8);
-        for (unsigned a = 0; a < EL_AREAS; ++a) mix(&sig[1], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8);
+        for (unsigned a = 0; a < EL_AREAS; ++a) {
+            const uint8_t *links; unsigned at, chain = area_chain(ui, a, &links, &at);
+            mix(&sig[1], area_slot(ui, a, 0) | area_slot(ui, a, 1) << 4 | a << 8 | chain << 12 | at << 16 |
+                         (uint32_t)(links[0] | links[1] << 2 | links[2] << 4 | links[3] << 6) << 20);
+        }
         for (unsigned t = 0; t < EL_TRACKS; ++t) {
             mix(&sig[1], e->track[t].revision ^ e->track[t].preset << 20 ^ e->track[t].level_value << 12);
             mix(&sig[1], ui->show_pos[1 + t]);
@@ -1674,6 +1742,13 @@ static void update_leds(el_ui_t *ui)
         if (value_leds) leds |= 1ull << (14u + white_keys[e->punch_div[n]]);
         for (unsigned a = 0; a < EL_AREAS && !value_leds; ++a) {
             unsigned now = area_slot(ui, a, 0), next = area_slot(ui, a, 1);
+            const uint8_t *links; unsigned at, chain = area_chain(ui, a, &links, &at);
+            for (unsigned i = 0; i < chain; ++i) {   /* the chain's slots dimmed (S16), the one playing full */
+                uint64_t bit = 1ull << (14u + white_keys[a * 4u + links[i]]);
+                leds |= bit;
+                if (links[i] != now) key_dim |= bit;
+            }
+            if (chain) continue;
             leds |= 1ull << (14u + white_keys[a * 4u + now]);
             if (next != now && (ui->now / 250u) & 1u) leds |= 1ull << (14u + white_keys[a * 4u + next]);
         }
@@ -2112,10 +2187,20 @@ static void draw_overview(el_ui_t *ui, gfx_band_t *b)
         const char *sound = a ? sound_label(ui, e->track[a - 1].preset) : dr_kit_names[m->kit_index];
         unsigned level = a ? e->track[a - 1].level_value : m->level_value;
         gfx_text(b, 4, y + 2, area_names[a], color, 1);
-        char slot[4] = {(char)('A' + area_slot(ui, a, 0)), 0, 0, 0};
-        if (area_slot(ui, a, 1) != area_slot(ui, a, 0)) { slot[1] = '>'; slot[2] = (char)('A' + area_slot(ui, a, 1)); }
-        gfx_text(b, 52, y + 2, slot, AMBER, 1);
-        gfx_text(b, 74, y + 2, sound, muted ? DIM : TEXT, 1);
+        const uint8_t *links; unsigned at, chain = area_chain(ui, a, &links, &at);
+        int sound_x = 74;
+        if (chain) {   /* the chain (S16): its slots, the one playing bright */
+            for (unsigned i = 0; i < chain; ++i) {
+                char one[2] = {(char)('A' + links[i]), 0};
+                gfx_text(b, 52 + (int)i * 6, y + 2, one, i == at && links[i] == area_slot(ui, a, 0) ? AMBER : DIM, 1);
+            }
+            sound_x = el_clampi(52 + (int)chain * 6 + 6, 74, 82);   /* a gap after the letters */
+        } else {
+            char slot[4] = {(char)('A' + area_slot(ui, a, 0)), 0, 0, 0};
+            if (area_slot(ui, a, 1) != area_slot(ui, a, 0)) { slot[1] = '>'; slot[2] = (char)('A' + area_slot(ui, a, 1)); }
+            gfx_text(b, 52, y + 2, slot, AMBER, 1);
+        }
+        gfx_text(b, sound_x, y + 2, sound, muted ? DIM : TEXT, 1);
         if (muted) gfx_text(b, 140, y + 2, "MUTE", RED, 1);
         gfx_fill(b, 170, y + 3, 64, 5, GRID);
         gfx_fill(b, 170, y + 3, (int)(level * 64u / 127u), 5, color);
