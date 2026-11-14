@@ -115,6 +115,9 @@ static int key_black(unsigned key)
     return -1;
 }
 
+#ifndef EL_VERSION
+#define EL_VERSION "DEV"                /* the device build sets it from VERSION (tools/build_platform.py, ADR 0035) */
+#endif
 static void notice(el_ui_t *ui, const char *text)
 {
     ui->notice = text;
@@ -2307,6 +2310,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
             gfx_text(b, 4, FOOT_Y + 12, "PRESETS / KNOBS: VALUE", DIM, 1);
         }
         gfx_text(b, 4, GFX_H - 12, "HOME OR SAVE: DONE", AMBER, 1);
+        gfx_text(b, GFX_W - 4 - gfx_text_width("V" EL_VERSION, 1), GFX_H - 12, "V" EL_VERSION, DIM, 1);   /* which firmware this is (ADR 0035) */
         return;
     }
     unsigned a = ui->overview ? 0 : ui->area;

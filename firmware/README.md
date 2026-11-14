@@ -1,8 +1,11 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO_PLATTFORM.fwsc` (eigene Plattform, 12.11.2026, 52. Build)
+## Neu: `FM1_ELECTRO-0.5.2-alpha.fwsc` (eigene Plattform, Version 0.5.2-alpha = 52. Build, 14.11.2026)
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 52. Build:
+Ab jetzt mit Versionsnummer statt Build-Zählung (`docs/adr/0035`); die Version steht im Dateinamen und unten rechts auf der Seite OPTIONS (HOME halten + SAVE). Kennung `FM-1_965`.
+
+
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 52. Build (0.5.2-alpha):
 - **BEAT: ein Kit für alle Patterns (B18):** Drum-Regler und Kitwechsel gelten für A–D zugleich und werden so gespeichert. Ein neuer Groove (Generator) für den spielenden Platz in einem anderen Kit stellt alle Plätze um. Ältere Grooves mit verschiedenen Kits übernehmen beim Laden das Kit des spielenden Platzes. RHYTHM, STRINGS, BASS behalten einen Sound pro Platz.
 
 Aus dem 51. Build:

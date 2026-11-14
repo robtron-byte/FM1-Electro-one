@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Build FM1-Electro on its own platform (platform/, Dinghy / Felucca's, docs/adr/0021).
 
-  JIELI_TOOLCHAIN=... AC79_SDK=... python3 tools/build_platform.py [--release X.Y]
+  JIELI_TOOLCHAIN=... AC79_SDK=... python3 tools/build_platform.py [--release X.Y.Z-suffix]
+
+The version is the file VERSION (docs/adr/0035): it names the package (platform/build/fm1-electro-X.Y.Z-suffix.fwsc),
+sets the identity FM-1_96Y and the text OPTIONS shows (EL_VERSION). --release overrides it.
 
 Uses platform/tools/build.py as it is (the update loader, the checks, the package) and replaces only the app's
 compile: fm1/el_app.c (one unit with platform.c, built as the platform's apps are, -Os) and FM1-Electro's engine, UI
@@ -23,6 +26,11 @@ b.BOARD_PREFIX["fm1"] = "FM-1_96"
 b.SCREEN_NAME = "FM1-ELECTRO"
 b.SCREEN_COLOUR = 0xFD20          # orange, as the BEAT tab
 b.DATA_FAMILY = "ELECTRO"
+FULL_VER = (ROOT / "VERSION").read_text().strip()   # the whole version, suffix included (docs/adr/0035)
+if "--release" not in sys.argv:
+    sys.argv += ["--release", FULL_VER]
+else:
+    FULL_VER = sys.argv[sys.argv.index("--release") + 1]
 
 FPU = ["-mcpu=r3", "-mfprev1", "-ffp-contract=off", "-cl-single-precision-constant"]
 ENGINE = sorted((ROOT / "engine").glob("*.c")) + sorted((ROOT / "ui").glob("*.c")) + [ROOT / "fm1" / "el_store.c",
@@ -34,11 +42,11 @@ def build_app():
     out, fw = b.OUT, b.FW
     tc = b.toolchain()
     flags = [*b.CFLAGS, *b.BOARD_DEFS[b.BOARD], "-Ifirmware/hal", "-Ifirmware/src", "-Ifirmware/gen",
-             f'-DFELUCCA_ID="{b.PRODUCT}"', f'-DAPP_VER="{b.VERSION or "0.0"}"', "-DSTORE_MAGIC=0x43454C45u",
+             f'-DFELUCCA_ID="{b.PRODUCT}"', f'-DAPP_VER="{FULL_VER}"', "-DSTORE_MAGIC=0x43454C45u",
              *INC, "-DEL_PLATFORM=1",
              "-DLCD_BAUD=1"]   # display SPI 60 / 2 = 30 MHz (the platform's 12 MHz: ~77 ms a frame; ST7789 up to ~60 MHz)
     eng = ["-O2", "-ffunction-sections", "-fdata-sections", "-fno-common", "-fno-builtin", *FPU, *INC,
-           "-DEL_PLATFORM=1", "-isystem", str(tc / "pi32v2" / "include"),
+           "-DEL_PLATFORM=1", f'-DEL_VERSION="{FULL_VER.upper()}"', "-isystem", str(tc / "pi32v2" / "include"),
            *os.environ.get("EL_EXTRA_CFLAGS", "").split()]   # e.g. A/B switches for a measurement
     cmds = [("cc", "-c", fw / "crt0.S", "-o", out / "crt0.o"),
             ("cc", "-c", fw / "hal" / "fm1_vec.S", "-o", out / "fm1_vec.o"),
@@ -99,5 +107,5 @@ if __name__ == "__main__":
     pkg = sorted((b.OUT).glob("dinghy*.fwsc"), key=lambda p: p.stat().st_mtime)[-1]
     target = b.OUT / pkg.name.replace("dinghy", "fm1-electro")
     pkg.replace(target)
-    print(f"FM1-Electro: {target}")
+    print(f"FM1-Electro {FULL_VER}: {target}")
     sys.exit(rc)
