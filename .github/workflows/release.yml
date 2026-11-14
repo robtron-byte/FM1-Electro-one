@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Testbuild → Tag + GitHub-Release (docs/adr/0035, Wunsch des Nutzers 14.11.2026): für VERSION und die passende
+# Datei firmware/FM1_ELECTRO-<Version>.fwsc einmal Tag v<Version> und ein Release (Vorabversion, solange die Version
+# einen Zusatz wie „-alpha“ hat) mit der Datei und der Anleitung firmware/README.md. Gibt es den Tag schon, passiert nichts.
+name: Release
+on:
+  push:
+    paths:
+      - "VERSION"
+      - "firmware/*.fwsc"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          ver=$(tr -d ' \n\r' < VERSION); tag="v$ver"; file="firmware/FM1_ELECTRO-$ver.fwsc"
+          if [ ! -f "$file" ]; then echo "$file fehlt: kein Release"; exit 0; fi
+          if gh release view "$tag" > /dev/null 2>&1; then echo "$tag gibt es schon"; exit 0; fi
+          pre=""; case "$ver" in *-*) pre="--prerelease";; esac
+          gh release create "$tag" "$file" --target "$GITHUB_SHA" --title "FM1-Electro $ver" $pre \
+            --notes-file firmware/README.md
+          echo "$tag angelegt"

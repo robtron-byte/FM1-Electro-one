@@ -19,7 +19,7 @@ wünscht für alle seine Firmwares Versionsnummern im Alpha-Stadium, wie in fm1-
   bleibt, wie er ist.
 - **Zählen:** Jeder weitere Testbuild erhöht Z (0.5.3-alpha …); eine neue Funktionsgruppe erhöht Y und setzt Z auf 0.
   Nach 0.5.9 folgt 0.6.0. „beta“, wenn der Nutzer es sagt.
-- Tags und GitHub-Releases nur auf Wunsch des Nutzers.
+- **Tags und GitHub-Releases** (vom Nutzer gewünscht, 14.11.2026): `.github/workflows/release.yml` legt beim Push für jede neue Version Tag `v<Version>` und ein Release (Vorabversion bei „-alpha“) mit der Datei an.
 
 ## Folgen
 
@@ -29,3 +29,4 @@ wünscht für alle seine Firmwares Versionsnummern im Alpha-Stadium, wie in fm1-
 ## Verlauf
 
 - 2026-11-14: angelegt; 0.5.2-alpha
+- 2026-11-14: Tags und Releases per GitHub Actions (Wunsch des Nutzers)
