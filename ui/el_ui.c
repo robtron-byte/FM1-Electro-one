@@ -24,7 +24,8 @@
  *                         Flash by themselves and survive a restart.
  *   HOME + EDIT           distortion: KNOB 1-4 send of BEAT / RHYTHM / STRINGS / BASS,
  *                         PRESETS type (OFF OD DIST RAT TUBE), ALGORITHM drive, SELECT tone
- *   PLAY / REC            transport / record into the current area (EDIT + REC clears it)
+ *   PLAY / REC            transport / record into the current area (EDIT + REC clears it,
+ *                         REC held a second: clear and record anew, N28)
  *   ARP held              generator: KNOB 1 style, KNOB 2 density, white key = new part
  *   ARP tapped            RHYTHM / STRINGS / BASS: arpeggiator on / off (EDIT + ARP: HOLD)
  *   SAVE                  then white key 1-8: copy the playing groove to user slot
@@ -42,6 +43,9 @@
  *         records live, REC while stopped enters notes step by step (EDIT + key: rest).
  *         STRINGS, RHYTHM: GLO + white key 1-9 picks the chord (1 = single notes).
  *         A chord sound (KEY MODE CHORD) sets it; the next sound without one ends it.
+ *         BASS plays and records single notes only (mono, N26).
+ *         GLO + SEQ: TRANSPOSE, a key moves the area's sequence (C4 = 0), EDIT + key
+ *         all of RHYTHM, STRINGS and BASS (not the drums); kept and stored (N27).
  *   STEP  (SEQ on) white keys switch steps on/off and select them, EDIT + white
  *         accent, GLO + white tie, OCT -/+ steps 1-16 / 17-32, GLO + SELECT step.
  *         KNOB 1 note, 2 octave, 3 chord (STRINGS) or accent, 4 inversion
@@ -624,25 +628,49 @@ static int load_sound_id(el_ui_t *ui, unsigned id)
 }
 
 /* One step through the sounds of the area. The user sounds come first, then
- * the factory sounds (MKS-50, then JP-6): the sound a new area starts with
- * is the first factory one, so the user sounds are one click to the left
- * (docs/adr/0026). User slots hold sounds of every area. */
+ * the factory sounds: the area's INIT+ start sound (N29), MKS-50, JP-6 and
+ * the own ones. The sound a new area starts with is the first MKS-50 one, so
+ * the user sounds are a click or two to the left (docs/adr/0026). User slots
+ * hold sounds of every area. */
+static int start_sound(unsigned i)
+{
+    const char *n = syn_sound_name(i);
+    unsigned l = 0;
+    while (n[l]) ++l;
+    return l > 5 && n[0] == 'I' && n[1] == 'N' && n[2] == 'I' && n[3] == 'T' && n[l - 1] == '+';
+}
+
+/* The place of factory sound i in the browsing order (INIT+ first). */
+static int sound_rank(unsigned i) { return start_sound(i) ? (int)i - 4096 : (int)i; }
+
+/* The factory sound of the area next to rank r in direction dir, or -1. */
+static int next_factory(const el_ui_t *ui, int r, int dir)
+{
+    int count = (int)syn_sound_count(), best = -1, best_rank = 0;
+    for (int i = 0; i < count; ++i) {
+        if (syn_sound_area((unsigned)i) != ui->area) continue;
+        int k = sound_rank((unsigned)i);
+        if (dir > 0 ? k > r && (best < 0 || k < best_rank) : k < r && (best < 0 || k > best_rank)) { best = i; best_rank = k; }
+    }
+    return best;
+}
+
 static unsigned next_sound(el_ui_t *ui, unsigned id, int dir)
 {
-    int count = (int)syn_sound_count();
     user_cache(ui);
     if (id < EL_USER_SOUND) {
-        int i = (int)id;
-        do i += dir; while (i >= 0 && i < count && syn_sound_area((unsigned)i) != ui->area);
-        if (i >= 0 && i < count) return (unsigned)i;
+        int i = next_factory(ui, sound_rank(id), dir);
+        if (i >= 0) return (unsigned)i;
         if (dir < 0)
             for (int u = EL_USER_SOUNDS - 1; u >= 0; --u) if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
         return id;
     }
     for (int u = (int)(id - EL_USER_SOUND) + dir; u >= 0 && u < EL_USER_SOUNDS; u += dir)
         if (ui->user_used[u]) return EL_USER_SOUND + (unsigned)u;
-    if (dir > 0)
-        for (int i = 0; i < count; ++i) if (syn_sound_area((unsigned)i) == ui->area) return (unsigned)i;
+    if (dir > 0) {
+        int i = next_factory(ui, -1000000, 1);
+        if (i >= 0) return (unsigned)i;
+    }
     return id;
 }
 
@@ -957,6 +985,7 @@ static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
     st_track_t *t = track_of(ui);
     uint8_t track = (uint8_t)(ui->area - 1u);
     unsigned step = ui->rec_fresh ? 0u : ui->cursor[ui->area];
+    int written = el_clampi(note - t->transpose, 0, 127);   /* plays back as played (N27) */
     if (step >= ST_STEPS) { notice(ui, "32 STEPS: REC TO FINISH"); return; }
     if (ui->rec_fresh) { el_post3(e, EL_CMD_TRACK_CLEAR, track, 0, 0, 0); ui->rec_fresh = 0; }
     if (key == UI_KEYS - 1u) {   /* the last key of the keyboard: a rest */
@@ -967,13 +996,13 @@ static void step_record(el_ui_t *ui, unsigned key, int note, unsigned hold)
         el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, ui->rec_note, (int16_t)(ST_ON | t->chord << 8));
     } else {
         if (step > 0 && ui->rec_key != 0xff) el_post3(e, EL_CMD_STEP_TIE, track, (uint8_t)(step - 1u), 1, 0);
-        el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)note, (int16_t)(ST_ON | t->chord << 8));
+        el_post3(e, EL_CMD_STEP_WRITE, track, (uint8_t)step, (uint8_t)written, (int16_t)(ST_ON | t->chord << 8));
         if (el_post3(e, EL_CMD_NOTE, track, (uint8_t)note, 1, 100) == 0) {   /* hear it, not live-recorded */
             ui->key_note[key] = (uint8_t)note;
             ui->key_track[key] = track;
         }
         ui->rec_key = (uint8_t)key;
-        ui->rec_note = (uint8_t)note;
+        ui->rec_note = (uint8_t)written;
     }
     ui->cursor[ui->area] = (uint8_t)(step + 1u);
     ui->step_page[ui->area] = (uint8_t)(step / 16u);
@@ -1008,11 +1037,14 @@ static void keys_synth_down(el_ui_t *ui, unsigned key, unsigned hold)
     int note = el_clampi(53 + (int)key + 12 * ui->octave[ui->area], 0, 127);
     if (ui->transpose_mode[ui->area]) {
         /* TRANSPOSE (KeyStep): the key moves the whole sequence, C4 = 0. */
-        int shift = note - 60;
-        el_post3(e, EL_CMD_TRACK_TRANSPOSE, track, 0, 0, (int16_t)shift);
-        static char text[20];
-        el_snprintf(text, sizeof text, "TRANSPOSE %+d", shift);
+        int shift = el_clampi(note - 60, -36, 36);
+        int all = (hold & HOLD_EDIT) != 0;   /* EDIT + key: RHYTHM, STRINGS and BASS together (N27) */
+        for (unsigned i = 0; i < EL_TRACKS; ++i)
+            if (all || i == track) el_post3(e, EL_CMD_TRACK_TRANSPOSE, (uint8_t)i, 0, 0, (int16_t)shift);
+        static char text[24];
+        el_snprintf(text, sizeof text, all ? "TRANSPOSE ALL %+d" : "TRANSPOSE %+d", shift);
         notice(ui, text);
+        keep_later(ui);
         return;
     }
     if (t->recording && rec_step_mode(ui)) {
@@ -1283,6 +1315,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             int grid = !armed && ui->area != EL_AREA_BEAT && !rec_step_mode(ui) &&
                        st_live_grid_needed(&track_of(ui)->pattern[track_of(ui)->current], track_of(ui)->area, 1);
             el_post3(e, EL_CMD_RECORD_AREA, ui->area, (uint8_t)!armed, 0, 0);
+            ui->rec_at = (ui->now ? ui->now : 1u);   /* held on: a new take (N28) */
+            ui->rec_renewed = 0;
             ui->cursor[ui->area] = 0;
             ui->rec_key = ui->rec_note = 0xff;
             ui->rec_fresh = (uint8_t)(!armed && rec_step_mode(ui));
@@ -1290,6 +1324,25 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
             else if (grid) notice(ui, ui->area == EL_AREA_BASS ? "BASS REC: 16THS, NOTES AS LONG AS HELD" : "STRINGS REC: 8THS, NOTES AS LONG AS HELD");
             else if (!armed && !e->transport.running) notice(ui, "LIVE REC: PLAY TO START");
         }
+    }
+    /* N28: REC held a second: the pattern cleared and a new take armed (a short
+     * press keeps overdubbing). */
+    if (!(c->buttons & BIT(BTN_REC))) ui->rec_at = 0;
+    else if (ui->rec_at && !ui->rec_renewed && !ui->overview && ui->now - ui->rec_at >= 1000u) {
+        ui->rec_renewed = 1;
+        if (ui->area == EL_AREA_BEAT) {
+            dr_post(m, DR_CMD_CLEAR_PART, DR_PARTS, 0, 0, 0);
+            el_post3(e, EL_CMD_RECORD_AREA, ui->area, 1, 0, 0);
+        } else {
+            uint8_t track = (uint8_t)(ui->area - 1u);
+            el_post3(e, EL_CMD_RECORD_AREA, ui->area, 0, 0, 0);   /* a running take ends ... */
+            el_post3(e, EL_CMD_TRACK_CLEAR, track, 0, 0, 0);
+            el_post3(e, EL_CMD_RECORD_AREA, ui->area, 1, 0, 0);   /* ... and starts on the empty pattern */
+            ui->rec_key = ui->rec_note = 0xff;
+            ui->cursor[ui->area] = 0;
+            ui->rec_fresh = (uint8_t)rec_step_mode(ui);
+        }
+        notice(ui, "NEW TAKE: PATTERN CLEARED, REC ON");
     }
     if ((pressed & BIT(BTN_SAVE)) && (hold & HOLD_GLO) && synth_area(ui) && ui->sound_put && !ui->sound_save) {
         /* GLO + SAVE in RHYTHM / STRINGS / BASS: store the sound as it sounds now
@@ -1343,8 +1396,8 @@ static void handle_input(el_ui_t *ui, const struct fm1_controls *c)
         /* GLO + SEQ: TRANSPOSE, the keys move the sequence (KeyStep). */
         release_keys(ui, ~0u);
         ui->transpose_mode[ui->area] = (uint8_t)!ui->transpose_mode[ui->area];
-        if (!ui->transpose_mode[ui->area]) el_post3(e, EL_CMD_TRACK_TRANSPOSE, (uint8_t)(ui->area - 1u), 0, 0, 0);
-        notice(ui, ui->transpose_mode[ui->area] ? "TRANSPOSE ON: KEYS MOVE THE SEQUENCE" : "TRANSPOSE OFF");
+        /* off: the keys play again, the transposition stays (N27; C4 sets it back to 0) */
+        notice(ui, ui->transpose_mode[ui->area] ? "TRANSPOSE: KEY = AREA, EDIT+KEY = ALL" : "TRANSPOSE KEYS OFF, SHIFT KEPT");
         pressed &= ~BIT(BTN_SEQ);
     }
     if ((pressed & BIT(BTN_SEQ)) && synth_area(ui)) {
@@ -1948,9 +2001,16 @@ static void draw_synth(el_ui_t *ui, gfx_band_t *b)
     if (4 + gfx_text_width(sound_label(ui, t->preset), 2) < 130)   /* a long name (U01 ...) keeps the room */
         gfx_text(b, 134, 39, syn_engine_names[t->part.engine], DIM, 1);
     if (ui->step_mode[ui->area]) el_snprintf(text, sizeof text, "STEP%s", p->length > 16 ? (base ? " 2/2" : " 1/2") : "");
+    else if (ui->transpose_mode[ui->area]) el_snprintf(text, sizeof text, "TRANSP %+d", t->transpose);
     else el_snprintf(text, sizeof text, "%s O%+d", t->arp.v[ARP_ON] ? (t->arp.v[ARP_HOLD] ? "ARP-H" : "ARP") : "KEYS",
                   ui->octave[ui->area]);
-    gfx_text(b, GFX_W - 4 - gfx_text_width(text, 1), 39, text, ui->step_mode[ui->area] || t->arp.v[ARP_ON] ? AMBER : DIM, 1);
+    if (t->transpose && !ui->transpose_mode[ui->area]) {   /* a kept transposition stays in sight (N27) */
+        size_t l = 0;
+        while (text[l]) ++l;
+        el_snprintf(text + l, sizeof text - l, " T%+d", t->transpose);
+    }
+    gfx_text(b, GFX_W - 4 - gfx_text_width(text, 1), 39, text,
+             ui->step_mode[ui->area] || t->arp.v[ARP_ON] || ui->transpose_mode[ui->area] || t->transpose ? AMBER : DIM, 1);
 
     /* Piano roll: the pattern's note range, at least one octave. */
     int lo = 127, hi = 0;
@@ -2391,7 +2451,7 @@ static void draw_footer(el_ui_t *ui, gfx_band_t *b)
         el_snprintf(line, sizeof line, "MUTE: KEYS MUTE / UNMUTE  GLO = OFF");
         hint = line;
     } else if (!hint && synth_area(ui) && !ui->overview && ui->transpose_mode[ui->area]) {
-        el_snprintf(line, sizeof line, "TRANSPOSE %+d  C4=0  GLO+SEQ=OFF", track_of(ui)->transpose);
+        el_snprintf(line, sizeof line, "TRANSP %+d C4=0 EDIT+KEY=ALL", track_of(ui)->transpose);
         hint = line;
     }
     if (!hint) {

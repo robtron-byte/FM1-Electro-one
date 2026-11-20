@@ -89,6 +89,16 @@ SOUNDS = [
         (RHYTHM, "INIT RHY 6", "SYNPOP KEY", dict(ENV1_R=20, ENV2_R=20)),
         (STRINGS, "INIT STR 6", "JUPI PAD", dict(ENV1_R=50, ENV2_R=50)),
         (BASS, "INIT BASS6", "JUPI BASS", dict(KEY_MODE=2, ENV1_R=12, ENV2_R=12, VCO1_RANGE=3)))
+] + [
+    # ---- INIT+ (wish 20.11., N29): a start that already fits its area, to
+    # shape and store as an own sound; first in PRESETS after the own sounds.
+    # Appended, so the numbers of saved sounds stay. ---------------------------
+    ("mks", RHYTHM, "INIT RHY+", "PLUCK KEYS", dict(MKS_INIT, CHORUS=1, CUTOFF=66, RESO=10, VCF_ENV=36, VCF_KEY=64,
+                                                    T2=46, L2=56, T3=50, L3=36, T4=26, DELAY_SEND=24, REVERB_SEND=16)),
+    ("mks", STRINGS, "INIT STR+", "WARM PAD", dict(MKS_INIT, PULSE=1, SAW=3, CHORUS=1, CUTOFF=68, RESO=4, VCF_ENV=14,
+                                                   T1=56, L1=127, T2=70, L2=110, T3=70, L3=100, T4=70, REVERB_SEND=40)),
+    ("mks", BASS, "INIT BASS+", "FAT BASS", dict(MKS_INIT, KEY_MODE=2, RANGE=0, VOLUME=127, HPF=1, CUTOFF=48, RESO=16,
+                                                 VCF_ENV=48, VCF_KEY=60, T2=52, L2=64, T3=52, L3=60, T4=14)),
 ]
 
 

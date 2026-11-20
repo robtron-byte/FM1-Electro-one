@@ -60,6 +60,7 @@ EL_DSP_CODE void st_enter(st_track_t *t, unsigned slot)
 EL_DSP_CODE void st_follow_chord(st_track_t *t, unsigned old)
 {
     unsigned now = syn_chord_memory(&t->part);
+    if (t->area == MKS_AREA_BASS) { t->chord = 0; return; }   /* BASS: single notes only (mono, N26) */
     if (now) t->chord = (uint8_t)now;
     else if (old && t->chord == old) t->chord = 0;
 }
@@ -118,8 +119,8 @@ static EL_DSP_CODE int record_step(st_track_t *t, int note, unsigned chord, floa
         step = (step + p->length - start) % p->length;
         t->take_started = 1;
     }
-    p->step[step].note = (uint8_t)note;
-    p->step[step].chord = (uint8_t)chord;
+    p->step[step].note = (uint8_t)el_clampi(note - t->transpose, 0, 127);   /* plays back as played (N27) */
+    p->step[step].chord = (uint8_t)(t->area == MKS_AREA_BASS ? 0u : chord);   /* BASS: single notes (N26) */
     p->step[step].flags = (uint8_t)(ST_ON | (velocity > 0.9f ? ST_ACCENT : 0));
     p->step[step].len = 0;
     ++t->revision;
@@ -290,7 +291,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
              (!ST_PROB(s) || el_prob_plays(ST_PROB(s), el_rnd(&t->rnd)));
     if (!on) { release_all(t); return; }
     int16_t notes[MKS_CHORD_NOTES];
-    unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), s->chord, notes);
+    unsigned count = chord_notes(el_clampi(s->note + t->transpose, 0, 127), t->area == MKS_AREA_BASS ? 0u : s->chord, notes);
     float velocity = (s->flags & ST_ACCENT) ? 1.0f : 0.7f;
     if (t->area == MKS_AREA_STRINGS && arp_active(&t->arp)) {
         /* STRINGS with ARP on: the step's chord is arpeggiated instead of

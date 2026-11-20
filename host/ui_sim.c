@@ -720,21 +720,35 @@ int main(int argc, char **argv)
         tap_key(9);
         run(50);
         int moved = ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 2 && p->step[0].note == 57;
+        /* N27: EDIT + key moves RHYTHM, STRINGS and BASS together; C4 back to 0 */
+        hold(BTN_EDIT, 1); tap_key(11); hold(BTN_EDIT, 0);   /* E4: all +4 */
+        run(50);
+        moved = moved && engine.track[0].transpose == 4 && engine.track[1].transpose == 4 && engine.track[2].transpose == 4;
+        tap_key(9);                                           /* D4: RHYTHM alone +2 */
+        run(50);
+        moved = moved && engine.track[0].transpose == 2 && engine.track[1].transpose == 4;
+        hold(BTN_EDIT, 1); tap_key(7); hold(BTN_EDIT, 0);    /* C4: all 0 */
+        run(50);
+        moved = moved && !engine.track[0].transpose && !engine.track[1].transpose && !engine.track[2].transpose;
+        tap_key(9);                                           /* D4 again: +2 ... */
         hold(BTN_GLO, 1); tap_button(BTN_SEQ); hold(BTN_GLO, 0);
         run(50);
-        moved = moved && !ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 0;
+        /* ... kept when the keys play again (N27) */
+        moved = moved && !ui.transpose_mode[EL_AREA_RHYTHM] && engine.track[0].transpose == 2;
         /* GLO + REC back to LIVE: running, REC, a key lands in the pattern
          * and the sequence keeps its length. */
         hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0);
         tap_button(BTN_PLAY);
         run(200);
         tap_button(BTN_REC);
-        tap_key(11);                  /* E4 = 64 */
+        tap_key(11);                  /* E4 = 64, stored as 62 under +2: it plays back as played (N27) */
         run(50);
         tap_button(BTN_REC);
         tap_button(BTN_PLAY);
         int live = 0;
-        for (unsigned i = 0; i < p->length; ++i) live |= p->step[i].note == 64 && (p->step[i].flags & ST_ON);
+        for (unsigned i = 0; i < p->length; ++i) live |= p->step[i].note == 62 && (p->step[i].flags & ST_ON);
+        el_post3(&engine, EL_CMD_TRACK_TRANSPOSE, 0, 0, 0, 0);   /* the tests after this one: untransposed */
+        run(30);
         live = live && p->length == 5 && !(engine.option[EL_OPT_REC_STEP] & 1);
         printf("rec modes: GLO + REC switches LIVE / SH-101; live take keeps the length %s\n", live ? "ok" : "FAIL");
         printf("steprec: 5 steps, legato tie, hold, rest, length from the steps; transpose +2 %s\n", ok && moved ? "ok" : "FAIL");
@@ -1586,6 +1600,94 @@ int main(int argc, char **argv)
         }
         printf("chain: hold + press, empty slot copied, A>B>B a pass each, LEDs %s, starts over, stored %s, single press ends it %s\n",
                leds_ok ? "ok" : "FAIL", st ? "ok" : "FAIL", ok && ended && leds_ok && st ? "ok" : "FAIL");
+    }
+    {
+        /* N28: REC held a second clears the pattern and records anew; a short
+         * press overdubs. N26: BASS records single notes. N27: the
+         * transposition is stored (version 28), a version 27 record has none. */
+        el_engine_t *ee = ui.engine;
+        if (ee->transport.running) tap_button(BTN_PLAY);
+        if (ui.overview) tap_button(BTN_HOME);
+        while (ui.area != EL_AREA_STRINGS) tap_button(BTN_ENV);
+        if (ui.step_mode[EL_AREA_STRINGS]) tap_button(BTN_SEQ);
+        if (ee->option[EL_OPT_REC_STEP] & 2) { hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0); }
+        st_track_t *tt = &ee->track[1];
+        el_post3(ee, EL_CMD_STEP_TOGGLE, 1, 0, 0, 0);   /* something to clear */
+        run(30);
+        tap_button(BTN_PLAY);
+        run(100);
+        tap_button(BTN_REC);                             /* short: overdub, the step stays */
+        run(50);
+        int nt = tt->recording && !st_pattern_empty(&tt->pattern[tt->current]);
+        tap_button(BTN_REC);                             /* off */
+        run(50);
+        nt = nt && !tt->recording;
+        hold(BTN_REC, 1); run(1100);                     /* held: cleared, armed, a new take */
+        nt = nt && tt->recording && st_pattern_empty(&tt->pattern[tt->current]) && tt->grow;
+        shot(dir, "31_new_take");
+        hold(BTN_REC, 0); run(30);
+        nt = nt && tt->recording;
+        tap_button(BTN_REC);
+        tap_button(BTN_PLAY);
+        run(50);
+        /* BASS: a chord sent to it stays single notes, live takes too */
+        while (ui.area != EL_AREA_BASS) tap_button(BTN_LFO);
+        st_track_t *bt = &ee->track[2];
+        el_post3(ee, EL_CMD_TRACK_CHORD, 2, 5, 0, 0);
+        run(30);
+        int bass = bt->chord == 0;
+        tap_button(BTN_PLAY);
+        run(100);
+        hold(BTN_REC, 1); run(1100); hold(BTN_REC, 0);   /* a new take */
+        hold(BTN_GLO, 1); tap_key(4); hold(BTN_GLO, 0);  /* GLO + key: no chord board in BASS, plays */
+        tap_key(7);
+        run(100);
+        tap_button(BTN_REC);
+        tap_button(BTN_PLAY);
+        run(50);
+        int notes = 0;
+        for (unsigned i = 0; i < ST_STEPS; ++i)
+            if (bt->pattern[bt->current].step[i].flags & ST_ON) { ++notes; bass = bass && !ST_CHORD_TYPE(bt->pattern[bt->current].step[i].chord); }
+        bass = bass && notes > 0 && bt->chord == 0;
+        /* the transposition is stored */
+        el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 0, 0, 0, 3);
+        el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 2, 0, 0, -5);
+        run(30);
+        static el_engine_t c28, c27;
+        int st = el_store_save(ee) == 0;
+        el_init(&c28);
+        st = st && el_store_load(&c28) == 0 && c28.track[0].transpose == 3 && c28.track[1].transpose == 0 && c28.track[2].transpose == -5 &&
+             c28.track[2].chord == 0;
+        st = st && el_store_test_as(27) == 0;
+        el_init(&c27);
+        st = st && el_store_load(&c27) == 0 && !c27.track[0].transpose && !c27.track[2].transpose && c27.track[0].chain_len == c28.track[0].chain_len;
+        el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 0, 0, 0, 0);
+        el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 2, 0, 0, 0);
+        run(30);
+        printf("new take: REC held clears and records anew, short press overdubs %s; BASS single notes %s; transpose stored, version 27 %s\n",
+               nt ? "ok" : "FAIL", bass ? "ok" : "FAIL", st ? "ok" : "FAIL");
+        /* N29: in PRESETS the area's INIT+ comes first after the own sounds */
+        int init_ok = 1;
+        static const char *const want[3] = {"INIT RHY+", "INIT STR+", "INIT BASS+"};
+        static const uint8_t area_button[3] = {BTN_SEL, BTN_ENV, BTN_LFO};
+        for (unsigned a = 0; a < 3; ++a) {
+            while (ui.area != a + 1u) tap_button(area_button[a]);
+            st_track_t *at = &ee->track[a];
+            for (unsigned k = 0; k < 400 && (at->preset < EL_USER_SOUND); ++k) {
+                unsigned before = at->preset;
+                turn(6, -1); run(20);
+                if (at->preset == before) break;
+            }
+            /* now on the first (own sounds, or the first factory sound): right until a factory one */
+            for (unsigned k = 0; k < 40 && at->preset >= EL_USER_SOUND; ++k) { turn(6, 1); run(20); }
+            init_ok = init_ok && at->preset < EL_USER_SOUND && !strcmp(syn_sound_name(at->preset), want[a]);
+            if (a == 2) shot(dir, "32_init_bass");
+            turn(6, 1); run(20);
+            init_ok = init_ok && strcmp(syn_sound_name(at->preset), want[a]) != 0;
+        }
+        printf("init+: INIT RHY+ / STR+ / BASS+ first in PRESETS %s\n", init_ok ? "ok" : "FAIL");
+        nt = nt && bass && st && init_ok;
+        if (!nt) same = 0;
     }
     }
     return same && arp_ok && kept && beat_ok && ed_ok && led_ok && us_ok && ps_ok && sc_ok ? 0 : 1;

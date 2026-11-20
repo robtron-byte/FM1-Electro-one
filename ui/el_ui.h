@@ -43,6 +43,8 @@ typedef struct {
     uint8_t chain_key[EL_AREAS], chain_build[EL_AREAS][4], chain_count[EL_AREAS];
     uint8_t fill_edit, fill_held;       /* BEAT: EDIT + SEQ edits the slot's fill; SEQ held repeats it (N12) */
     uint32_t seq_at;                    /* when SEQ went down in BEAT */
+    uint32_t rec_at;                    /* when REC went down (held: clear + new take, N28) */
+    uint8_t rec_renewed;                /* the hold has cleared and armed already */
     uint8_t preview_off;                /* BEAT: OCT+ switched the drum preview off (N2) */
     uint8_t bars_shown;                 /* GLO + ALGORITHM: the length in bars shown big (N11) */
     uint32_t bars_at;

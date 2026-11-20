@@ -26,8 +26,10 @@
  * mapped part by part), every option in one array, no separate copy of the
  * playing kit (each slot has its sound), each kit as last set (N1), a length
  * per synth step (N6), a fill per drum slot (N12); 27 the pattern chain of
- * every area (S16), appended (a record of 26 is its first part: no chains). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 27, VERSION_26 = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+ * every area (S16), appended (a record of 26 is its first part: no chains);
+ * 28 the transposition of RHYTHM, STRINGS and BASS (N27), appended (a record
+ * of 27 is its first part: no transposition). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 28, VERSION_27 = 27, VERSION_26 = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -130,8 +132,14 @@ typedef struct {
     dr_fill_t fill[DR_PATTERNS];            /* each slot's fill (N12) */
     /* version 27: each area's pattern chain (S16): links (0 none), then the slots */
     uint8_t chain[EL_AREAS][1 + DR_CHAIN];
+    /* version 28: the transposition of each synth area in semitones (N27) */
+    int8_t transpose[EL_TRACKS];
 } payload_t;
 #define V26_BYTES offsetof(payload_t, chain)
+/* version 27 ended after the chains, padded to the payload's alignment (the
+ * transposition may sit in that padding: a record of 27 loads it as 0) */
+#define V27_ALIGN _Alignof(payload_t)
+#define V27_BYTES ((offsetof(payload_t, transpose) + V27_ALIGN - 1u) / V27_ALIGN * V27_ALIGN)
 _Static_assert(DR_CHAIN == ST_CHAIN, "one chain layout for every area");
 #define V25_BYTES sizeof(payload_v25_t)
 #define V24_BYTES sizeof(payload_v24_t)
@@ -275,6 +283,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (record.version == VERSION_27 && record.bytes == V27_BYTES) ||
                   (record.version == VERSION_26 && record.bytes == V26_BYTES) ||
                   (record.version == VERSION_25 && record.bytes == V25_BYTES) ||
                   (record.version == VERSION_24 && record.bytes == V24_BYTES) ||
@@ -417,6 +426,7 @@ static int el_store_load_held(el_engine_t *e)
     unsigned version = record.version;
     const payload_t *d = &record.data;
     if (version == VERSION_26) memset(record.data.chain, 0, sizeof record.data.chain);   /* the part 26 did not have */
+    if (version <= VERSION_27) memset(record.data.transpose, 0, sizeof record.data.transpose);   /* nor 27 */
     if (version < VERSION_26) {
         from_v25(upgrade(), version, &buffer.up.conv);
         d = &buffer.up.conv;
@@ -531,6 +541,7 @@ static int el_store_load_held(el_engine_t *e)
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
         t->chord = (uint8_t)el_clampi(old_chords && s->chord < 14u ? st_chord_v15[s->chord] : s->chord, 0, MKS_CHORDS);
+        if (t->area == MKS_AREA_BASS) t->chord = 0;   /* BASS: single notes (N26) */
         st_enter(t, slot_a ? 0u : s->current % ST_PATTERNS);
         t->next = t->current;
     }
@@ -549,6 +560,8 @@ static int el_store_load_held(el_engine_t *e)
         if (a == EL_AREA_BEAT) { dr_post(m, DR_CMD_CHAIN, 0, (uint8_t)links, 0, (int16_t)slots); dr_process_commands(m); }
         else st_chain(&e->track[a - 1u], links, slots);
     }
+    /* the transposition (N27; 0 before version 28) */
+    for (unsigned i = 0; i < EL_TRACKS; ++i) e->track[i].transpose = (int8_t)el_clampi(d->transpose[i], -36, 36);
     return 0;
 }
 
@@ -633,6 +646,7 @@ static int el_store_save_held(el_engine_t *e)
         d->chain[a][0] = *links;
         memcpy(&d->chain[a][1], slots, DR_CHAIN);
     }
+    for (unsigned i = 0; i < EL_TRACKS; ++i) d->transpose[i] = e->track[i].transpose;   /* N27 */
     record.magic = MAGIC;
     record.sequence = sequence ? sequence : 1u;
     record.version = VERSION;
@@ -806,7 +820,7 @@ static void to_v25(const payload_t *d, payload_v25_t *o)
     memcpy(o->drum_pitch, d->drum_pitch, sizeof o->drum_pitch);
 }
 
-/* The newest record rewritten as version `version` (20, 25 or 26) wrote it. */
+/* The newest record rewritten as version `version` (20, 25, 26 or 27) wrote it. */
 int el_store_test_as(unsigned version)
 {
     if (!take()) return -1;
@@ -815,7 +829,7 @@ int el_store_test_as(unsigned version)
     int r = -1;
     if ((a || b) && read_valid(newest) && record.version == VERSION) {
         static payload_v25_t o;
-        size_t bytes = V26_BYTES;   /* 26: the same, without the chains */
+        size_t bytes = version >= VERSION_27 ? V27_BYTES : V26_BYTES;   /* 27: without the transposition, 26: also without the chains */
         if (version < VERSION_26) {
             to_v25(&record.data, &o);
             bytes = version >= VERSION_25 ? V25_BYTES : V19_BYTES;

@@ -338,7 +338,7 @@ static EL_DSP_CODE void apply_track(el_engine_t *e, const el_cmd_t *c)
         t->level_value = (uint8_t)el_clampi(c->value, 0, 127);
         break;
     case EL_CMD_TRACK_CHORD:
-        t->chord = (uint8_t)el_clampi(c->b, 0, MKS_CHORDS);
+        t->chord = t->area == MKS_AREA_BASS ? 0u : (uint8_t)el_clampi(c->b, 0, MKS_CHORDS);   /* BASS: single notes (N26) */
         break;
     case EL_CMD_TRACK_CLEAR:
         for (unsigned i = 0; i < ST_STEPS; ++i) p->step[i].flags = 0;
