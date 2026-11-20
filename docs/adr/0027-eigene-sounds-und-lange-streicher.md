@@ -1,7 +1,7 @@
 # 0027: Eigene schlichte Sounds, Bässe neben der Bassdrum, längere Streicher
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-12
+- **Stand:** 2026-11-20
 
 ## Kontext
 
@@ -45,3 +45,4 @@ Messung (`make bass-check`, Bässe bei C2 = MIDI 36): Die Bässe der Apps spiele
 - 2026-11-08: N16: dieselbe Live-Aufnahme für BASS, Raster 1/16 (32 Steps = 2 Takte), darüber 1/8 bis 4 Takte; BASS-Längen ebenfalls nur 1, 2, 4, 8 Takte
 - 2026-11-12: S17 (Feedback): Die Live-Aufnahme beginnt mit der ersten Taste, nicht mit REC: deren Takt wird Takt 1, leere Takte davor gehören nicht dazu (`take_started`, Playhead dabei auf den Taktanfang gelegt; beim Ende werden leere Takte vor der ersten Note zusätzlich abgeschnitten). Die Takte zählen nach den Notenanfängen; eine Note, die weniger als ein Viertel über den letzten Taktstrich gehalten wird, macht keinen weiteren Takt (vorher wurde aus einem Takt oft zwei) und wird am Ende der Schleife gekürzt. Das Umrastern über 4 Takte (N7) setzt erst nach der ersten Taste ein. Gilt für STRINGS und BASS
 - 2026-11-12: Y7: Init-Sounds je Bereich und Engine am Ende der Liste (INIT RHY, INIT STR, INIT BASS, INIT RHY 6, INIT STR 6, INIT BASS6): ein Sägezahn, Filter offen, keine Modulation, Hüllkurve voll, kein Chorus, keine Sends; BASS monophon und in 4' (130 Hz bei C2, über der Bassdrum, auch auf kleinen Lautsprechern hörbar). Der Leerstart wählt sie nicht als Zufallssound. Messung `make bass-check`: die meisten Bässe liegen mit dem Grundton bei 32 Hz und sind leise (Y8, offen)
+- 2026-11-20: S19 (Fehlermeldung): Gegriffene Akkorde (mehrere Tasten zugleich) wurden in der Live-Aufnahme von STRINGS nur als letzter Ton gespeichert, weil ein Step einen Ton plus Akkord-Typ hält. Jetzt werden Tasten, die zusammen im selben Step liegen, als Akkord der Tabelle erkannt (m7, SUS2, MIN, 5+8, SUS4, 7TH, MAJ, m7b5): zuerst ein exakter Akkord, sonst einer mit genau einem Ton mehr (C + E wird MAJ). Der gespielte Basston wählt die Umkehrung (0–2); liegt der Bass auf der Septime, wird die Grundstellung darunter gespeichert. Passt kein Akkord, bleibt der tiefste Ton (statt des zuletzt gedrückten). Nur wenn kein Akkord gewählt ist (GLO + Taste 1, kein Akkord-Sound); BASS bleibt einstimmig (N26). Mitbehoben: Mit Transpose (N27) behielten Live-Noten ihre Länge nicht (`rec_root`). Test `host/ui_sim.c` „strings played chords“

@@ -4,9 +4,9 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B19, S19, Y9, F11, U15, P12, N31).
+Neue Nummern: im Bereich die nächste freie (B19, S20, Y9, F11, U15, P12, N31).
 
-Stand: 53. Build (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
+Stand: 0.5.5-alpha (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
 ## Offen und angefangen
 
@@ -112,6 +112,7 @@ Stand: 53. Build (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | U14 | Bedienung/Display | OCT − / OCT + leuchten erst, wenn die Oktave verstellt ist: eine tiefer bzw. höher gedimmt, weiter voll, am Ende blinkend (Wunsch 12.11.) | ◐ umgesetzt (51. Build) | 0020 |
 | S17 | Sequencer | Live-Aufnahme STRINGS/BASS (Feedback 12.11.): beginnt mit der ersten Taste (ihr Takt = Takt 1, leere Takte davor nicht aufgenommen); ein Takt bleibt ein Takt (Note kurz über den Taktstrich gehalten macht keinen zweiten) | ◐ behoben (50. Build) | 0027 |
 | S18 | Sequencer | Fehler (Meldung 20.11.): Bei externer MIDI-Clock läuft der Groove unruhig, das Tempo schwankt um 2–3 BPM. Ursache: Steps nur am Blockanfang (5,8 ms) und Tempo aus einem Step-Abstand. Jetzt folgt ein Schwungrad (α-β-Filter): Steps framegenau, Tempo ruhig (Hysterese 0,2 BPM), folgt Tempowechseln in 1–2 Takten | ◐ behoben (53. Build) | 0036 |
+| S19 | Sequencer | Fehler (Meldung 20.11.): In STRINGS ließen sich gegriffene Akkorde (mehrere Tasten zugleich) nicht live aufnehmen, nur der zuletzt gedrückte Ton blieb. Jetzt werden zusammen gehaltene Tasten eines Steps als Akkord mit Umkehrung erkannt (passt keiner: der tiefste Ton). Mitbehoben: unter Transpose aufgenommene Noten behalten ihre Länge | ◐ behoben (0.5.5-alpha) | 0027 |
 | Y7 | Synths | Init-Sounds für RHYTHM, STRINGS, BASS (je MKS-50 und JP-6) am Ende der Sound-Liste: ein Sägezahn, Filter offen, keine Modulation; BASS mono in 4' (gut hörbar). BEAT: EDIT + PRESETS setzt das Kit auf den Werksklang (N1) | ◐ umgesetzt (50. Build) | 0027 |
 | Y6 | Synths | Fehler: In RHYTHM wurde immer ein Akkord aufgenommen. Stab-Sounds mit Akkordspeicher (KEY MODE CHORD, z. B. HOUSE STAB, ELEC STAB, GATE CHORD, 4THS STAB, POWER 5+8, ORCH HIT) setzten den Akkord der Spur, und der blieb auch nach dem Wechsel auf einen Sound ohne Akkord. Jetzt endet ein Akkord, der vom Sound kam, mit dem nächsten Sound ohne Akkordspeicher (oder KEY MODE ≠ CHORD im Editor); von Hand gewählte bleiben. GLO + weiße Taste 1–9 wählt den Akkord jetzt auch in RHYTHM (Taste 1 = Einzeltöne), mit der Tafel CHORD. Bei der Schritt-Aufnahme (SH-101) bleibt GLO + Taste das Binden (Feedback 12.11.) | ◐ behoben (48. Build) | 0024 |
 | U12 | Bedienung/Display | Fehler: Zeitstempel `now | 1` lag bei geradem `now` 1 ms in der Zukunft → ein kurzer SEQ-Druck galt als gehalten (Fill gleich wieder aus), die Regler-Hervorhebung und die Taktanzeige fielen für ein Bild aus (Flackern) | ◐ behoben (47. Build) | – |

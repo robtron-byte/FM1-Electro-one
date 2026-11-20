@@ -132,7 +132,7 @@ static EL_DSP_CODE void rec_len(st_track_t *t, unsigned i)
 {
     st_step_t *s = &t->pattern[t->current].step[t->rec_step[i] % ST_STEPS];
     float thirty_second = t->sixteenth_frames * 0.5f;
-    if (s->note != t->rec_note[i] || !(s->flags & ST_ON) || thirty_second <= 1.0f) return;
+    if (s->note != t->rec_root[i] || !(s->flags & ST_ON) || thirty_second <= 1.0f) return;
     int n = (int)(t->rec_frames[i] / thirty_second + 0.5f);
     s->len = (uint8_t)el_clampi(n, 1, 255);
     ++t->revision;
@@ -306,7 +306,7 @@ EL_DSP_CODE void st_step(st_track_t *t, uint32_t step, float sixteenth_frames)
          * the other steps; the same note again starts over. The key being
          * recorded into this step right now already sounds. */
         release_all(t);
-        for (unsigned i = 0; i < t->rec_count; ++i) if (t->rec_step[i] == pos && t->rec_note[i] == s->note) return;
+        for (unsigned i = 0; i < t->rec_count; ++i) if (t->rec_step[i] == pos && t->rec_root[i] == s->note) return;
         float frames = (float)s->len * sixteenth_frames * 0.5f;
         for (unsigned i = 0; i < count; ++i) {
             unsigned k = 0;
@@ -392,6 +392,64 @@ EL_DSP_CODE void st_render(st_track_t *t, float *left, float *right, float *dly,
     arp_play(t, arp_advance(&t->arp, frames, t->playing, bpm));
 }
 
+/* The chord of held notes (a pitch-class set) as root + chord byte: an exact
+ * chord of the table, else one with a single note more; the played bass
+ * picks the inversion (0-2). Returns 0 (single note, *root = bass) when none
+ * fits. */
+static EL_DSP_CODE unsigned chord_of_notes(const int *notes, unsigned n, int *root)
+{
+    int bass = notes[0];
+    unsigned held = 0;
+    for (unsigned i = 0; i < n; ++i) {
+        if (notes[i] < bass) bass = notes[i];
+        held |= 1u << ((unsigned)notes[i] % 12u);
+    }
+    *root = bass;
+    if (!(held & (held - 1u))) return 0;   /* one pitch class (octaves) */
+    unsigned bass_pc = (unsigned)bass % 12u, best = 0, best_root = 0, best_score = 99;
+    for (unsigned type = 1; type <= MKS_CHORDS; ++type)
+        for (unsigned r = 0; r < 12u; ++r) {
+            unsigned mask = 0, extra = 0;
+            for (unsigned i = 0; i < MKS_CHORD_NOTES && mks_chords[type - 1][i] != -128; ++i)
+                mask |= 1u << ((r + (unsigned)mks_chords[type - 1][i]) % 12u);
+            if (held & ~mask) continue;
+            for (unsigned m = mask & ~held; m; m &= m - 1u) ++extra;
+            unsigned score = extra * 4u + (r != bass_pc ? 1u : 0u) + (held & (1u << r) ? 0u : 2u);
+            if (extra <= 1u && score < best_score) { best_score = score; best = type; best_root = r; }
+        }
+    if (!best) return 0;
+    /* the inversion whose lowest note is the bass; a bass beyond the second
+     * inversion (the 7th): root position below it */
+    const int8_t *off = mks_chords[best - 1];
+    for (unsigned k = 0; k < 3u && k < MKS_CHORD_NOTES && off[k] != -128; ++k)
+        if ((best_root + (unsigned)off[k]) % 12u == bass_pc) {
+            *root = bass - off[k];
+            return best | k << 4;
+        }
+    *root = bass - (int)((bass_pc + 12u - best_root) % 12u);
+    return best;
+}
+
+/* STRINGS live take without a chosen chord: keys held together in one step
+ * become that step's chord (feedback 20.11.: played chords were recorded as
+ * their last note only). */
+static EL_DSP_CODE void record_held_chord(st_track_t *t, unsigned step)
+{
+    int notes[ST_REC_HELD];
+    unsigned n = 0;
+    for (unsigned i = 0; i < t->rec_count; ++i)
+        if (t->rec_step[i] == step) notes[n++] = t->rec_note[i];
+    if (n < 2u) return;
+    int root;
+    unsigned chord = chord_of_notes(notes, n, &root);
+    st_step_t *s = &t->pattern[t->current].step[step];
+    s->note = (uint8_t)el_clampi(root - t->transpose, 0, 127);
+    s->chord = (uint8_t)((s->chord & 0xc0u) | chord);   /* (bits 6-7: probability) */
+    for (unsigned i = 0; i < t->rec_count; ++i)
+        if (t->rec_step[i] == step) t->rec_root[i] = s->note;
+    ++t->revision;
+}
+
 EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
 {
     int vel = el_clampi((int)(velocity * 127.0f + 0.5f), 0, 127);
@@ -412,6 +470,7 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
                 rec_len(t, i);
                 for (unsigned j = i + 1u; j < t->rec_count; ++j) {
                     t->rec_note[j - 1] = t->rec_note[j]; t->rec_step[j - 1] = t->rec_step[j]; t->rec_frames[j - 1] = t->rec_frames[j];
+                    t->rec_root[j - 1] = t->rec_root[j];
                 }
                 --t->rec_count;
                 break;
@@ -424,10 +483,12 @@ EL_DSP_CODE void st_live(st_track_t *t, int note, float velocity)
     if (step >= 0 && (t->area == MKS_AREA_STRINGS || t->area == MKS_AREA_BASS) && t->rec_count < ST_REC_HELD) {
         t->rec_note[t->rec_count] = (uint8_t)note;
         t->rec_step[t->rec_count] = (uint8_t)step;
+        t->rec_root[t->rec_count] = t->pattern[t->current].step[step].note;
         t->rec_frames[t->rec_count] = 0;
         ++t->rec_count;
         /* until it is let go: at least a 32nd, the step holds the key's length so far */
         t->pattern[t->current].step[step].len = 1;
+        if (t->area == MKS_AREA_STRINGS && !t->chord) record_held_chord(t, (unsigned)step);
     }
 }
 

@@ -1,11 +1,15 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO-0.5.4-alpha.fwsc` (eigene Plattform, Version 0.5.4-alpha, 20.11.2026)
+## Neu: `FM1_ELECTRO-0.5.5-alpha.fwsc` (eigene Plattform, Version 0.5.5-alpha, 20.11.2026)
 
 Ab jetzt mit Versionsnummer statt Build-Zählung (`docs/adr/0035`); die Version steht im Dateinamen und unten rechts auf der Seite OPTIONS (HOME halten + SAVE). Kennung `FM-1_965`.
 
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in 0.5.4-alpha:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in 0.5.5-alpha:
+- **Fehler behoben: gegriffene Akkorde in STRINGS live aufnehmen (S19).** Bisher blieb von mehreren gleichzeitig gedrückten Tasten nur der zuletzt gedrückte Ton im Pattern. Jetzt werden Tasten, die zusammen im selben Step liegen, als Akkord gespeichert: MAJ, MIN, 7TH, m7, m7b5, SUS2, SUS4 oder 5+8, mit der Umkehrung nach dem gespielten Basston (C-E-G = MAJ, E-G-C = MAJ in der 1. Umkehrung). Zwei Töne werden zum nächstliegenden Akkord ergänzt (C + E = MAJ). Passt nichts, bleibt der tiefste Ton. Das gilt, solange kein Akkord gewählt ist (GLO + weiße Taste 1 = SINGLE NOTES); mit gewähltem Akkord (GLO + Taste 2–9) bleibt es wie bisher. BASS bleibt einstimmig.
+- **Mitbehoben:** Unter Transpose live aufgenommene Noten behielten ihre Länge nicht.
+
+Aus 0.5.4-alpha:
 - **Neue Aufnahme per REC halten (N28):** REC eine Sekunde halten löscht das Pattern des Bereichs und nimmt neu auf; kurz REC bleibt Overdub, EDIT + REC löscht nur.
 - **TRANSPOSE für alle (N27):** GLO + SEQ, dann Taste verschiebt den Bereich (C4 = 0), EDIT + Taste RHYTHM, STRINGS und BASS zusammen (Drums nie). Der Wert steht oben rechts (z. B. T+3), bleibt beim Ausschalten und wird gespeichert (Speicherversion 28; ältere Stände laden mit 0).
 - **BASS nur Einzeltöne (N26):** kein Akkord aus dem Sound oder GLO + Taste; alte Akkord-Steps klingen als Grundton.
@@ -180,7 +184,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256 (`FM1_ELECTRO-0.5.4-alpha.fwsc`): `fe236582de74a9a0830dac21d9dc5e3509310749063cc670bd214bde2f893174`
+SHA-256 (`FM1_ELECTRO-0.5.5-alpha.fwsc`): `6a1f66a493adc0ee62d18049f33b80c9849a59c35824ceaebb2121082ac65cee`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

@@ -1686,7 +1686,97 @@ int main(int argc, char **argv)
             init_ok = init_ok && strcmp(syn_sound_name(at->preset), want[a]) != 0;
         }
         printf("init+: INIT RHY+ / STR+ / BASS+ first in PRESETS %s\n", init_ok ? "ok" : "FAIL");
-        nt = nt && bass && st && init_ok;
+        /* STRINGS records chords: GLO + white key 4 (MIN), then live (REC while
+         * playing) and step by step (REC while stopped) */
+        int chords = 1;
+        {
+            while (ui.area != EL_AREA_STRINGS) tap_button(BTN_ENV);
+            st_track_t *ct = &ee->track[1];
+            if (ee->transport.running) tap_button(BTN_PLAY);
+            hold(BTN_EDIT, 1); tap_button(BTN_REC); hold(BTN_EDIT, 0);   /* EDIT + REC: cleared */
+            run(50);
+            hold(BTN_GLO, 1); tap_key(6); hold(BTN_GLO, 0);   /* white key 4 */
+            run(30);
+            int picked = ct->chord;
+            tap_button(BTN_PLAY);
+            run(100);
+            tap_button(BTN_REC);
+            run(200);
+            panel.keys |= 1u << 12; run(300); panel.keys &= ~(1u << 12); run(200);
+            tap_button(BTN_REC);
+            tap_button(BTN_PLAY);
+            run(50);
+            int live = 0, live_chord = 0;
+            for (unsigned i = 0; i < ST_STEPS; ++i)
+                if (ct->pattern[ct->current].step[i].flags & ST_ON) { ++live; live_chord += ST_CHORD_TYPE(ct->pattern[ct->current].step[i].chord) == (unsigned)picked; }
+            /* a new take (REC held, N28) while playing */
+            tap_button(BTN_PLAY);
+            run(100);
+            hold(BTN_REC, 1); run(1100); hold(BTN_REC, 0);
+            run(100);
+            panel.keys |= 1u << 14; run(300); panel.keys &= ~(1u << 14); run(200);
+            tap_button(BTN_REC);
+            tap_button(BTN_PLAY);
+            run(50);
+            int take = 0, take_chord = 0;
+            for (unsigned i = 0; i < ST_STEPS; ++i)
+                if (ct->pattern[ct->current].step[i].flags & ST_ON) { ++take; take_chord += ST_CHORD_TYPE(ct->pattern[ct->current].step[i].chord) == (unsigned)picked; }
+            /* SH-101 step recording (GLO + REC sets the mode; REC while stopped) */
+            hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0);
+            run(50);
+            tap_button(BTN_REC);
+            tap_key(12); tap_key(14);
+            tap_button(BTN_REC);
+            run(50);
+            hold(BTN_GLO, 1); tap_button(BTN_REC); hold(BTN_GLO, 0);   /* back to live */
+            run(50);
+            int steps = 0, step_chord = 0;
+            for (unsigned i = 0; i < ST_STEPS; ++i)
+                if (ct->pattern[ct->current].step[i].flags & ST_ON) { ++steps; step_chord += ST_CHORD_TYPE(ct->pattern[ct->current].step[i].chord) == (unsigned)picked; }
+            /* held keys become the step's chord (feedback 20.11.): single notes
+             * chosen (GLO + key 1), C4 E4 G4 together, then E4 G4 C5 */
+            hold(BTN_GLO, 1); tap_key(0); hold(BTN_GLO, 0);
+            run(30);
+            int played_ok = 1;
+            static const uint8_t grips[3][3] = {{7, 11, 14}, {11, 14, 19}, {7, 10, 14}};
+            static const unsigned want_type[3] = {7, 7, 3}, want_inv[3] = {0, 1, 0};
+            for (unsigned g = 0; g < 3; ++g) {
+                hold(BTN_EDIT, 1); tap_button(BTN_REC); hold(BTN_EDIT, 0);
+                el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 1, 0, 0, g == 2 ? 2 : 0);   /* the last one transposed */
+                tap_button(BTN_PLAY);
+                run(100);
+                tap_button(BTN_REC);
+                run(200);
+                for (unsigned k = 0; k < 3; ++k) { panel.keys |= 1u << grips[g][k]; run(10); }
+                run(400);
+                panel.keys &= ~((1u << grips[g][0]) | (1u << grips[g][1]) | (1u << grips[g][2]));
+                run(200);
+                tap_button(BTN_REC);
+                tap_button(BTN_PLAY);
+                run(50);
+                unsigned on = 0, hit = 0;
+                for (unsigned i = 0; i < ST_STEPS; ++i) {
+                    const st_step_t *sp2 = &ct->pattern[ct->current].step[i];
+                    if (!(sp2->flags & ST_ON)) continue;
+                    ++on;
+                    hit = ST_CHORD_TYPE(sp2->chord) == want_type[g] && ST_CHORD_INV(sp2->chord) == want_inv[g] &&
+                          sp2->note == (g == 2 ? 60 - 2 : 60) && sp2->len >= 6;   /* held ~0.4 s: several 32nds */
+                }
+                if (on != 1 || !hit) {
+                    played_ok = 0;
+                    printf("  grip %u: %u steps\n", g, on);
+                }
+            }
+            el_post3(ee, EL_CMD_TRACK_TRANSPOSE, 1, 0, 0, 0);
+            run(30);
+            printf("strings played chords: C E G = MAJ, E G C = MAJ 1st inversion, C Eb G transposed = MIN with its length %s\n",
+                   played_ok ? "ok" : "FAIL");
+            chords = chords && played_ok;
+            chords = chords && picked && live && live_chord == live && take && take_chord == take && steps == 2 && step_chord == 2;
+            printf("strings chords: GLO + key picks %d, live %d/%d steps with it, new take %d/%d, step rec %d/%d %s\n", picked,
+                   live_chord, live, take_chord, take, step_chord, steps, chords ? "ok" : "FAIL");
+        }
+        nt = nt && bass && st && init_ok && chords;
         if (!nt) same = 0;
     }
     }
