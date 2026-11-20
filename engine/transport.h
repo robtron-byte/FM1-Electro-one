@@ -13,12 +13,21 @@ typedef struct {
     uint8_t swing;      /* 50..75: percentage of a 16th pair taken by the even step */
     uint8_t running;
     uint8_t source;     /* EL_CLOCK_INTERNAL or EL_CLOCK_MIDI */
-    uint8_t midi_ticks; /* MIDI clock ticks since the last step */
-    uint8_t midi_pending;   /* steps due from MIDI clock, fired at the next block start */
     uint32_t step;      /* absolute 16th counter of the next step to fire */
     float countdown;    /* frames until the next step (internal clock) */
     float last_length;  /* length of the step that fired last, in frames */
-    float since_step;   /* frames since the last step (measures MIDI clock tempo) */
+    float since_step;   /* frames since the last step */
+    /* MIDI clock follower (a second-order loop, "flywheel"): ticks reach the
+     * engine only at block starts and after the main loop, so a single tick
+     * time is off by up to a block or more. The loop smooths period and phase
+     * over many ticks; steps fire on the predicted frame, but never more than
+     * a few ticks ahead of the ticks received. */
+    float mc_period;    /* smoothed tick period, frames */
+    float mc_phase;     /* frames until the predicted time of tick mc_rx */
+    float mc_err;       /* mean of the recent prediction errors (a drift detector) */
+    uint32_t mc_rx;     /* ticks received since Start/Continue */
+    uint32_t mc_fired;  /* steps fired since Start/Continue (step k: tick 6k) */
+    uint16_t mc_learn;  /* ticks since the last (re)sync (0: none yet) */
 } el_transport_t;
 
 void el_transport_init(el_transport_t *t);

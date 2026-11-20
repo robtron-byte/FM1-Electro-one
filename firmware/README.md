@@ -1,11 +1,14 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO-0.5.2-alpha.fwsc` (eigene Plattform, Version 0.5.2-alpha = 52. Build, 14.11.2026)
+## Neu: `FM1_ELECTRO-0.5.3-alpha.fwsc` (eigene Plattform, Version 0.5.3-alpha = 53. Build, 20.11.2026)
 
 Ab jetzt mit Versionsnummer statt Build-Zählung (`docs/adr/0035`); die Version steht im Dateinamen und unten rechts auf der Seite OPTIONS (HOME halten + SAVE). Kennung `FM-1_965`.
 
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 52. Build (0.5.2-alpha):
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu im 53. Build (0.5.3-alpha):
+- **Fehler behoben: externe MIDI-Clock lief unruhig, Tempo schwankte um 2–3 BPM (S18).** Die Steps feuerten nur am Anfang eines Audioblocks (alle 5,8 ms), und das Tempo kam aus einem einzigen Step-Abstand. Jetzt folgt ein Schwungrad der Clock (ADR 0036): Die Steps kommen framegenau und gleichmäßig, das Tempo bleibt stehen und ändert sich erst bei mehr als 0,2 BPM Abweichung. Einen Tempowechsel am Sender übernimmt es in 1–2 Takten. In der Simulation mit bis zu 20 ms Verzögerung pro Tick: vorher Tempo 108–136 BPM und Steps bis 15 ms daneben, jetzt ein fester Wert und Steps innerhalb von 1,3 ms. Mit interner Clock ist alles unverändert.
+
+Aus dem 52. Build:
 - **BEAT: ein Kit für alle Patterns (B18):** Drum-Regler und Kitwechsel gelten für A–D zugleich und werden so gespeichert. Ein neuer Groove (Generator) für den spielenden Platz in einem anderen Kit stellt alle Plätze um. Ältere Grooves mit verschiedenen Kits übernehmen beim Laden das Kit des spielenden Platzes. RHYTHM, STRINGS, BASS behalten einen Sound pro Platz.
 
 Aus dem 51. Build:
@@ -168,7 +171,7 @@ Aus dem 12. Build:
 
 Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256: `a30a960b13c5e3d1ba8376b37f62dfb50e8116e1c62be585bda863f6b0334dab`
+SHA-256 (`FM1_ELECTRO-0.5.3-alpha.fwsc`): `dc1e4fd47a0b59c719f8f03f52f4abeb2c4c720c9cde76bb8eddfd6f42337d79`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

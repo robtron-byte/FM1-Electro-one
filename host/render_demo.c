@@ -161,6 +161,74 @@ static int midi_clock_test(void)
     return ok ? 0 : 1;
 }
 
+/* MIDI clock as the device gets it: exact ticks at bpm, each one late by a
+ * random 0..late_ms (the main loop) and applied at the next block start.
+ * After the follower has settled, the shown tempo must stay within 0.3 BPM
+ * and change at most 3 times, and the steps must come evenly (each 16th
+ * within max_ms of the ideal). */
+static int midi_jitter_run(double bpm0, double bpm, double late_ms, double max_ms, int verbose)
+{
+    static el_engine_t e;
+    const uint8_t start = 0xfa, tick = 0xf8;
+    el_init(&e);
+    el_midi_input(&e, &start, 1);
+    /* bpm0 for the first 240 ticks (2.5 bars), then bpm (a jump in tempo) */
+    double tick_frames = FM1_SAMPLE_RATE * 60.0 / (bpm * 24.0), step_frames = 6.0 * tick_frames;
+    double arrive[1024], at = 0;
+    int ticks = 0, delivered = 0, changes = 0;
+    uint32_t seed = 12345u;
+    for (; ticks < 1024; ++ticks) {
+        seed = seed * 1664525u + 1013904223u;
+        arrive[ticks] = at + (seed >> 8) / 16777216.0 * late_ms * 0.001 * FM1_SAMPLE_RATE;
+        at += ticks < 240 ? FM1_SAMPLE_RATE * 60.0 / (bpm0 * 24.0) : tick_frames;
+    }
+    float buf[EL_BLOCK * 2];
+    long frame = 0, settle = (long)(arrive[240] + 3.0 * FM1_SAMPLE_RATE);
+    float shown = 0;
+    double bpm_lo = 1e9, bpm_hi = 0, worst = 0, last_fire = -1;
+    uint32_t last_step = 0;
+    long end = (long)(arrive[1000]);
+    while (frame < end) {
+        while (delivered < ticks && arrive[delivered] < frame) { el_midi_input(&e, &tick, 1); ++delivered; }
+        el_render_float(&e, buf, EL_BLOCK);
+        frame += EL_BLOCK;
+        if (e.transport.step != last_step) {
+            double fire = frame - e.transport.since_step;
+            if (frame > settle && last_fire >= 0 && e.transport.step == last_step + 1) {
+                double dev = fabs(fire - last_fire - step_frames) * 1000.0 / FM1_SAMPLE_RATE;
+                if (dev > worst) worst = dev;
+            }
+            last_fire = fire;
+            last_step = e.transport.step;
+        }
+        if (frame > settle) {
+            if (shown != e.transport.bpm) ++changes;
+            shown = e.transport.bpm;
+            if (e.transport.bpm < bpm_lo) bpm_lo = e.transport.bpm;
+            if (e.transport.bpm > bpm_hi) bpm_hi = e.transport.bpm;
+        }
+    }
+    /* All steps of the ticks sent, none more. */
+    uint32_t want = (uint32_t)(delivered + 5) / 6u;
+    int ok = bpm_lo > bpm - 0.3 && bpm_hi < bpm + 0.3 && changes <= 3 && worst <= max_ms && e.transport.step + 1u >= want &&
+             e.transport.step <= want + 1u;
+    if (verbose || !ok)
+        printf("midi clock jitter: %.1f -> %.1f BPM, ticks up to %.0f ms late: tempo %.2f..%.2f (%d changes), steps within %.2f ms, %u steps: %s\n",
+               bpm0, bpm, late_ms, bpm_lo, bpm_hi, changes, worst, e.transport.step, ok ? "ok" : "FAIL");
+    return ok ? 0 : 1;
+}
+
+static int midi_jitter_test(void)
+{
+    int f = 0;
+    f |= midi_jitter_run(120.0, 120.0, 15.0, 1.5, 1);
+    f |= midi_jitter_run(174.0, 174.0, 15.0, 1.5, 1);
+    f |= midi_jitter_run(93.5, 93.5, 20.0, 2.0, 1);
+    f |= midi_jitter_run(120.0, 135.0, 15.0, 1.5, 1);   /* tempo jump */
+    f |= midi_jitter_run(140.0, 128.0, 10.0, 1.5, 1);
+    return f;
+}
+
 static unsigned groove_steps(const el_engine_t *e, unsigned slot)
 {
     /* At least 8 bars, and whole loops of the strings sequence. */
@@ -610,7 +678,7 @@ int main(int argc, char **argv)
     const char *dir = argc > 1 ? argv[1] : ".";
     static el_engine_t e;
     char path[512];
-    int failed = pipeline_test() | timing_test() | midi_clock_test() | punch_test(dir) | dist_test() | comp_mix_test() | dist_comb_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
+    int failed = pipeline_test() | timing_test() | midi_clock_test() | midi_jitter_test() | punch_test(dir) | dist_test() | comp_mix_test() | dist_comb_test() | buffer_test(dir) | combo_test(dir) | colour_test() | tape_long_test(dir) | tune_808_test() | key_808_test();
 
     /* A/B: the same groove without and with the mix / master processing. */
     for (int processed = 0; processed < 2; ++processed) {
