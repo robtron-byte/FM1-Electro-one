@@ -14,6 +14,8 @@ void el_glue_start(void);
 void el_glue_control(const struct fm1_controls *controls, uint32_t now_ms);
 /* Audio interrupt: adds frames stereo frames (L R ..., Q15, out already zero). */
 void el_glue_render(int32_t *out, unsigned frames);
+/* Main loop, before a firmware update: store everything as SAVE does (N30). */
+void el_glue_store(void);
 /* Main loop: a complete MIDI message from USB or the TRS jack. */
 void el_glue_midi(const uint8_t *message, size_t bytes);
 

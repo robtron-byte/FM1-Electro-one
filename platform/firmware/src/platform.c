@@ -401,8 +401,12 @@ static void platform_poll(void)
     ota_service();
     if (usb.ota_req) {
         usb.ota_req = 0;
-        if (flash_ok)
+        if (flash_ok) {
+#ifdef APP_BEFORE_UPDATE
+            APP_BEFORE_UPDATE();                /* FM1-Electro: the current state stored, so the update keeps it */
+#endif
             ota_session();                      /* returns only if nothing was committed */
+        }
     }
     if (usb.uboot_req) {
         fm1_audio_stop();

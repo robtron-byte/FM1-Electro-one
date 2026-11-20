@@ -134,6 +134,11 @@ void el_glue_render(int32_t *out, unsigned frames)
     load_frames = frames;
 }
 
+void el_glue_store(void)
+{
+    if (ready) (void)el_store_save(&engine);   /* the whole state, every slot and sound (N30) */
+}
+
 void el_glue_midi(const uint8_t *message, size_t bytes)
 {
     if (ready) el_midi_input(&engine, message, bytes);

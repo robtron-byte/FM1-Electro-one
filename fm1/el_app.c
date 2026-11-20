@@ -10,10 +10,23 @@ static void app_idle(void);
 #define LCD_IDLE app_idle
 static void el_cpu1_boot(void);
 #define APP_BOOT el_cpu1_boot
+static void el_before_update(void);
+#define APP_BEFORE_UPDATE el_before_update
 #include "platform.c"
 #include "el_glue.h"
 
 uint32_t el_platform_ticks(void) { return fm1_ticks(); }
+
+/* The installer asks for an update: everything stored first, as SAVE does,
+ * so the new firmware starts with the state as it is now (N30). The store
+ * (0x97000..) lies outside what the update writes (app area up to 0x93000,
+ * staging at 0xE0000). */
+static void el_before_update(void)
+{
+    lcd_fill(0, 0, 240, 240, C_BLACK);
+    draw_text_box(0, 110, 240, &FONT_S, "SAVING BEFORE UPDATE", C_WHITE, 1);
+    el_glue_store();
+}
 
 /* ---- the second core (hal/fm1_cpu1.h: X0X's, hardened in SLOOP 2.8.3; the
  * start as SLOOP's src/cpu1.c cpu1_boot, by Andre Rezemini): started at

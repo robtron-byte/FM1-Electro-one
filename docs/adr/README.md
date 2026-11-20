@@ -43,5 +43,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0035](0035-versionen.md) | Versionsnummern statt Build-Zählung: Datei VERSION, 0.5.2-alpha, Anzeige in OPTIONS | angenommen | 2026-11-14 |
 | [0036](0036-midi-clock-schwungrad.md) | Externe MIDI-Clock über ein Schwungrad (α-β-Filter): Steps framegenau, Tempo ruhig | vorgeschlagen | 2026-11-20 |
 | [0037](0037-neue-aufnahme-transpose-bass-init.md) | Neue Aufnahme (REC halten), Transpose für alle Synth-Bereiche (gespeichert, Version 28), BASS nur Einzeltöne, INIT+-Sounds | vorgeschlagen | 2026-11-20 |
+| [0038](0038-stand-beim-update.md) | Stand bleibt beim Firmware-Update: vor dem Update automatisch speichern (Hook APP_BEFORE_UPDATE), Speicher außerhalb der Update-Bereiche | vorgeschlagen | 2026-11-20 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

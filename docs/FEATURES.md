@@ -118,6 +118,7 @@ Stand: 53. Build (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (A
 | N27 | Neu | TRANSPOSE (GLO + SEQ) für einen Bereich oder alle: Taste verschiebt den Bereich (C4 = 0), EDIT + Taste RHYTHM, STRINGS und BASS zusammen (Drums nie; FOLLOW BASS des Kits bleibt wie eingestellt). Der Wert bleibt beim Ausschalten, steht oben rechts (T+3) und wird gespeichert (Speicherversion 28). Unter Transpose aufgenommene Noten klingen wie gespielt | ◐ umgesetzt, wartet auf Gerätetest | 0037 |
 | N28 | Neu | Neue Aufnahme: REC eine Sekunde halten löscht das Pattern des Bereichs und nimmt neu auf (Live: wächst wie N6/N16; SH-101: neue Sequenz); kurz REC bleibt Overdub, EDIT + REC löscht nur (Wunsch 20.11.) | ◐ umgesetzt, wartet auf Gerätetest | 0037 |
 | N29 | Neu | INIT+-Sounds je Bereich, die schon passen (INIT RHY+: Pluck mit Chorus und etwas Delay; INIT STR+: Fläche mit weichem Einsatz, Chorus, Hall; INIT BASS+: mono, 4', Filterhüllkurve): in PRESETS gleich nach den eigenen Sounds, zum Verändern und als eigenen Sound speichern (GLO + SAVE) (Wunsch 20.11.) | ◐ umgesetzt, wartet auf Gerätetest | 0037 |
+| N30 | Neu | Stand bleibt beim Firmware-Update (Wunsch 20.11.): fragt der Installer ein Update an, speichert FM1-Electro vorher alles wie SAVE („SAVING BEFORE UPDATE“); der Speicher (0x97000..) liegt außerhalb dessen, was das Update schreibt, neuere Firmwares laden ältere Stände | ◐ umgesetzt, wartet auf Gerätetest | 0038 |
 
 ## Gestrichen
 
