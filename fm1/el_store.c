@@ -140,7 +140,7 @@ typedef struct {
  * transposition may sit in that padding: a record of 27 loads it as 0) */
 #define V27_ALIGN _Alignof(payload_t)
 #define V27_BYTES ((offsetof(payload_t, transpose) + V27_ALIGN - 1u) / V27_ALIGN * V27_ALIGN)
-_Static_assert(DR_CHAIN == ST_CHAIN, "one chain layout for every area");
+_Static_assert((int)DR_CHAIN == (int)ST_CHAIN, "one chain layout for every area");
 #define V25_BYTES sizeof(payload_v25_t)
 #define V24_BYTES sizeof(payload_v24_t)
 #define V23_BYTES sizeof(payload_v23_t)

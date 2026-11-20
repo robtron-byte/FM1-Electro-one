@@ -11,7 +11,7 @@
 #include <string.h>
 
 static void bus_reset(void);
-void el_init(el_engine_t *e)
+EL_CTRL_CODE void el_init(el_engine_t *e)
 {
     dist_init_tables();   /* (own platform: the distortion's curves as tables) */
     bus_reset();
@@ -97,7 +97,7 @@ static uint32_t mix_seed(uint32_t s)
     return s ? s : 0x9e3779b9u;
 }
 
-void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL_TRACKS])
+EL_CTRL_CODE void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL_TRACKS])
 {
     const dr_style_t *s = &dr_styles[d->style < DR_STYLES ? d->style : 0];
     const uint8_t styles[EL_TRACKS] = {s->rhythm_style, s->strings_style, s->bass_style};
@@ -109,7 +109,7 @@ void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL
     }
 }
 
-void el_generate_all(el_engine_t *e, uint32_t seed)
+EL_CTRL_CODE void el_generate_all(el_engine_t *e, uint32_t seed)
 {
     /* Slot A of every area from the drums' style; B-D stay empty. */
     st_pattern_t parts[EL_TRACKS];

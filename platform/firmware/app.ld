@@ -18,7 +18,7 @@ MEMORY
 }
 SECTIONS
 {
-    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*e_arp.o *e_dist.o *e_dr_fixed.o *e_drums.o *e_electro.o *e_fx.o *e_jp6.o *e_mixbus.o *e_mks.o *e_po12.o *e_synth.o *e_synth_track.o *e_tr808.o *e_transport.o) .text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
+    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*e_arp.o *e_dist.o *e_dr_fixed.o *e_drums.o *e_electro.o *e_fx.o *e_jp6.o *e_mixbus.o *e_mks.o *e_po12.o *e_synth.o *e_synth_track.o *e_tr808.o *e_transport.o) .text*) *(.ctrl_text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4); } > RAMTEXT AT > XIP
     _rt_load = LOADADDR(.ram_text);
     /* FM1-Electro (from SLOOP 2.8.5 app.ld): the second core's waiting loop (hal/fm1_cpu1.h) right after the

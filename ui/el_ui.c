@@ -2613,7 +2613,7 @@ static void draw_bars_overlay(el_ui_t *ui, gfx_band_t *b)
 static int chord_board(const el_ui_t *ui)
 {
     return (ui->hold & HOLD_GLO) && !ui->overview && !ui->options && chord_area(ui) && !ui->editor &&
-           !(track_of(ui)->recording && rec_step_mode(ui)) &&
+           !(ui->engine->track[ui->area - 1u].recording && rec_step_mode(ui)) &&
            !ui->step_mode[ui->area] && !ui->sh_key && !bars_overlay(ui);
 }
 

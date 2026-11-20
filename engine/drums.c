@@ -116,7 +116,7 @@ static EL_DSP_CODE void apply_kit(dr_machine_t *m, unsigned index, int factory)
     dr_share_kit(m);
 }
 
-void dr_init(dr_machine_t *m)
+EL_CTRL_CODE void dr_init(dr_machine_t *m)
 {
     kit_sounds_init();
     memset(m, 0, sizeof *m);

@@ -10,7 +10,7 @@
 #include "drums.h"
 #include <string.h>
 
-void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
+EL_CTRL_CODE void st_init(st_track_t *t, unsigned area, unsigned voices, uint32_t seed)
 {
     memset(t, 0, sizeof *t);
     syn_init(&t->part, SYN_MKS, voices, seed);
@@ -713,7 +713,7 @@ static void strings(st_pattern_t *out, unsigned style, unsigned density, uint32_
     }
 }
 
-void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
+EL_CTRL_CODE void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned density, uint32_t seed, unsigned length,
                  unsigned harmony)
 {
     uint32_t r = seed ? seed : 0x2545f491u;
@@ -738,7 +738,7 @@ void st_generate(st_pattern_t *out, unsigned area, unsigned style, unsigned dens
     }
 }
 
-void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed)
+EL_CTRL_CODE void st_vary(st_pattern_t *p, unsigned area, unsigned amount, uint32_t seed)
 {
     uint32_t r = seed ? seed : 0x1234567u;
     unsigned per_mille = (amount > 127 ? 127 : amount) * 3u, length = p->length ? p->length : 16;

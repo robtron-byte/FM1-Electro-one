@@ -34,6 +34,16 @@
 #define EL_DSP_VOICE __attribute__((section(".volatile_ram_code"), noinline))
 #endif
 
+/* Code of the engine's sound files that only the control side calls (boot,
+ * generator): from the flash, so it does not take the audio code's SRAM
+ * (platform/firmware/app.ld puts .ctrl_text into .text; 0.5.4-alpha: the
+ * SRAM was 52 bytes short). Never call it from the audio interrupt. */
+#if defined(EL_PLATFORM)
+#define EL_CTRL_CODE __attribute__((section(".ctrl_text")))
+#else
+#define EL_CTRL_CODE
+#endif
+
 #define EL_FENCE() __sync_synchronize()
 
 /* Unroll the next loop fully (clang, the device's compiler; others ignore it). */
