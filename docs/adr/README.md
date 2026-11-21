@@ -44,6 +44,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0036](0036-midi-clock-schwungrad.md) | Externe MIDI-Clock über ein Schwungrad (α-β-Filter): Steps framegenau, Tempo ruhig | vorgeschlagen | 2026-11-20 |
 | [0037](0037-neue-aufnahme-transpose-bass-init.md) | Neue Aufnahme (REC halten), Transpose für alle Synth-Bereiche (gespeichert, Version 28), BASS nur Einzeltöne, INIT+-Sounds | vorgeschlagen | 2026-11-20 |
 | [0038](0038-stand-beim-update.md) | Stand bleibt beim Firmware-Update: vor dem Update automatisch speichern (Hook APP_BEFORE_UPDATE), Speicher außerhalb der Update-Bereiche | vorgeschlagen | 2026-11-20 |
-| [0039](0039-jx8p-statt-mks50.md) | JX-8P (aus fm1-synths) statt MKS-50, Schalter `EL_SYNTH_JX`, `make jx-ab` / `make test-jx` | vorgeschlagen | 2026-11-21 |
+| [0039](0039-jx8p-statt-mks50.md) | JX-8P (aus fm1-synths) statt MKS-50, Schalter `EL_SYNTH_JX` (Standard 1 ab 0.5.6-alpha), `make jx-ab` / `make test-jx` | angenommen | 2026-11-21 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

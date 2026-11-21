@@ -1,6 +1,6 @@
 # 0039: JX-8P statt MKS-50 (Schalter `EL_SYNTH_JX`)
 
-- **Status:** vorgeschlagen (A/B, wartet auf die Wahl des Nutzers)
+- **Status:** angenommen (Wahl des Nutzers 21.11.: „direkt einbauen ohne Testbuild“)
 - **Stand:** 2026-11-21
 
 ## Kontext
@@ -23,7 +23,7 @@ Entscheidungen des Nutzers:
 
 ## Entscheidung
 
-- **Schalter `EL_SYNTH_JX`** (`engine/el_config.h`, Standard 0, ADR 0006).
+- **Schalter `EL_SYNTH_JX`** (`engine/el_config.h`; zuerst Standard 0 nach ADR 0006, seit 0.5.6-alpha Standard 1).
   - Bei 1 ist Engine 0 (`SYN_MKS`, Feld `u.mks`) der JX-8P statt des MKS-50.
   - Bei 0 bleibt alles bitgleich: alle 70 Demo-WAVs sind unverändert.
   - Ohne Schalter werden `mks.c`, `mks_presets.c` und die MKS-Zusatzsounds übersetzt, mit Schalter `jx8p*.c`.
@@ -71,3 +71,4 @@ Entscheidungen des Nutzers:
 ## Verlauf
 
 - 2026-11-21: angelegt (Y9), Schalter Standard aus, Plan vom Nutzer freigegeben
+- 2026-11-21: Der Nutzer wählt den JX-8P ohne eigenen Testbuild. Standard `EL_SYNTH_JX` = 1 ab 0.5.6-alpha. Der MKS-50 bleibt vorerst als Schalterstellung 0 baubar; `make test` prüft beide: die bisherigen Host-Tests mit `-DEL_SYNTH_JX=0` (Referenz-WAVs unverändert) und `test-jx` (Makefile). Das Entfernen der MKS-Dateien steht noch aus. Emulator (`FM1_STRICT=1`, derselbe neu erzeugte Groove, Lastanzeige): MKS-50 PEAK 71 %, Kern 1 63 %, STRINGS 39; JX-8P PEAK 66 %, Kern 1 61 %, STRINGS 35. Audio-SRAM: knapp 6 KB frei (`_pool_end` 0x01C72888). Ein mit 0.5.5-alpha gespeicherter Groove lädt; die MKS-Sounds darin werden zum Startsound des Bereichs

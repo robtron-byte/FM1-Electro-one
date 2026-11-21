@@ -10,9 +10,10 @@
 #define EL_BLOCK FM1_BLOCK_FRAMES
 
 /* docs/adr/0039: the JX-8P engine (engine/jx8p.c, from fm1-synths) in place of the MKS-50 (engine/mks.c).
- * 0 = MKS-50 (as before), 1 = JX-8P; a sound switch (ADR 0006): make jx-ab compares them. */
+ * 1 = JX-8P (the default since 0.5.6-alpha, the user's choice 21.11.), 0 = MKS-50 as before; make jx-ab
+ * compares them. The host tests build both (Makefile). */
 #ifndef EL_SYNTH_JX
-#define EL_SYNTH_JX 0
+#define EL_SYNTH_JX 1
 #endif
 
 /* Everything called from the audio interrupt must live in internal SRAM on

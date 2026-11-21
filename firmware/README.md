@@ -1,11 +1,17 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
-## Neu: `FM1_ELECTRO-0.5.5-alpha.fwsc` (eigene Plattform, Version 0.5.5-alpha, 20.11.2026)
+## Neu: `FM1_ELECTRO-0.5.6-alpha.fwsc` (eigene Plattform, Version 0.5.6-alpha, 21.11.2026)
 
 Ab jetzt mit Versionsnummer statt Build-Zählung (`docs/adr/0035`); die Version steht im Dateinamen und unten rechts auf der Seite OPTIONS (HOME halten + SAVE). Kennung `FM-1_965`.
 
 
-Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in 0.5.5-alpha:
+Build auf der eigenen Plattform ohne SDK von FM1 Open (ADR 0021): zwei Kerne, Audio-Code im SRAM, STRINGS mit 3 Stimmen. Neu in 0.5.6-alpha:
+- **JX-8P statt MKS-50 (Y9, ADR 0039):** Die Synth-Engine von RHYTHM, STRINGS und BASS ist jetzt der JX-8P aus fm1-synths (zwei DCOs, X-MOD und Sync, zwei ADSR, Chorus). In PRESETS die 64 Werkstöne des JX-8P nach Bereichen und INIT RHY / INIT STR / INIT BASS; die JP-6-Sounds bleiben. Seiten und Editor folgen dem JX-8P-Panel (DC1 DC2 MIX VCF VCA EN1 EN2 LFO KEY FX). Startsounds: SYNC PLUK, HI STRINGS, SYNTH BASS.
+- **Entfallen:** die MKS-50-Werkstöne und die eigenen MKS-Zusatzsounds (PLAIN …, INIT+ aus 0.5.4).
+- **Speicher:** Grooves aus älteren Versionen laden; ein MKS-50-Sound darin wird zum Startsound des Bereichs. Eigene MKS-Sounds (GLO + SAVE) gelten als leer. Gespeichert wird als Version 29; ältere Firmware (0.5.5 und davor) liest diesen Stand nicht.
+- Geprüft: `make test` (beide Engines), Hardware-Prüfung im Emulator, Last im Emulator mit vollem Groove etwas niedriger als mit dem MKS-50 (PEAK 66 % statt 71 %), ein mit 0.5.5-alpha gespeicherter Groove lädt.
+
+Aus 0.5.5-alpha:
 - **Fehler behoben: gegriffene Akkorde in STRINGS live aufnehmen (S19).** Bisher blieb von mehreren gleichzeitig gedrückten Tasten nur der zuletzt gedrückte Ton im Pattern. Jetzt werden Tasten, die zusammen im selben Step liegen, als Akkord gespeichert: MAJ, MIN, 7TH, m7, m7b5, SUS2, SUS4 oder 5+8, mit der Umkehrung nach dem gespielten Basston (C-E-G = MAJ, E-G-C = MAJ in der 1. Umkehrung). Zwei Töne werden zum nächstliegenden Akkord ergänzt (C + E = MAJ). Passt nichts, bleibt der tiefste Ton. Das gilt, solange kein Akkord gewählt ist (GLO + weiße Taste 1 = SINGLE NOTES); mit gewähltem Akkord (GLO + Taste 2–9) bleibt es wie bisher. BASS bleibt einstimmig.
 - **Mitbehoben:** Unter Transpose live aufgenommene Noten behielten ihre Länge nicht.
 
@@ -184,7 +190,7 @@ Aus dem 12. Build:
 
 **Installieren, ohne dass deine Grooves und Sounds verloren gehen:** mit `platform/tools/fm1_install.py` (`python3 platform/tools/fm1_install.py firmware/FM1_ELECTRO-<Version>.fwsc`, braucht `pip3 install mido python-rtmidi`). Dieser Weg benutzt den Update-Loader aus dem Paket, der nur den Programmbereich schreibt; der Speicher bleibt (im Emulator geprüft, P12). **Der M-Flasher löscht dabei sehr wahrscheinlich alles:** Er installiert mit seinem eigenen Loader (M-Bootloader), und der löscht auch Grooves und eigene Sounds, selbst nach SAVE (Meldung 21.11.). Für den Wechsel von einer anderen Firmware oder als Rettung ist er weiter gut. Ob fm-static und der FM-1 Firmware Hub den Speicher behalten, ist noch nicht geprüft. Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
-SHA-256 (`FM1_ELECTRO-0.5.5-alpha.fwsc`): `6a1f66a493adc0ee62d18049f33b80c9849a59c35824ceaebb2121082ac65cee`
+SHA-256 (`FM1_ELECTRO-0.5.6-alpha.fwsc`): `aec77e85e18b0fb96690129bcc0e2830ccc4e3f99eefd9745fe5074f94adaabd`
 
 ## Älterer SDK-Build `FM1_ELECTRO.fwsc`
 

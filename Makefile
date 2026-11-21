@@ -2,6 +2,11 @@
 CC ?= cc
 CFLAGS ?= -std=c99 -O2 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 CPPFLAGS += -DFM1_HOST_TEST -DFM1_OPEN_WEB -Iengine -Iui -Ifm1 -Ithird_party/daisy808 -Isdk_include
+# docs/adr/0039: the device plays the JX-8P (EL_SYNTH_JX=1, the default since 0.5.6-alpha). The host targets
+# below keep the MKS-50 (the switch's other side, still buildable) so its tests and reference WAVs stay; test-jx
+# (part of make test) tests what ships.
+MKS_CPPFLAGS := $(CPPFLAGS)
+CPPFLAGS += -DEL_SYNTH_JX=0
 
 ENGINE = engine/transport.c engine/drums.c engine/drum_factory.c engine/electro.c \
          engine/tr808.c engine/mks.c engine/mixbus.c engine/mks_presets.c engine/synth_track.c engine/fx.c \
@@ -86,7 +91,7 @@ build/web/fm1sim.wasm: host/web/sim.c host/web/libc.c $(ENGINE) $(UI) $(wildcard
 build/web/fm1-electro-simulator.html: build/web/fm1sim.wasm host/web/index.html tools/build_web.py
 	python3 tools/build_web.py build/web/fm1sim.wasm host/web/index.html $@
 
-test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_test
+test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_test test-jx
 	@mkdir -p build/wav build/wav_jp6 build/screens
 	./build/fmt_test
 	./build/synth_test build/wav > /dev/null
@@ -105,17 +110,18 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 # docs/adr/0039: the JX-8P in place of the MKS-50 (EL_SYNTH_JX=1). test-jx runs the tests that do not
 # depend on the MKS-50 with it; jx-ab renders the demo with each engine (build/jx_ab/mks, build/jx_ab/jx).
 JX_FLAGS = -DEL_SYNTH_JX=1
+JX_CPPFLAGS = $(MKS_CPPFLAGS)
 build/jx/render_demo: host/render_demo.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/jx
-	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/render_demo.c $(ENGINE) -lm
+	$(CC) $(JX_CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/render_demo.c $(ENGINE) -lm
 
 build/jx/ui_sim: host/ui_sim.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
 	@mkdir -p build/jx
-	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/ui_sim.c $(ENGINE) $(UI) -lm
+	$(CC) $(JX_CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/ui_sim.c $(ENGINE) $(UI) -lm
 
 build/jx/jx8p_test: host/jx8p_test.c $(ENGINE) $(wildcard engine/*.h)
 	@mkdir -p build/jx
-	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/jx8p_test.c $(ENGINE) -lm
+	$(CC) $(JX_CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/jx8p_test.c $(ENGINE) -lm
 
 test-jx: build/jx/render_demo build/jx/ui_sim build/jx/jx8p_test
 	@mkdir -p build/jx/wav build/jx/screens
