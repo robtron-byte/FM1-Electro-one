@@ -212,6 +212,23 @@ SHA-256: `aab77dd83d2e42e6bff2756491e382ded9d3b619474113f67981ae4540efcf34`
 
 Geprüft vor dem Packen: `make test` (alle Host-Tests), die Prüfungen aus `Build.ps1` (Pflicht-Symbole, Audio-Pfad im SRAM, 80 KB Heap), Start im Emulator fm1-emu (Display, PLAY, Audio im DMA-Puffer, Benutzerbereich 384 KB erkannt). Rechenlast im Emulator: etwa 15 % im Leerlauf, 55 % bei der Prüffolge mit laufendem Groove.
 
+## Update auf dem Mac, ohne dass der Speicher verloren geht
+
+Für Updates von FM1-Electro auf FM1-Electro (P12: der M-Flasher löscht dabei Grooves und Sounds).
+
+**Einmalig vorbereiten:**
+1. Auf GitHub die Seite dieses Repositorys öffnen, grüner Knopf **Code** → **Download ZIP**. Der Ordner `fm1-electro-one-main` landet in „Downloads“ (Doppelklick auf die ZIP, falls er nicht entpackt ist).
+2. Programm **Terminal** öffnen (Cmd + Leertaste, „Terminal“ tippen, Enter).
+3. Eintippen und Enter: `python3 --version`. Fragt der Mac, ob er die „Befehlszeilenentwickler-Werkzeuge“ installieren soll: **Installieren**, warten, dann den Befehl noch einmal.
+4. Eintippen und Enter: `python3 -m pip install --user mido python-rtmidi`
+
+**Jedes Update:**
+1. FM-1 einschalten (FM1-Electro läuft), per USB an den Mac. M-Flasher und andere Musikprogramme schließen.
+2. Im Terminal `python3 ` tippen (mit Leerzeichen), die Datei `platform/tools/fm1_install.py` aus dem Ordner ins Terminal-Fenster ziehen, ein Leerzeichen tippen, dann die neue Datei `firmware/FM1_ELECTRO-<Version>.fwsc` ins Fenster ziehen, Enter.
+3. Das Terminal zeigt Paket und Gerät und fragt `Install? … [y/N]`: `y` und Enter. Während des Schreibens das Kabel nicht ziehen. Danach startet das FM-1 neu, mit deinem Stand.
+
+Neue Versionen: die ZIP neu herunterladen (oder nur die neue `.fwsc`-Datei).
+
 ## Flashen
 
 1. **Vorher sichern:** Projekte und Samples von FM1 Open bzw. der Original-Firmware gehen beim Wechsel verloren. Auch Bluetooth-Kopplungen können zurückgesetzt werden.
