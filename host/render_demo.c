@@ -724,7 +724,11 @@ int main(int argc, char **argv)
     /* Multitimbral with both engines: JP-6 sounds on some areas. */
     static const struct { unsigned slot; const char *sound[EL_TRACKS]; } mixed[] = {
         {6, {"SEQ PHRYG", "JP STRINGS", "DETROIT B"}},
+#if EL_SYNTH_JX   /* engine 0 is the JX-8P (docs/adr/0039): one of its basses */
+        {5, {"COMPUTER", "JP6 STRNG", "SYNTH BASS"}},
+#else
         {5, {"COMPUTER", "JP6 STRNG", "ROBO BASS"}},
+#endif
         {10, {"SEQ EBM", "JP SLOWSTR", "SYNC GROWL"}},
     };
     for (unsigned k = 0; k < sizeof mixed / sizeof mixed[0]; ++k) {

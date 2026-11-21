@@ -29,7 +29,10 @@
  * every area (S16), appended (a record of 26 is its first part: no chains);
  * 28 the transposition of RHYTHM, STRINGS and BASS (N27), appended (a record
  * of 27 is its first part: no transposition). */
-enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 28, VERSION_27 = 27, VERSION_26 = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
+/* 29: as 28, written by the JX-8P builds (EL_SYNTH_JX, docs/adr/0039): engine 0 is the JX-8P. A JX-8P build
+ * reads a 28 (or older) with its MKS-50 sounds replaced by the area's start sound; an MKS-50 build does not
+ * read a 29 (its sounds would be another engine's). */
+enum { MAGIC = 0x43444c45u /* "ELDC" */, VERSION = 28 + EL_SYNTH_JX, VERSION_28 = 28, VERSION_27 = 27, VERSION_26 = 26, VERSION_25 = 25, VERSION_24 = 24, VERSION_23 = 23, VERSION_22 = 22, VERSION_21 = 21, VERSION_20 = 20, VERSION_19 = 19, VERSION_18 = 18, VERSION_17 = 17, VERSION_16 = 16, VERSION_15 = 15,
        VERSION_14 = 14, VERSION_13 = 13, VERSION_12 = 12, PARAMS = 10, KIT_PARAMS = 4, OLD_SLOTS = 24, OLD_USER = 16 };
 
 typedef struct {
@@ -198,7 +201,8 @@ enum { SECTORS = 3, FM1_OPEN_BYTES = 536576u, FALLBACK_SECTOR = 15 - 2 * SECTORS
 _Static_assert(sizeof(record_t) <= SECTORS * FM1_FLASH_SECTOR_BYTES, "record fits its sectors");
 
 /* User sound bank: one sector per copy. */
-enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 2, BANK_VERSION_1 = 1 };   /* 1: 13 chords */
+/* 1: 13 chords; 3: written by the JX-8P builds (docs/adr/0039), which drop the MKS-50 sounds of a 1 or 2 */
+enum { BANK_MAGIC = 0x42534c45u /* "ELSB" */, BANK_VERSION = 2 + EL_SYNTH_JX, BANK_VERSION_2 = 2, BANK_VERSION_1 = 1 };
 typedef struct { char name[EL_SOUND_NAME]; uint8_t engine, used; uint8_t v[SYN_VALUES]; } sound_slot_t;
 typedef struct {
     uint32_t magic, sequence;
@@ -273,8 +277,16 @@ uint32_t el_store_address(unsigned which)
  * user sound bank 1 to today's eight. */
 static void old_chord_memory(unsigned engine, uint8_t *v)
 {
-    unsigned p = engine == SYN_JP6 ? JP_CHORD : MP_CHORD;
+    unsigned p = engine == SYN_JP6 ? JP_CHORD : SYN_A_CHORD;
     v[p] = v[p] < 13u ? (uint8_t)(st_chord_v15[v[p] + 1u] - 1u) : 0u;
+}
+
+/* A factory sound's values, the rest of the array 0 (docs/adr/0039: an MKS-50 sound in a JX-8P build). */
+static void start_values(unsigned sound, uint8_t v[SYN_VALUES])
+{
+    unsigned n = syn_value_count(syn_sound_engine(sound));
+    memset(v, 0, SYN_VALUES);
+    memcpy(v, syn_sound_values(sound), n);
 }
 
 /* Reads one sector into record; returns its sequence, or 0 when invalid. */
@@ -283,6 +295,7 @@ static uint32_t read_valid(unsigned which)
     if (fm1_flash_read(el_store_address(which), &buffer, sizeof buffer) != FM1_FLASH_OK) return 0;
     if (record.magic != MAGIC) return 0;
     int current = (record.version == VERSION && record.bytes == sizeof(payload_t)) ||
+                  (EL_SYNTH_JX && record.version == VERSION_28 && record.bytes == sizeof(payload_t)) ||
                   (record.version == VERSION_27 && record.bytes == V27_BYTES) ||
                   (record.version == VERSION_26 && record.bytes == V26_BYTES) ||
                   (record.version == VERSION_25 && record.bytes == V25_BYTES) ||
@@ -433,6 +446,7 @@ static int el_store_load_held(el_engine_t *e)
     }
     dr_machine_t *m = &e->drums;
     int old_chords = version < VERSION_16;
+    int mks_gone = EL_SYNTH_JX && version < VERSION;   /* an MKS-50 build's record in a JX-8P build */
     for (unsigned i = 0; i < DR_PATTERNS; ++i) {
         dr_pattern_t p = d->pattern[i];
         p.name[DR_NAME] = 0;
@@ -522,11 +536,13 @@ static int el_store_load_held(el_engine_t *e)
         uint8_t v[SYN_VALUES];
         unsigned engine = s->engine < SYN_ENGINES ? s->engine : SYN_MKS;
         memcpy(v, s->v, sizeof v);
+        int start = mks_gone && engine == SYN_MKS ? el_start_sound(i) : -1;   /* docs/adr/0039 */
+        if (start >= 0) start_values((unsigned)start, v);
         if (old_chords) old_chord_memory(engine, v);
         for (unsigned p = 0; p < syn_value_count(engine); ++p) v[p] = (uint8_t)el_clampi(v[p], 0, syn_param_max(engine, p));
         syn_load(&t->part, engine, v);
         int user = s->preset >= EL_USER_SOUND && s->preset < EL_USER_SOUND + EL_USER_SOUNDS;
-        t->preset = (uint8_t)(s->preset < syn_sound_count() || user ? s->preset : 0);
+        t->preset = (uint8_t)(start >= 0 ? (unsigned)start : s->preset < syn_sound_count() || user ? s->preset : 0);
         st_keep_sound(t, 1);   /* before version 21: the one sound in every slot */
         if (version >= VERSION_21)
             for (unsigned p = 0; p < ST_PATTERNS; ++p) {
@@ -537,6 +553,8 @@ static int el_store_load_held(el_engine_t *e)
                     snd->v[k] = k < syn_value_count(snd->engine) ? (uint8_t)el_clampi(ss->v[k], 0, syn_param_max(snd->engine, k)) : 0;
                 int u = ss->preset >= EL_USER_SOUND && ss->preset < EL_USER_SOUND + EL_USER_SOUNDS;
                 snd->preset = (uint8_t)(ss->preset < syn_sound_count() || u ? ss->preset : 0);
+                int sp = mks_gone && snd->engine == SYN_MKS ? el_start_sound(i) : -1;
+                if (sp >= 0) { start_values((unsigned)sp, snd->v); snd->preset = (uint8_t)sp; }
             }
         t->level_value = (uint8_t)el_clampi(s->level, 0, 127);
         t->muted = s->muted ? 1 : 0;
@@ -678,7 +696,8 @@ static uint32_t bank_valid(unsigned which)
 {
     bank_t *k = &buffer.bank;
     if (fm1_flash_read(el_sound_address(which), k, sizeof *k) != FM1_FLASH_OK) return 0;
-    if (k->magic != BANK_MAGIC || (k->version != BANK_VERSION && k->version != BANK_VERSION_1) || k->count != EL_USER_SOUNDS) return 0;
+    int known = k->version == BANK_VERSION || k->version == BANK_VERSION_1 || (EL_SYNTH_JX && k->version == BANK_VERSION_2);
+    if (k->magic != BANK_MAGIC || !known || k->count != EL_USER_SOUNDS) return 0;
     if (crc32(k->slot, sizeof k->slot) != k->crc) return 0;
     return k->sequence;
 }
@@ -695,8 +714,15 @@ static int bank_read(void)
     if (k->version == BANK_VERSION_1) {   /* in the buffer only; the next put writes version 2 */
         for (unsigned i = 0; i < EL_USER_SOUNDS; ++i)
             if (k->slot[i].used && k->slot[i].engine < SYN_ENGINES) old_chord_memory(k->slot[i].engine, k->slot[i].v);
+        k->version = BANK_VERSION_2;
+    }
+#if EL_SYNTH_JX
+    if (k->version < BANK_VERSION) {   /* an MKS-50 build's bank: its MKS-50 sounds cannot play here */
+        for (unsigned i = 0; i < EL_USER_SOUNDS; ++i)
+            if (k->slot[i].engine == SYN_MKS) k->slot[i].used = 0;
         k->version = BANK_VERSION;
     }
+#endif
     return (int)newest;
 }
 

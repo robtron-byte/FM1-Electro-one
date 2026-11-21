@@ -121,9 +121,15 @@ def main():
              " * after the factory sounds of both engines. Do not edit by hand. */",
              '#include "synth.h"', "",
              "const syn_extra_t syn_extras[] = {"]
+    mks_open = False   # the MKS-50 sounds only without the JX-8P (EL_SYNTH_JX, docs/adr/0039)
     for engine, area, name, v in sounds:
+        if (engine == "mks") != mks_open:
+            lines.append("#if !EL_SYNTH_JX" if engine == "mks" else "#endif")
+            mks_open = engine == "mks"
         pad = ", ".join(str(x) for x in v)
         lines.append(f'    {{"{name}", {area}, {"SYN_MKS" if engine == "mks" else "SYN_JP6"}, {{{pad}}}}},')
+    if mks_open:
+        lines.append("#endif")
     lines += ["};", "const unsigned syn_extra_count = sizeof syn_extras / sizeof syn_extras[0];", ""]
     (ROOT / "engine" / "extra_presets.c").write_text("\n".join(lines))
     print(len(sounds), "sounds:", ", ".join(f"{s[2]}" for s in sounds))

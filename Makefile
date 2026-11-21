@@ -6,7 +6,7 @@ CPPFLAGS += -DFM1_HOST_TEST -DFM1_OPEN_WEB -Iengine -Iui -Ifm1 -Ithird_party/dai
 ENGINE = engine/transport.c engine/drums.c engine/drum_factory.c engine/electro.c \
          engine/tr808.c engine/mks.c engine/mixbus.c engine/mks_presets.c engine/synth_track.c engine/fx.c \
          engine/synth.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c engine/po12.c \
-         engine/arp.c engine/dr_fixed.c
+         engine/arp.c engine/dr_fixed.c engine/chords.c engine/jx8p.c engine/jx8p_names.c engine/jx8p_presets.c
 
 build/fmt_test: host/fmt_test.c ui/el_fmt.c ui/el_fmt.h
 	@mkdir -p build
@@ -46,11 +46,11 @@ demo: build/render_demo
 
 build/synth_test: host/synth_test.c engine/mks.c engine/mks_presets.c engine/mks.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/synth_test.c engine/mks.c engine/mks_presets.c -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/synth_test.c engine/mks.c engine/mks_presets.c engine/chords.c -lm
 
 build/jp6_test: host/jp6_test.c engine/jp6.c engine/jp6_presets.c engine/jp6.h engine/dist.c engine/dist.h engine/mks.c engine/mks_presets.c engine/mks.h
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/jp6_test.c engine/jp6.c engine/jp6_presets.c engine/dist.c engine/mks.c engine/mks_presets.c -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/jp6_test.c engine/jp6.c engine/jp6_presets.c engine/dist.c engine/mks.c engine/mks_presets.c engine/chords.c -lm
 
 build/hit_render: host/hit_render.c engine/tr808.c engine/tr808.h engine/po12.c engine/po12.h
 	@mkdir -p build
@@ -59,7 +59,7 @@ build/hit_render: host/hit_render.c engine/tr808.c engine/tr808.h engine/po12.c 
 # Own sounds (docs/adr/0027): tools/extra_presets.py writes engine/extra_presets.c.
 build/preset_probe: host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c
 	@mkdir -p build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ host/preset_probe.c engine/synth.c engine/mks.c engine/mks_presets.c engine/jp6.c engine/jp6_presets.c engine/extra_presets.c engine/dist.c engine/chords.c engine/jx8p.c engine/jx8p_names.c engine/jx8p_presets.c -lm
 
 # Which bass sounds sit on the 808 kick (40-90 Hz), at the bass root C2.
 bass-check: build/preset_probe
@@ -102,10 +102,43 @@ test: build/render_demo build/ui_sim build/synth_test build/jp6_test build/fmt_t
 	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/ui_sim.log
 	@echo "host tests ok"
 
+# docs/adr/0039: the JX-8P in place of the MKS-50 (EL_SYNTH_JX=1). test-jx runs the tests that do not
+# depend on the MKS-50 with it; jx-ab renders the demo with each engine (build/jx_ab/mks, build/jx_ab/jx).
+JX_FLAGS = -DEL_SYNTH_JX=1
+build/jx/render_demo: host/render_demo.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/jx
+	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/render_demo.c $(ENGINE) -lm
+
+build/jx/ui_sim: host/ui_sim.c $(ENGINE) $(UI) $(wildcard engine/*.h ui/*.h)
+	@mkdir -p build/jx
+	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/ui_sim.c $(ENGINE) $(UI) -lm
+
+build/jx/jx8p_test: host/jx8p_test.c $(ENGINE) $(wildcard engine/*.h)
+	@mkdir -p build/jx
+	$(CC) $(CPPFLAGS) $(JX_FLAGS) $(CFLAGS) -o $@ host/jx8p_test.c $(ENGINE) -lm
+
+test-jx: build/jx/render_demo build/jx/ui_sim build/jx/jx8p_test
+	@mkdir -p build/jx/wav build/jx/screens
+	./build/jx/jx8p_test build/jx/wav > build/jx/jx8p_test.log; s=$$?; cat build/jx/jx8p_test.log; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/jx/jx8p_test.log
+	./build/jx/render_demo build/jx/wav > build/jx/render_demo.log; s=$$?; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/jx/render_demo.log
+	./build/jx/ui_sim build/jx/screens > build/jx/ui_sim.log; s=$$?; \
+	  grep "^store\|^extras\|^slots\|^editor\|^sounds\|^init" build/jx/ui_sim.log; \
+	  [ $$s -eq 0 ] && ! grep -q "FAIL" build/jx/ui_sim.log
+	@echo "host tests with the JX-8P ok"
+
+jx-ab: build/render_demo build/jx/render_demo build/jx/jx8p_test
+	@mkdir -p build/jx_ab/mks build/jx_ab/jx
+	./build/render_demo build/jx_ab/mks > build/jx_ab/mks.log
+	./build/jx/render_demo build/jx_ab/jx > build/jx_ab/jx.log
+	./build/jx/jx8p_test build/jx_ab/jx > /dev/null
+	@echo "A/B: build/jx_ab/mks (MKS-50) and build/jx_ab/jx (JX-8P), the same grooves"
+
 clean:
 	rm -rf build
 
-.PHONY: demo test screens presets soundcheck clean web bass-check kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check mb-fixed-check
+.PHONY: test-jx jx-ab demo test screens presets soundcheck clean web bass-check kick-ab metal-ab clap-ab gate-ab metal-fixed-check ch-ab dist-fixed-check mb-fixed-check
 
 # The fixed-point mix bus (engine/mixbus.c, MB_FIXED, own platform) against
 # the float one: MASTER FX on, off, and hot into the limiter; within -60 dB.
@@ -118,7 +151,7 @@ mb-fixed-check: host/mb_fixed_check.c host/fixed_cmp.py engine/mixbus.c engine/m
 # chop_general: every MKS-50 sound, a chord low and high; within -90 dB.
 chop-grid-check: host/chop_grid_check.c host/fixed_cmp.py engine/mks.c engine/mks.h engine/mks_presets.c
 	@mkdir -p build
-	@for g in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMKS_CHOP_GRID=$$g -o build/cgc_$$g host/chop_grid_check.c engine/mks.c engine/mks_presets.c -lm && ./build/cgc_$$g > build/cgc_$$g.raw || exit 1; done
+	@for g in 0 1; do $(CC) $(CPPFLAGS) $(CFLAGS) -w -DMKS_CHOP_GRID=$$g -o build/cgc_$$g host/chop_grid_check.c engine/mks.c engine/mks_presets.c engine/chords.c -lm && ./build/cgc_$$g > build/cgc_$$g.raw || exit 1; done
 	@python3 host/fixed_cmp.py build/cgc_0.raw build/cgc_1.raw 56 -90
 
 # The fixed-point distortion (engine/dist.c, DIST_FIXED, own platform) against

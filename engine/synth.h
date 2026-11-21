@@ -8,15 +8,30 @@
  * together. */
 #ifndef EL_SYNTH_H
 #define EL_SYNTH_H
+#include "el_config.h"
+#if EL_SYNTH_JX
+#include "jx8p.h"
+#else
 #include "mks.h"
+#endif
 #include "jp6.h"
 
 enum { SYN_MKS, SYN_JP6, SYN_ENGINES };
-enum { SYN_VALUES = (int)MP_COUNT > (int)JP_COUNT ? (int)MP_COUNT : (int)JP_COUNT };
+/* Engine 0 (SYN_MKS): the MKS-50, or with EL_SYNTH_JX the JX-8P (docs/adr/0039). Its part is u.mks either way. */
+#if EL_SYNTH_JX
+typedef jx8p_part_t syn_a_part_t;
+enum { SYN_A_COUNT = JX_COUNT, SYN_A_LFO_RATE = JX_LFO_RATE, SYN_A_LFO_SYNC = JX_LFO_SYNC, SYN_A_LFO_DIV = JX_LFO_DIV,
+       SYN_A_KEY_MODE = JX_KEY_MODE, SYN_A_CHORD = JX_CHORD };
+#else
+typedef mks_part_t syn_a_part_t;
+enum { SYN_A_COUNT = MP_COUNT, SYN_A_LFO_RATE = MP_LFO_RATE, SYN_A_LFO_SYNC = MP_LFO_SYNC, SYN_A_LFO_DIV = MP_LFO_DIV,
+       SYN_A_KEY_MODE = MP_KEY_MODE, SYN_A_CHORD = MP_CHORD };
+#endif
+enum { SYN_VALUES = (int)SYN_A_COUNT > (int)JP_COUNT ? (int)SYN_A_COUNT : (int)JP_COUNT };
 
 typedef struct {
     uint8_t engine;
-    union { mks_part_t mks; jp6_part_t jp6; } u;
+    union { syn_a_part_t mks; jp6_part_t jp6; } u;
 } syn_part_t;
 
 extern const char *const syn_engine_names[SYN_ENGINES];
@@ -50,9 +65,9 @@ EL_DSP_CODE void syn_all_off(syn_part_t *p);
 EL_DSP_CODE void syn_render(syn_part_t *p, float *left, float *right, float *dly, float *rev, int frames, float bpm,
                             float level);
 
-/* Values of the sound as it is now (MP_COUNT or JP_COUNT of them). */
+/* Values of the sound as it is now (SYN_A_COUNT or JP_COUNT of them). */
 static inline const uint8_t *syn_values(const syn_part_t *p) { return p->engine == SYN_JP6 ? p->u.jp6.v : p->u.mks.v; }
-static inline unsigned syn_value_count(unsigned engine) { return engine == SYN_JP6 ? JP_COUNT : MP_COUNT; }
+static inline unsigned syn_value_count(unsigned engine) { return engine == SYN_JP6 ? JP_COUNT : SYN_A_COUNT; }
 /* Live chord preset of a sound in chord key mode: chord type (1..), or 0. */
 unsigned syn_chord_memory(const syn_part_t *p);
 

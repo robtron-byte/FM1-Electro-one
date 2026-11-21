@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#if EL_SYNTH_JX   /* engine 0 is the JX-8P (docs/adr/0039) */
+#define A_CUTOFF JX_CUTOFF
+#else
+#define A_CUTOFF MP_CUTOFF
+#endif
 
 static uint16_t screen[GFX_W * GFX_H];
 static uint8_t flash[640 * 1024];
@@ -272,8 +277,8 @@ int main(int argc, char **argv)
         if (ui.area != EL_AREA_RHYTHM) tap_button(BTN_SEL);
         if (ui.step_mode[EL_AREA_RHYTHM]) tap_button(BTN_SEQ);
         const st_track_t *rx = &ui.engine->track[0];
-        unsigned km = rx->part.engine == SYN_JP6 ? JP_KEY_MODE : MP_KEY_MODE;
-        unsigned ck = rx->part.engine == SYN_JP6 ? JP_CHORD : MP_CHORD;
+        unsigned km = rx->part.engine == SYN_JP6 ? JP_KEY_MODE : SYN_A_KEY_MODE;
+        unsigned ck = rx->part.engine == SYN_JP6 ? JP_CHORD : SYN_A_CHORD;
         unsigned km0 = syn_values(&rx->part)[km], ck0 = syn_values(&rx->part)[ck], chord0 = rx->chord;
         el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)ck, 0, 2);
         el_post3(ui.engine, EL_CMD_TRACK_PARAM, 0, (uint8_t)km, 0, 1);   /* KEY MODE CHORD */
@@ -970,7 +975,11 @@ int main(int argc, char **argv)
             for (unsigned i = 0; i < sec->count; ++i) ++seen[sec->param[i]];
         }
         for (unsigned prm = 0; prm < count; ++prm) {
+#if EL_SYNTH_JX   /* JX-8P without bender, aftertouch and mod depths (the FM-1 has none) */
+            int want = !(engine == SYN_MKS && ((prm >= JX_BENDER && prm <= JX_AFTER_VOL) || prm == JX_MOD_SENS));
+#else
             int want = !(engine == SYN_MKS && (prm == MP_DCO_AFTER || prm == MP_VCF_AFTER || prm == MP_VCA_AFTER));
+#endif
             if ((int)seen[prm] != want) { printf("  editor: %s %s seen %u\n", syn_engine_names[engine], syn_param_name(engine, prm), seen[prm]); ed_ok = 0; }
         }
     }
@@ -1154,8 +1163,12 @@ int main(int argc, char **argv)
     /* Own factory sounds (docs/adr/0027): after both engines' sounds, found by
      * name, in the area they were made for, with the values of the table. */
     {
-        unsigned base = mks_preset_count + jp6_preset_count;
-        int ex_ok = syn_extra_count >= 20 && syn_sound_count() == base + syn_extra_count && base + syn_extra_count < EL_USER_SOUND;
+#if EL_SYNTH_JX   /* the MKS-50 ones are gone with it (docs/adr/0039): the JP-6 ones stay */
+        unsigned base = jx8p_preset_count + jp6_preset_count, least = 12, per_area = 4;
+#else
+        unsigned base = mks_preset_count + jp6_preset_count, least = 20, per_area = 6;
+#endif
+        int ex_ok = syn_extra_count >= least && syn_sound_count() == base + syn_extra_count && base + syn_extra_count < EL_USER_SOUND;
         unsigned in_area[4] = {0, 0, 0, 0};
         for (unsigned i = 0; i < syn_extra_count; ++i) {
             const syn_extra_t *x = &syn_extras[i];
@@ -1164,7 +1177,7 @@ int main(int argc, char **argv)
                     !strcmp(syn_sound_name((unsigned)id), x->name) && syn_sound_values((unsigned)id) == x->v && x->area >= 1 && x->area <= 3;
             if (x->area <= 3) ++in_area[x->area];
         }
-        ex_ok = ex_ok && in_area[1] >= 6 && in_area[2] >= 6 && in_area[3] >= 6;
+        ex_ok = ex_ok && in_area[1] >= per_area && in_area[2] >= per_area && in_area[3] >= per_area;
         printf("extras: %u own sounds (rhythm %u, strings %u, bass %u) after the factory ones %s\n", syn_extra_count, in_area[1],
                in_area[2], in_area[3], ex_ok ? "ok" : "FAIL");
     }
@@ -1180,36 +1193,43 @@ int main(int argc, char **argv)
         dr_machine_t *m = &ps.drums;
         st_track_t *st = &ps.track[1];
         dr_post(m, DR_CMD_PARAM, D8_BD, 1, 0, 100);              /* A: BD tune 100 */
-        el_post3(&ps, EL_CMD_TRACK_PARAM, 1, MP_CUTOFF, 0, 17);  /* A: strings cutoff 17 */
+        el_post3(&ps, EL_CMD_TRACK_PARAM, 1, A_CUTOFF, 0, 17);  /* A: strings cutoff 17 */
         el_render_float(&ps, audio, EL_BLOCK);
-        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[MP_CUTOFF] == 17;
+        ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[A_CUTOFF] == 17;
         dr_post(m, DR_CMD_SELECT, 1, 1, 0, 0);
         el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 1, 1, 0);
         el_render_float(&ps, audio, EL_BLOCK);
         /* BEAT: one kit for every slot (feedback 12.11.): B sounds like A; the synths keep a sound per slot */
         ps_ok = ps_ok && m->current == 1 && st->current == 1 &&
-                tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[MP_CUTOFF] != 17;
+                tr808_get(&m->kit, D8_BD, 1) == 100 && syn_values(&st->part)[A_CUTOFF] != 17;
         dr_post(m, DR_CMD_PARAM, D8_SD, 0, 0, 33);               /* B: SD level 33 */
         el_render_float(&ps, audio, EL_BLOCK);
         dr_post(m, DR_CMD_SELECT, 0, 1, 0, 0);
         el_post3(&ps, EL_CMD_TRACK_SELECT, 1, 0, 1, 0);
         el_render_float(&ps, audio, EL_BLOCK);
         ps_ok = ps_ok && tr808_get(&m->kit, D8_BD, 1) == 100 && tr808_get(&m->kit, D8_SD, 0) == 33 &&
-                syn_values(&st->part)[MP_CUTOFF] == 17;
+                syn_values(&st->part)[A_CUTOFF] == 17;
         int sv = el_store_save(&ps);
         el_init(&back);
         int lb = el_store_load(&back);
         ps_ok = ps_ok && sv == 0 && lb == 0 && back.drums.current == 0 &&
-                tr808_get(&back.drums.kit, D8_BD, 1) == 100 && syn_values(&back.track[1].part)[MP_CUTOFF] == 17 &&
+                tr808_get(&back.drums.kit, D8_BD, 1) == 100 && syn_values(&back.track[1].part)[A_CUTOFF] == 17 &&
                 tr808_sound_get(&back.drums.sound[1], D8_SD, 0) == 33 && tr808_sound_get(&back.drums.sound[1], D8_BD, 1) == 100 &&
                 tr808_sound_get(&back.drums.sound[3], D8_SD, 0) == 33 &&
-                back.track[1].sound[1].v[MP_CUTOFF] != 17 && back.track[1].sound[0].v[MP_CUTOFF] == 17;
+                back.track[1].sound[1].v[A_CUTOFF] != 17 && back.track[1].sound[0].v[A_CUTOFF] == 17;
         int dv = el_store_test_as_v20();
         el_init(&v20);
         int l20 = el_store_load(&v20);
         ps_ok = ps_ok && dv == 0 && l20 == 0;
+#if EL_SYNTH_JX   /* an older record is an MKS-50 build's: its STRINGS sound becomes the start sound (docs/adr/0039) */
+        int sp = el_start_sound(1);
+        uint8_t want_cut = sp >= 0 ? syn_sound_values((unsigned)sp)[A_CUTOFF] : 0;
+        ps_ok = ps_ok && sp >= 0 && v20.track[1].preset == (uint8_t)sp;
+#else
+        uint8_t want_cut = 17;
+#endif
         for (unsigned i = 0; i < DR_PATTERNS; ++i)
-            ps_ok = ps_ok && tr808_sound_get(&v20.drums.sound[i], D8_BD, 1) == 100 && v20.track[1].sound[i].v[MP_CUTOFF] == 17;
+            ps_ok = ps_ok && tr808_sound_get(&v20.drums.sound[i], D8_BD, 1) == 100 && v20.track[1].sound[i].v[A_CUTOFF] == want_cut;
         if (!ps_ok) printf("debug sv=%d lb=%d dv=%d l20=%d\n", sv, lb, dv, l20);
     }
     printf("slots: BEAT one kit for all slots, synths a sound per slot, back from B, restart, version 20 record %s\n", ps_ok ? "ok" : "FAIL");
@@ -1668,7 +1688,16 @@ int main(int argc, char **argv)
                nt ? "ok" : "FAIL", bass ? "ok" : "FAIL", st ? "ok" : "FAIL");
         /* N29: in PRESETS the area's INIT+ comes first after the own sounds */
         int init_ok = 1;
+#if EL_SYNTH_JX   /* no INIT+ with the JX-8P (docs/adr/0039): the area's first factory sound comes first */
+        const char *want[3];
+        for (unsigned a = 0; a < 3; ++a) {
+            unsigned i = 0;
+            while (i < syn_sound_count() && syn_sound_area(i) != a + 1u) ++i;
+            want[a] = syn_sound_name(i);
+        }
+#else
         static const char *const want[3] = {"INIT RHY+", "INIT STR+", "INIT BASS+"};
+#endif
         static const uint8_t area_button[3] = {BTN_SEL, BTN_ENV, BTN_LFO};
         for (unsigned a = 0; a < 3; ++a) {
             while (ui.area != a + 1u) tap_button(area_button[a]);

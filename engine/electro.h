@@ -181,6 +181,8 @@ void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pattern_t out[EL
 /* Control task. Returns 0, or -1 when the queue is full. */
 int el_post(el_engine_t *e, uint8_t type, uint8_t a, int16_t value);
 int el_post3(el_engine_t *e, uint8_t type, uint8_t a, uint8_t b, uint8_t c, int16_t value);
+/* The factory sound a track starts with (engine 0), or -1 (docs/adr/0039). */
+int el_start_sound(unsigned track);
 /* Control task: load a factory sound / a whole pattern into a synth track.
  * Returns 0, -1 queue full, -2 while the previous one is still pending. */
 int el_load_preset(el_engine_t *e, unsigned track, unsigned preset);

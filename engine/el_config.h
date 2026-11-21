@@ -9,6 +9,12 @@
 #define EL_SAMPLE_RATE ((float)FM1_SAMPLE_RATE)
 #define EL_BLOCK FM1_BLOCK_FRAMES
 
+/* docs/adr/0039: the JX-8P engine (engine/jx8p.c, from fm1-synths) in place of the MKS-50 (engine/mks.c).
+ * 0 = MKS-50 (as before), 1 = JX-8P; a sound switch (ADR 0006): make jx-ab compares them. */
+#ifndef EL_SYNTH_JX
+#define EL_SYNTH_JX 0
+#endif
+
 /* Everything called from the audio interrupt must live in internal SRAM on
  * the device (see FM1_AUDIO_CODE in the SDK). Host builds ignore placement. */
 /* EL_PLATFORM: the build on our own platform (platform/, docs/adr/0021): the

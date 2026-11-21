@@ -29,3 +29,4 @@ Wünsche vom 20.11. (FEATURES N26–N29): Der Sequencer in STRINGS ist schwer zu
 ## Verlauf
 
 - 2026-11-20: angelegt (N26–N29), Wahl des Nutzers: REC halten, BASS einstimmig ohne Akkorde, Transpose bleibt und wird gespeichert
+- 2026-11-21: Mit dem JX-8P (ADR 0039, Schalter `EL_SYNTH_JX`) entfallen die INIT+-Sounds (MKS-50-Basis); ohne Schalter bleiben sie

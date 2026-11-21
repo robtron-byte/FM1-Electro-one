@@ -96,9 +96,15 @@ static const uint16_t part_color[DR_PARTS] = {
 static const char *const synth_page_names[SYNTH_PAGES] = {"FILTER", "ENVELOPE", "OSC", "MOD", "FX", "ARP"};
 static const uint8_t arp_page[4] = {ARP_MODE, ARP_RATE, ARP_OCTAVES, ARP_GATE};
 static const uint8_t synth_pages[SYN_ENGINES][UI_PAGES][4] = {
+#if EL_SYNTH_JX   /* JX-8P (docs/adr/0039): pages as the JP-6's, its own knobs */
+    {{JX_CUTOFF, JX_RESO, JX_VCF_ENV, JX_VCF_LFO}, {JX_E2_ATTACK, JX_E2_DECAY, JX_E2_SUSTAIN, JX_E2_RELEASE},
+     {JX_DCO1_WAVE, JX_DCO2_WAVE, JX_DCO2_XMOD, JX_MIX_DCO2}, {JX_LFO_RATE, JX_DCO1_LFO, JX_PORTA_TIME, JX_E1_DECAY},
+     {JX_CHORUS, JX_DELAY_SEND, JX_REVERB_SEND, JX_VOLUME}},
+#else
     {{MP_CUTOFF, MP_RESO, MP_VCF_ENV, MP_VCF_LFO}, {MP_T1, MP_T2, MP_L3, MP_T4},
      {MP_SAW, MP_PULSE, MP_SUB_LEVEL, MP_DCO_ENV}, {MP_LFO_RATE, MP_DCO_LFO, MP_PORTA_TIME, MP_PULSE_DETUNE},
      {MP_CHORUS, MP_DELAY_SEND, MP_REVERB_SEND, MP_VOLUME}},
+#endif
     {{JP_CUTOFF, JP_RESO, JP_VCF_ENV, JP_VCF_LFO}, {JP_ENV2_A, JP_ENV2_D, JP_ENV2_S, JP_ENV2_R},
      {JP_MIX, JP_XMOD, JP_PWM_DEPTH, JP_VCO2_FINE}, {JP_LFO_RATE, JP_VCO_LFO, JP_PORTA_TIME, JP_ENV1_D},
      {JP_CHORUS, JP_DELAY_SEND, JP_REVERB_SEND, JP_VOLUME}}};
@@ -177,8 +183,8 @@ typedef struct { const char *name; int value, max; const char *text; uint16_t co
 static unsigned synced_rate(const syn_part_t *part, unsigned param)
 {
     int jp = part->engine == SYN_JP6;
-    if (param != (jp ? JP_LFO_RATE : MP_LFO_RATE) || !syn_values(part)[jp ? JP_LFO_SYNC : MP_LFO_SYNC]) return param;
-    return jp ? JP_LFO_DIV : MP_LFO_DIV;
+    if (param != (jp ? JP_LFO_RATE : SYN_A_LFO_RATE) || !syn_values(part)[jp ? JP_LFO_SYNC : SYN_A_LFO_SYNC]) return param;
+    return jp ? JP_LFO_DIV : SYN_A_LFO_DIV;
 }
 
 static int raw_value(el_ui_t *ui, unsigned slot, unsigned *param_out)
@@ -258,8 +264,8 @@ static knob_t knob(el_ui_t *ui, unsigned slot)
         k.name = syn_param_name(engine, param);
         /* The rate knob in sync mode: called RATE, showing the note value. */
         int jp = engine == SYN_JP6;
-        if (param == (jp ? JP_LFO_DIV : MP_LFO_DIV) && syn_values(&track_of(ui)->part)[jp ? JP_LFO_SYNC : MP_LFO_SYNC])
-            k.name = syn_param_name(engine, jp ? JP_LFO_RATE : MP_LFO_RATE);
+        if (param == (jp ? JP_LFO_DIV : SYN_A_LFO_DIV) && syn_values(&track_of(ui)->part)[jp ? JP_LFO_SYNC : SYN_A_LFO_SYNC])
+            k.name = syn_param_name(engine, jp ? JP_LFO_RATE : SYN_A_LFO_RATE);
         k.max = syn_param_max(engine, param);
         k.text = syn_param_value_name(engine, param, k.value);
         k.color = area_color[ui->area];

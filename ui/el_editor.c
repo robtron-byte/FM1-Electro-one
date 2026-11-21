@@ -8,6 +8,24 @@
 #define N ED_NONE
 enum { BACK = 0x0000, GRID = 0x2945, TEXT = 0xef5d, DIM = 0x738e, FAINT = 0x4208, PLOT = 0x0861 };
 
+#if EL_SYNTH_JX
+/* JX-8P (engine 0 with EL_SYNTH_JX, docs/adr/0039): the JX-8P's / PG-800's panel order. Bender and
+ * aftertouch depths are left out (the FM-1 has neither). */
+static const ed_section_t mks_sections[] = {
+    {"DCO-1", "DC1", ED_LIST, 5, {JX_DCO1_RANGE, JX_DCO1_WAVE, JX_DCO1_TUNE, JX_DCO1_LFO, JX_DCO1_ENV}},
+    {"DCO-2", "DC2", ED_LIST, 7, {JX_DCO2_RANGE, JX_DCO2_WAVE, JX_DCO2_XMOD, JX_DCO2_TUNE, JX_DCO2_FINE, JX_DCO2_LFO,
+                                  JX_DCO2_ENV}},
+    {"DCO MOD / MIXER", "MIX", ED_LIST, 8, {JX_MIX_DCO1, JX_MIX_DCO2, JX_MIX_ENV, JX_MIX_ENV_MODE, JX_MIX_DYNA,
+                                           JX_DCO_ENV_MODE, JX_DCO_DYNA, JX_DRIFT}},
+    {"VCF", "VCF", ED_VCF, 8, {JX_CUTOFF, JX_RESO, JX_VCF_ENV, JX_VCF_LFO, JX_HPF, JX_VCF_KEY, JX_VCF_ENV_MODE, JX_VCF_DYNA}},
+    {"VCA", "VCA", ED_LIST, 4, {JX_VCA_LEVEL, JX_VCA_ENV_MODE, JX_VCA_DYNA, JX_VOLUME}},
+    {"ENVELOPE 1", "EN1", ED_ENV, 6, {JX_E1_ATTACK, JX_E1_DECAY, JX_E1_SUSTAIN, JX_E1_RELEASE, JX_E1_KEY, JX_ENV_SNAP}},
+    {"ENVELOPE 2", "EN2", ED_ENV, 6, {JX_E2_ATTACK, JX_E2_DECAY, JX_E2_SUSTAIN, JX_E2_RELEASE, JX_E2_KEY, JX_ENV_RETRIG}},
+    {"LFO", "LFO", ED_LFO, 7, {JX_LFO_RATE, JX_LFO_DELAY, JX_LFO_WAVE, JX_LFO_SHAPE, JX_LFO_SYNC, JX_LFO_DIV, JX_LFO_KEYSYNC}},
+    {"KEY / PORTAMENTO", "KEY", ED_LIST, 6, {JX_KEY_MODE, JX_PORTA, JX_PORTA_TIME, JX_KEY_SHIFT, JX_UNISON_DETUNE, JX_CHORD}},
+    {"CHORUS / SENDS", "FX", ED_LIST, 5, {JX_CHORUS, JX_CHORUS_MODE, JX_CHORUS_RATE, JX_DELAY_SEND, JX_REVERB_SEND}},
+};
+#else
 /* MKS-50: the Alpha Juno's panel order. The aftertouch depths are left out
  * (the FM-1 has no aftertouch). */
 static const ed_section_t mks_sections[] = {
@@ -22,6 +40,7 @@ static const ed_section_t mks_sections[] = {
     {"KEY / PORTAMENTO", "KEY", ED_LIST, 6, {MP_KEY_MODE, MP_PORTA, MP_PORTA_TIME, MP_KEY_SHIFT, MP_UNISON_DETUNE, MP_CHORD}},
     {"EFFECT SENDS", "FX", ED_LIST, 2, {MP_DELAY_SEND, MP_REVERB_SEND}},
 };
+#endif
 
 /* JP-6: the Jupiter-6 panel order. */
 static const ed_section_t jp6_sections[] = {
@@ -85,13 +104,15 @@ static void draw_env(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s, 
 {
     float lv[5], tm[5];
     int stages;
-    if (p->engine == SYN_JP6) {   /* A D (S) R */
+    if (p->engine == SYN_JP6 || EL_SYNTH_JX) {   /* A D (S) R (JP-6, JX-8P) */
         lv[0] = 1; lv[1] = val(p, s->param[2]); lv[2] = lv[1]; lv[3] = 0;
         tm[0] = val(p, s->param[0]); tm[1] = val(p, s->param[1]); tm[2] = -1; tm[3] = val(p, s->param[3]);
         stages = 4;
     } else {                      /* T1 L1 T2 L2 T3 L3 (sustain) T4 */
+#if !EL_SYNTH_JX
         lv[0] = val(p, MP_L1); lv[1] = val(p, MP_L2); lv[2] = val(p, MP_L3); lv[3] = lv[2]; lv[4] = 0;
         tm[0] = val(p, MP_T1); tm[1] = val(p, MP_T2); tm[2] = val(p, MP_T3); tm[3] = -1; tm[4] = val(p, MP_T4);
+#endif
         stages = 5;
     }
     /* Width proportional to each time: a time of 0 is a straight vertical
@@ -109,7 +130,12 @@ static void draw_env(gfx_band_t *b, const syn_part_t *p, const ed_section_t *s, 
 
 float ed_vcf_lfo_octaves(const syn_part_t *p)
 {
+#if EL_SYNTH_JX
+    float l = syn_values(p)[JX_VCF_LFO] / 127.0f;   /* the engine: (depth)^2 x 4 octaves */
+    return p->engine == SYN_JP6 ? syn_values(p)[JP_VCF_LFO] / 32.0f : l * l * 4.0f;
+#else
     return p->engine == SYN_JP6 ? syn_values(p)[JP_VCF_LFO] / 32.0f : syn_values(p)[MP_VCF_LFO] / 48.0f;
+#endif
 }
 
 float ed_lfo_value(const syn_part_t *p)
@@ -121,12 +147,20 @@ float ed_lfo_value(const syn_part_t *p)
 static void draw_vcf(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int y, int w, int h)
 {
     int jp = p->engine == SYN_JP6;
-    float cut = val(p, jp ? JP_CUTOFF : MP_CUTOFF), reso = val(p, jp ? JP_RESO : MP_RESO);
     unsigned mode = jp ? syn_values(p)[JP_VCF_MODE] : 0;
+#if EL_SYNTH_JX
+    float cut = val(p, jp ? JP_CUTOFF : JX_CUTOFF), reso = val(p, jp ? JP_RESO : JX_RESO);
+    /* JP-6 HPF 20 Hz .. 4 kHz; JX-8P HPF 0 flat, 1 150 Hz, 2 330 Hz, 3 700 Hz (no bass boost). */
+    unsigned mks_hpf = 1u, jx_hpf = jp ? 0u : syn_values(p)[JX_HPF] & 3u;
+    static const float jx_hz[4] = {0.0f, 150.0f, 330.0f, 700.0f};
+    float hp = jp ? (syn_values(p)[JP_HPF] ? 20.0f * dsp_exp2(val(p, JP_HPF) * 7.6f) : 0.0f) : jx_hz[jx_hpf];
+#else
+    float cut = val(p, jp ? JP_CUTOFF : MP_CUTOFF), reso = val(p, jp ? JP_RESO : MP_RESO);
     /* JP-6 HPF 20 Hz .. 4 kHz; MKS-50 HPF 0 bass boost, 1 flat, 2 225 Hz, 3 700 Hz. */
     unsigned mks_hpf = jp ? 1u : syn_values(p)[MP_HPF];
     float hp = jp ? (syn_values(p)[JP_HPF] ? 20.0f * dsp_exp2(val(p, JP_HPF) * 7.6f) : 0.0f)
                   : mks_hpf == 2 ? 225.0f : mks_hpf == 3 ? 700.0f : 0.0f;
+#endif
     /* VCF LFO: the curve follows the LFO as the engine does (cutoff in
      * octaves + LFO x depth; the picture spans 10 octaves), the band shows
      * how far it sweeps. */
@@ -163,8 +197,15 @@ static void draw_vcf(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int 
 static void draw_lfo(gfx_band_t *b, const syn_part_t *p, uint16_t c, int x, int y, int w, int h)
 {
     int jp = p->engine == SYN_JP6;
+#if EL_SYNTH_JX
+    /* JX-8P: SHAPE 0 follows the JX switch (RANDOM, SQUARE, SINE), 1..7 the shapes below (engine/jx8p.c) */
+    unsigned shape = syn_values(p)[JX_LFO_SHAPE], jxw = syn_values(p)[JX_LFO_WAVE];
+    unsigned wave = jp ? syn_values(p)[JP_LFO_WAVE] : shape ? shape - 1u : jxw == 0 ? 5u : jxw == 1 ? 4u : 1u;
+    float delay = val(p, jp ? JP_LFO_DELAY : JX_LFO_DELAY);
+#else
     unsigned wave = syn_values(p)[jp ? JP_LFO_WAVE : MP_LFO_WAVE];
     float delay = val(p, jp ? JP_LFO_DELAY : MP_LFO_DELAY);
+#endif
     static const float steps[8] = {0.4f, -0.7f, 0.9f, 0.1f, -0.3f, 0.75f, -0.9f, 0.2f};
     int mid = y + h / 2, prev = mid, dw = (int)(delay * (float)w * 0.35f);
     gfx_fill(b, x, mid, w, 1, FAINT);

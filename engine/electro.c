@@ -85,7 +85,11 @@ void el_apply_comp(el_engine_t *e)
 }
 
 /* Default sounds per area. */
+#if EL_SYNTH_JX   /* JX-8P factory sounds (docs/adr/0039) */
+static const char *const default_sounds[EL_TRACKS] = {"SYNC PLUK", "HI STRINGS", "SYNTH BASS"};
+#else
 static const char *const default_sounds[EL_TRACKS] = {"S&H BLEEP", "JX STRINGS", "ROBO BASS"};
+#endif
 /* Generator density per area: the rhythmic sounds stay sparse. */
 static const uint8_t gen_density[EL_TRACKS] = {28, 64, 56};
 /* Keys a generated groove may land in: C D A E G F Bb Eb (minor). */
@@ -107,6 +111,12 @@ EL_CTRL_CODE void el_generate_parts(const dr_pattern_t *d, uint32_t seed, st_pat
         st_generate(p, i + 1u, styles[i], gen_density[i], mix_seed(seed + 7919u * (i + 1u)), d->length, s->harmony);
         for (unsigned k = 0; k < ST_STEPS; ++k) p->step[k].note = (uint8_t)el_clampi(p->step[k].note + key, 0, 127);
     }
+}
+
+/* The sound a track starts with (its default_sounds entry), or -1. */
+EL_CTRL_CODE int el_start_sound(unsigned track)
+{
+    return track < EL_TRACKS ? syn_sound_find(SYN_MKS, default_sounds[track]) : -1;
 }
 
 EL_CTRL_CODE void el_generate_all(el_engine_t *e, uint32_t seed)
