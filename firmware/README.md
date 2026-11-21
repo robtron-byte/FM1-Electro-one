@@ -182,7 +182,7 @@ Aus dem 12. Build:
 
 **Last:** Gegenüber dem 7. Build (Gerät: DR49, PEAK 100 %, MAX 103 %, LATE BLOCKS 11) rechnen die Drums sparsamer, bei gleichem Klang: Mischung blockweise, Koeffizienten nur bei Reglerbewegung, Oszillatoren springen über die Strecken ohne Kante, DRIVE über eine Tabelle. Emulator: Kern 0 mit Groove 91 % → 82 %. Bitte wieder die OPTIONS-Zeilen fotografieren (HOME + SAVE, Groove läuft).
 
-Installieren mit M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s halten). Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
+**Installieren, ohne dass deine Grooves und Sounds verloren gehen:** mit `platform/tools/fm1_install.py` (`python3 platform/tools/fm1_install.py firmware/FM1_ELECTRO-<Version>.fwsc`, braucht `pip3 install mido python-rtmidi`). Dieser Weg benutzt den Update-Loader aus dem Paket, der nur den Programmbereich schreibt; der Speicher bleibt (im Emulator geprüft, P12). **Der M-Flasher löscht dabei sehr wahrscheinlich alles:** Er installiert mit seinem eigenen Loader (M-Bootloader), und der löscht auch Grooves und eigene Sounds, selbst nach SAVE (Meldung 21.11.). Für den Wechsel von einer anderen Firmware oder als Rettung ist er weiter gut. Ob fm-static und der FM-1 Firmware Hub den Speicher behalten, ist noch nicht geprüft. Rettung: OCT− beim Einschalten. Geprüft: `make test`, Hardware-Prüfung im Emulator (`tools/fm1-emu/check.sh`). Auf dem Gerät noch nicht gelaufen.
 
 SHA-256 (`FM1_ELECTRO-0.5.5-alpha.fwsc`): `6a1f66a493adc0ee62d18049f33b80c9849a59c35824ceaebb2121082ac65cee`
 
@@ -215,7 +215,7 @@ Geprüft vor dem Packen: `make test` (alle Host-Tests), die Prüfungen aus `Buil
 ## Flashen
 
 1. **Vorher sichern:** Projekte und Samples von FM1 Open bzw. der Original-Firmware gehen beim Wechsel verloren. Auch Bluetooth-Kopplungen können zurückgesetzt werden.
-2. Die Datei mit einem Flasher übertragen, der eigene `.fwsc`-Dateien annimmt: fm-static (https://seajaysec.github.io/fm-static/, im Browser), M-Flasher oder `tools/fm1_install.py`. Die FM1-Workbench nimmt nur ihre eingebauten Pakete.
+2. Die Datei mit einem Flasher übertragen, der eigene `.fwsc`-Dateien annimmt (Update von FM1-Electro auf FM1-Electro: `tools/fm1_install.py`, dann bleibt der Speicher; der M-Flasher löscht ihn): fm-static (https://seajaysec.github.io/fm-static/, im Browser), M-Flasher oder `tools/fm1_install.py`. Die FM1-Workbench nimmt nur ihre eingebauten Pakete.
 3. **Zurück:** Die Original-Firmware lässt sich wieder aufspielen (Workbench oder die offizielle Datei mit einem der Flasher). Startet das Gerät gar nicht mehr, hilft der Download-Modus des Bootloaders (M-Flasher `download-mode`) oder der FM-1 Transporter mit einem RP2040.
 
 ## Beim ersten Test darauf achten

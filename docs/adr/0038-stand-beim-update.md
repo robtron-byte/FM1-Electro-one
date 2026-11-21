@@ -1,7 +1,7 @@
 # 0038: Stand bleibt beim Firmware-Update erhalten
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-20
+- **Stand:** 2026-11-21
 
 ## Kontext
 
@@ -32,3 +32,4 @@ Fragt der Installer ein Update an (`usb.ota_req`), ruft `platform_poll` vor `ota
 ## Verlauf
 
 - 2026-11-20: angelegt
+- 2026-11-21: P12 (Meldung): Nach einem Update mit dem M-Flasher (FLASH FIRMWARE, normal gefunden) war trotz SAVE alles weg. Im Emulator (`fm1-live --flash`) lädt 0.5.5 den mit 0.5.4 gespeicherten Stand, wenn nur der Programmbereich 0x4000–0x92FFF getauscht wird, wie es der Loader aus dem Paket tut. Der M-Flasher wechselt Firmwares mit seinem eigenen Loader (M-Bootloader); der schreibt bzw. löscht offenbar auch den Datenbereich 0x93000.. (Region VM). Das liegt außerhalb der Firmware; die Sicherung vor dem Update hilft dort nicht. Entscheidung: Updates von FM1-Electro auf FM1-Electro mit `platform/tools/fm1_install.py` (Loader aus dem Paket), Anleitung in `firmware/README.md` und `docs/UEBERGABE.md` angepasst. Offen: ob fm-static und der FM-1 Firmware Hub den Speicher behalten; ob ein Bereich existiert, den auch der M-Bootloader nicht löscht (dann den Speicher dorthin legen)

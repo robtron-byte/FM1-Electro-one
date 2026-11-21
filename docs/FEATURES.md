@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B19, S20, Y9, F11, U15, P12, N31).
+Neue Nummern: im Bereich die nächste freie (B19, S20, Y9, F11, U15, P13, N31).
 
 Stand: 0.5.5-alpha (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -106,6 +106,7 @@ Stand: 0.5.5-alpha (20.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde 
 | S15 | Sequencer | Fill-ins (Feedback 09.11.): über den ganzen Takt generiert (vier Arten, die sich aufbauen), SEQ auch in HOME, immer im Takt nach dem aktuellen | ◐ umgesetzt (47. Build) | 0032 |
 | S16 | Sequencer | Pattern-Chaining (Wunsch 09.11./12.11.): in HOME einen Platz (A–D) halten und weitere derselben Bank drücken → Kette, bis 4 Glieder, Wiederholungen erlaubt (A>B>B); jedes Glied spielt einen ganzen Durchlauf; ist der neue Platz leer, wird der gehaltene dorthin kopiert und gleich gekettet; Kette je Bereich; ein einfacher Druck löst sie auf; mit SAVE gespeichert (Version 27) | ◐ umgesetzt (49. Build) | 0034 |
 | P11 | Plattform/Leistung | Gerätebuild: Audio-SRAM 52 Byte zu knapp nach N26–N30; Start- und Generator-Code der Klang-Dateien in den Flash (`EL_CTRL_CODE`), jetzt gut 3 KB frei | ◐ behoben (0.5.4-alpha) | 0021 |
+| P12 | Plattform/Leistung | Fehler (Meldung 21.11.): Nach dem Update mit dem M-Flasher waren Grooves und eigene Sounds weg, obwohl gespeichert war. Ursache: Der M-Flasher installiert mit seinem eigenen Loader (M-Bootloader), nicht mit dem aus dem Paket; der Loader aus dem Paket schreibt nur den Programmbereich (im Emulator: Stand von 0.5.4 lädt nach dem Tausch des Programmbereichs in 0.5.5). Abhilfe: Updates mit `platform/tools/fm1_install.py`; Anleitung angepasst. Offen: fm-static / Firmware Hub prüfen | ◐ Ursache gefunden, Anleitung (wartet auf Gerätetest mit fm1_install.py) | 0038 |
 | B18 | Beat/Drums | Ein Kit für alle Plätze A–D: Regler und Kitwechsel gelten für alle Patterns und werden für alle gespeichert (Wunsch 12.11.; vorher ein Kit-Sound pro Platz); ältere Grooves übernehmen das Kit des spielenden Platzes | ◐ umgesetzt (52. Build) | 0024 |
 | U13 | Bedienung/Display | BEAT: leere Steps 1, 5, 9, 13 leuchten gedimmt (Zählzeiten), damit die Drums leichter zu setzen sind (Wunsch 12.11.) | ◐ umgesetzt (51. Build) | 0020 |
 | U15 | Bedienung/Display | Versionsnummer statt Build-Zählung: 0.5.2-alpha, im Dateinamen und unten auf der Seite OPTIONS (Wunsch 14.11.) | ◐ umgesetzt (0.5.2-alpha) | 0035 |

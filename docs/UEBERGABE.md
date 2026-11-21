@@ -13,8 +13,9 @@ Urheber, Herkunft, Lizenz).
 - **Eigene Plattform** statt SDK von FM1 Open: `platform/` (Dinghy, Felucca-Plattform), Adapter `fm1/el_app.c` +
   `fm1/el_glue.c`, ADR 0021. Build: `JIELI_TOOLCHAIN=… AC79_SDK=… JIELI_DOCKER=0 python3 tools/build_platform.py`
   (Toolchain und die drei SDK-Dateien: `platform/ORIGIN.md`). Ergebnis (`platform/build/fm1-electro-<VERSION>.fwsc`) nach `firmware/FM1_ELECTRO-<VERSION>.fwsc` kopieren, die alte Datei entfernen (`docs/adr/0035`).
-- **Installieren:** M-Flasher → FLASH FIRMWARE → Datei → REVIEW & FLASH (findet er das Gerät nicht: OCT− und OCT+ 5 s
-  halten). Rettung: OCT− beim Einschalten, oder RP2040 (Transporter).
+- **Installieren:** Update von FM1-Electro auf FM1-Electro mit `platform/tools/fm1_install.py PAKET.fwsc` (Loader aus dem Paket,
+  Speicher bleibt). Der M-Flasher (FLASH FIRMWARE → Datei → REVIEW & FLASH; findet er das Gerät nicht: OCT− und OCT+ 5 s
+  halten) installiert mit eigenem Loader und löscht dabei sehr wahrscheinlich Grooves und Sounds (P12, ADR 0038). Rettung: OCT− beim Einschalten, oder RP2040 (Transporter).
 - **Zweiter Kern:** Synths (RHYTHM, STRINGS, BASS) auf Kern 1; Kern 0 rechnet Drums und – einen Block versetzt – Effekte und
   Master des vorigen Blocks (`engine/electro.c`, `bus_set`, Host-Test „two cores“).
 - **Audio-Code im SRAM:** alle Klang-Dateien (`e_*.o`) in `.dsp_text` (`platform/firmware/app.ld`), beim Start kopiert.
