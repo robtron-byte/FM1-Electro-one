@@ -65,10 +65,14 @@ Entscheidungen des Nutzers:
   Der JX-8P hat keine VCF-Dezimierung wie der MKS-50 (`MKS_VCF_DECIM`); wird es zu eng, ist das der erste Hebel.
 - Die Lautstärke der Werkstöne streut stark (−13 bis −44 dB RMS), wie beim Original. Die Gesamtmischung der Demos
   ist im Median 0,1 dB lauter als mit dem MKS-50.
-- Nach der Wahl: Standard auf 1 setzen. Dann `mks.c`, `mks_presets.c`, `convert_presets`, `chop-grid-check`,
-  `chorus-ab`, `synth_test` und die MKS-Zusatzsounds entfernen, und die Anleitung nachführen.
+- Der MKS-50 bleibt dauerhaft als Schalterstellung `EL_SYNTH_JX=0` erhalten (Wunsch 22.11.): Der Nutzer will
+  gelegentlich zurückwechseln und ihn in anderen Firmwares nutzen. `mks.c`, `mks_presets.c`, die MKS-Zusatzsounds
+  und ihre Tests bleiben deshalb, und `make test` prüft weiter beide Engines. Zum Wechseln den Gerätebuild mit
+  `EL_EXTRA_CFLAGS="-DEL_SYNTH_JX=0"` bauen. Ein MKS-Build liest einen Speicherstand der Version 29 nicht und
+  startet leer.
 
 ## Verlauf
 
 - 2026-11-21: angelegt (Y9), Schalter Standard aus, Plan vom Nutzer freigegeben
 - 2026-11-21: Der Nutzer wählt den JX-8P ohne eigenen Testbuild. Standard `EL_SYNTH_JX` = 1 ab 0.5.6-alpha. Der MKS-50 bleibt vorerst als Schalterstellung 0 baubar; `make test` prüft beide: die bisherigen Host-Tests mit `-DEL_SYNTH_JX=0` (Referenz-WAVs unverändert) und `test-jx` (Makefile). Das Entfernen der MKS-Dateien steht noch aus. Emulator (`FM1_STRICT=1`, derselbe neu erzeugte Groove, Lastanzeige): MKS-50 PEAK 71 %, Kern 1 63 %, STRINGS 39; JX-8P PEAK 66 %, Kern 1 61 %, STRINGS 35. Audio-SRAM: knapp 6 KB frei (`_pool_end` 0x01C72888). Ein mit 0.5.5-alpha gespeicherter Groove lädt; die MKS-Sounds darin werden zum Startsound des Bereichs
+- 2026-11-22: Die MKS-50-Dateien werden nicht entfernt. Der MKS-50 bleibt als Schalterstellung 0 zum Zurückwechseln und für andere Firmwares (Wunsch des Nutzers)
