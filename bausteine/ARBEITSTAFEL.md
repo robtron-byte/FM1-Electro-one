@@ -50,18 +50,18 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y11 | mksultra | vergeben |
 | ADR | 0044 | Solo-Firmware-Gerüst (gemeinsam: Plattform, Sequencer, Speichern, MIDI, Raster) + SH101 solo | vergeben (sh101-Chat) |
 | ADR | 0045 | mksultra solo | frei (reserviert) |
-| ADR | 0046 | jx8p als Baustein + solo | frei (reserviert) |
+| ADR | 0046 | jx8p als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0047 | mks50 als Baustein + solo | frei (reserviert) |
 | ADR | 0048 | jp6 als Baustein + solo | frei (reserviert) |
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
-| ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | frei (reserviert) |
+| ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
 | FEATURES | Y13 | mksultra solo | frei (reserviert) |
-| FEATURES | Y14 | jx8p solo | frei (reserviert) |
+| FEATURES | Y14 | jx8p solo | vergeben (jx8p-Chat) |
 | FEATURES | Y15 | mks50 solo | frei (reserviert) |
 | FEATURES | Y16 | jp6 solo | frei (reserviert) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
@@ -137,7 +137,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
-- **In Arbeit:** jx8p frei · mks50 frei · jp6 frei · tr808alt frei
+- **In Arbeit:** jx8p: jx8p-Chat (Unterchat des Koordinators, Worktree nervous-shamir-666aca), seit 28.11.2026: Baustein (ohne Firmware) · mks50 frei · jp6 frei · tr808alt frei
 - Die vorhandenen Engines liegen heute in `engine/`: JX-8P (`engine/jx8p.c`), MKS-50 (`engine/mks.c`), JP-6 (`engine/jp6.c`)
   und die bisherige 808 (`engine/tr808*.c`). Jede wird ein eigener Ordner in `bausteine/` mit demselben Aufbau und
   `baustein.h`. Das ist nur nach Absprache mit dem Bau-Chat möglich, weil die Engines im Gerätebuild stecken. Der Klang
