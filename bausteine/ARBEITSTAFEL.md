@@ -52,7 +52,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0045 | mksultra solo | frei (reserviert) |
 | ADR | 0046 | jx8p als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0047 | mks50 als Baustein + solo | vergeben (jx8p-Chat) |
-| ADR | 0048 | jp6 als Baustein + solo | frei (reserviert) |
+| ADR | 0048 | jp6 als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
@@ -63,7 +63,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y13 | mksultra solo | frei (reserviert) |
 | FEATURES | Y14 | jx8p solo | vergeben (jx8p-Chat) |
 | FEATURES | Y15 | mks50 solo | vergeben (jx8p-Chat) |
-| FEATURES | Y16 | jp6 solo | frei (reserviert) |
+| FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
 
 ## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
@@ -137,7 +137,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
-- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6 frei · tr808alt frei
+- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6: jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Baustein (ohne Firmware) · tr808alt frei
 - **jx8p Stand:** `bausteine/jx8p/` bindet `engine/jx8p.c` und Co. ein (keine Kopie, `engine/` unverändert), Adapter
   `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
   Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
