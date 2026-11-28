@@ -13,7 +13,7 @@ static int fails;
 static void run(unsigned ticks) { while (ticks--) lv_block(1); }
 int main(void)
 {
-    lv_reset();
+    lv_load_done(-1);
     /* erste Aufnahme: 2 Takte und ein bisschen, Noten bei Tick 1 (-> 1/16 0) und 50 (-> 8), 13 Ticks gehalten */
     lv_ui_rec(0, 0); lv_block(0);
     CHECK(lv_state == LV_FIRST, "Aufnahme läuft nicht");

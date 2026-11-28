@@ -92,8 +92,10 @@ static volatile uint8_t pend_flag[GM_PARTS];
 static volatile uint8_t part_ch[GM_PARTS];      /* MIDI-Kanal je Part: 0 = alle (OMNI), 1..16 */
 static float part_level[GM_PARTS], part_send[GM_PARTS][2];
 
+static void lv_boot(void);
 static void gm_boot(void)
 {
+    lv_boot();                                  /* Live-Aufnahme: erst nach dem Laden (lv im Pool) */
     kern_boot();
     syn_fx_init();
     for (unsigned p = 0; p < GM_PARTS; p++) { part_ch[p] = (uint8_t)(GM_PARTS == 1 ? 0 : p + 1); part_level[p] = 0.8f; }
@@ -343,6 +345,15 @@ static DSP void seq_block(unsigned ticks)
 #define LV_NOTE_ON(p, n, v) kern_on(p, n, v, 0)
 #define LV_NOTE_OFF(p, n) kern_off(p, n)
 #define LV_DSP DSP
+#ifndef LV_STORE_ATTR
+#define LV_STORE_ATTR __attribute__((section(".pool"), aligned(4)))   /* (das RAM ist knapp; lv_load_done legt ihn immer an) */
+#endif
+#ifndef LV_RT_ATTR
+#define LV_RT_ATTR __attribute__((section(".pool"), aligned(4)))
+#endif
+#ifndef LV_EV_MAX
+#define LV_EV_MAX 192                   /* Ereignisse je Part (ein Part: 16 Takte reichlich; spart Pool) */
+#endif
 #include "seq/syn_live.h"
 
 static DSP void play_on(unsigned p, int note, int vel)

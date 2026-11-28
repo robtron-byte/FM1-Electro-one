@@ -63,8 +63,8 @@ static void QR(int32_t xr, int32_t y, int32_t s, const char *t, uint16_t c) { Q(
  * ====================================================================================================== */
 enum { G_HOME, G_EDIT, G_ENV, G_LFO, G_FX, G_ARP, G_GLO, G_SEL, G_SEQ, NGROUP };
 enum { ST_HOME, ST_PARTS, ST_DCO1, ST_DCO2, ST_FILTER, ST_ENV1, ST_ENV2, ST_LFO, ST_NAME, ST_SYS, ST_BROWSE, ST_AMP,
-       ST_CHORUS, ST_DELAY, ST_REVERB, ST_ARP, ST_CHORD, ST_VOICE, ST_TEMPO, ST_MIX, ST_DCOMOD, ST_ENVS, ST_SETS, ST_SEQ };
-enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_CAT, K_FX, K_ARP, K_TEMPO, K_CHORD, K_CLK, K_SEQ, K_SET, K_TEST };
+       ST_CHORUS, ST_DELAY, ST_REVERB, ST_ARP, ST_CHORD, ST_VOICE, ST_TEMPO, ST_MIX, ST_DCOMOD, ST_ENVS, ST_SETS, ST_SEQ, ST_LIVE };
+enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_CAT, K_FX, K_ARP, K_TEMPO, K_CHORD, K_CLK, K_SEQ, K_SET, K_TEST, K_LIVE };
 typedef struct { const char *label; uint8_t kind, param; } kn_t;
 typedef struct { uint8_t group, stage; const char *title; kn_t k[4]; } page_t;
 #define PRM(l, p) {l, K_PARAM, p}
@@ -72,6 +72,7 @@ typedef struct { uint8_t group, stage; const char *title; kn_t k[4]; } page_t;
 #define FXK(l, p) {l, K_FX, p}
 #define ARK(l, p) {l, K_ARP, p}
 #define SQK(l, p) {l, K_SEQ, p}
+#define LVK(l, p) {l, K_LIVE, p}   /* FM1-Electro-one: Live-Aufnahme (ADR 0053) */
 /* the JX-8P's panel in its order (DCO-1, DCO-2, MIXER, VCF, VCA, ENV-1, ENV-2, LFO, CHORUS), then the pages
  * the MKS-50 firmware has besides (../../mks50/docs/adr/0008) */
 static const page_t pages[] = {
@@ -99,6 +100,7 @@ static const page_t pages[] = {
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCTAVES", ARP_OCT)}},
     {G_ARP, ST_ARP, "ARP", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), {"TEMPO", K_TEMPO, 0}, NO}},
     {G_ARP, ST_CHORD, "CHORD", {{"CHORD", K_CHORD, 0}, PRM("MODE", JP_KEY_MODE), NO, NO}},
+    {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
     {G_SEQ, ST_SEQ, "SEQ", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
     {G_GLO, ST_TEMPO, "TEMPO", {{"TEMPO", K_TEMPO, 0}, {"SOURCE", K_CLK, 0}, {"SEND", K_CLK, 1}, NO}},
     {G_GLO, ST_PARTS, "MIDI", {{"A", K_CHAN, 0}, {"B", K_CHAN, 1}, {"C", K_CHAN, 2}, {"D", K_CHAN, 3}}},
@@ -232,6 +234,7 @@ static int k_max(const kn_t *k)
     case K_TEMPO: return 200;
     case K_CLK: return k->param ? 1 : 2;
     case K_SEQ: return k->param == SQ_ON ? 1 : k->param == SQ_DIV ? FX_DIVS - 1 : k->param == SQ_SHIFT ? 48 : 127;
+    case K_LIVE: return k->param == LV_SET_BARS ? LV_BARS : 1;
     case K_SET: return k->param ? 1 : NSET - 1;
     case K_CHORD: return 8;
     case K_TEST: return k->param == 0 ? 8 : k->param == 1 ? (int)jx_preset_count - 1 : 1;
@@ -250,6 +253,9 @@ static int k_get(const kn_t *k)
     case K_TEMPO: return tempo;
     case K_CLK: return clkv[k->param];
     case K_SEQ: return sq.cfg[sel][k->param];
+    case K_LIVE:
+        return k->param == LV_SET_ON ? lv_store.p[sel].on : k->param == LV_SET_BARS ? lv_store.p[sel].bars
+             : k->param == LV_SET_GROW ? lv_store.p[sel].grow : lv_store.p[sel].cut;
     case K_SET: return k->param ? 0 : perf_cur;
     case K_TEST: return test_v[k->param];
     case K_CHORD: return up[sel].v[JP_KEY_MODE] == 1 ? (up[sel].v[JP_CHORD] & 7) + 1 : 0;
@@ -288,6 +294,12 @@ static void k_text(const kn_t *k, int v, char *b)
     case K_TEMPO: fmt_int(b, v + 40); break;
     case K_CLK: str_cpy(b, k->param ? (v ? "USB" : "OFF") : v == 1 ? "INT" : v == 2 ? "MIDI" : "AUTO", 10); break;
     case K_CHORD: str_cpy(b, chord_names[v % 9], 10); break;
+    case K_LIVE:
+        if (k->param == LV_SET_ON) str_cpy(b, v ? "ON" : "OFF", 10);
+        else if (k->param == LV_SET_BARS) { if (v) fmt_int(b, v); else str_cpy(b, "EMPTY", 10); }
+        else if (k->param == LV_SET_GROW) str_cpy(b, v ? "EMPTY" : "REPEAT", 10);
+        else str_cpy(b, v ? "END" : "START", 10);
+        break;
     case K_SEQ:
         if (k->param == SQ_ON) str_cpy(b, v ? "ON" : "OFF", 10);
         else if (k->param == SQ_DIV) str_cpy(b, syn_fx_value_name(FX_DLY_DIV, v), 10);
@@ -382,6 +394,7 @@ static void k_turn(const kn_t *k, int32_t d)
     case K_ARP: arpc[sel][k->param] = (uint8_t)v; ev_put(EV_ARP, sel, k->param, (uint32_t)v); touch_set(); break;
     case K_TEMPO: tempo = (uint8_t)v; ev_put(EV_TEMPO, 0, (uint32_t)v, 0); touch_set(); break;
     case K_CLK: clkv[k->param] = (uint8_t)v; ev_put(EV_CLK, 0, k->param, (uint32_t)v); touch_set(); break;
+    case K_LIVE: lv_ui_set(sel, k->param, (unsigned)v); break;   /* (the audio side writes lv_store) */
     case K_SEQ:
         if (k->param == SQ_ON && v && !sq.len[sel]) { msg_set("NO STEPS YET: PRESS REC", 0); break; }
         ev_put(EV_SEQ, sel, k->param, (uint32_t)v);
@@ -1005,6 +1018,21 @@ static void stage_seq(void)
     }
     if (rec_on && rec_part == sel && n < SEQ_STEPS) R(4 + (int32_t)n * w, 136, w > 2 ? w - 1 : 1, 3, T_ACC);
 }
+/* FM1-Electro-one: the live recording (ADR 0053): bar and length large, the state above */
+static void stage_live(void)
+{
+    unsigned bar, bars, st;
+    char b[24], *p;
+    lv_status(sel, &bar, &bars, &st);
+    draw_sound_line(32);
+    if (st == LV_COUNT) { PC(120, 70, 4, "COUNT IN", T_WARN); return; }
+    p = b;
+    if (st == LV_FIRST) { fmt_int(p, (int32_t)bar); p += str_len(p); *p = 0; }
+    else if (bars) { fmt_int(p, (int32_t)(bar > bars ? bars : bar)); p += str_len(p); p = put(p, "/"); fmt_int(p, (int32_t)bars); p += str_len(p); *p = 0; }
+    else { p = put(p, "EMPTY"); *p = 0; }
+    PC(120, 62, 5, b, st != LV_OFF ? T_WARN : bars && lv_store.p[sel].on ? T_INK : T_LINE);
+    Q(4, 36, 2, st == LV_FIRST ? "REC: REC = LENGTH" : st == LV_OVER ? "OVERDUB  PLAY = UNDO" : bars ? "BARS  REC = OVERDUB" : "REC = RECORD", st != LV_OFF ? T_WARN : T_DIM);
+}
 static void stage_tempo(void)                   /* the tempo, where it comes from, the transport, the beat */
 {
     char b[24], *p;
@@ -1171,6 +1199,7 @@ static void draw_page(unsigned pi, int live)
     case ST_VOICE: stage_voice(); break;
     case ST_TEMPO: stage_tempo(); break;
     case ST_SEQ: stage_seq(); break;
+    case ST_LIVE: stage_live(); break;
     case ST_SETS: stage_sets(); break;
     default: stage_name(pg); break;
     }
@@ -1245,7 +1274,7 @@ static uint8_t held_part[27], held[27];
 /* step recording as on the SH-101 (docs/adr/0015): every key is the next step; pressed while the key before is still
  * held it ties to it (legato); the top key is a rest; GLO + a key holds the note before one step more. Returns 1
  * when the key makes no sound. */
-static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen;
+static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen, lv_sum_saved;
 static uint8_t rec_play, rec_mheld[16];         /* it plays on while recording (SEQ was on); MIDI notes held */
 static int seq_rec_key(uint32_t k, uint8_t note, uint32_t keys)
 {
@@ -1360,7 +1389,7 @@ static void lights(void)
     fm1_led_key(BTN_SEL, !saving && g == G_SEL);
     fm1_led_key(BTN_ARP, !saving && (g == G_ARP || arpc[sel][ARP_ON]));
     fm1_led_key(BTN_SEQ, !saving && (g == G_SEQ || sq.cfg[sel][SQ_ON]));
-    fm1_led_key(BTN_REC, rec_on && (fm1_ms / 300u & 1u));   /* recording: REC blinks */
+    fm1_led_key(BTN_REC, (rec_on || lv_busy()) && (fm1_ms / 300u & 1u));   /* recording: REC blinks */
     /* PLAY: while the transport runs it flashes on the beat; else it shows the arp's HOLD for the part */
     fm1_led_key(BTN_PLAY, xport == 1 ? clk_ticks % 24u < 4u : arpc[sel][ARP_HOLD]);
     fm1_led_key(BTN_SAVE, saving || (up[sel].dirty && (fm1_ms / 400u & 1u)));   /* unsaved: SAVE blinks */
@@ -1423,6 +1452,8 @@ static int jr_playing(void)                     /* a voice, an arp, or an effect
 {
     if (!quiet() || silent_blocks < 700u) return 1;
     for (unsigned p = 0; p < JX_PARTS; p++) if (arp[p].cfg[ARP_ON] && arp[p].nkeys) return 1;
+    for (unsigned p = 0; p < LV_PARTS; p++) if (lv_store.p[p].on && lv_store.p[p].bars && xport != 2) return 1;   /* (a loop plays) */
+    if (lv_busy()) return 1;
     return 0;
 }
 /* write after the next audio block, so the interrupts are off between blocks, never across one */
@@ -1537,6 +1568,9 @@ static void app_main(void)
         sqr[p].sounding = -1; sqr[p].fresh = 1;
     }
     sq_sum_saved = sq_sum_seen = sq_sum();
+    lv_load_done(flash_ok ? blob_load(4, &lv_store, sizeof lv_store) : -1);   /* the live loops (ADR 0053): none yet = empty */
+    for (unsigned p = 0; p < LV_PARTS; p++) lv_store.p[p].on = 0;   /* (nothing plays by itself at power-on) */
+    lv_sum_saved = lv_sum();
     for (unsigned i = 0; i < NSET; i++) if (perfs[i].used && (perfs[i].s.ver != SET_VER || !perfs[i].name[0])) perfs[i].used = 0;
     for (unsigned j = 0; j < NOWN; j++) if (own[j].used && (own[j].cat >= NFC || !own[j].name[0])) own[j].used = 0;
     {
@@ -1653,7 +1687,16 @@ static void app_main(void)
                     else if (i == BTN_OCT_DOWN && oct > -3) { oct--; set.oct = oct; touch_set(); }
                     else if (i == BTN_OCT_UP && oct < 3) { oct++; set.oct = oct; touch_set(); }
                     break;
-                case BTN_REC: if (!saving) seq_rec(!rec_on); break;
+                case BTN_REC:
+                    if (saving) break;
+                    if (rec_on || pages[page].stage == ST_SEQ) { seq_rec(!rec_on); break; }   /* SEQ page: steps as before */
+                    {   /* else the live recording after the RK-008 (ADR 0053): tap now, twice with a count-in, REC keeps */
+                        int r = lv_ui_rec(sel, now);
+                        if (r && xport == 2) xport_req = 1;   /* (stopped: the clock runs again) */
+                        if (r) for (unsigned pi = 0; pi < NPAGE; pi++) if (pages[pi].stage == ST_LIVE) { goto_page(pi, 0); break; }
+                        msg_set(r == 2 ? "COUNT IN" : r ? "REC  REC = DONE  PLAY = UNDO" : "LOOP KEPT", 0);
+                    }
+                    break;
                 case BTN_EDIT: case BTN_ENV: case BTN_LFO: case BTN_FX: case BTN_GLO: case BTN_ARP: case BTN_SEQ:
                     if (layer == btn_group(i)) {    /* let go: a tap opens its pages, a hold was its layer */
                         if (!layer_used && now - press_t[i] < 400u && !saving) group_button(layer);
@@ -1661,6 +1704,7 @@ static void app_main(void)
                     }
                     break;
                 case BTN_PLAY:                  /* tapped: the arp's HOLD for the selected part */
+                    if (!was_long && !saving && lv_busy()) { lv_ui_stop(sel); msg_set("PASS DROPPED", 0); break; }   /* STOP (ADR 0053) */
                     if (!was_long && !saving) {
                         arpc[sel][ARP_HOLD] ^= 1u; ev_put(EV_ARP, sel, ARP_HOLD, arpc[sel][ARP_HOLD]); touch_set();
                         msg_set(arpc[sel][ARP_HOLD] ? "HOLD ON" : "HOLD OFF", 0);
@@ -1763,6 +1807,10 @@ static void app_main(void)
                 if (h != sq_sum_seen) { sq_sum_seen = h; sq_t_change = now; }
                 else if (h != sq_sum_saved && now - sq_t_change >= 1500u && !jr_playing()) {
                     if (!blob_save(3, &sq, sizeof sq)) sq_sum_saved = h;
+                }
+                if (!lv_busy() && !jr_playing()) {   /* the live loops (blob 4), in a pause */
+                    uint32_t hl = lv_sum();
+                    if (hl != lv_sum_saved && !blob_save(4, &lv_store, sizeof lv_store)) lv_sum_saved = hl;
                 }
             }
         }

@@ -368,6 +368,15 @@ static DSP void seq_block(unsigned ticks)
     }
 }
 
+/* FM1-Electro-one: Live-Aufnahme nach RK-008 (ADR 0053), das gemeinsame Modul aus bausteine/varianten/gemeinsam;
+ * die Schleife spielt wie eine gespielte Taste (mit dem Akkord des Parts) */
+#define LV_PARTS JX_PARTS
+#define LV_NOTE_ON(p, n, v) notes_on(p, n, (float)(v) * (1.0f / 127.0f))
+#define LV_NOTE_OFF(p, n) notes_off(p, n)
+#define LV_DSP DSP
+#define LV_STORE_ATTR __attribute__((section(".pool"), aligned(4)))   /* (RAM full: the loops in the pool) */
+#include "seq/syn_live.h"
+
 static DSP void play_on(unsigned p, int note, int vel)
 {
     if (sq.cfg[p][SQ_ON] && sq.len[p] && seq_rec_p != p + 1u) {   /* the sequence plays: the key transposes it (C4 = 0, as the SH-101) */
@@ -375,12 +384,14 @@ static DSP void play_on(unsigned p, int note, int vel)
         sq.cfg[p][SQ_SHIFT] = (uint8_t)(t < 0 ? 0 : t > 48 ? 48 : t);
         return;
     }
+    lv_hear(p, (unsigned)note, (unsigned)vel, 1);
     if (arp[p].cfg[ARP_ON]) arp_key(p, note, vel ? vel : 1);
     else notes_on(p, note, vel * (1.0f / 127.0f));
 }
 static DSP void play_off(unsigned p, int note)
 {
     if (sq.cfg[p][SQ_ON] && sq.len[p] && seq_rec_p != p + 1u) return;
+    lv_hear(p, (unsigned)note, 0, 0);
     if (arp[p].cfg[ARP_ON]) arp_key(p, note, 0);
     else notes_off(p, note);
 }
@@ -398,12 +409,14 @@ static DSP void xport_start(void)
     for (unsigned p = 0; p < JX_PARTS; p++) sqr[p].fresh = 1;
     clk_ticks = 0;
     int_acc = 0;
+    lv_rewind();
     xport = 1;
     for (unsigned p = 0; p < JX_PARTS; p++) { arp[p].pos = 0; if (arp[p].nkeys) arp[p].fresh = 1; synth.part[p].lfo_phase = 0; }
 }
 static DSP void xport_stop(void)
 {
     for (unsigned p = 0; p < JX_PARTS; p++) seq_stop_note(p);
+    lv_stop_all();
     xport = 2;
     for (unsigned p = 0; p < JX_PARTS; p++) arp_stop_note(&arp[p], p);
 }
@@ -594,6 +607,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
         if (ext_follow || xport == 1) lfo_lock();
         arp_block(xport == 2 ? 0 : ticks);
         seq_block(xport == 2 ? 0 : ticks);
+        lv_block(xport == 2 ? 0 : ticks);
     }
     {   /* delay + reverb ~23 % of a block, a voice ~8 % (MKS-50 firmware, emulator, 2026-11-12): ~3 voices; kept free on
          * core 1 only while a part sends to them (without a send they sleep: ~1 %, and core 1 takes its share of voices) */

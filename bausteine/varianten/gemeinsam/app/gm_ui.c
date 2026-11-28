@@ -536,7 +536,7 @@ static void render(uint32_t now)
  * ====================================================================================================== */
 static uint32_t keys_prev;
 static uint8_t held_part[27], held[27];
-static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen, lv_sum_saved;
+static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen;
 static uint8_t rec_play, rec_mheld[16];
 static int seq_rec_key(uint32_t k, uint8_t note, uint32_t keys)
 {
@@ -820,7 +820,7 @@ static void app_main(void)
     sq_sum_saved = sq_sum_seen = sq_sum();
     lv_load_done(flash_ok ? blob_load(4, &lv_store, sizeof lv_store) : -1);   /* Live-Aufnahme (ADR 0053): ohne Blob leer */
     for (unsigned p = 0; p < GM_PARTS; p++) lv_store.p[p].on = 0;   /* (beim Einschalten läuft nichts von selbst) */
-    lv_sum_saved = lv_sum();
+    lv.saved = lv_sum();
     have = flash_ok ? jr_load(&st) : -1;
     if (!have && st.set.ver == SET_VER) {
         set = st.set;
@@ -1044,7 +1044,7 @@ static void app_main(void)
                 }
                 if (!lv_busy() && !jr_playing()) {   /* die Live-Aufnahmen (Blob 4), wenn nichts spielt */
                     uint32_t hl = lv_sum();
-                    if (hl != lv_sum_saved && !blob_save(4, &lv_store, sizeof lv_store)) lv_sum_saved = hl;
+                    if (hl != lv.saved && !blob_save(4, &lv_store, sizeof lv_store)) lv.saved = hl;
                 }
             }
         }

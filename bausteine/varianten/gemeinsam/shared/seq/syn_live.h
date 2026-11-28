@@ -32,11 +32,17 @@
 #ifndef LV_DSP
 #define LV_DSP
 #endif
+#ifndef LV_EV_MAX
+#define LV_EV_MAX 512                   /* Ereignisse je Part höchstens (die App kann weniger nehmen, um Speicher zu sparen) */
+#endif
+#ifndef LV_RT_ATTR
+#define LV_RT_ATTR                      /* Ablage der Laufzeitdaten (z. B. section(".pool"); lv_load_done nullt sie) */
+#endif
 enum {
     LV_BARS = 16,                       /* höchstens (Ziel des Nutzers 8–16) */
     LV_TPB = 96,                        /* Ticks je Takt (4/4, 24 je Viertel) */
     LV_T16 = 6,                         /* Ticks je 1/16 */
-    LV_EV = (4000 - 16 - 8 * LV_PARTS) / (4 * LV_PARTS) > 512 ? 512 : (4000 - 16 - 8 * LV_PARTS) / (4 * LV_PARTS),
+    LV_EV = (4000 - 16 - 8 * LV_PARTS) / (4 * LV_PARTS) > LV_EV_MAX ? LV_EV_MAX : (4000 - 16 - 8 * LV_PARTS) / (4 * LV_PARTS),
     LV_HOLD = 16,                       /* gleichzeitig klingende Noten der Schleife je Part */
     LV_MAGIC = 0x3156494Cu,             /* "LIV1" */
     LV_VER = 1,
@@ -54,7 +60,12 @@ typedef struct {
 } lv_store_t;
 _Static_assert(sizeof(lv_store_t) <= 4096u - 64u, "Live-Aufnahme passt in einen Blob");
 
-static lv_store_t lv_store;
+/* LV_STORE_ATTR: wo der Speicher liegt (z. B. section(".pool"), wenn das RAM knapp ist; der Pool wird beim Start nicht
+ * genullt, lv_load_done legt ihn immer ganz an) */
+#ifndef LV_STORE_ATTR
+#define LV_STORE_ATTR
+#endif
+static lv_store_t lv_store LV_STORE_ATTR;
 /* Laufzeit (Audio-Interrupt) */
 static struct {
     uint32_t pos[LV_PARTS];             /* Ticks in der Schleife */
@@ -63,23 +74,31 @@ static struct {
     uint8_t hold_n[LV_PARTS];
     uint32_t elapsed;                   /* erster Durchgang: Ticks seit dem Start */
     uint32_t count;                     /* Einzählen: Ticks übrig */
-    uint32_t key_t[128];                /* gehaltene Tasten: Tick des Anschlags */
-    uint8_t key_v[128], key_down[16];   /* Velocity, gehalten (Bits) */
-} lv;
-static volatile uint8_t lv_state, lv_part;          /* LV_OFF.. und welcher Part aufnimmt */
-static volatile uint32_t lv_shown_pos[LV_PARTS];    /* für die Anzeige */
+    uint16_t key_t[LV_HOLD];            /* gehaltene Tasten beim Aufnehmen: Tick des Anschlags, Note, Velocity */
+    uint8_t key_n[LV_HOLD], key_v[LV_HOLD], keys;
+    uint32_t shown_pos[LV_PARTS];       /* für die Anzeige */
+    uint32_t rec_ms;                    /* Hauptprogramm: wann REC die Aufnahme begann (Doppeltippen) */
+    uint32_t saved;                     /* Hauptprogramm: lv_sum des zuletzt gespeicherten Stands */
+    struct { uint8_t cmd, part, a, b; } q[16];   /* Befehle vom Hauptprogramm (ein Schreiber, ein Leser) */
+    volatile uint32_t qw, qr;
+    volatile uint8_t state, part;       /* LV_OFF.. und welcher Part aufnimmt */
+    volatile uint8_t ready;             /* erst nach lv_load_done; liegt lv im Pool, setzt die App es vor dem Audio auf 0 (lv_boot) */
+} lv LV_RT_ATTR;
+#define lv_state (lv.state)
+#define lv_part (lv.part)
+#define lv_ready (lv.ready)
+/* vor dem Start des Audio-Interrupts (nötig, wenn lv im Pool liegt: der wird nicht genullt) */
+static void lv_boot(void) { lv.ready = 0; }
 /* Befehle vom Hauptprogramm (ein Schreiber, ein Leser) */
 enum { LVC_REC, LVC_COUNT, LVC_COMMIT, LVC_DISCARD, LVC_SET };
-typedef struct { uint8_t cmd, part, a, b; } lv_cmd_t;
-static lv_cmd_t lv_q[16];
-static volatile uint32_t lv_qw, lv_qr;
 static void lv_put(unsigned cmd, unsigned part, unsigned a, unsigned b)
 {
-    uint32_t w = lv_qw;
-    if (w - lv_qr >= 16u) return;
-    lv_q[w & 15u] = (lv_cmd_t){(uint8_t)cmd, (uint8_t)part, (uint8_t)a, (uint8_t)b};
+    uint32_t w = lv.qw;
+    if (!lv_ready) return;
+    if (w - lv.qr >= 16u) return;
+    lv.q[w & 15u].cmd = (uint8_t)cmd; lv.q[w & 15u].part = (uint8_t)part; lv.q[w & 15u].a = (uint8_t)a; lv.q[w & 15u].b = (uint8_t)b;
     __sync_synchronize();
-    lv_qw = w + 1u;
+    lv.qw = w + 1u;
 }
 
 static void lv_reset(void)
@@ -96,6 +115,9 @@ static void lv_load_done(int rc)
         for (unsigned p = 0; p < LV_PARTS; p++)
             if (lv_store.p[p].bars > LV_BARS || lv_store.p[p].n > LV_EV) ok = 0;
     if (!ok) lv_reset();
+    memset(&lv, 0, sizeof lv);          /* (die Laufzeit kann im Pool liegen: der wird beim Start nicht genullt) */
+    __sync_synchronize();
+    lv_ready = 1;
 }
 static uint32_t lv_sum(void)
 {
@@ -112,7 +134,7 @@ static LV_DSP void lv_hold_off(unsigned p)
     for (unsigned i = 0; i < lv.hold_n[p]; i++) LV_NOTE_OFF(p, lv.hold_note[p][i]);
     lv.hold_n[p] = 0;
 }
-static LV_DSP void lv_stop_all(void) { for (unsigned p = 0; p < LV_PARTS; p++) lv_hold_off(p); }
+static LV_DSP void lv_stop_all(void) { if (lv_ready) for (unsigned p = 0; p < LV_PARTS; p++) lv_hold_off(p); }
 static LV_DSP void lv_rewind(void) { for (unsigned p = 0; p < LV_PARTS; p++) lv.pos[p] = 0; }
 
 static LV_DSP void lv_add(unsigned p, uint32_t at16, uint32_t len16, unsigned note, unsigned vel)
@@ -126,33 +148,28 @@ static LV_DSP void lv_add(unsigned p, uint32_t at16, uint32_t len16, unsigned no
 }
 /* die Stelle in der Schleife (Ticks), an der aufgenommen wird */
 static LV_DSP uint32_t lv_now(unsigned p) { return lv_state == LV_FIRST ? lv.elapsed : lv.pos[p]; }
-static LV_DSP void lv_close(unsigned p, unsigned note)
+static LV_DSP void lv_close(unsigned p, unsigned k)       /* gehaltene Taste k (Liste) loslassen: ein Ereignis */
 {
-    uint32_t t0 = lv.key_t[note], t1 = lv_now(p), len = lv_store.p[p].bars * (uint32_t)LV_TPB;
+    uint32_t t0 = lv.key_t[k], t1 = lv_now(p), len = lv_store.p[p].bars * (uint32_t)LV_TPB;
     uint32_t dur = lv_state == LV_FIRST || t1 >= t0 ? t1 - t0 : t1 + len - t0;
     uint32_t at16 = (t0 + LV_T16 / 2u) / LV_T16, len16 = (dur + LV_T16 / 2u) / LV_T16;
     if (lv_state != LV_FIRST && len) at16 %= len / LV_T16;
-    lv_add(p, at16, len16, note, lv.key_v[note]);
+    lv_add(p, at16, len16, lv.key_n[k], lv.key_v[k]);
+    lv.keys--;
+    lv.key_t[k] = lv.key_t[lv.keys]; lv.key_n[k] = lv.key_n[lv.keys]; lv.key_v[k] = lv.key_v[lv.keys];
 }
 static LV_DSP void lv_hear(unsigned p, unsigned note, unsigned vel, int on)
 {
+    unsigned k;
+    if (!lv_ready) return;
     if (note > 127u || p != lv_part || (lv_state != LV_FIRST && lv_state != LV_OVER)) return;
-    uint8_t m = (uint8_t)(1u << (note & 7u));
-    if (on) {
-        if (lv.key_down[note >> 3] & m) lv_close(p, note);
-        lv.key_down[note >> 3] |= m;
-        lv.key_t[note] = lv_now(p); lv.key_v[note] = (uint8_t)(vel ? vel : 100);
-    } else if (lv.key_down[note >> 3] & m) {
-        lv.key_down[note >> 3] &= (uint8_t)~m;
-        lv_close(p, note);
-    }
+    for (k = 0; k < lv.keys && lv.key_n[k] != note; k++) {}
+    if (k < lv.keys) lv_close(p, k);    /* (dieselbe Taste noch einmal: die vorige endet) */
+    if (!on || lv.keys >= LV_HOLD) return;
+    lv.key_t[lv.keys] = (uint16_t)lv_now(p); lv.key_n[lv.keys] = (uint8_t)note; lv.key_v[lv.keys] = (uint8_t)(vel ? vel : 100);
+    lv.keys++;
 }
-static LV_DSP void lv_close_held(unsigned p)
-{
-    for (unsigned n = 0; n < 128u; n++)
-        if (lv.key_down[n >> 3] & (1u << (n & 7u))) lv_close(p, n);
-    memset(lv.key_down, 0, sizeof lv.key_down);
-}
+static LV_DSP void lv_close_held(unsigned p) { while (lv.keys) lv_close(p, lv.keys - 1u); }
 static LV_DSP void lv_commit_flags(unsigned p)
 {
     for (unsigned i = 0; i < lv_store.p[p].n; i++) lv_store.ev[p][i].vel &= 0x7Fu;
@@ -194,7 +211,7 @@ static LV_DSP void lv_set_bars(unsigned p, unsigned bars)
 static LV_DSP void lv_start_rec(unsigned p)
 {
     lv_part = (uint8_t)p;
-    memset(lv.key_down, 0, sizeof lv.key_down);
+    lv.keys = 0;
     if (!lv_store.p[p].bars) { lv_store.p[p].n = 0; lv.elapsed = 0; lv_state = LV_FIRST; }
     else { lv_store.p[p].on = 1; lv_state = LV_OVER; }
 }
@@ -220,7 +237,7 @@ static LV_DSP void lv_discard(void)
     unsigned p = lv_part;
     if (lv_state == LV_FIRST) lv_store.p[p].n = 0;
     else lv_drop_new(p);
-    memset(lv.key_down, 0, sizeof lv.key_down);
+    lv.keys = 0;
     lv_state = LV_OFF;
 }
 static LV_DSP void lv_tick(unsigned p)
@@ -250,9 +267,11 @@ static LV_DSP void lv_tick(unsigned p)
 }
 static LV_DSP void lv_block(unsigned ticks)
 {
-    while (lv_qr != lv_qw) {
-        lv_cmd_t c = lv_q[lv_qr & 15u];
-        lv_qr++;
+    if (!lv_ready) return;
+    while (lv.qr != lv.qw) {
+        struct { uint8_t cmd, part, a, b; } c;
+        c.cmd = lv.q[lv.qr & 15u].cmd; c.part = lv.q[lv.qr & 15u].part; c.a = lv.q[lv.qr & 15u].a; c.b = lv.q[lv.qr & 15u].b;
+        lv.qr++;
         if (c.part >= LV_PARTS) continue;
         switch (c.cmd) {
         case LVC_REC: if (lv_state != LV_OFF) lv_discard(); lv_start_rec(c.part); break;
@@ -275,21 +294,20 @@ static LV_DSP void lv_block(unsigned ticks)
         else if (lv_state == LV_FIRST && ++lv.elapsed >= (uint32_t)LV_BARS * LV_TPB) lv_commit();
         for (unsigned p = 0; p < LV_PARTS; p++) lv_tick(p);
     }
-    for (unsigned p = 0; p < LV_PARTS; p++) lv_shown_pos[p] = lv_state == LV_FIRST && lv_part == p ? lv.elapsed : lv.pos[p];
+    for (unsigned p = 0; p < LV_PARTS; p++) lv.shown_pos[p] = lv_state == LV_FIRST && lv_part == p ? lv.elapsed : lv.pos[p];
 }
 
 /* ---- Hauptprogramm --------------------------------------------------------------------------------------------- */
 
-static uint32_t lv_rec_ms;              /* wann REC die Aufnahme begann (für das Doppeltippen) */
 /* REC getippt. Rückgabe: 1 Aufnahme beginnt, 2 Einzählen, 0 übernommen */
 static int lv_ui_rec(unsigned p, uint32_t ms)
 {
     if (lv_state != LV_OFF && lv_part == p) {
-        if (ms - lv_rec_ms < LV_DOUBLE_MS && lv_state != LV_COUNT) { lv_put(LVC_COUNT, p, 0, 0); return 2; }
+        if (ms - lv.rec_ms < LV_DOUBLE_MS && lv_state != LV_COUNT) { lv_put(LVC_COUNT, p, 0, 0); return 2; }
         lv_put(LVC_COMMIT, p, 0, 0);
         return 0;
     }
-    lv_rec_ms = ms;
+    lv.rec_ms = ms;
     lv_put(LVC_REC, p, 0, 0);
     return 1;
 }
@@ -299,7 +317,7 @@ static int lv_busy(void) { return lv_state != LV_OFF; }
 /* Anzeige: Takt (1..) und Länge in Takten; Zustand */
 static void lv_status(unsigned p, unsigned *bar, unsigned *bars, unsigned *state)
 {
-    uint32_t pos = lv_shown_pos[p];
+    uint32_t pos = lv.shown_pos[p];
     *bars = lv_store.p[p].bars;
     *state = lv_part == p ? lv_state : LV_OFF;
     *bar = (unsigned)(pos / LV_TPB) + 1u;
