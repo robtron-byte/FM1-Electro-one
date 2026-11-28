@@ -19,10 +19,14 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 - Stimmen voll wie der MKS-50 (6), Sparschalter `MKS50_BS_VOICES` (getestet mit 4).
 - Host-Test: jedes Preset über den Baustein und direkt über den Kern Sample für Sample gleich, Prüfsummen je Preset
   (`ref/sums.txt`, `ref/sums4.txt`).
-- **Solo-Firmware „MKS-50 solo“** in `bausteine/varianten/mks50/` auf dem Gerüst `varianten/gemeinsam/` (ADR 0044),
-  Kennung FM-1_95 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „MK01“ (den Speicher der fm1-synths-Fassung, „MK50“, liest sie nicht: Neustart leer, überschrieben beim ersten Speichern), Journal „MKST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns, alle Sounds des
-  Bausteins mit den eigenen vorn (Gruppe EIGENE), Delay-/Hall-Anteil aus dem Sound direkt in die Effekte des Gerüsts
-  (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0, im Emulator eingemessen (Ziel < 70 %). Auf dem Gerät rechnet die Ladder mit `MKS_VCF_DECIM=2` (Standard der eigenen Plattform).
+- **Solo-Firmware „MKS-50 solo“** (FEATURES Y15, `bausteine/varianten/mks50/`): die MKS-50-Firmware aus fm1-synths
+  (Commit 2a7b4fa, `mks50/`: App, Pool-Kern `engine/mks.c`), fortgeführt ab 0.2.5-alpha, Kennung FM-1_95 und
+  `STORE_MAGIC` „MK50“ wie dort (Muster der Wahl A für JX-8P, ADR 0046). Keine Rückschritte: 4 Parts, Pool von 6 Stimmen
+  auf beiden Kernen, MIX, SETS, Sequencer, Journal; gespeicherte Daten bleiben gültig. Neu: die 23 eigenen Presets
+  hinter INIT TONE, beim Blättern in EIGENE gleich nach INIT.
+- **Klang:** Der Pool-Kern ist mit einem Part bitgleich mit `engine/mks.c`, wenn FM1-Electros `MKS_RELEASE_HURRY` an ist
+  (alle 56 Werks-Sounds, 23 eigene; `make -C bausteine mks50`, Ziel `pool`). Die fm1-synths-Fassung hat ihn aus; damit
+  sich für die Nutzer nichts ändert, bleibt er aus und ist als Schalter `MK_RELEASE_HURRY` zum Anhören da (ADR 0006).
 
 ## Alternativen
 
@@ -34,11 +38,13 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 ## Folgen
 
 - Jede Klangänderung an `engine/mks.c` zeigt der Baustein-Test; dann `make -C bausteine/mks50 ref`.
-- Auf der eigenen Plattform rechnet der Kern die Ladder mit `MKS_VCF_DECIM=2`; die Solo-Firmware muss das im Emulator
-  gegen den Baustein (Host, 1) abhören.
+- FM1-Electros eigene Plattform rechnet `engine/mks.c` mit `MKS_VCF_DECIM=2`; die Solo-Firmware nutzt den Pool-Kern ohne
+  diese Dezimierung (volle Ladder wie der Baustein-Test).
 - Last auf dem PC ≈ 20 ns je Stimme und Sample; teuerstes Preset (WOBBLE 01) ≈ 40 ns je Stimme samt Grundlast.
 
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 79 Presets (23 eigene) bitgleich mit dem Kern, Solo-Firmware offen.
 - 2026-11-28: Solo-Firmware MKS-50: erste Fassung gebaut, Emulator-Prüfung ok, noch kein Paket (Gleichstand mit fm1-synths zuerst).
+- 2026-11-28: MKS-50 solo = fm1-synths-Fassung fortgeführt (0.2.5-alpha, FM-1_95, „MK50“), eigene Presets angehängt;
+  Bitgleichheit Pool-Kern ↔ Baustein (mit RELEASE_HURRY) als Prüfung in `make -C bausteine mks50`.

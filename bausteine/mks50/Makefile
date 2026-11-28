@@ -14,8 +14,8 @@ SRC := mks50_bs.c mks50_eigene.c $(KERN)
 HDR := mks50_bs.h mks50_eigene.h ../baustein.h $(TOP)/engine/mks.h $(TOP)/engine/el_config.h $(TOP)/engine/chords.h
 BUILD := ../build/mks50
 
-.PHONY: test ref last eigene
-test: $(BUILD)/test $(BUILD)/test_4
+.PHONY: test ref last eigene pool
+test: $(BUILD)/test $(BUILD)/test_4 pool
 	@mkdir -p $(BUILD)/wav $(BUILD)/wav4
 	$(BUILD)/test ref $(BUILD)/wav
 	$(BUILD)/test_4 ref $(BUILD)/wav4
@@ -39,3 +39,19 @@ $(BUILD)/test: $(SRC) $(HDR) test/test.c
 $(BUILD)/test_4: $(SRC) $(HDR) test/test.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DMKS50_BS_VOICES=4 -o $@ $(SRC) test/test.c -lm
+
+# MKS-50 solo rechnet mit dem Pool-Kern aus fm1-synths (ADR 0047): mit einem Part und release_hurry = 1 bitgleich
+V := ../varianten/mks50
+GS := ../varianten/gemeinsam/shared
+POOLINC := -I$(V)/engine -I. -I$(GS) -I$(GS)/dsp -I$(GS)/fx -I$(GS)/third_party/fm1_open
+POOLCC = $(CC) $(CFLAGS) -w -DFM1_HOST_TEST -include test/pool_ren.h $(POOLINC)
+pool: $(BUILD)/pool
+	$(BUILD)/pool
+
+$(BUILD)/pool: test/pool.c test/pool_fm1.c test/pool_ren.h $(V)/engine/mks.c $(V)/engine/mks_presets.c mks50_eigene.c $(KERN) $(HDR)
+	@mkdir -p $(BUILD)/pool_o
+	$(POOLCC) -c test/pool_fm1.c -o $(BUILD)/pool_o/a.o
+	$(POOLCC) -c $(V)/engine/mks.c -o $(BUILD)/pool_o/mks.o
+	$(POOLCC) -c $(V)/engine/mks_presets.c -o $(BUILD)/pool_o/mksp.o
+	$(POOLCC) -c mks50_eigene.c -o $(BUILD)/pool_o/mkse.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ test/pool.c mks50_eigene.c $(KERN) $(BUILD)/pool_o/*.o -lm
