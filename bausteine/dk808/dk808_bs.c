@@ -3,16 +3,12 @@
 #include <string.h>
 #include "dk808_bs.h"
 
-static const uint8_t def_knob[DK_COUNT][DK808_KNOBS] = {   /* = knob_default in dk808.c (Test prüft) */
-    {50, 25, 50}, {50, 100, 100}, {25, 50, 50}, {50, 50, 0}, {50, 100, 0}, {50, 50, 0}, {50, 50, 0}, {50, 50, 0},
-    {50, 50, 50}, {50, 50, 50}, {50, 50, 50}, {50, 50, 50}, {50, 50, 50}, {50, 100, 50}, {50, 50, 0}, {50, 0, 0},
-    {50, 100, 0}};
-#define K3(i) def_knob[i][0], def_knob[i][1], def_knob[i][2]
+/* INIT: die Standardwerte der Regler wie knob_default in dk808.c (der Test prüft Sample für Sample gegen dk808_init) */
 const uint8_t dk808_bs_init_kit[DK_BS_NP] = {
     100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-    K3(0), K3(1), K3(2), K3(3), K3(4), K3(5), K3(6), K3(7), K3(8), K3(9), K3(10), K3(11), K3(12), K3(13), K3(14),
-    K3(15), K3(16), 1, 0, 0, 0};
-#undef K3
+    50, 25, 50, 50, 100, 100, 25, 50, 50, 50, 50, 0, 50, 100, 0, 50, 50, 0, 50, 50, 0, 50, 50, 0,
+    50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 100, 50, 50, 50, 0, 50, 0, 0, 50, 100, 0,
+    1, 0, 0, 0};
 
 void dk808_bs_init(dk808_bs_t *d, double sr)
 {

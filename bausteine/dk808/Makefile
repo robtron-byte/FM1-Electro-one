@@ -8,6 +8,8 @@ CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Werror -ffp-contract=off
 CFLAGS += -I.. -I. -D_DEFAULT_SOURCE
 BUILD := ../build/dk808
 WAV ?= $(wildcard ref/wav)
+# float-Fassung wie im Gerät: Konstanten einfach genau (tools/build.py übersetzt Bausteine mit -cl-single-precision-constant)
+SP := $(shell $(CC) -cl-single-precision-constant -x c -c /dev/null -o /dev/null 2>/dev/null && echo -cl-single-precision-constant || echo -fsingle-precision-constant)
 
 .PHONY: test float
 test: $(BUILD)/test $(BUILD)/test_fm1 $(BUILD)/test_bs $(BUILD)/test_bs_f float
@@ -36,7 +38,7 @@ $(BUILD)/render_d: dk808.c dk808.h test/render_all.c ../baustein.h
 
 $(BUILD)/render_f: dk808.c dk808.h test/render_all.c ../baustein.h
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DDK808_FLOAT=1 -o $@ test/render_all.c dk808.c -lm
+	$(CC) $(CFLAGS) -DDK808_FLOAT=1 $(SP) -o $@ test/render_all.c dk808.c -lm
 
 # Gerüst-Adapter (dk808_bs.h), double und float
 $(BUILD)/test_bs: dk808.c dk808.h dk808_bs.c dk808_bs.h test/bs.c ../baustein.h
@@ -45,4 +47,4 @@ $(BUILD)/test_bs: dk808.c dk808.h dk808_bs.c dk808_bs.h test/bs.c ../baustein.h
 
 $(BUILD)/test_bs_f: dk808.c dk808.h dk808_bs.c dk808_bs.h test/bs.c ../baustein.h
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DDK808_FLOAT=1 -o $@ test/bs.c dk808_bs.c dk808.c -lm
+	$(CC) $(CFLAGS) -DDK808_FLOAT=1 $(SP) -o $@ test/bs.c dk808_bs.c dk808.c -lm

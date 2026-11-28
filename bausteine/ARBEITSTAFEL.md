@@ -121,14 +121,23 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Punkte 1–2 (float-Schalter, Gerüst-Adapter, Last), ADR 0050, B20
+- **In Arbeit:** frei (jx8p-Chat: Punkte 1–2 fertig, 28.11.2026, ADR 0050)
+- **Stand Gerät (ADR 0050):**
+  - `DK808_FLOAT=1`: schlechtestes Instrument das Becken mit −62 dB gegen double (`make float`).
+  - Pegel je Instrument im Kern (bitgleich bei 1).
+  - Gerüst-Adapter `dk808/dk808_bs.c` (Kit aus 72 Werten, DIST SEND).
+  - Messvariante `varianten/dk808` (FM-1_91, kein Paket).
+  - Last Kern 0 im Emulator: Leerlauf 12 %, CY +20 %, CH/OH je +8 %, volles Pattern 70 % (Spitze), alle 17
+    zugleich 85 %. Delay, Hall und Distortion-Send TUBE laufen auf Kern 1.
+- **Nächster Schritt:** Firmware 808 solo (B20: Bedienung, Kits, Paket). Für die Kombis die 808 auf Kern 1 legen oder
+  Becken/Hats sparsamer machen (Schalter, nach Gehör); das entscheidet der Kombi-Chat.
 - **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
 - **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
   und 127) mit den Referenz-Renders des Swift-Kerns. Bei Velocity 127 Sample für Sample gegen die Referenz-WAVs geprüft (Abweichung ≤ 2e-24). Bei Velocity 64 lagen die
   WAVs nicht vor; dort stimmen die Kennwerte (erste 16 Samples genau, Spitze, RMS, Summe). Mit der Maske
   `DK808_MASK_FM1_ELECTRO` ohne Laser, Congas, Toms, Claves und Maracas gebaut und geprüft.
 - **Frei für andere (je ein eigener Auftrag):**
-  1. float-Fassung als Schalter (`DK808_FLOAT`) und Abweichung gegen `double` messen.
+  1. ~~float-Fassung als Schalter~~ (erledigt, ADR 0050).
   2. Adapter für FM1-Electro (ADR 0041): die 808 von FM1-Electro (`engine/tr808*`) als Schalter ersetzen. Last im
      Emulator und auf dem Gerät messen, mit dem Bau-Chat abstimmen.
   3. Pattern-Vergleich mit `reference-renders/pattern-demo.wav` (braucht den Sequencer-Ablauf aus `Engine.swift`).

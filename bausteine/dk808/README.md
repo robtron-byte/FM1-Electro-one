@@ -50,6 +50,8 @@ Becken. **Ohne** Effekte, Kanalzug, Busse und Master des DrumKern (Wunsch des Nu
 
 ## Danach (eigene Aufträge, in die Arbeitstafel eintragen)
 
-- float-Fassung als Schalter, gemessen gegen die `double`-Referenz.
+- ~~float-Fassung als Schalter, gemessen gegen die `double`-Referenz.~~ Erledigt (ADR 0050): `-DDK808_FLOAT=1`,
+  `make float` (schlechtestes Instrument das Becken mit −62 dB). Gerüst-Adapter `dk808_bs.c/.h` (Kit aus 72 Rohwerten,
+  Pegel je Instrument, Distortion-Send), Test `test/bs.c`; Messvariante `../varianten/dk808`.
 - Adapter für FM1-Electro (ADR 0041): ersetzt `engine/tr808*` als Schalter nach ADR 0006, mit Last im Emulator und auf
   dem Gerät, abgestimmt mit dem Bau-Chat.
