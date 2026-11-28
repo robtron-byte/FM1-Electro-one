@@ -172,7 +172,8 @@ function renderList() {
     lab.className = "fw";
     lab.dataset.kennung = e.kennung;
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
-    lab.innerHTML = `<span class="media"><img class="pic" alt="" width="96" height="64"><img class="screen" alt="" width="96" height="96"></span><span class="txt"><span class="head"><span><b></b></span></span><span class="d"></span><br><span class="meta"></span></span>`;
+    lab.innerHTML = `<div class="media"><img class="pic" alt="" width="112" height="75"><img class="screen" alt="" width="112" height="112"></div>`
+      + `<div class="txt"><div class="title"><h3 class="name"></h3><span class="ver"></span></div><p class="d"></p><ul class="tags"></ul></div><div class="actions"></div>`;
     const pic = lab.querySelector(".pic");
     pic.onerror = () => { pic.onerror = null; pic.src = `bilder/allgemein.svg${BILD_V}`; };
     pic.src = `bilder/${encodeURIComponent(e.name)}.svg${BILD_V}`;
@@ -180,14 +181,18 @@ function renderList() {
     scr.onerror = () => scr.remove();
     scr.title = lang === "en" ? "The FM-1 screen with this firmware" : "So sieht das Display des FM-1 mit dieser Firmware aus";
     scr.src = `bildschirme/${encodeURIComponent(e.name)}.png${BILD_V}`;
-    lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
+    lab.querySelector(".name").textContent = e.titel;
+    lab.querySelector(".ver").textContent = e.version;
     lab.querySelector(".d").textContent = desc;
-    lab.querySelector(".meta").textContent = [voices, e.date ? fmtDate(e.date) : "", `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
+    for (const t of [voices, e.date ? fmtDate(e.date) : "", e.kennung]) {
+      if (!t) continue;
+      const li = document.createElement("li"); li.textContent = t; lab.querySelector(".tags").append(li);
+    }
     if (inst === e.kennung) {
       lab.classList.add("installed");
       const badge = document.createElement("span");
       badge.className = "badge"; badge.textContent = m().installed;
-      lab.querySelector("b").after(badge);
+      lab.querySelector(".title").append(badge);
     }
     // Knopf in derselben Zeile: Installieren / Update auf X / Installiert (ausgegraut)
     const kind = buttonFor(e, device);
@@ -196,14 +201,14 @@ function renderList() {
     btn.textContent = kind === "update" ? m().updateTo(e.version) : kind === "installed" ? m().installedBtn : m().installBtn;
     btn.disabled = kind === "installed" || busy || !navigator.requestMIDIAccess;
     btn.addEventListener("click", () => installEntry(e, lab));
-    lab.querySelector(".head").append(btn);
+    lab.querySelector(".actions").append(btn);
     if (ANLEITUNGEN.includes(e.name)) {
       const a = document.createElement("a");
       a.className = "howto"; a.target = "_blank"; a.rel = "noopener";
       a.href = `anleitung/${encodeURIComponent(e.name)}.html${BILD_V ? BILD_V + "&" : "?"}lang=${lang}`;
       a.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M8 7h8M8 11h6"/></svg><span></span>';
       a.querySelector("span").textContent = lang === "en" ? "Manual" : "Anleitung";
-      lab.querySelector(".txt").append(document.createElement("br"), a);
+      lab.querySelector(".actions").append(a);
     }
     box.appendChild(lab);
   }
@@ -314,15 +319,15 @@ function renderOwn() {
   box.innerHTML = "";
   if (!ownPkg) return;
   const card = document.createElement("div");
-  card.className = "fw";
-  card.innerHTML = `<span class="txt"><span class="head"><span><b></b></span></span><span class="meta"></span></span>`;
-  card.querySelector("b").textContent = ownPkg.label;
-  card.querySelector(".meta").textContent = lang === "en" ? "your own file, checked" : "eigene Datei, geprüft";
+  card.className = "fw own";
+  card.innerHTML = `<div class="txt"><div class="title"><h3 class="name"></h3></div><ul class="tags"><li></li></ul></div><div class="actions"></div>`;
+  card.querySelector(".name").textContent = ownPkg.label;
+  card.querySelector(".tags li").textContent = lang === "en" ? "your own file, checked" : "eigene Datei, geprüft";
   const btn = document.createElement("button");
   btn.type = "button"; btn.className = "act"; btn.textContent = m().installBtn;
   btn.disabled = busy || !navigator.requestMIDIAccess;
   btn.addEventListener("click", () => { pkg = ownPkg; install(card); });
-  card.querySelector(".head").append(btn);
+  card.querySelector(".actions").append(btn);
   box.append(card);
 }
 

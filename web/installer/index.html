@@ -5,58 +5,90 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FM-1 Installer</title>
 <meta name="description" content="Firmware auf das M-VAVE FM-1 aufspielen, im Browser, ohne Presets zu löschen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=VT323&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#f6f5f2; --card:#fff; --ink:#1b1b1b; --mute:#666; --line:#ddd; --acc:#0a6cff; --ok:#13803b; --bad:#c62828; --warn:#fff4d6; --warnline:#e0b000; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1f1f1f; --ink:#f2f2f2; --mute:#aaa; --line:#333; --acc:#4d94ff; --ok:#3ccf6e; --bad:#ff6b6b; --warn:#3a3014; --warnline:#a88600; } }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:18px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
-  header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-  h1 { font-size:30px; margin:0; }
-  h2 { font-size:22px; margin:0 0 12px; display:flex; gap:10px; align-items:center; }
-  .num { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--acc); color:#fff; font-size:18px; flex:none; }
-  .lead { color:var(--mute); margin:8px 0 20px; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin:16px 0; }
-  button { font:inherit; font-size:20px; padding:14px 26px; border-radius:10px; border:0; background:var(--acc); color:#fff; cursor:pointer; }
-  button:disabled { opacity:.4; cursor:default; }
-  button.small { font-size:15px; padding:6px 12px; background:transparent; color:var(--ink); border:1px solid var(--line); }
-  .status { margin-top:12px; font-size:19px; min-height:1.5em; }
+  /* Farben aus dem Display der Firmwares (bausteine/varianten/gemeinsam/app/gm_theme.h), Raster 8 px */
+  :root {
+    --bg:#f3f2ee; --card:#ffffff; --ink:#151517; --mute:#5c5c63; --line:#d9d8d2; --well:#ecebe6;
+    --acc:#ff5e21; --acc-ink:#111111; --ok:#0f8a52; --ok-bg:#e3f5ec; --blue:#2f6fe8; --bad:#c62828;
+    --warn:#fff1e8; --warnline:#ff5e21; --shadow:0 1px 0 rgba(0,0,0,.04);
+    --px:"Silkscreen", ui-monospace, monospace; --mono:"VT323", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#000000; --card:#121214; --ink:#ededeb; --mute:#a2a2a9; --line:#303034; --well:#1b1b1e;
+    --acc:#ff5e21; --acc-ink:#111111; --ok:#1ccc78; --ok-bg:#0d2419; --blue:#3378ff; --bad:#ff6b6b;
+    --warn:#1f130d; --warnline:#ff5e21; --shadow:none; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:800px; margin:0 auto; padding:32px 16px 64px; }
+  header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+  h1 { font:400 32px/1.1 var(--px); margin:0; letter-spacing:.5px; }
+  h1 .dot { color:var(--acc); }
+  h2 { font:400 20px/1.2 var(--px); margin:0 0 16px; display:flex; gap:12px; align-items:center; }
+  .num { display:inline-grid; place-items:center; width:32px; height:32px; background:var(--acc); color:var(--acc-ink); font:400 18px/1 var(--px); flex:none; }
+  .lead { color:var(--mute); margin:16px 0 24px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:24px; margin:16px 0; box-shadow:var(--shadow); }
+  section > p { margin:0 0 16px; }
+  button { font:600 16px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:12px 20px; min-height:44px; border-radius:6px; border:0; background:var(--acc); color:var(--acc-ink); cursor:pointer; }
+  button:hover:not(:disabled) { filter:brightness(1.08); }
+  button:focus-visible, a:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.small { font-size:14px; min-height:36px; padding:8px 12px; background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .status { margin-top:16px; font-size:17px; min-height:1.5em; }
+  .status:empty { margin-top:0; min-height:0; }
   .status.ok { color:var(--ok); } .status.bad { color:var(--bad); }
-  .fw { display:flex; gap:12px; padding:12px; border:2px solid var(--line); border-radius:10px; margin:8px 0; align-items:flex-start; }
-  .fw .head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
-  .fw .act { font-size:16px; padding:8px 16px; min-height:40px; border-radius:9px; flex:none; }
-  .fw .act:disabled { background:transparent; color:var(--mute); border:1px solid var(--line); opacity:1; cursor:default; }
+  .warn { background:var(--warn); border-left:4px solid var(--warnline); padding:16px; border-radius:4px; margin:0 0 24px; }
+  /* Karte je Firmware */
+  #list { display:grid; gap:16px; }
+  #own:not(:empty) { margin-top:16px; }
+  .fw { display:grid; grid-template-columns:112px 1fr; gap:16px 24px; padding:16px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+  .fw.installed { border-color:var(--ok); background:var(--ok-bg); }
   .fw.running { border-color:var(--acc); }
-  .fw .badge { display:none; margin-left:8px; font-size:13px; font-weight:700; color:#fff; background:var(--ok); border-radius:6px; padding:1px 7px; vertical-align:3px; }
-  .fw.installed { background:color-mix(in srgb, var(--ok) 8%, transparent); }
-  .fw.installed .badge { display:inline-block; }
-  .fw .media { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:96px; }
-  .fw .pic { width:96px; height:64px; border-radius:8px; }
-  .fw .txt { flex:1; min-width:0; }
-  .fw .howto { display:inline-flex; align-items:center; gap:7px; margin-top:8px; min-height:40px; padding:6px 14px; font-size:16px; color:inherit; text-decoration:none; border:1px solid var(--line); border-radius:9px; background:color-mix(in srgb, currentColor 5%, transparent); }
-  .fw .howto:hover { background:color-mix(in srgb, currentColor 10%, transparent); }
-  .fw .howto svg { flex:none; }
-  .fw .screen { width:96px; height:96px; image-rendering:pixelated; border-radius:5px; border:2px solid #111; background:#000; }
-  @media (max-width:520px) { .fw { gap:10px; } .fw .media { width:76px; } .fw .pic { width:76px; height:51px; } .fw .screen { width:76px; height:76px; } .fw b { font-size:18px; } }
-  .fw b { font-size:20px; } .fw .meta { color:var(--mute); font-size:15px; }
-  .drop { border:2px dashed var(--line); border-radius:10px; padding:18px; text-align:center; color:var(--mute); margin-top:12px; cursor:pointer; }
-  .drop.over { border-color:var(--acc); color:var(--ink); background:color-mix(in srgb, var(--acc) 12%, transparent); }
-  body.dragging main { outline:4px dashed var(--acc); outline-offset:-8px; border-radius:16px; }
-  .warn { background:var(--warn); border-left:5px solid var(--warnline); padding:12px 14px; border-radius:8px; margin:12px 0; }
-  .bar { height:26px; background:var(--line); border-radius:13px; overflow:hidden; margin-top:14px; }
+  .fw .media { display:flex; flex-direction:column; gap:8px; }
+  .fw .pic { width:112px; height:75px; border-radius:6px; display:block; }
+  .fw .screen { width:112px; height:112px; image-rendering:pixelated; border:2px solid #000; border-radius:4px; background:#000; display:block; }
+  .fw .txt { min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .fw .title { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 12px; }
+  .fw .name { font:400 20px/1.2 var(--px); margin:0; overflow-wrap:anywhere; }
+  .fw .ver { font:400 20px/1 var(--mono); color:var(--mute); }
+  .fw .badge { font:400 12px/1 var(--px); color:var(--card); background:var(--ok); padding:4px 8px; border-radius:3px; }
+  .fw .d { margin:0; }
+  .fw .tags { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; list-style:none; }
+  .fw .tags li { font:400 18px/1 var(--mono); color:var(--mute); background:var(--well); border-radius:4px; padding:4px 8px; }
+  .fw > .actions { grid-column:2; display:flex; flex-wrap:wrap; gap:8px; }
+  .fw.own { grid-template-columns:1fr; } .fw.own > .actions { grid-column:1; }
+  .fw .act:disabled { background:transparent; color:var(--mute); border:1px solid var(--line); opacity:1; }
+  .fw .howto { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px; font-size:16px; font-weight:600; color:inherit; text-decoration:none; border:1px solid var(--line); border-radius:6px; background:var(--card); }
+  .fw .howto:hover { background:var(--well); }
+  .drop { display:block; border:2px dashed var(--line); border-radius:8px; padding:24px 16px; text-align:center; color:var(--mute); margin-top:24px; cursor:pointer; }
+  .drop.over { border-color:var(--acc); color:var(--ink); background:var(--warn); }
+  body.dragging main { outline:3px dashed var(--acc); outline-offset:-8px; border-radius:8px; }
+  #run { margin:0 0 24px; }
+  .bar { height:16px; background:var(--well); border:1px solid var(--line); border-radius:3px; overflow:hidden; }
   .bar > div { height:100%; width:0; background:var(--acc); transition:width .2s; }
-  .done { font-size:34px; font-weight:700; color:var(--ok); margin-top:12px; }
-  .nomidi { background:var(--bad); color:#fff; padding:16px; border-radius:10px; font-size:19px; }
+  .done { font:400 28px/1.2 var(--px); color:var(--ok); margin-top:16px; }
+  .nomidi { background:var(--bad); color:#fff; padding:16px; border-radius:8px; font-size:18px; margin-bottom:16px; }
   details { margin-top:8px; } summary { cursor:pointer; font-weight:600; }
-  footer { color:var(--mute); font-size:14px; margin-top:28px; }
+  footer { color:var(--mute); font-size:14px; margin-top:32px; }
   footer a { color:inherit; }
   [hidden] { display:none !important; }
+  @media (max-width:560px) {
+    main { padding:24px 16px 48px; }
+    h1 { font-size:24px; }
+    section { padding:16px; }
+    .fw { grid-template-columns:72px 1fr; gap:12px 16px; padding:16px 12px; }
+    .fw .pic { width:72px; height:48px; } .fw .screen { width:72px; height:72px; }
+    .fw .name { font-size:17px; } .fw .ver { font-size:18px; }
+    .fw > .actions { grid-column:1 / -1; }
+  }
 </style>
 </head>
 <body>
 <main>
   <header>
-    <h1 data-t="title">FM-1 Installer</h1>
+    <h1><span data-t="title">FM-1 Installer</span><span class="dot">_</span></h1>
     <button class="small" id="lang" type="button">English</button>
   </header>
   <p class="lead" data-t="lead">Firmware auf das M-VAVE FM-1 aufspielen. Es wird nur das Programm ersetzt, dein Speicher (Sounds, Grooves) wird nicht gelöscht. Alles läuft hier im Browser, nichts geht an einen Server.</p>

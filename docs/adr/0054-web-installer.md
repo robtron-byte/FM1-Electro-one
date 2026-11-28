@@ -109,3 +109,9 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   entfällt; eine abgelegte eigene `.fwsc` erscheint als eigene Karte mit „Installieren“. Ist noch nicht verbunden, fragt
   der Knopf selbst den MIDI-Zugriff an. `buttonFor` in `logik.js`, Test 120 Prüfungen; im Browser mit simuliertem FM-1
   von JXSH auf JX-8P durchinstalliert.
+- 2026-11-28: Gestaltung überarbeitet (Rückmeldung des Nutzers): retro-modern nach dem Display der Firmwares,
+  Farben aus `gemeinsam/app/gm_theme.h` (Schwarz, Orange #FF5E21 für Knöpfe mit dunkler Schrift, Grün für „auf dem
+  FM-1“), Pixelschrift (Google Fonts „Silkscreen“) nur für Überschriften und Firmware-Namen, „VT323“ für Versionen,
+  Kennungen und Kennzeichen, Fließtext in der Systemschrift. 8-px-Raster, Karte je Firmware (Icon und Display,
+  Name und Version, Beschreibung, Kennzeichen, darunter die Knöpfe mit Abstand), hell/dunkel, Handy/Desktop; die
+  Anleitungsseiten im gleichen Stil.

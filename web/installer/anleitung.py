@@ -94,17 +94,21 @@ PAGE = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
 <style>
-  :root {{ --bg:#fff; --ink:#1b1b1b; --mute:#666; --line:#ddd; --acc:#0a6cff; --th:#f3f2ee; }}
-  @media (prefers-color-scheme: dark) {{ :root {{ --bg:#141414; --ink:#eee; --mute:#aaa; --line:#333; --acc:#4d94ff; --th:#1f1f1f; }} }}
+  /* wie der Installer: Farben aus gm_theme.h, Pixelschrift nur für Überschriften */
+  :root {{ --bg:#f3f2ee; --ink:#151517; --mute:#5c5c63; --line:#d9d8d2; --acc:#c2410c; --th:#ecebe6; --px:"Silkscreen", ui-monospace, monospace; }}
+  @media (prefers-color-scheme: dark) {{ :root {{ --bg:#000; --ink:#ededeb; --mute:#a2a2a9; --line:#303034; --acc:#ff5e21; --th:#1b1b1e; }} }}
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink); font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }}
   main {{ max-width:780px; margin:0 auto; padding:16px 16px 48px; }}
   nav {{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }}
   nav a {{ color:var(--acc); }}
-  button {{ font:inherit; font-size:15px; padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; }}
-  h1 {{ font-size:28px; margin:12px 0 8px; }} h2 {{ font-size:21px; margin:26px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px; }}
-  h3 {{ font-size:18px; margin:18px 0 6px; }}
+  button {{ font:inherit; font-size:15px; min-height:36px; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; }}
+  h1 {{ font:400 28px/1.2 var(--px); margin:16px 0 8px; }} h2 {{ font:400 19px/1.3 var(--px); margin:32px 0 8px; border-bottom:2px solid var(--acc); padding-bottom:8px; }}
+  h3 {{ font-size:18px; margin:24px 0 8px; }}
   .tw {{ overflow-x:auto; }} table {{ border-collapse:collapse; width:100%; font-size:15px; margin:8px 0; }}
   th, td {{ border:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }} th {{ background:var(--th); }}
   code {{ font-size:.92em; background:var(--th); padding:0 4px; border-radius:4px; }}
