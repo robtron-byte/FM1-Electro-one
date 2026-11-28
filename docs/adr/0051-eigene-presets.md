@@ -37,4 +37,6 @@ nicht von der Dropbox oder dem iPhone abhängen.
 
 ## Verlauf
 
-- 2026-11-28: angelegt (jx8p-Chat): Skript `tools/iphone_presets_pull.sh`, Werkzeug für jx8p.
+- 2026-11-28: angelegt (jx8p-Chat): Skript `tools/iphone_presets_pull.sh`, Werkzeug für jx8p. Skript am iPhone
+  „Phonie“ geprüft: jx8p 7 Presets (gleich dem Dropbox-Stand), mks50 23; jp6 ist nicht mehr auf dem iPhone (Fehlermeldung,
+  Ordner bleibt bei der Sicherung vom 05.11.).

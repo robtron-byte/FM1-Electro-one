@@ -10,7 +10,8 @@ JX-8P-Parameternummer #11..#58], "patch": {Param.rawValue: Wert}, "chords"}}.
 Die Werte werden auf die 68 Parameter von engine/jx8p.h (JX_*) abgebildet, wie fm1-synths die Werks-Sounds abbildet
 (tools/jx8p_presets.py): Ton #11..#22, #26..#56, #58, dann die Patch-Werte. Fehlende Patch-Werte nehmen den
 Standard der App (Param.defaultValue). Was der Kern nicht kennt (Arp, Sequencer, Distortion, Delay-/Hall-Einstellungen
-außer dem Anteil, eigene Akkordformen), fällt weg. Presets, die nur eine unveränderte Kopie eines INIT sind, werden
+außer dem Anteil, eigene Akkordformen), fällt weg. Presets, die nur eine unveränderte Kopie eines INIT sind (die drei PG8X-INIT aus engine/jx8p_presets.c
+und INIT TONE der App), werden
 ausgelassen. Reihenfolge: nach der Nummer im Dateinamen (preset1, preset2, ...).
 
 Aufruf: eigene2c.py [Quellordner]   (ohne Angabe: der Dropbox-Ordner unten)
@@ -35,6 +36,10 @@ MAX = ([3, 3, 24, 127, 127, 3, 3, 3, 24, 127, 127, 127, 3, 3, 127, 127, 127, 3, 
         127, 3, 2, 2, 127, 127, 127, 127, 127, 127, 3, 127, 127, 127, 127, 3, 1]
        + [12, 127, 127, 127, 127, 127, 2, 3, 127, 2, 127, 127, 24, 127, 127, 7, 1, 13, 1, 1, 1, 127, 127, 7])
 assert len(MAX) == 68
+# ToneData.initTone der App ("INIT TONE": jeder Wert Param.defaultValue), Ton in der Reihenfolge von TONE
+INIT_TONE = [1, 3, 12, 0, 0, 1, 3, 0, 12, 64, 0, 0, 0, 3, 127, 0, 0, 0, 3, 0, 127, 0, 0, 0, 0, 0, 3, 100, 0, 0, 2, 0,
+             64, 0, 40, 127, 20, 0, 0, 40, 127, 20, 0, 1] + [PATCH_DEFAULT.get(p, 0) for p in PATCH]
+assert len(INIT_TONE) == 68
 KEY_MODE = 44 + 7
 RHYTHM, STRINGS, BASS = 1, 2, 3
 
@@ -74,6 +79,7 @@ def main():
         sys.exit(f"keine JSON in {src}")
     inits = factory_inits()
     assert len(inits) == 3
+    inits.append(INIT_TONE)
     rows, skipped = [], []
     for f in files:
         d = json.loads(f.read_text())

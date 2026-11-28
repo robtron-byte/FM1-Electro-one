@@ -34,7 +34,9 @@ Presets: `bausteine/build/jx8p/wav/`.
 
 Stand 28.11.2026: 74 Presets (7 eigene), alle 74 bitgleich mit dem Kern, alle Prüfsummen gleich; `make test` im
 Hauptordner grün. Die Prüfsummen gelten für den Host-Compiler (clang, Apple Silicon, `-O2`); ein anderer Compiler
-darf andere float-Rundung haben, dann `make ref` nach einem grünen Vergleich mit dem Kern.
+darf andere float-Rundung haben, dann `make ref` nach einem grünen Vergleich mit dem Kern. Bewusst ohne
+`-ffp-contract=off` (anders als sh101/mksultra): der Baustein soll genau so übersetzt werden wie `make test-jx` im
+Hauptordner. Keine CI führt `make -C bausteine test` aus.
 
 ## Voller Umfang (für die Solo-Firmware, FEATURES Y14)
 
@@ -49,7 +51,8 @@ darf andere float-Rundung haben, dann `make ref` nach einem grünen Vergleich mi
 - **Velocity:** /127 wie `synth_track.c`. Bender, Aftertouch und MOD SENS stehen in den Sounds, der Kern nutzt sie nicht.
 
 Last auf dem PC (Apple Silicon, `make last`, E. BASS, gehaltene Noten): **≈ 18 ns je Stimme und Sample**, Grundlast
-des Teils ≈ 5 ns, Chorus ≈ 4 ns; 6 Stimmen mit Chorus ≈ 115 ns je Sample (0,5 % eines Kerns in Echtzeit).
+des Teils ≈ 5 ns, Chorus ≈ 4 ns; 6 Stimmen mit Chorus ≈ 120 ns je Sample (0,5 % eines Kerns in Echtzeit).
+Teuerstes aller 74 Presets mit 6 Stimmen: HI STRINGS, ≈ 128 ns je Sample (≈ 21 ns je Stimme samt Grundlast).
 Zum Vergleich mksultra ≈ 100 ns je Stimme. Auf dem FM-1 ist der Kern bereits im Gerätebuild (FM1-Electro spielt ihn
 mit bis zu 6 Stimmen je Bereich), die Solo-Firmware misst im Emulator nach.
 
@@ -132,7 +135,7 @@ Schalter (Bereich 0–3, 0–2, 0–1) sind Stufen; Werte und Namen: `jx8p_param
 
 `tools/eigene2c.py` liest **alle** `*.json` aus „Eigene Presets iPhone/jx8p/“ (Format der App: `ToneData` mit
 `tone` = 59 Werte nach JX-8P-Nummer #11…#58 und `patch` = Werte nach `Param.rawValue`), bildet sie auf die 68
-Parameter ab, lässt reine INIT-Kopien aus und schreibt `jx8p_eigene.c`. Sie stehen vor den Werks-Sounds (Preset 1–7).
+Parameter ab, lässt reine INIT-Kopien aus (PG8X INIT je Bereich und INIT TONE der App) und schreibt `jx8p_eigene.c`. Sie stehen vor den Werks-Sounds (Preset 1–7).
 Was der Kern nicht kennt (Arp, Sequencer, Distortion, Delay-/Hall-Einstellungen außer dem Anteil, eigene
 Akkordformen der App), fällt weg; der Kern nutzt FM1-Electros acht Akkorde, dieselben wie die App ab Werk.
 

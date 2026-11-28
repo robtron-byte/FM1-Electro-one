@@ -99,9 +99,13 @@ static void note_on(void *state, int note, int velocity)
     float vel = (float)(velocity < 0 ? 0 : velocity > 127 ? 127 : velocity) / 127.0f;
     if (s->part.v[JX_KEY_MODE] != 1) { jx8p_note_on(&s->part, note, vel, 0); return; }
     unsigned type = s->part.v[JX_CHORD] < MKS_CHORDS ? s->part.v[JX_CHORD] : 0, slot = 0;
-    while (slot < HELD_CHORDS && s->chord_root[slot] != note && s->chord_root[slot] >= 0) ++slot;
-    if (slot == HELD_CHORDS) slot = 0;   /* voll: die älteste Zeile überschreiben */
-    else if (s->chord_root[slot] == note) chord_notes(s, note, s->chord_type[slot], 0, 0);
+    while (slot < HELD_CHORDS && s->chord_root[slot] != note) ++slot;     /* dieselbe Taste noch gehalten? */
+    if (slot < HELD_CHORDS) chord_notes(s, note, s->chord_type[slot], 0, 0);
+    else {
+        slot = 0;
+        while (slot < HELD_CHORDS && s->chord_root[slot] >= 0) ++slot;   /* freie Zeile */
+        if (slot == HELD_CHORDS) slot = 0;   /* voll: Zeile 0 überschreiben */
+    }
     s->chord_root[slot] = (int16_t)note;
     s->chord_type[slot] = (uint8_t)type;
     chord_notes(s, note, type, 1, vel);

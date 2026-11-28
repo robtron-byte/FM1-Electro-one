@@ -106,13 +106,14 @@ static double now(void)
 }
 
 /* ns je Sample für `notes` gehaltene Noten (Poly) bzw. Unisono; Preset `preset`, 10 s Audio, beste von 3 Läufen. */
+static int runs = 3;
 static double cost(unsigned preset, int notes, int key_mode, int chorus)
 {
     const baustein_t *b = &jx8p_baustein;
-    enum { SEC = 10, N = 512 };
+    enum { SEC = 4, N = 512 };
     static float l[N], r[N];
     double best = 1e9;
-    for (int run = 0; run < 3; ++run) {
+    for (int run = 0; run < runs; ++run) {
         b->init(st_mem, SR);
         jx8p_bs_load_preset(st_mem, preset);
         jx8p_bs_set_raw(st_mem, JX_KEY_MODE, key_mode);
@@ -130,6 +131,14 @@ static double cost(unsigned preset, int notes, int key_mode, int chorus)
 
 static int last(void)
 {
+    /* alle Presets mit 6 gehaltenen Noten (Poly, Chorus wie im Preset): das teuerste nennen */
+    double worst = 0; unsigned wi = 0;
+    for (unsigned i = 0; i < jx8p_bs_preset_count(); ++i) {
+        double t = cost(i, 6, 0, jx8p_bs_preset_values(i)[JX_CHORUS]);
+        if (t > worst) { worst = t; wi = i; }
+    }
+    printf("teuerstes Preset mit 6 Stimmen: %s, %.1f ns je Sample (%.1f ns je Stimme mit Grundlast)\n",
+           jx8p_bs_preset_name(wi), worst, worst / 6);
     unsigned p = jx8p_bs_eigene_count();   /* erster Werks-Sound: E. BASS (zwei DCOs, Ladder, HPF) */
     double t1 = cost(p, 1, 0, 0), t6 = cost(p, 6, 0, 0), t6c = cost(p, 6, 0, 1), tu = cost(p, 1, 3, 0);
     printf("Last auf diesem Rechner (ns je Sample, 44,1 kHz, %s):\n", jx8p_bs_preset_name(p));
