@@ -46,3 +46,8 @@ export function buttonFor(entry, device, installed) {
   const c = compare(entry, device.info);
   return c.state === "update" ? "update" : c.state === "current" ? "installed" : "install";
 }
+
+// Firmwares mit "versteckt": true in beschreibungen.json erscheinen nicht in der Liste (Paket bleibt in firmware/)
+export function visible(list, meta) {
+  return list.filter((e) => !(meta[e.name] && meta[e.name].versteckt));
+}

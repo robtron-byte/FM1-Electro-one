@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ota from "../fm1ota.js";
-import { compare, sortList, newer, buttonFor, installedName } from "../logik.js";
+import { compare, sortList, newer, buttonFor, installedName, visible } from "../logik.js";
 import { loadPackage, productOf, deinterleave, packageDamage, LOADER_MARK } from "../fm1pkg.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -266,6 +266,8 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   const names = ["MKSULTRA", "SH101", "JP6", "JXSH", "MKS50", "FM1_ELECTRO", "JX8P", "NEU"];
   const l = names.map((n, i) => ({ name: n, kennung: `FM-1_${900 + i}` }));
   eq(sortList(l, meta).map((x) => x.name), ["FM1_ELECTRO", "JXSH", "SH101", "JX8P", "MKS50", "JP6", "MKSULTRA", "NEU"], "feste Reihenfolge der Liste");
+  eq(visible(l, meta).map((x) => x.name).includes("MKS50"), false, "MKS50 versteckt (beschreibungen.json)");
+  eq(visible(l, meta).length, l.length - 1, "nur MKS50 versteckt");
   eq(sortList(l, meta, "JXSH")[0].name, "JXSH", "installierte Firmware steht oben");
   eq(sortList(l, meta, "JXSH").slice(1).map((x) => x.name)[0], "FM1_ELECTRO", "danach die feste Reihenfolge");
   const dev = (info, text = "FM-1_991", loader = false) => ({ text, loader, info });

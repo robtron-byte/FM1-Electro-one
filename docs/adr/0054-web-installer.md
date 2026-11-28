@@ -136,3 +136,6 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   `reihe` in `beschreibungen.json` ein. Fehlt etwas, erscheint das Paket trotzdem (allgemeines Icon, kein Display);
   `make_site.py` meldet beim Bau „fehlt: Bild/Display“. Automatisch im Pages-Bau geht es nicht, weil dort kein
   Emulator läuft.
+- 2026-11-28: MKS-50 (solo) nicht mehr gelistet (Wunsch des Nutzers, er baut mit MKS Ultra eine neuere): Feld
+  `versteckt: true` in `beschreibungen.json`, beachtet in der Live-Liste (`visible`/Filter in `app.js`) und in
+  `make_site.py`. Das Paket bleibt in `firmware/`, eine abgelegte eigene Datei lässt sich weiter installieren.

@@ -48,6 +48,9 @@ def liste(fw_dir):
             print(f"  übersprungen: {e}")
             continue
         d = meta.get(m["name"], {})
+        if d.get("versteckt"):
+            print(f"  versteckt (beschreibungen.json): {f.name}")
+            continue
         raw = f.read_bytes()
         out.append({
             "name": m["name"], "titel": d.get("titel", m["name"]), "version": m["ver"], "kennung": product,

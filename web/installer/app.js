@@ -1,7 +1,7 @@
 // Bedienung des Web-Installers (ADR 0054). Logik: fm1ota.js (Update), fm1pkg.js (Paketprüfung).
 import { Updater, WebMidiBackend, InstallError } from "./fm1ota.js";
 import { loadPackage, productOf } from "./fm1pkg.js";
-import { newer, compare, sortList, buttonFor, installedName } from "./logik.js";
+import { newer, compare, sortList, buttonFor, installedName, visible } from "./logik.js";
 
 // Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
 const REPO = "robtron-byte/FM1-Electro-one";
@@ -274,7 +274,7 @@ async function liveList() {
     if (f.type !== "file" || !mm) continue;
     if (!best[mm[1]] || newer(mm[2], best[mm[1]].version)) best[mm[1]] = { file: f, version: mm[2] };
   }
-  const names = Object.keys(best);
+  const names = Object.keys(best).filter((n) => !(meta[n] && meta[n].versteckt));   // versteckt: nicht listen
   const out = await Promise.all(names.map(async (name) => {
     const { file, version } = best[name], d = meta[name] || {};
     const url = RAW + "firmware/" + encodeURIComponent(file.name);
@@ -301,6 +301,7 @@ async function loadList() {
   } catch (_) {
     try { list = (await json("liste.json")).map((e) => ({ ...e, url: e.datei })); } catch (_) { list = []; }
     try { meta = await json("beschreibungen.json"); } catch (_) { meta = {}; }
+    list = visible(list, meta);
   }
   if (!list.length) $("list").textContent = "";
   renderList(); renderDevice();
