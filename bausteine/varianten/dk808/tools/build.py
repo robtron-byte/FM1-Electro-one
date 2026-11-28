@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
-"""808 solo, Messfassung (ADR 0050): JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 tools/build.py
-Ergebnis: build/dk808.fwsc für den Emulator (noch kein Paket in firmware/). DK_LAST=1 in der Umgebung: Messmuster.
+"""808 solo (ADR 0050), Bedienung wie BEAT in FM1-Electro: JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 tools/build.py
+Ergebnis: build/DK808-<VERSION>.fwsc (und build/dk808.fwsc für den Emulator). DK_LAST=1 in der Umgebung: Messmuster.
 Kennung vorerst FM-1_91 (geteilt mit 808 + 101, Arbeitstafel)."""
 import os
 import sys
@@ -14,7 +14,7 @@ import build as g   # noqa: E402
 
 LAST = os.environ.get("DK_LAST", "0")
 g.build(dict(name="DK808", root=R, app=R / "app" / "dk_app.c",
-             dsp=[B / "dk808" / "dk808.c", B / "dk808" / "dk808_bs.c", G / "shared" / "fx" / "syn_fx.c",
+             dsp=[B / "dk808" / "dk808.c", B / "dk808" / "dk808_bs.c", R / "app" / "dk_beat.c", G / "shared" / "fx" / "syn_fx.c",
                   G / "fx" / "gm_dist.c"],
              flash=[G / "fx" / "gm_dist_tab.c"],
              inc=[R / "app", B / "dk808", B, G / "fx", B.parent / "sdk_include"],
