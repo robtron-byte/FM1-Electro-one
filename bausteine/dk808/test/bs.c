@@ -46,6 +46,27 @@ int main(void)
     chk(!strcmp(dk808_bs_param_name(DK_BS_LEVEL + DK_CB, nm), "CB LEVEL"), "Name Pegel");
     chk(dk808_bs_param_name(DK_BS_KNOB + DK_MA * 3 + 1, nm)[0] == 0, "leerer Regler");
     chk(DK_BS_NP == 72, "DK_BS_NP");
+    {   /* Aufteilung auf zwei Kerne (dk808_set_run): Metall-Instrumente in B, der Rest in A; A + B = alle */
+        static dk808_bs_t a, b2;
+        static float al[N], ar[N];
+        float pk = 0, e = 0;
+        dk808_bs_init(&bs, SR); dk808_bs_init(&a, SR); dk808_bs_init(&b2, SR);
+        dk808_set_run(&a.k, DK808_MASK_ALL & ~DK808_METAL_USERS); dk808_set_run(&b2.k, DK808_METAL_USERS);
+        memset(l, 0, sizeof l); memset(r, 0, sizeof r); memset(al, 0, sizeof al); memset(ar, 0, sizeof ar);
+        for (int p = 0; p < N; p += B) {
+            if (p % 1024 == 0)
+                for (unsigned i = 0; i < DK_COUNT; i++)
+                    if ((p / 1024 + i) % 3 == 0) {
+                        dk808_trigger(&bs.k, i, 90 + (int)i); dk808_trigger(&a.k, i, 90 + (int)i); dk808_trigger(&b2.k, i, 90 + (int)i);
+                    }
+            dk808_bs_render(&bs, l + p, r + p, 0, B);
+            dk808_bs_render(&a, al + p, ar + p, 0, B);
+            dk808_bs_render(&b2, al + p, ar + p, 0, B);
+        }
+        for (int k = 0; k < N; k++) { pk = fmaxf(pk, fabsf(l[k])); e = fmaxf(e, fabsf(l[k] - al[k])); }
+        chk(pk > 0.1f && e <= 1e-5f * pk, "Aufteilung A + B = alle");
+        printf("dk808_bs: Aufteilung auf zwei Zustände: größte Abweichung %.1e der Spitze\n", (double)(e / pk));
+    }
     printf("dk808_bs: Adapter %s (%u Werte je Kit)\n", fails ? "FEHLER" : "ok", DK_BS_NP);
     return fails != 0;
 }

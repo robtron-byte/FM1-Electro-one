@@ -121,7 +121,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** frei (jx8p-Chat: Punkte 1–2 fertig, 28.11.2026, ADR 0050)
+- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Firmware 808 solo (B20, ADR 0050; Punkte 1–2 fertig)
 - **Stand Gerät (ADR 0050):**
   - `DK808_FLOAT=1`: schlechtestes Instrument das Becken mit −62 dB gegen double (`make float`).
   - Pegel je Instrument im Kern (bitgleich bei 1).

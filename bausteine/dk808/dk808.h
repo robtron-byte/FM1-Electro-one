@@ -56,6 +56,9 @@ typedef double dk_real;
 /* Wer den gemeinsamen Rausch- bzw. Metallgenerator braucht */
 #define DK808_NEEDS_NOISE (DK808_HAS(DK_SD) || DK808_HAS(DK_CP) || DK808_HAS(DK_MA) || DK808_HAS_TOM)
 #define DK808_NEEDS_METAL (DK808_HAS_HAT || DK808_HAS(DK_CY))
+/* Wer zur Laufzeit Rauschen bzw. Metallbank braucht (dk808_set_run) */
+#define DK808_NOISE_USERS ((1u << DK_SD) | (1u << DK_CP) | (1u << DK_MA) | (1u << DK_LT) | (1u << DK_MT) | (1u << DK_HT))
+#define DK808_METAL_USERS ((1u << DK_CH) | (1u << DK_OH) | (1u << DK_CY))
 
 /* Parameter (baustein.h): je Instrument drei Regler 0..1 (Nummer = Instrument * 3 + Regler, Namen und Standard wie
  * im DrumKern), danach drei Choke-Schalter. */
@@ -166,6 +169,7 @@ typedef struct {
     dk_gate_t gate[DK_COUNT];
     struct { uint8_t inst, vel; } queue[DK808_QUEUE];
     unsigned queued;
+    uint32_t run;                   /* Laufzeitmaske (dk808_set_run), Standard alle */
 #if DK808_NEEDS_NOISE
     dk_noise_t noise;
 #endif
@@ -216,6 +220,10 @@ extern const baustein_t dk808_baustein;
 void dk808_init(dk808_t *d, double sample_rate);
 void dk808_trigger(dk808_t *d, unsigned instrument, int velocity);   /* gilt ab dem nächsten render */
 void dk808_set_knob(dk808_t *d, unsigned instrument, unsigned knob, double value);
+/* Nur diese Instrumente spielen (Bit = Instrument); Rauschen und Metallbank laufen nur, wenn ein Instrument der Maske
+ * sie braucht. So teilen sich zwei Zustände mit getrennten Masken die Instrumente auf zwei Kerne auf; zusammen klingen
+ * sie wie einer mit allen (Choke wirkt nur innerhalb einer Maske: Hats, Congas und Toms je zusammenlassen). */
+void dk808_set_run(dk808_t *d, uint32_t mask);
 void dk808_set_level(dk808_t *d, unsigned instrument, double level);   /* 0..1 (Standard 1) */
 void dk808_render(dk808_t *d, float *left, float *right, int n);    /* addiert, mono auf beide Seiten */
 dk_real dk808_tick(dk808_t *d);                                       /* ein Sample, löst wartende Trigger aus */

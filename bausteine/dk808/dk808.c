@@ -836,6 +836,7 @@ void dk808_init(dk808_t *d, double rate)
     d->R = rate; d->H = 2.0 * (1.0 - DK_POW(2.0, -44100.0 / rate)); d->S40 = 44100.0 / rate;
     d->R2 = rate * 2; d->S40_2 = 44100.0 / d->R2;
     d->hat_choke = 1;
+    d->run = DK808_MASK_ALL;
     for (unsigned i = 0; i < DK_COUNT; ++i) {
         d->gate[i].limit = (int)(rate * 0.05);
         for (unsigned k = 0; k < DK808_KNOBS; ++k) d->knob[i][k] = knob_default[i][k] / 100.0;
@@ -885,6 +886,11 @@ void dk808_init(dk808_t *d, double rate)
         if (DK808_INSTRUMENTS >> i & 1u) update(d, i);
 }
 
+void dk808_set_run(dk808_t *d, uint32_t mask)
+{
+    d->run = mask & DK808_MASK_ALL;
+    for (unsigned i = 0; i < DK_COUNT; ++i) if (!(d->run >> i & 1u)) d->active[i] = 0;
+}
 void dk808_set_level(dk808_t *d, unsigned i, double level)
 {
     if (i < DK_COUNT) d->level[i] = (dk_real)(level < 0 ? 0 : level > 1 ? 1 : level);
@@ -898,7 +904,7 @@ void dk808_set_knob(dk808_t *d, unsigned i, unsigned k, double value)
 
 void dk808_trigger(dk808_t *d, unsigned i, int velocity)
 {
-    if (i >= DK_COUNT || !(DK808_INSTRUMENTS >> i & 1u) || velocity <= 0 || d->queued >= DK808_QUEUE) return;
+    if (i >= DK_COUNT || !(DK808_INSTRUMENTS >> i & 1u) || !(d->run >> i & 1u) || velocity <= 0 || d->queued >= DK808_QUEUE) return;
     d->queue[d->queued].inst = (uint8_t)i;
     d->queue[d->queued].vel = (uint8_t)(velocity > 127 ? 127 : velocity);
     ++d->queued;
@@ -979,10 +985,10 @@ dk_real dk808_tick(dk808_t *d)
     for (unsigned q = 0; q < d->queued; ++q) fire(d, d->queue[q].inst, d->queue[q].vel);
     d->queued = 0;
 #if DK808_NEEDS_NOISE
-    noise_tick(&d->noise);
+    if (d->run & DK808_NOISE_USERS) noise_tick(&d->noise);
 #endif
 #if DK808_NEEDS_METAL
-    metal_tick(&d->metal);
+    if (d->run & DK808_METAL_USERS) metal_tick(&d->metal);
 #endif
     dk_real out = 0.0;
 #if DK808_HAS(DK_BD)
