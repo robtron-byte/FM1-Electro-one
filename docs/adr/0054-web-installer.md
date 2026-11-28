@@ -125,3 +125,14 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   links und Knopffarbe; im Hellmodus dunklere Töne mit weißer Schrift, im Dunkelmodus die Display-Farben mit dunkler
   Schrift. Installieren-Knöpfe (auch für eine abgelegte Datei) sind bis „Verbinden“ ausgegraut („Erst verbinden“),
   „Anleitung“ bleibt aktiv.
+- 2026-11-28: 808 (DK808): Icon „Mini-TR-808“ (`bilder/make_bilder.py`: dunkles Gehäuse, zwei Reglerreihen, 16
+  Step-Tasten in Rot/Orange/Gelb/Weiß, Schrift nur „808“; das Orange gehört zur Nachbildung, die Seite bleibt ohne)
+  und Display aus dem Emulator (Seite STEPS mit Pattern).
+  **So entstehen Bild und Display für neue Pakete (DK101, DKJXSH …):** Der Chat, der ein neues Paket nach
+  `firmware/` legt, (1) ergänzt in `web/installer/bilder/make_bilder.py` eine Zeichnung `B["<NAME>"]` und lässt das
+  Skript laufen, (2) erzeugt das Display mit `web/installer/bildschirme/make_bildschirme.sh ~/fm1-emu
+  firmware/<Paket>.fwsc`; soll das Bild eine bestimmte Seite zeigen, legt er `bausteine/varianten/<name>/BILDSCHIRM`
+  an (`KEYS='…'` für fm1-emu `--keys`, `MS=…`; Beispiel `dk808/BILDSCHIRM`), (3) trägt Titel, Text, Stimmen und
+  `reihe` in `beschreibungen.json` ein. Fehlt etwas, erscheint das Paket trotzdem (allgemeines Icon, kein Display);
+  `make_site.py` meldet beim Bau „fehlt: Bild/Display“. Automatisch im Pages-Bau geht es nicht, weil dort kein
+  Emulator läuft.

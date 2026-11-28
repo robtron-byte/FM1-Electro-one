@@ -107,6 +107,9 @@ def main(dest):
     (dest / ".nojekyll").write_text("")
     for e in items:
         print(f"  {e['titel']:12s} {e['version']:14s} {e['kennung']}  {e['datei']}")
+        for what, path in (("Bild", HERE / "bilder" / f"{e['name']}.svg"), ("Display", HERE / "bildschirme" / f"{e['name']}.png")):
+            if not path.exists():
+                print(f"    fehlt: {what} ({path.relative_to(ROOT)}), siehe ADR 0054")
     print(f"Seite: {dest} ({len(items)} Pakete)")
 
 

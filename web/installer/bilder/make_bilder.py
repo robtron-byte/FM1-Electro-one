@@ -103,6 +103,24 @@ B["JXSH"] = svg('<rect x="4" y="6" width="56" height="68" rx="6" fill="#1d1f24"/
                 + sliders(68, 12, 6, 8, 22, cap="#f2f2f2")
                 + keys(9, 44, 102, 25, 14))
 
+# TR-808 (DK808): dunkles Gehäuse, oben Drehregler in Reihen, unten die 16 Step-Tasten in den Farbgruppen
+# Rot, Orange, Gelb, Weiß; nur „808“ als Schrift, kein Herstellerlogo
+k808 = ""
+for row, y in enumerate((16, 27)):
+    for i in range(12):
+        cx = 12 + i * 8.6
+        k808 += f'<circle cx="{cx:.1f}" cy="{y}" r="3" fill="{"#e9e5da" if (i + row) % 3 else "#d8d2c2"}"/>'
+        k808 += f'<line x1="{cx:.1f}" y1="{y}" x2="{cx:.1f}" y2="{y - 2.4}" stroke="#2a2a2a" stroke-width="0.9"/>'
+cols808 = ["#d9442b", "#ef8a2e", "#f2c230", "#f1ecdc"]
+for i in range(16):
+    k808 += (f'<rect x="{9 + i * 6.4:.1f}" y="50" width="5.2" height="10" rx="1" fill="{cols808[i // 4]}"/>'
+             f'<rect x="{10.4 + i * 6.4:.1f}" y="46" width="2.4" height="2" rx="0.5" fill="{"#ff3b30" if i in (0, 4, 8, 12) else "#4a4a4a"}"/>')
+B["DK808"] = svg('<rect x="4" y="6" width="112" height="68" rx="6" fill="#262626"/>'
+                 + '<rect x="4" y="36" width="112" height="2" fill="#d9442b"/><rect x="4" y="38" width="112" height="1.5" fill="#ef8a2e"/>'
+                 + '<rect x="4" y="39.5" width="112" height="1.5" fill="#f2c230"/>'
+                 + k808
+                 + '<text x="112" y="70" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="7" font-weight="700" fill="#e9e5da">808</text>')
+
 # allgemein: Klaviatur mit Fragezeichen-freiem Chip
 B["allgemein"] = svg('<rect x="4" y="6" width="112" height="68" rx="6" fill="#3a3d42"/>'
                      + '<rect x="40" y="13" width="40" height="22" rx="3" fill="#20252b" stroke="#8aa" stroke-width="1"/>'
