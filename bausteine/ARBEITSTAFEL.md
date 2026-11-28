@@ -102,9 +102,9 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **In Arbeit:** sh101-Chat (Unterchat des Koordinators, Worktree heuristic-easley-bfab0d), seit 28.11.2026: Kern, dann Solo-Firmware + Gerüst `varianten/gemeinsam/`
 - **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
   `Voice`, `Engine`, `Halfband`, `Params`, `Preset`), Testvektoren `docs/test-vectors/` (`vectors.json`, WAVs)
-- **Stand:** nicht begonnen.
-- **Nächster Schritt:** wie dk808: C-Port in voller Genauigkeit (4× überabgetastete Ladder, 8× Clipper, BLEP), Test gegen
-  `vectors.json`, eigener Ordner `bausteine/sh101/`.
+- **Stand:** Kern fertig (`bausteine/sh101/`): C-Port der Swift-Vorlage, alle 7 Testvektoren bitgleich mit den
+  Referenz-WAVs; Poly und Arp/Seq abschaltbar (`SH101_WITH_*`). Solo-Firmware und Gerüst `varianten/gemeinsam/` in Arbeit.
+- **Nächster Schritt:** Solo-Firmware `varianten/sh101/` aus fm1-synths ableiten (ADR 0042, 0044).
 
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
