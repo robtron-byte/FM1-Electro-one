@@ -1,0 +1,8 @@
+[package]
+name = "sweep"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+mks-engine = { path = "/Users/ron/ediundsepp Dropbox/Ron Zöllner/Privat/PP/Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/engine" }
+[profile.release]
+opt-level = 3

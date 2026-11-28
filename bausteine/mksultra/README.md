@@ -60,10 +60,30 @@ Die Sparfassung wird gegen die volle Fassung gemessen:
   390 der 520 Presets stellen ohnehin höchstens 6 Stimmen ein (272 davon genau 6).
 - **4 Stimmen**: ebenfalls alle 7 Golden-Fälle gleich, auch der Arpeggiator.
 - **2 Stimmen**: weicht nur beim vierstimmigen Akkord ab (`02_polysynth_chord`).
-- Die Stressfälle haben 8 Noten im Abstand von 0,1 s, je 0,5 s gehalten. Sie weichen erst ab, sobald mehr Noten klingen,
-  als Stimmen da sind; dann wird eine ausklingende Stimme früher abgeschnitten.
-  - Bei 6 Stimmen ab 0,6 s; der Gesamtpegel ändert sich um +0,40 dB (PolySynth) bzw. −0,12 dB (Brass).
-  - Bei 4 Stimmen ab 0,4 s; der Gesamtpegel ändert sich um +0,07 dB bzw. −0,37 dB.
+- Die Stressfälle haben 8 Noten im Abstand von 0,1 s, je 0,5 s gehalten. Sie weichen ab, sobald mehr Noten klingen, als
+  Stimmen da sind. Dann wird eine Stimme gestohlen: bei 6 Stimmen eine schon losgelassene, bei 4 Stimmen eine noch
+  gehaltene Note. Ab da ist die Differenz zur vollen Fassung etwa so laut wie das Signal selbst, denn es klingen
+  andere Noten. Der Gesamtpegel ändert sich dagegen kaum.
+  - Bei 6 Stimmen ab 0,6 s: Differenz −1,1 dB (PolySynth) bzw. −2,9 dB (Brass), Gesamtpegel +0,40 bzw. −0,12 dB.
+  - Bei 4 Stimmen ab 0,4 s: Differenz +0,8 dB bzw. −0,6 dB, Gesamtpegel +0,07 bzw. −0,37 dB.
+
+## Alle 520 Presets gegen den Rust-Kern
+
+`make sweep RUST=<Liste>` rendert jedes Preset kurz (Noten 60 und 64, 0,26 s halten, 0,26 s loslassen). Dann vergleicht
+es die Prüfsumme mit einer Liste, die das Rust-Programm `tools/sweep-rust/` erzeugt. Es nutzt die Vorlage als
+Abhängigkeit (Dropbox-Pfad in `Cargo.toml`) und denselben Ablauf. Stand 28.11.2026: **alle 520 Presets bitgleich**.
+
+```sh
+CARGO_TARGET_DIR=/tmp/sweep cargo run --release --manifest-path bausteine/mksultra/tools/sweep-rust/Cargo.toml -- "<…/app/presets>" > /tmp/rust.txt
+make -C bausteine/mksultra sweep RUST=/tmp/rust.txt
+```
+
+## Baustein-Tabelle
+
+Der Test spielt auch über `mksultra_baustein` (Werte 0..1, `render` addiert) und vergleicht mit `mksultra_process`:
+gleich. `active` meldet „klingt noch“, solange eine Stimme läuft oder der Ausgang in der letzten halben Sekunde hörbar
+war. Ist das Delay an, gilt das für die letzten 4,5 s. So schneidet ein Adapter den Nachklang von Delay und Reverb
+nicht ab.
 
 ## Rechenzeit (PC des Nutzers, Apple Silicon, `-O2`, `make -C bausteine/mksultra bench`)
 

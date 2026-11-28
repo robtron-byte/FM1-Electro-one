@@ -287,7 +287,7 @@ static void voice_set_sr(voice_t *v, float sr, float mod_sum)
 /* Zieht die Zufallswerte einer Stimme in der Reihenfolge von Voice::new. v == NULL: nur ziehen (Sparfassung). */
 static void voice_new(voice_t *v, int index, seeds_t *seeds, const float *up, const float *d8, const float *d4)
 {
-    static dco_t scratch;
+    dco_t scratch;
     for (int i = 0; i < 7; i++) {
         dco_t *d = v ? &v->unison[i] : &scratch;
         dco_new(d, 1, seeds);
@@ -619,6 +619,7 @@ typedef struct {
     seeds_t seeds;
     float values[MKSULTRA_PARAMS];
     float bpm;
+    int32_t quiet; /* Samples seit dem letzten hörbaren Ausgang (nur für active, nicht Teil der Vorlage) */
     float chorus_mem[2][CHORUS_CAP];
     float delay_mem[2][DELAY_CAP];
     float reverb_mem[REVERB_CAP];
@@ -971,6 +972,8 @@ static void synth_tick(synth_t *s, float *ol, float *or_)
     s->prm.pwm_lfo_out = pwm_lfo_shape(ph);
     *ol = flush_sub(l);
     *or_ = flush_sub(r);
+    if (fabsf(l) + fabsf(r) > 1e-6f) s->quiet = 0;
+    else if (s->quiet < INT32_MAX) s->quiet++;
 }
 
 /* ---------- öffentliche Schnittstelle ---------- */
@@ -1107,7 +1110,15 @@ static void b_render(void *s, float *l, float *r, int n)
         l += k; r += k; n -= k;
     }
 }
-static int b_active(const void *s) { return mksultra_active_voices(s) > 0; }
+/* Klingt noch etwas? Stimmen aktiv oder Ausgang vor Kurzem hörbar (Delay bis 4 s, Reverb): so schneidet ein Adapter
+ * den Nachklang der Effekte nicht ab. */
+static int b_active(const void *st)
+{
+    const synth_t *s = (const synth_t *)st;
+    if (mksultra_active_voices(st) > 0) return 1;
+    float lim = s->sr * (s->delay.wet > 1e-5f ? 4.5f : 0.5f);
+    return (float)s->quiet < lim;
+}
 
 const baustein_t mksultra_baustein = {"mksultra", "Alpha Juno / MKS-50 Ultra (TAL-Pha-Nachbau)", sizeof(synth_t),
                                       MKSULTRA_PARAMS, b_pname, b_init, b_note_on, b_note_off, b_set_param, b_render,

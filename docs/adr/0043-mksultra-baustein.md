@@ -9,21 +9,24 @@ Der Nutzer hat einen Rust-Nachbau des Alpha Juno / MKS-50 („MKS Ultra“, TAL-
 `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/`). Er soll als Baustein nach ADR 0040 ins Repository und später eine
 Solo-Firmware bekommen. Die Vorlage liefert eine Anleitung zum Portieren und 7 Golden-Renders mit FNV-1a-Prüfsummen.
 
-Die Stimme ist teuer: DCO bei 2× Fs, VCF bei 4× Fs mit zwei nichtlinearen SVFs, dazu Chorus, Delay und Reverb. Das FM-1
-schafft nicht 12 solche Stimmen. Der Nutzer will zuerst an den Stimmen sparen, nicht am Filter (Wunsch 28.11.).
+Die Stimme ist teuer: DCO bei 2× Fs, VCF bei 4× Fs mit zwei nichtlinearen SVFs, dazu Chorus, Delay und Reverb. Dass das
+FM-1 12 solche Stimmen schafft, ist nicht zu erwarten (noch nicht gemessen). Der Nutzer will zuerst an den Stimmen
+sparen, nicht am Filter (Wunsch 28.11.).
 
 ## Entscheidung
 
 - `bausteine/mksultra/` ist ein reiner C99-Port der Rust-Engine (Route B der Anleitung). Er behält Typen, Klammerung,
   Zufallsreihenfolge und Rechenwege bei und wird mit `-ffp-contract=off` gebaut.
-- Er trifft alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`).
+- Er trifft alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). Dazu wurden alle 520 Presets mit einem
+  kurzen Ablauf gegen den Rust-Kern geprüft (`make sweep`): alle bitgleich.
 - Die 520 Presets werden zu einer C-Tabelle (`tools/mks2c.py`). Die Zahlen werden als Literal übernommen, damit sie gleich
   gerundet werden.
 - Die Sparfassung ist der Bauschalter `MKSULTRA_VOICES` (Standard 12). Die Zufallswerte der weggelassenen Stimmen
   werden trotzdem gezogen. Dadurch bleibt die Sparfassung bitgleich, solange nicht mehr Noten klingen, als sie Stimmen
   hat. Gemessen:
   - Bei 6 und bei 4 Stimmen sind alle 7 Golden-Fälle Sample für Sample gleich.
-  - Bei 8 überlappenden Noten werden ausklingende Stimmen früher abgeschnitten (Pegel ±0,4 dB).
+  - Bei 8 überlappenden Noten werden Stimmen gestohlen (bei 4 Stimmen auch gehaltene Noten). Ab da ist die Differenz
+    etwa so laut wie das Signal (−2,9 … +0,8 dB), der Gesamtpegel ändert sich kaum (±0,4 dB).
 - Das Filter bleibt in jeder Fassung unverändert.
 - Effekt-Puffer liegen im Zustand (kein malloc). Ihre Größe bestimmt `MKSULTRA_MAX_SR` (Standard 48000, rund 2 MB).
 

@@ -79,6 +79,20 @@ def element_attrs(xml, tag, start):
         i += 1
 
 
+def root_attrs(xml):
+    """wie preset.rs root_attrs: erstes Element, das nicht mit <? oder <! beginnt"""
+    i = 0
+    while True:
+        s = xml.find('<', i)
+        if s < 0 or s + 1 >= len(xml):
+            return None
+        if xml[s + 1] in '?!':
+            i = s + 1
+            continue
+        m = re.match(r'[\w-]*', xml[s + 1:])
+        return element_attrs(xml, m.group(0), s)
+
+
 def f32_literal(text):
     """C-Literal für Rusts `text.parse::<f32>()`, None wenn Rust ablehnt."""
     if RE_SPECIAL.match(text):
@@ -101,7 +115,7 @@ def f32_literal(text):
 
 def parse(xml):
     p = {'name': '', 'version': 0, 'params': [], 'tuning': [], 'chord': [], 'vt': []}
-    root = element_attrs(xml, 'mks', 0)
+    root = root_attrs(xml)
     if root:
         for k, v in root[0]:
             if k == 'version':

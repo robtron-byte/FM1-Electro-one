@@ -3,6 +3,7 @@
  *   test <ref> <out> [<Golden-WAV-Ordner>]   Prüfsummen; mit WAV-Ordner zusätzlich erste Abweichung je Fall
  *   test --vs <ref> <out> <Vergleichsordner>  Sparfassung: Abweichung gegen die WAVs der vollen Fassung
  *   test --bench                              Rechenzeit je Stimme
+ *   test --sweep                              eine Prüfsumme je Preset (Vergleich mit dem Rust-Gegenstück, README)
  * Exit 0 = bestanden. */
 #include "mksultra.h"
 #include <math.h>
@@ -169,6 +170,8 @@ static void compare(const char *name, const float *a, const float *b, size_t n)
            first / 2, first % 2 ? "R" : "L", mx, db, lv);
 }
 
+static int smoke(void);
+
 static int golden(const char *ref, const char *out, const char *wavdir)
 {
     int fails = 0;
@@ -203,6 +206,7 @@ static int golden(const char *ref, const char *out, const char *wavdir)
         write_wav(path, 48000, d, 2 * STRESS_LEN);
         free(d);
     }
+    fails += smoke();
     printf("mksultra: %s (%d/%d Prüfsummen gleich)\n", fails ? "FEHLER" : "bestanden", NCASES - fails, NCASES);
     return fails ? 1 : 0;
 }
@@ -284,8 +288,63 @@ static int bench(void)
     return 0;
 }
 
+/* Alle Presets: 4 Blöcke Vorlauf, Noten 60 (v100) und 64 (v90), 24 Blöcke halten, 24 Blöcke loslassen; Blöcke à 512. */
+static int sweep(void)
+{
+    void *s = state();
+    float l[512], r[512], d[1024];
+    for (int i = 0; i < mksultra_preset_count; i++) {
+        mksultra_init(s, 48000.0f);
+        mksultra_load_preset(s, &mksultra_presets[i]);
+        for (int k = 0; k < 4; k++) mksultra_process(s, l, r, 512);
+        mksultra_note_on(s, 60, 100);
+        mksultra_note_on(s, 64, 90);
+        uint64_t h = 0xcbf29ce484222325ull;
+        for (int b = 0; b < 48; b++) {
+            if (b == 24) { mksultra_note_off(s, 60); mksultra_note_off(s, 64); }
+            mksultra_process(s, l, r, 512);
+            for (int k = 0; k < 512; k++) { d[2 * k] = l[k]; d[2 * k + 1] = r[k]; }
+            const unsigned char *by = (const unsigned char *)d;
+            for (int k = 0; k < 4096; k++) { h ^= by[k]; h *= 0x100000001b3ull; }
+        }
+        printf("%016llx %s\n", (unsigned long long)h, mksultra_presets[i].path);
+    }
+    return 0;
+}
+
+/* Weg über die Baustein-Tabelle (baustein.h): Werte 0..1, render addiert. Muss mksultra_process gleichen. */
+static int smoke(void)
+{
+    const baustein_t *b = &mksultra_baustein;
+    void *s1 = calloc(1, b->state_size), *s2 = calloc(1, b->state_size);
+    int pc = mksultra_param_find("VcfCutoff"), pr = mksultra_param_find("VcfResonance");
+    b->init(s1, 48000.0);
+    b->set_param(s1, (unsigned)pc, 0.4);
+    b->set_param(s1, (unsigned)pr, 0.7);
+    mksultra_init(s2, 48000.0f);
+    mksultra_set_param(s2, pc, 0.4f);
+    mksultra_set_param(s2, pr, 0.7f);
+    b->note_on(s1, 57, 110);
+    mksultra_note_on(s2, 57, 110);
+    static float al[24000], ar[24000], bl[24000], br[24000];
+    int bad = 0, act_end = -1;
+    for (int pos = 0; pos < 24000; pos += 100) {
+        if (pos == 12000) { b->note_off(s1, 57); mksultra_note_off(s2, 57); }
+        b->render(s1, al + pos, ar + pos, 100);
+        mksultra_process(s2, bl + pos, br + pos, 100);
+        if (b->active(s1)) act_end = pos;
+    }
+    for (int i = 0; i < 24000; i++) if (al[i] != bl[i] || ar[i] != br[i]) bad++;
+    printf("  Baustein-Tabelle: %d Parameter, Zustand %zu Bytes, render %s, active bis Sample %d\n", (int)b->param_count,
+           b->state_size, bad ? "WEICHT AB" : "gleich", act_end);
+    free(s1);
+    free(s2);
+    return bad ? 1 : 0;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc >= 2 && strcmp(argv[1], "--sweep") == 0) return sweep();
     if (argc >= 2 && strcmp(argv[1], "--bench") == 0) return bench();
     if (argc >= 5 && strcmp(argv[1], "--vs") == 0) return versus(argv[3], argv[4]);
     if (argc < 3) { fprintf(stderr, "Aufruf: test <ref> <out> [<wav>]\n"); return 2; }

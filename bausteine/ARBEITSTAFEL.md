@@ -120,7 +120,8 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **In Arbeit:** frei (Baustein fertig, mksultra-Chat, 28.11.2026)
 - **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/` (Rust),
   `spec/`, `MECHANICS.md`, 520 Presets in `presets/`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
-- **Stand:** C-Kern fertig, alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). 520 Presets als C-Tabelle.
+- **Stand:** C-Kern fertig, alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). 520 Presets als C-Tabelle,
+  alle gegen den Rust-Kern geprüft (`make sweep`, bitgleich).
   Sparfassung `MKSULTRA_VOICES` (weniger Stimmen, Filter unverändert): bei 6 und 4 Stimmen alle Golden-Fälle gleich.
   Rechenzeit auf dem PC ≈ 100 ns je Stimme und Sample (Unisono ≈ 330 ns). Details in `mksultra/README.md`, ADR 0043.
 - **Nächster Schritt:** Solo-Firmware „Alpha Juno solo“ (ADR 0045, Y13), sobald `varianten/gemeinsam/` abgenommen ist:

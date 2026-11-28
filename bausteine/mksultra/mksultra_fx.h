@@ -931,10 +931,9 @@ static int32_t arp_add_octave_array(arp_t *a, int32_t n)
     if (n < 1) return 0;
     int32_t range = a->cur_range;
     int32_t dir = a->cur_order == 2 ? (a->cur_mode != 2 ? 1 : -1) : 1;
-    static noteinfo_t base[ARP_MAX], tmp[ARP_MAX];
-    int nb = n < ARP_MAX ? n : ARP_MAX;
+    noteinfo_t base[128]; /* n = gehaltene Tasten (höchstens 128); work[0..n) bleibt, Oktaven kommen dahinter */
+    int nb = n < 128 ? n : 128;
     memcpy(base, a->work, sizeof(noteinfo_t) * (size_t)nb);
-    memcpy(tmp, base, sizeof(noteinfo_t) * (size_t)nb);
     int nt = nb;
     int filter = !(a->cur_order == 1 || a->cur_order == 2);
     for (int32_t o = 0; o < (range > 0 ? range : 0); o++) {
@@ -943,11 +942,10 @@ static int32_t arp_add_octave_array(arp_t *a, int32_t n)
             int32_t nn = base[k].note + shift;
             if ((!filter || nn < 0x61) && nt < ARP_MAX) {
                 noteinfo_t e = {nn, base[k].note, base[k].ch, base[k].vel};
-                tmp[nt++] = e;
+                arp_put(a, nt++, e);
             }
         }
     }
-    for (int i = 0; i < nt; i++) arp_put(a, i, tmp[i]);
     return nt;
 }
 static int cmp_note_asc(const void *x, const void *y)

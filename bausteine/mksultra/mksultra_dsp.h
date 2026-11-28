@@ -6,7 +6,6 @@
  */
 #ifndef MKSULTRA_DSP_H
 #define MKSULTRA_DSP_H
-#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
@@ -114,7 +113,7 @@ static inline float tpt_hp(tpt_t *f, int ch, float x) { return x - tpt_lp(f, ch,
 
 static float fsqrt(float x)
 {
-    if (fabsf(x) < FLT_MIN) return 0.0f;
+    if (fabsf(x) < 1.17549435e-38f) return 0.0f; /* f32::MIN_POSITIVE */
     float r_exact = 1.0f / sqrtf(x);
     float r = bits2f(f2bits(r_exact) & 0xfffff000u);
     float u = x * r;
@@ -207,25 +206,32 @@ static inline float bq_tick(biquad_t *b, float in)
 #define BLEP_S 128
 #define BLEP_LEN 4097
 
-static void build_blep_table(float *out)
+/* Zwei Durchläufe statt eines double-Puffers (kein versteckter Speicher): die Summe ist in beiden gleich. */
+static double blep_acc(int upto, float *out, double inv)
 {
-    static double c[BLEP_LEN];
     const double two_pi_n = 0.0015339807878856412;
     double acc = 0.0;
-    for (int i = 0; i < BLEP_LEN; i++) {
+    for (int i = 0; i <= upto; i++) {
         double x = (double)i * 0.0078125 + (-16.0);
         double s = x == 0.0 ? 1.0 : sin(x * 1.5707963267948966) / (x * 1.5707963267948966);
         s = (double)(float)s;
         double w = i < 4096 ? cos((double)i * two_pi_n * 2.0) * 0.08 + (cos((double)i * two_pi_n) * (-0.5) + 0.41999998688697815)
                             : -1.3113021848920603e-8;
         acc += s * w;
-        c[i] = acc;
+        if (out && i < BLEP_LEN - 1) {
+            double c = acc;
+            c *= inv;
+            out[i] = (float)c;
+        }
     }
-    double last = c[BLEP_LEN - 1];
+    return acc;
+}
+static void build_blep_table(float *out)
+{
+    double last = blep_acc(BLEP_LEN - 1, NULL, 0.0);
     double inv = 1.0 / last;
-    for (int i = 0; i < BLEP_LEN - 1; i++) c[i] *= inv;
-    c[BLEP_LEN - 1] = last / last;
-    for (int i = 0; i < BLEP_LEN; i++) out[i] = (float)c[i];
+    (void)blep_acc(BLEP_LEN - 1, out, inv);
+    out[BLEP_LEN - 1] = (float)(last / last);
 }
 
 typedef struct { float buf[32]; int32_t idx; } ring_t;
