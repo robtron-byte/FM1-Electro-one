@@ -10,6 +10,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/* Gerätefassung (SH101_FLOAT / SH101_FASTMATH): nicht bitgleich; geprüft werden die RMS-Fenster und die 64 Samples mit
+ * weiterer Grenze, die Abweichung zur WAV wird nur gemeldet. */
+#if SH101_FLOAT || SH101_FASTMATH
+#define LIM_SAMPLES 1e-3
+#define WAV_STRICT 0
+#else
+#define LIM_SAMPLES 1e-4
+#define WAV_STRICT 1
+#endif
 
 static sh101_t eng;
 static float out[48000 * 2];
@@ -91,7 +100,7 @@ static int run(const vec_t *v, const char *outdir, const char *wavdir)
         double d = fabs((double)out[2400 + i] - (double)v->samples[i]);
         if (d > ds) ds = d;
     }
-    int bad = ds > 1e-4;
+    int bad = ds > LIM_SAMPLES;
     for (int w = 0; w < 20; ++w) {
         int seg = v->rate / 10;
         float acc = 0;
@@ -102,7 +111,7 @@ static int run(const vec_t *v, const char *outdir, const char *wavdir)
         if (d > 1e-3 + 0.01 * v->rms[w]) bad = 1;
     }
     double dw = compare_wav(wavdir, v->name, out, total);
-    if (dw > 1e-4) bad = 1;
+    if (WAV_STRICT && dw > 1e-4) bad = 1;
     write_wav(outdir, v->name, out, total, v->rate);
     printf("  %-20s Samples %.2e  RMS %.2e  WAV %s%.2e  %s\n", v->name, ds, dr, dw < 0 ? "(fehlt) " : "",
            dw < 0 ? 0 : dw, bad ? "FEHLER" : "ok");
@@ -137,7 +146,8 @@ int main(int argc, char **argv)
     const char *outdir = argc > 2 ? argv[2] : ".";
     const char *wavdir = argc > 3 && argv[3][0] ? argv[3] : NULL;
     int bad = 0;
-    printf("sh101 (Poly %d, Arp/Seq %d), Zustand %zu Bytes\n", SH101_WITH_POLY, SH101_WITH_ARPSEQ, sizeof(sh101_t));
+    printf("sh101 (Poly %d, Arp/Seq %d, float %d, Polynome %d), Zustand %zu Bytes\n", SH101_WITH_POLY, SH101_WITH_ARPSEQ,
+           SH101_FLOAT, SH101_FASTMATH, sizeof(sh101_t));
     for (size_t i = 0; i < sizeof vectors / sizeof vectors[0]; ++i) {
 #if !SH101_WITH_POLY
         if (vectors[i].np && !strcmp(vectors[i].name, "07-poly-chord")) { printf("  %-20s (ohne Poly übersprungen)\n", vectors[i].name); continue; }

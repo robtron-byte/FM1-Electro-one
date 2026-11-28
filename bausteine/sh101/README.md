@@ -45,8 +45,17 @@ berühren ihn nicht.
 |---|---|---|
 | `SH101_WITH_POLY` | 1 | Poly-Modus mit 6 Stimmen (Parameter `polymode`); 0 = nur eine Stimme |
 | `SH101_WITH_ARPSEQ` | 1 | Arpeggiator und Sequencer der Vorlage; 0 = weg |
+| `SH101_FLOAT` | 0 | Hüllkurven, Glide, LFO, Clipper in float statt double (FM-1: dort ist double Software). Hüllkurve und Glide dann als gleichwertiger Schritt zum Ziel `v += (Ziel − v)/(c + 1)`, sonst verliert float im Abklingen bis 2 % Pegel |
+| `SH101_FASTMATH` | 0 | `exp2`, `tan`, `sin` im Audiopfad als Polynome (Abweichung ~1e-7 relativ) |
+| `SH101_TABLES` | leer | Speicherbereich der BLEP-Tabelle (Gerät: `.pool`) |
 
-Zustand: 12 256 Bytes voll, 3 096 Bytes schlank (beide aus).
+**Gerätefassung** (`SH101_FLOAT=1 SH101_FASTMATH=1`, eine Stimme, ohne Arp/Seq; dritter Testlauf `test_fm1`): RMS je
+100 ms wie die Vorlage auf ≤ 6e-5 genau; Sample für Sample weicht nur die Phase des Oszillators langsam ab (bei LFO auf
+die Tonhöhe und Glide), hörbar ist das nicht. Last im Emulator (fm1-emu, Block 64): eine Stimme 39 %, mit Drive 51 %;
+dieselbe Stimme wie die Vorlage in double wäre 143 % (ADR 0042). Weitere gleich klingende Wege ohne Klangänderung:
+`fabsf`/`fminf`/`floorf` inline, Halbband-Ketten mit fester Länge.
+
+Zustand: 12 256 Bytes voll, 3 096 Bytes schlank (beide aus), 2 960 Bytes Gerätefassung.
 
 ## Prüfen
 

@@ -2,18 +2,85 @@
  * sh101: Port von MonoBassCore (Swift) nach C99. Gleiche Formeln, Konstanten und Reihenfolge wie die Vorlage;
  * Abschnittsnummern beziehen sich auf docs/SOUND-ENGINE.md der Vorlage. Kommentare nennen die Swift-Stelle. */
 #include "sh101.h"
+/* SH101_FLOAT (siehe sh101.h): Hüllkurven, Glide, LFO und Clipper in float statt double. K() schreibt die Konstanten
+ * dieser Stellen in der Genauigkeit der Rechnung. */
+#if SH101_FLOAT
+#define K(x) x##f
+#define SH_FABS sh_absf
+#else
+#define K(x) x
+#define SH_FABS sh_abs
+#endif
 #include <math.h>
 #include <string.h>
 
 /* Swift Float.pi ist zur Null hin gerundet (0x1.921fb4p+1), nicht zum nächsten Wert */
 #define PI_F 0x1.921fb4p+1f
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #define BLEP_TAPS 16
 #define BLEP_OS 128
 #define BLEP_LEN (BLEP_TAPS * BLEP_OS)
 
+/* fabsf, fminf, floorf als Inline (ein Gerätebuild mit -fno-builtin riefe sonst je Sample Dutzende Male die Bibliothek) */
+static inline float sh_absf(float x) { return x < 0 ? -x : x; }
+static inline float sh_minf(float a, float b) { return b < a ? b : a; }
+static inline float sh_floorf(float x) { float t = (float)(int)x; return t > x ? t - 1.0f : t; }   /* |x| < 2^31 */
+#if !SH101_FLOAT
+static inline double sh_abs(double x) { return x < 0 ? -x : x; }
+#endif
+
+/* ---------------- Rechenwege im Audiopfad: Bibliothek (wie die Vorlage) oder SH101_FASTMATH (Polynome, Abweichung
+ * ~1e-7 relativ, für das FM-1, dessen Bibliotheksfunktionen teuer sind) ---------------- */
+#if SH101_FASTMATH
+static inline float fm_exp2(float x)            /* 2^x: ganzzahliger Teil in den Exponenten, Rest |f| <= 0.5 als Reihe */
+{
+    x = x < -126.0f ? -126.0f : x > 126.0f ? 126.0f : x;
+    int i = (int)(x + (x >= 0 ? 0.5f : -0.5f));
+    float f = x - (float)i;
+    float p = 1.0f + f * (0.69314718f + f * (0.24022651f + f * (0.05550411f + f * (0.00961813f
+              + f * (0.00133336f + f * 0.00015404f)))));
+    union { uint32_t u; float f; } b = {(uint32_t)(i + 127) << 23};
+    return p * b.f;
+}
+static inline float fm_sin_core(float x)        /* |x| <= pi/2 */
+{
+    float x2 = x * x;
+    return x * (1.0f + x2 * (-1.6666667e-1f + x2 * (8.3333333e-3f + x2 * (-1.9841270e-4f + x2 * (2.7557319e-6f
+               + x2 * -2.5052108e-8f)))));
+}
+static inline float fm_cos_core(float x)        /* |x| <= 1.3 */
+{
+    float x2 = x * x;
+    return 1.0f + x2 * (-0.5f + x2 * (4.1666667e-2f + x2 * (-1.3888889e-3f + x2 * (2.4801587e-5f
+           + x2 * (-2.7557319e-7f + x2 * 2.0876757e-9f)))));
+}
+static inline float fm_tan(float x) { return fm_sin_core(x) / fm_cos_core(x); }   /* 0 <= x <= 1.2 (Ladder: fc <= limit) */
+static inline float fm_sin(float x)             /* 0 <= x <= 2 pi + etwas (Drift) */
+{
+    const float pi = 3.14159265f, half = 1.57079633f;
+    if (x > pi) x -= 2.0f * pi;
+    if (x > half) x = pi - x;
+    else if (x < -half) x = -pi - x;
+    return fm_sin_core(x);
+}
+#define A_EXP2 fm_exp2
+#define A_TAN fm_tan
+#define A_SIN fm_sin
+#else
+#define A_EXP2 exp2f
+#define A_TAN tanf
+#define A_SIN sinf
+#endif
+
 /* ---------------- Tabellen (einmal berechnet, für alle Instanzen gleich) ---------------- */
 
-static float blep_table[BLEP_LEN + 1];
+/* Große Tabellen: ein Gerätebuild kann sie mit SH101_TABLES in einen eigenen Speicherbereich legen. */
+#ifndef SH101_TABLES
+#define SH101_TABLES
+#endif
+SH101_TABLES static float blep_table[BLEP_LEN + 1];
 static float sine_table[257], tri_table[257], square_table[257];
 static float hb01_steep[8], hb01_mid[4], hb04_steep[8], hb04_mid[4], hb04_wide[4];
 static int tables_ready;
@@ -54,20 +121,18 @@ static void halfband_design(float *out, int count, double transition)
 static void make_tables(void)
 {
     if (tables_ready) return;
-    /* BlepTable (Oscillator.swift) */
-    static double impulse[BLEP_LEN];
+    /* BlepTable (Oscillator.swift); die Stützwerte zweimal gerechnet statt in einer 16-kB-Tabelle gehalten */
     const int n = BLEP_LEN;
-    double center = (double)n / 2.0, total = 0.0;
-    for (int i = 0; i < n; ++i) {
-        double x = ((double)i - center) / (double)BLEP_OS;
-        double s = fabs(x) < 1e-12 ? 1.0 : sin(M_PI * x) / (M_PI * x);
-        double w = (double)i / (double)(n - 1);
-        double win = 0.42 - 0.5 * cos(2 * M_PI * w) + 0.08 * cos(4 * M_PI * w);
-        impulse[i] = s * win;
-    }
-    for (int i = 0; i < n; ++i) total += impulse[i];
-    double acc = 0.0;
-    for (int i = 0; i < n; ++i) { acc += impulse[i]; blep_table[i] = (float)(acc / total); }
+    double center = (double)n / 2.0, total = 0.0, acc = 0.0;
+    for (int pass = 0; pass < 2; ++pass)
+        for (int i = 0; i < n; ++i) {
+            double x = ((double)i - center) / (double)BLEP_OS;
+            double s = fabs(x) < 1e-12 ? 1.0 : sin(M_PI * x) / (M_PI * x);
+            double w = (double)i / (double)(n - 1);
+            double win = 0.42 - 0.5 * cos(2 * M_PI * w) + 0.08 * cos(4 * M_PI * w);
+            if (pass == 0) total += s * win;
+            else { acc += s * win; blep_table[i] = (float)(acc / total); }
+        }
     blep_table[n] = 1;
     /* LFO-Tabellen (Engine.swift) */
     for (int i = 0; i <= 256; ++i) {
@@ -99,27 +164,35 @@ static void hb_init(sh101_halfband_t *h, const float *coefs, int count)
 }
 static void hb_reset(sh101_halfband_t *h) { memset(h->m, 0, sizeof h->m); }
 
-static inline void hb_run(sh101_halfband_t *h, float a, float b, float *o0, float *o1)
-{
-    float s0 = a, s1 = b;
-    float *m = h->m;
-    const float *c = h->c;
-    for (int i = 0; i < h->n0; ++i) {
-        float y = m[i * 2] + c[i] * (s0 - m[i * 2 + 1]);
-        m[i * 2] = s0; m[i * 2 + 1] = y; s0 = y;
-    }
-    for (int i = 0; i < h->n1; ++i) {
-        int j = (h->n0 + i) * 2;
-        float y = m[j] + c[h->n0 + i] * (s1 - m[j + 1]);
-        m[j] = s1; m[j + 1] = y; s1 = y;
-    }
+/* N0/N1 fest je Kettenart (4 oder 8 Koeffizienten), damit der Compiler die Schleifen ausrollt; gleiche Rechnung. */
+#define HB_RUN_BODY(N0, N1)                                                                                         \
+    float s0 = a, s1 = b;                                                                                           \
+    float *m = h->m;                                                                                                \
+    const float *c = h->c;                                                                                          \
+    for (int i = 0; i < (N0); ++i) {                                                                                \
+        float y = m[i * 2] + c[i] * (s0 - m[i * 2 + 1]);                                                            \
+        m[i * 2] = s0; m[i * 2 + 1] = y; s0 = y;                                                                    \
+    }                                                                                                               \
+    for (int i = 0; i < (N1); ++i) {                                                                                \
+        int j = ((N0) + i) * 2;                                                                                     \
+        float y = m[j] + c[(N0) + i] * (s1 - m[j + 1]);                                                             \
+        m[j] = s1; m[j + 1] = y; s1 = y;                                                                            \
+    }                                                                                                               \
     *o0 = s0; *o1 = s1;
-}
-static inline void hb_up(sh101_halfband_t *h, float x, float *a, float *b) { hb_run(h, x, x, a, b); }
-static inline float hb_down(sh101_halfband_t *h, float first, float second)
+static inline void hb_run4(sh101_halfband_t *h, float a, float b, float *o0, float *o1) { HB_RUN_BODY(2, 2) }
+static inline void hb_run8(sh101_halfband_t *h, float a, float b, float *o0, float *o1) { HB_RUN_BODY(4, 4) }
+static inline void hb_up4(sh101_halfband_t *h, float x, float *a, float *b) { hb_run4(h, x, x, a, b); }
+static inline void hb_up8(sh101_halfband_t *h, float x, float *a, float *b) { hb_run8(h, x, x, a, b); }
+static inline float hb_down4(sh101_halfband_t *h, float first, float second)
 {
     float a, b;
-    hb_run(h, second, first, &a, &b);
+    hb_run4(h, second, first, &a, &b);
+    return (a + b) * 0.5f;
+}
+static inline float hb_down8(sh101_halfband_t *h, float first, float second)
+{
+    float a, b;
+    hb_run8(h, second, first, &a, &b);
     return (a + b) * 0.5f;
 }
 
@@ -132,7 +205,7 @@ static void sm_rate(sh101_smoother_t *s, float sr)
 }
 static inline float sm_tick(sh101_smoother_t *s, float x)
 {
-    if (fabsf(x - s->value) > 1e-7f) s->value = (x + s->value * s->coef) * s->g;
+    if (sh_absf(x - s->value) > 1e-7f) s->value = (x + s->value * s->coef) * s->g;
     return s->value;
 }
 
@@ -140,7 +213,7 @@ static inline float sm_tick(sh101_smoother_t *s, float x)
 
 static inline void blep_add(sh101_blep_t *bb, float t, float scale)
 {
-    float frac = t - floorf(t);
+    float frac = t - sh_floorf(t);
     int idx = (int)t;
     for (int i = 0; i < BLEP_TAPS; ++i) {
         if (idx + 1 < BLEP_LEN) {
@@ -171,7 +244,7 @@ static inline float pulse_next(sh101_pulse_t *o, float input, float freq, float 
     float threshold = 0.5f + shrink * (width - 0.5f);
     if (threshold <= p && o->sign == 1) {
         o->sign = -1;
-        float since = fminf(o->sr * (p - threshold) / freq, 1);
+        float since = sh_minf(o->sr * (p - threshold) / freq, 1);
         blep_add(&o->blep, since * (float)BLEP_OS, o->sign);
     }
     float b = blep_advance(&o->blep);
@@ -201,14 +274,14 @@ static inline int32_t lcg(int32_t seed) { return (int32_t)((uint32_t)seed * 1680
 
 static void vco_align(sh101_vco_t *v)
 {
-    if (fabsf(v->p0 - 2 * v->p1) < 0.6f) v->p1 = v->p0 * 0.5f;
-    if (fabsf(v->p0 - 4 * v->p2) < 0.6f) v->p2 = v->p0 * 0.25f;
+    if (sh_absf(v->p0 - 2 * v->p1) < 0.6f) v->p1 = v->p0 * 0.5f;
+    if (sh_absf(v->p0 - 4 * v->p2) < 0.6f) v->p2 = v->p0 * 0.25f;
 }
 
 static inline float vco_process(sh101_vco_t *v, float note, float env, float drift, const sh101_shared_t *s)
 {
-    v->freq = 440 * exp2f((drift + note + v->wander) / 12 - 5.75f);
-    float inc = fminf(v->freq * v->inv_sr, 0.5f);
+    v->freq = 440 * A_EXP2((drift + note + v->wander) / 12 - 5.75f);
+    float inc = sh_minf(v->freq * v->inv_sr, 0.5f);
     if (inc <= 1e-7f) inc = 1e-7f;
     v->p0 += inc; v->p1 += inc * 0.5f; v->p2 += inc * 0.25f;
 
@@ -250,7 +323,7 @@ static inline float vco_process(sh101_vco_t *v, float note, float env, float dri
     if (v->p0 >= 1) {
         v->seed = lcg(v->seed);
         float target = (float)v->seed * 4.6566128e-12f;
-        if (fabsf(target - v->wander) > 1e-7f) v->wander = (target + v->wander * v->wander_coef) * v->wander_g;
+        if (sh_absf(target - v->wander) > 1e-7f) v->wander = (target + v->wander * v->wander_coef) * v->wander_g;
         v->p0 -= 1;
     }
     if (v->p1 >= 1) v->p1 -= 1;
@@ -275,12 +348,12 @@ static inline float vco_process(sh101_vco_t *v, float note, float env, float dri
 static void env_make(sh101_env_t *e)
 {
     memset(e, 0, sizeof *e);
-    e->state = 4; e->k = 44100 * 3.5; e->fall = 20;
-    e->last_a = e->last_d = e->last_r = -1.0;
+    e->state = 4; e->k = 44100 * K(3.5); e->fall = 20;
+    e->last_a = e->last_d = e->last_r = -K(1.0);
 }
-static void env_rate(sh101_env_t *e, double sr)
+static void env_rate(sh101_env_t *e, sh101_real sr)
 {
-    e->k = sr * 3.5; e->fall = sr / 2205;
+    e->k = sr * K(3.5); e->fall = sr / 2205;
     e->last_a = -1; e->last_d = -1; e->last_r = -1;
 }
 static void env_trigger(sh101_env_t *e)
@@ -288,32 +361,48 @@ static void env_trigger(sh101_env_t *e)
     e->start_level = e->value;
     e->state = (e->value <= 0 || e->state > 2) ? 0 : -1;
 }
-static inline double env_tick(sh101_env_t *e, int gate, double a, double d, double s, double r)
+static inline sh101_real env_tick(sh101_env_t *e, int gate, sh101_real a, sh101_real d, sh101_real s, sh101_real r)
 {
-    if (e->last_a != a) { e->last_a = a; e->c_a = (a * 1.4 + 0.00028) * e->k; }
-    if (e->last_d != d) { e->last_d = d; e->c_d = (d * 2.5 + 0.0005) * e->k; }
-    if (e->last_r != r) { e->last_r = r; e->c_r = (r * 2.8 + 0.000224) * e->k; }
+    if (e->last_a != a) { e->last_a = a; e->c_a = (a * K(1.4) + K(0.00028)) * e->k; }
+    if (e->last_d != d) { e->last_d = d; e->c_d = (d * K(2.5) + K(0.0005)) * e->k; }
+    if (e->last_r != r) { e->last_r = r; e->c_r = (r * K(2.8) + K(0.000224)) * e->k; }
     if (!gate) e->state = 3;
     switch (e->state) {
     case 0:
-        e->value = (e->c_a * 0.8 * e->value + 1.6) / (e->c_a * 0.8 + 1);
+#if SH101_FLOAT   /* gleiche Formel als Schritt zum Ziel: in float bleibt so die Genauigkeit des Werts erhalten */
+        e->value += (K(1.6) - e->value) / (e->c_a * K(0.8) + 1);
+#else
+        e->value = (e->c_a * K(0.8) * e->value + K(1.6)) / (e->c_a * K(0.8) + 1);
+#endif
         if (e->value >= 1) { e->state = 1; e->value = 1; }
         break;
     case 1:
     case 2: {
-        double f = e->value <= 0.8 ? 0.8 : 4.84 - 4.8 * e->value;
-        double y = (s - 1e-6 + e->value * f * e->c_d) / (e->c_d * f + 1);
+        sh101_real f = e->value <= K(0.8) ? K(0.8) : K(4.84) - K(4.8) * e->value;
+#if SH101_FLOAT
+        sh101_real y = e->value + (s - K(1e-6) - e->value) / (e->c_d * f + 1);
+#else
+        sh101_real y = (s - K(1e-6) + e->value * f * e->c_d) / (e->c_d * f + 1);
+#endif
         e->value = s > y ? s : y;
     } break;
     case 3: {
-        double g = 1 - e->value;
-        double f = 0.6 - 0.4 * g * g * g;
-        e->value = (e->value * f * e->c_r - 0.0001) / (e->c_r * f + 1);
+        sh101_real g = 1 - e->value;
+        sh101_real f = K(0.6) - K(0.4) * g * g * g;
+#if SH101_FLOAT
+        e->value -= (e->value + K(0.0001)) / (e->c_r * f + 1);
+#else
+        e->value = (e->value * f * e->c_r - K(0.0001)) / (e->c_r * f + 1);
+#endif
         if (e->value <= 0) { e->state = 4; e->value = 0; }
     } break;
     case -1:
+#if SH101_FLOAT
+        e->value -= e->value / (e->fall + 1);
+#else
         e->value = e->fall * e->value / (e->fall + 1);
-        if (e->value <= 0.4 || e->skip_fall) e->state = 0;
+#endif
+        if (e->value <= K(0.4) || e->skip_fall) e->state = 0;
         break;
     default: break;
     }
@@ -343,7 +432,7 @@ static inline float conductance(float m)
     float m2 = m * m, m4 = m2 * m2, m8 = m4 * m4;
     return (m8 + 105 * m4 + 200) / (6 * m8 + 220 * m4 + 200);
 }
-static inline float ladder_step(sh101_ladder_t *l, float u, float g, float k, int twelve)
+static inline __attribute__((always_inline)) float ladder_step(sh101_ladder_t *l, float u, float g, float k, int twelve)
 {
     float t = (l->u_prev + u) * 2 + 0.14f + 28 * k * l->s3;
     float a0 = (t * t + 50) / (t * t * 15 + 50);
@@ -374,34 +463,34 @@ static inline float ladder_process(sh101_ladder_t *l, float x, float cutoff_mod,
 {
     l->fm_smoothed = fm == 0 ? 0 : (l->fm_smoothed + fm * 3) * 0.25f;
     float note = sm_tick(&l->note_s, pitch - 12);
-    float fc = exp2f(12.425205f * (cutoff_mod + 0.15f)) / 4;
-    fc *= exp2f(4 * l->fm_smoothed + s->keyboard_s * (note - 36) / 12);
+    float fc = A_EXP2(12.425205f * (cutoff_mod + 0.15f)) / 4;
+    fc *= A_EXP2(4 * l->fm_smoothed + s->keyboard_s * (note - 36) / 12);
     float ratio = fc / l->limit;
     float comp = 0.21f;
     if (ratio <= 0.7f) comp = ratio * 0.6f - 0.21f;
     if (ratio <= 0.35f) comp = 0;
-    fc = fminf(fc, l->limit);
-    float g = tanf(PI_F * fc / l->sr);
+    fc = sh_minf(fc, l->limit);
+    float g = A_TAN(PI_F * fc / l->sr);
     float res = s->resonance;
     float res_eff = res - res * comp;
     float k = res_eff * 5.714286f;
     float one_minus = 1 - res;
     float om4 = one_minus * one_minus * one_minus * one_minus;
     float gain = res * 0.05525f + 0.03575f;
-    if (s->volume_correction) gain *= fabsf(res - 0.5f) * -1.5f + 1.75f;
+    if (s->volume_correction) gain *= sh_absf(res - 0.5f) * -1.5f + 1.75f;
 
     float e, o, a, b, c, d;
-    hb_up(&l->up1, x, &e, &o);
-    hb_up(&l->up2, e, &a, &b);
-    hb_up(&l->up2, o, &c, &d);
+    hb_up4(&l->up1, x, &e, &o);
+    hb_up8(&l->up2, e, &a, &b);
+    hb_up8(&l->up2, o, &c, &d);
     float first = (a * 0.25f + a * 0.25f * ((om4 - om4 * res) * 0.37f - 0.37f) * comp) * gain;
     float y0 = ladder_step(l, first, g, k, s->filter12);
     float y1 = ladder_step(l, b * 0.25f * gain, g, k, s->filter12);
     float y2 = ladder_step(l, c * 0.25f * gain, g, k, s->filter12);
     float y3 = ladder_step(l, d * 0.25f * gain, g, k, s->filter12);
-    float h0 = hb_down(&l->down1, y0, y1);
-    float h1 = hb_down(&l->down1, y2, y3);
-    return hb_down(&l->down2, h0, h1);
+    float h0 = hb_down8(&l->down1, y0, y1);
+    float h1 = hb_down8(&l->down1, y2, y3);
+    return hb_down4(&l->down2, h0, h1);
 }
 
 /* ---------------- Stimme (Voice) ---------------- */
@@ -489,27 +578,31 @@ static inline float voice_process(sh101_voice_t *v, const sh101_shared_t *s)
         fenv = (float)env_tick(&v->filter_env, gate, (double)(s->attack_s + 0.00017f), (double)(0.8f * s->decay_s),
                                (double)s->sustain_s, (double)(s->release + r_add));
     }
-    double target = (double)v->note_pitch;
+    sh101_real target = (sh101_real)v->note_pitch;
     if (v->porta_active == 1 || v->porta_current == target) {
         v->porta_current = target;
     } else {
-        double i = (double)s->porta_intensity;
+        sh101_real i = (sh101_real)s->porta_intensity;
         if (v->porta_last_linear != s->porta_linear) { v->porta_last_i = -1; v->porta_last_linear = s->porta_linear; }
         if (!s->porta_linear) {
             if (v->porta_last_i != i) { v->porta_last_i = i; v->porta_exp = i * i * 40000 * i * v->porta_unit; }
+#if SH101_FLOAT
+            v->porta_current += (target - v->porta_current) / (v->porta_exp + 1);
+#else
             v->porta_current = (target + v->porta_current * v->porta_exp) / (v->porta_exp + 1);
+#endif
         } else {
             if (v->porta_last_i != i) {
                 v->porta_last_i = i;
-                double b = i * -0.1 + 0.11;
+                sh101_real b = i * -K(0.1) + K(0.11);
                 b *= b;
-                v->porta_lin = (b * b * b * 10000 + 9.99999993922529e-05) / v->porta_unit;
+                v->porta_lin = (b * b * b * 10000 + K(9.99999993922529e-05)) / v->porta_unit;
             }
             if (v->porta_current <= target) {
-                double y = v->porta_current + v->porta_lin;
+                sh101_real y = v->porta_current + v->porta_lin;
                 v->porta_current = target < y ? target : y;
             } else {
-                double y = v->porta_current - v->porta_lin;
+                sh101_real y = v->porta_current - v->porta_lin;
                 v->porta_current = target > y ? target : y;
             }
         }
@@ -552,7 +645,7 @@ static inline float voice_process(sh101_voice_t *v, const sh101_shared_t *s)
         (void)env_tick(&v->vca_env, gate, (double)dc, (double)(0.8f * s->decay_s), 1, (double)(dc * 0.5f + 5e-5f));
     }
     float vg = sm_tick(&v->vel_s, vel_gain);
-    double level = v->vca_env.value - 0.02;
+    sh101_real level = v->vca_env.value - K(0.02);
     if (level < 0) level = 0;
     return (float)level * hp * vg;
 }
@@ -601,7 +694,7 @@ static uint32_t rnd(sh101_t *e)
     return e->rng;
 }
 /* Ersatz für Float(Int32.random(in: 0...Int32.max)) * 9.313226e-10 - 1 */
-static double rnd_bipolar(sh101_t *e) { return (double)((float)(int32_t)(rnd(e) >> 1) * 9.313226e-10f - 1); }
+static sh101_real rnd_bipolar(sh101_t *e) { return (sh101_real)((float)(int32_t)(rnd(e) >> 1) * 9.313226e-10f - 1); }
 
 static void update_lfo_rate(sh101_t *e)
 {
@@ -869,7 +962,7 @@ static void list_remove(int *x, int *n, int v)
 static void list_front(int *x, int *n, int v, int cap)
 {
     if (*n >= cap) *n = cap - 1;
-    memmove(x + 1, x, sizeof(int) * (size_t)*n);
+    for (int i = *n; i > 0; --i) x[i] = x[i - 1];
     x[0] = v; ++*n;
 }
 
@@ -1023,8 +1116,8 @@ static void clock_tick(sh101_t *e)
     if (e->arp_n == 0) return;
     e->clock_phase += e->clock_inc;
     e->step_time += e->clock_inc;
-    double swing = (double)e->values[SH101_ARP_SEQ_SHUFFLE];
-    double delay = swing * swing * 0.5;
+    sh101_real swing = (sh101_real)e->values[SH101_ARP_SEQ_SHUFFLE];
+    sh101_real delay = swing * swing * K(0.5);
     if (e->clock_phase >= 1) {
         e->clock_phase -= 1;
         e->step_parity = !e->step_parity;
@@ -1041,8 +1134,8 @@ static void clock_tick(sh101_t *e)
             trigger_step(e);
         }
     }
-    double len = (double)e->steps[e->current_step < 95 ? e->current_step : 95].length;
-    if (!e->gate_closed && len < 0.95 && e->step_time > len) {
+    sh101_real len = (sh101_real)e->steps[e->current_step < 95 ? e->current_step : 95].length;
+    if (!e->gate_closed && len < K(0.95) && e->step_time > len) {
         e->gate_closed = 1;
         e->voices[0].active = 0;
     }
@@ -1051,13 +1144,13 @@ static void clock_tick(sh101_t *e)
 
 /* ---------------- Ausgang (Clipper mit ADAA, double) ---------------- */
 
-static inline double antiderivative(double x) { return fabs(x) <= 1 ? x * x * 0.5 : fabs(x) - 0.5; }
+static inline sh101_real antiderivative(sh101_real x) { return SH_FABS(x) <= 1 ? x * x * K(0.5) : SH_FABS(x) - K(0.5); }
 static inline float clip(sh101_t *e, float xf)
 {
-    double x = (double)xf, xp = e->adaa_prev;
+    sh101_real x = (sh101_real)xf, xp = e->adaa_prev;
     e->adaa_prev = x;
-    if (fabs(x - xp) < 1e-6) {
-        double y = (x + xp) * 0.5;
+    if (SH_FABS(x - xp) < K(1e-6)) {
+        sh101_real y = (x + xp) * K(0.5);
         y = y > 1 ? 1 : y;
         y = y < -1 ? -1 : y;
         return (float)y;
@@ -1065,10 +1158,10 @@ static inline float clip(sh101_t *e, float xf)
     return (float)((antiderivative(x) - antiderivative(xp)) / (x - xp));
 }
 
-static inline double lerp(const float *t, int i, double f)
+static inline sh101_real lerp(const float *t, int i, sh101_real f)
 {
-    double a = (double)t[i];
-    return a + ((double)t[i + 1] - a) * f;
+    sh101_real a = (sh101_real)t[i];
+    return a + ((sh101_real)t[i + 1] - a) * f;
 }
 
 /* SynthEngine.renderSample */
@@ -1083,13 +1176,13 @@ float sh101_sample(sh101_t *e)
 
     const float two_pi = 6.2831855f;
     e->d_ph0 += e->d_rate * 0.3f;
-    float d = 0.0005f * sinf(two_pi * e->d_ph0);
+    float d = 0.0005f * A_SIN(two_pi * e->d_ph0);
     if (e->d_ph0 > 1) e->d_ph0 -= 1;
     e->d_ph1 += e->d_rate * 1.46f + d * 0.1f;
-    d += 0.002f * sinf(two_pi * e->d_ph1);
+    d += 0.002f * A_SIN(two_pi * e->d_ph1);
     if (e->d_ph1 > 1) e->d_ph1 -= 1;
     e->d_ph2 += e->d_rate * 0.7f + d * 0.1f;
-    d += 0.0004f * sinf(two_pi * e->d_ph2);
+    d += 0.0004f * A_SIN(two_pi * e->d_ph2);
     if (e->d_ph2 > 1) e->d_ph2 -= 1;
     s->drift = d;
 
@@ -1126,31 +1219,31 @@ float sh101_sample(sh101_t *e)
         float dr = e->drive;
         x += x * dr * dr * dr * dr * 60;
         float a, b, a0, a1, b0, b1, c[8], y[8];
-        hb_up(&e->dist_up1, x, &a, &b);
-        hb_up(&e->dist_up2, a, &a0, &a1);
-        hb_up(&e->dist_up2, b, &b0, &b1);
-        hb_up(&e->dist_up3, a0, &c[0], &c[1]);
-        hb_up(&e->dist_up3, a1, &c[2], &c[3]);
-        hb_up(&e->dist_up3, b0, &c[4], &c[5]);
-        hb_up(&e->dist_up3, b1, &c[6], &c[7]);
+        hb_up8(&e->dist_up1, x, &a, &b);
+        hb_up4(&e->dist_up2, a, &a0, &a1);
+        hb_up4(&e->dist_up2, b, &b0, &b1);
+        hb_up4(&e->dist_up3, a0, &c[0], &c[1]);
+        hb_up4(&e->dist_up3, a1, &c[2], &c[3]);
+        hb_up4(&e->dist_up3, b0, &c[4], &c[5]);
+        hb_up4(&e->dist_up3, b1, &c[6], &c[7]);
         for (int i = 0; i < 8; ++i) y[i] = clip(e, c[i]);
-        float z0 = hb_down(&e->dist_dn1, y[0], y[1]), z1 = hb_down(&e->dist_dn1, y[2], y[3]);
-        float z2 = hb_down(&e->dist_dn1, y[4], y[5]), z3 = hb_down(&e->dist_dn1, y[6], y[7]);
-        float w0 = hb_down(&e->dist_dn2, z0, z1), w1 = hb_down(&e->dist_dn2, z2, z3);
-        float clipped = hb_down(&e->dist_dn3, w0, w1);
-        float wet = fminf(dr / 0.2f, 1);
+        float z0 = hb_down4(&e->dist_dn1, y[0], y[1]), z1 = hb_down4(&e->dist_dn1, y[2], y[3]);
+        float z2 = hb_down4(&e->dist_dn1, y[4], y[5]), z3 = hb_down4(&e->dist_dn1, y[6], y[7]);
+        float w0 = hb_down4(&e->dist_dn2, z0, z1), w1 = hb_down4(&e->dist_dn2, z2, z3);
+        float clipped = hb_down8(&e->dist_dn3, w0, w1);
+        float wet = sh_minf(dr / 0.2f, 1);
         x += wet * (clipped - x);
     }
     float out = x * 0.0033333334f * sm_tick(&e->sm_vol, e->volume);
 
-    double ph = e->lfo_phase;
+    sh101_real ph = e->lfo_phase;
     int wrapped = 0;
     if (ph > 255) { ph -= 255; wrapped = 1; }
     int idx = (int)ph;
-    double frac = ph - (double)idx;
-    double tri = lerp(tri_table, idx, frac);
-    double sine = lerp(sine_table, idx, frac);
-    double value;
+    sh101_real frac = ph - (sh101_real)idx;
+    sh101_real tri = lerp(tri_table, idx, frac);
+    sh101_real sine = lerp(sine_table, idx, frac);
+    sh101_real value;
     switch (e->lfo_wave) {
     case 1: value = lerp(square_table, idx, frac); break;
     case 2:
@@ -1162,7 +1255,7 @@ float sh101_sample(sh101_t *e)
         float white = (float)e->lfo_seed * -4.656613e-10f;
         e->lfo_n1 += e->lfo_noise_a * (white - e->lfo_n1);
         e->lfo_n2 += e->lfo_noise_a * (e->lfo_n1 - e->lfo_n2);
-        value = (double)e->lfo_n2 * 1.7;
+        value = (sh101_real)e->lfo_n2 * K(1.7);
     } break;
     default: value = tri; break;
     }

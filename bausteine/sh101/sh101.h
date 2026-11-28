@@ -27,6 +27,20 @@
 #define SH101_VOICES 1
 #endif
 #define SH101_STEPS 96
+/* SH101_FLOAT 1: Hüllkurven, Glide, LFO-Phase und Clipper in float statt double wie die Vorlage (fürs FM-1, dessen FPU
+ * nur float rechnet). Standard 0 = wie die Vorlage. */
+#ifndef SH101_FLOAT
+#define SH101_FLOAT 0
+#endif
+/* SH101_FASTMATH 1: exp2, tan, sin im Audiopfad als Polynome statt Bibliotheksaufrufe (Abweichung ~1e-7 relativ). */
+#ifndef SH101_FASTMATH
+#define SH101_FASTMATH 0
+#endif
+#if SH101_FLOAT
+typedef float sh101_real;
+#else
+typedef double sh101_real;
+#endif
 
 /* Parameter in der Reihenfolge der Vorlage (ParamID). Werte im Speicher wie dort: 0..1, ARP_MODE 0..6,
  * ARP_SEQ_SYNC_MODE 0..3. Über baustein_t.set_param immer 0..1 (wird auf den Bereich gestreckt). */
@@ -78,9 +92,9 @@ typedef struct {
 
 typedef struct {
     int state;
-    double value, k, fall, last_a, last_d, last_r, c_a, c_d, c_r;
+    sh101_real value, k, fall, last_a, last_d, last_r, c_a, c_d, c_r;
     int skip_fall;
-    double start_level;
+    sh101_real start_level;
 } sh101_env_t;
 
 typedef struct {
@@ -95,7 +109,7 @@ typedef struct {
     sh101_ladder_t filter;
     sh101_env_t vca_env, filter_env;
     sh101_smoother_t cutoff_s, vel_s, bend_s;
-    double porta_current, porta_unit, porta_last_i, porta_exp, porta_lin;
+    sh101_real porta_current, porta_unit, porta_last_i, porta_exp, porta_lin;
     int porta_last_linear, porta_active;
     float hp_a, hp_s;
     int active, released, legato_from_release, no_retrigger, snap_velocity;
@@ -135,14 +149,15 @@ typedef struct {
     sh101_smoother_t sm_a, sm_d, sm_s, sm_fm, sm_kbd, sm_vol;
     float volume;
     float d_ph0, d_ph1, d_ph2, d_rate;
-    double lfo_phase, lfo_inc, lfo_hz, sh_value;
+    sh101_real lfo_phase, lfo_inc, sh_value;
+    double lfo_hz;
     int lfo_wave; float lfo_invert;
     int32_t lfo_seed; float lfo_n1, lfo_n2, lfo_noise_a;
     float lfo_rate_param; int lfo_sync, lfo_trigger;
     int lfo_gate_armed, lfo_gate_done;
     float drive;
     sh101_halfband_t dist_up1, dist_up2, dist_up3, dist_dn1, dist_dn2, dist_dn3;
-    double adaa_prev;
+    sh101_real adaa_prev;
     uint32_t rng;            /* Zufall für S&H, LFO-Trigger, Random-Arp (Vorlage: Systemzufall) */
     int held[128], held_n;
 #if SH101_WITH_ARPSEQ
@@ -151,9 +166,9 @@ typedef struct {
     int arp_index;
     sh101_step_t steps[SH101_STEPS];
     int seq_length, step_index, current_step;
-    double clock_phase, step_time, clock_inc;
+    sh101_real clock_phase, step_time, clock_inc;
     float arp_rate_param;
-    int shuffle_pending; double shuffle_time; int step_parity;
+    int shuffle_pending; sh101_real shuffle_time; int step_parity;
     int gate_closed, seq_first, seq_record, record_index, current_step_display;
 #endif
 } sh101_t;
