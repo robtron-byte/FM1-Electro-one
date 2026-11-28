@@ -5,7 +5,7 @@ Die MKS-50-Firmware für das M-VAVE FM-1, fortgeführt aus fm1-synths (github.co
 wie dort: wer von der fm1-synths-Fassung aktualisiert, behält eigene Sounds, Sets, Sequenzen und den letzten Stand.
 Entscheidung: [ADR 0047](../../../docs/adr/0047-mks50-baustein.md) (Muster der Wahl A für JX-8P, Koordinator 28.11.2026),
 eigene Presets [ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y15. Nicht zu verwechseln mit MKS Ultra
-(`mksultra`, TAL-Pha-Nachbau).
+(`mksultra`, Alpha-Juno-Nachbau).
 
 ## Kern und Klang
 

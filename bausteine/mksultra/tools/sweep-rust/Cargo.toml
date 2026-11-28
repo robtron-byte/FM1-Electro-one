@@ -3,6 +3,6 @@ name = "sweep"
 version = "0.1.0"
 edition = "2021"
 [dependencies]
-mks-engine = { path = "/Users/ron/ediundsepp Dropbox/Ron Zöllner/Privat/PP/Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/engine" }
+mks-engine = { path = "vorlage/engine" }  # vorlage: Symlink auf den Ordner app/ der Vorlage (gitignoriert, README)
 [profile.release]
 opt-level = 3

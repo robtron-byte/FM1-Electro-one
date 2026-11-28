@@ -6,7 +6,7 @@
 ## Kontext
 
 Der Nutzer hat in seiner Dropbox Nachbauten, die nach seinem Gehör näher am Original sind als unsere Engines:
-DrumKern (808, Swift), MonoBass (SH-101, Swift) und MKS Ultra (Alpha Juno / TAL-Pha, Rust). Er will
+DrumKern (808, Swift), MonoBass (SH-101, Swift) und MKS Ultra (Alpha Juno, Rust). Er will
 herausfinden, welche Kombination auf dem FM-1 am besten passt. Mögliche Kombinationen sind 808 + 101,
 808 + 101 + JX-8P oder der Alpha Juno allein. Jeder Klangerzeuger soll auch allein auf einem FM-1 laufen können, mit vollem Klang.
 

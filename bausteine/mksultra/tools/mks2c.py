@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Wandelt die .mks-Presets der Vorlage in eine C-Tabelle (mksultra_presets.c).
 
-    python3 tools/mks2c.py "<…/TAL Pha Nachbau/app/presets>" mksultra_presets.c
+    python3 tools/mks2c.py "<…/MKS-Ultra-Vorlage/app/presets>" mksultra_presets.c
 
 Liest die Dateien wie engine/src/preset.rs (parse_preset): Attribute des ersten <program>, Stimmungstabelle,
 <Chord>, <voicetuning>. Zahlen werden als Text übernommen und mit Suffix f als C-Literal geschrieben, damit der

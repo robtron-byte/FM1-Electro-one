@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* MKS Ultra solo (Alpha Juno / MKS-50 „Ultra“, TAL-Pha-Nachbau) für das M-VAVE FM-1 (ADR 0045): der Baustein
+/* MKS Ultra solo (Alpha Juno / MKS-50 „Ultra“, Rust-Nachbau) für das M-VAVE FM-1 (ADR 0045): der Baustein
  * bausteine/mksultra in voller Filterqualität (VCF 4×, DCO 2×) auf dem Gerüst bausteine/varianten/gemeinsam.
  *
  * Zwei Kerne im Fließband: Kern 1 rechnet die Stimmen von Block N (mksultra_voices), Kern 0 gleichzeitig die

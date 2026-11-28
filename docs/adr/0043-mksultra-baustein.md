@@ -1,12 +1,12 @@
-# 0043: mksultra – Alpha-Juno-Klang des TAL-Pha-Nachbaus als bitgenauer C-Baustein, Sparen zuerst an den Stimmen
+# 0043: mksultra – Alpha-Juno-Klang des Rust-Nachbaus „MKS Ultra“ als bitgenauer C-Baustein, Sparen zuerst an den Stimmen
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
 
 ## Kontext
 
-Der Nutzer hat einen Rust-Nachbau des Alpha Juno / MKS-50 („MKS Ultra“, TAL-Pha-Nachbau, Dropbox
-`Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/`). Er soll als Baustein nach ADR 0040 ins Repository und später eine
+Der Nutzer hat einen Rust-Nachbau des Alpha Juno / MKS-50 („MKS Ultra“, Dropbox
+`Programmieren/Musik/MKS50 App/MKS-Ultra-Vorlage/app/`). Er soll als Baustein nach ADR 0040 ins Repository und später eine
 Solo-Firmware bekommen. Die Vorlage liefert eine Anleitung zum Portieren und 7 Golden-Renders mit FNV-1a-Prüfsummen.
 
 Die Stimme ist teuer: DCO bei 2× Fs, VCF bei 4× Fs mit zwei nichtlinearen SVFs, dazu Chorus, Delay und Reverb. Dass das

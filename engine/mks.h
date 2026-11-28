@@ -2,7 +2,7 @@
  * MKS-50 / Alpha Juno voice engine, ported from the MKS-50 iOS app:
  * MB87123-style DCO (chopped ramp, pulse, sub, noise, PolyBLEP), 4-step HPF,
  * 24 dB zero-delay-feedback ladder, 4-segment envelope, LFO with delay and
- * tempo sync, BBD chorus, poly / mono / unison, portamento, TAL-Pha style
+ * tempo sync, BBD chorus, poly / mono / unison, portamento, Alpha Juno style
  * pulse detune / sync and voice drift.
  *
  * One mks_part_t is one sound with its own voices. The audio interrupt owns

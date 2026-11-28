@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau „MKS Ultra“). Vorlage: Dropbox
- * `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/engine/src/` (alle .rs) (Stand 28.11.2026), Zeile für Zeile nach C
+ * mksultra: Alpha Juno / MKS-50 „Ultra“ (Alpha-Juno-Nachbau „MKS Ultra“). Vorlage: Dropbox
+ * `Programmieren/Musik/MKS50 App/MKS-Ultra-Vorlage/app/engine/src/` (alle .rs) (Stand 28.11.2026), Zeile für Zeile nach C
  * übertragen, mit denselben Zahlentypen (f32/f64) und derselben Rechenreihenfolge. Siehe README.md.
  *
  * Bauschalter:

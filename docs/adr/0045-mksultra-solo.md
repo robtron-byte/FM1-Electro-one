@@ -5,7 +5,7 @@
 
 ## Kontext
 
-Der Baustein `bausteine/mksultra` (Alpha Juno / MKS-50 „Ultra“, TAL-Pha-Nachbau) rechnet je Stimme einen DCO bei 2× Fs
+Der Baustein `bausteine/mksultra` (Alpha Juno / MKS-50 „Ultra“, Rust-Nachbau) rechnet je Stimme einen DCO bei 2× Fs
 mit BLEP und ein VCF bei 4× Fs mit zwei nichtlinearen SVFs, dazu eine Master-Kette mit Chorus, Delay (2 × 4 s), Hall
 (1 s Vorverzögerung), EQ. Wünsche: Ron-Presets vorn (1–6), mindestens 6 Stimmen, am Filter nicht sparen („erst an den
 Stimmen“), Ziel < 70 % je Kern im Emulator. Entscheidung des Koordinators (28.11.): A = volles Filter, so viele Stimmen
@@ -69,22 +69,22 @@ nicht gebaut: Sie ändert die Summe nicht, und schon die Summe passt nicht.
 |---|---|
 | Stimme VCF 4× | 44 % |
 | Stimme VCF 2× | 28,5 % (4 Stimmen 114 %) |
-| TAL-Master mit Hall und Chorus | 59–60 % |
-| TAL-Master ohne Hall (Chorus, Filter, DC) | 13,4 % |
-| TAL-Master ohne Hall und Chorus | 5,9 % |
+| Original-Master mit Hall und Chorus | 59–60 % |
+| Original-Master ohne Hall (Chorus, Filter, DC) | 13,4 % |
+| Original-Master ohne Hall und Chorus | 5,9 % |
 | Gerüst-Delay + Hall (`syn_fx`, gemessen in SH-101 solo) | 6,6 % (JX-8P/MKS-50: 10–17 %) |
 
 | Fassung, 4 Stimmen 2 + 2 | Kern 1 | Kern 0 |
 |---|---|---|
-| VCF 4×, TAL-Effekte | 88 % | 150 % |
-| VCF 4×, Gerüst-Effekte, TAL-Chorus | 88 % | ~110 % |
-| VCF 2×, Gerüst-Effekte, TAL-Chorus | 57 % | ~79 % |
+| VCF 4×, Original-Effekte | 88 % | 150 % |
+| VCF 4×, Gerüst-Effekte, Original-Chorus | 88 % | ~110 % |
+| VCF 2×, Gerüst-Effekte, Original-Chorus | 57 % | ~79 % |
 | VCF 2×, Gerüst-Effekte, ohne Chorus | 57 % | ~72 % |
 | VCF 2×, Gerüst-Effekte, ohne Chorus, DCO 1× (geschätzt, DCO 2× ≈ 11 % je Stimme) | ~46 % | ~61 % |
 
 Keine gemessene Kombination bleibt sicher unter 70 % je Kern; nur mit DCO 1× (nicht gebaut, Aliasing des Oszillators)
 käme es geschätzt darunter. **0.1.0 bleibt**, Frage an den Nutzer: 1 Stimme volles Klangbild, oder 4 Stimmen mit VCF 2×,
-DCO 1×, ohne TAL-Chorus und mit den Gerüst-Effekten statt TAL-Delay/Hall.
+DCO 1×, ohne Original-Chorus und mit den Gerüst-Effekten statt Original-Delay/Hall.
 
 ## Entscheidung (vorgeschlagen)
 

@@ -1189,6 +1189,6 @@ static int b_active(const void *st)
     return (float)s->quiet < lim;
 }
 
-const baustein_t mksultra_baustein = {"mksultra", "Alpha Juno / MKS-50 Ultra (TAL-Pha-Nachbau)", sizeof(synth_t),
+const baustein_t mksultra_baustein = {"mksultra", "Alpha Juno / MKS-50 Ultra (Rust-Nachbau)", sizeof(synth_t),
                                       MKSULTRA_PARAMS, b_pname, b_init, b_note_on, b_note_off, b_set_param, b_render,
                                       b_active};

@@ -5,14 +5,14 @@
 
 ## Kontext
 
-Der Nutzer hat in seinen iOS-Apps (MKS-50, JX-8P, JP-6) und im TAL-Pha-Nachbau (MKS Ultra) eigene Sounds gebaut, die
+Der Nutzer hat in seinen iOS-Apps (MKS-50, JX-8P, JP-6) und im Alpha-Juno-Nachbau (MKS Ultra) eigene Sounds gebaut, die
 ihm wichtiger sind als die Werks-Sounds (Wunsch 28.11.2026). Es kommen laufend neue dazu. Der Firmware-Build soll aber
 nicht von der Dropbox oder dem iPhone abhängen.
 
 ## Entscheidung
 
 - **Quellen** (Dropbox, „Programmieren/Musik/MKS50 App/“): `Eigene Presets iPhone/<app>/` mit den JSON der Apps
-  (`mks50/`, `jx8p/`, `jp6/`, Format je App, siehe `LIES MICH.txt` dort); für mksultra `TAL Pha Nachbau/app/presets/Ron/`.
+  (`mks50/`, `jx8p/`, `jp6/`, Format je App, siehe `LIES MICH.txt` dort); für mksultra `MKS-Ultra-Vorlage/app/presets/Ron/`.
 - **Holen:** `tools/iphone_presets_pull.sh [mks50|jx8p|jp6]` kopiert per `xcrun devicectl device copy from`
   (`appDataContainer`, `Library/Application Support/UserPresets`) vom iPhone in diesen Ordner. Es überschreibt, löscht
   nichts, und ruft danach das Werkzeug jedes Bausteins auf, der eins hat.

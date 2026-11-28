@@ -32,7 +32,7 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 
 - **Kern nach `bausteine/mks50/` verschieben:** ändert Pfade des Gerätebuilds; später möglich, Adapter bleibt gleich.
 - **Kopie:** zwei Stände. Verworfen.
-- **mksultra statt mks50:** mksultra ist ein anderer Kern (TAL-Pha-Nachbau, ADR 0043). mks50 ist der Klang, den der
+- **mksultra statt mks50:** mksultra ist ein anderer Kern (Alpha-Juno-Nachbau, ADR 0043). mks50 ist der Klang, den der
   Nutzer aus FM1-Electro und seiner MKS-50-App kennt, und braucht nur einen Bruchteil der Rechenzeit.
 
 ## Folgen

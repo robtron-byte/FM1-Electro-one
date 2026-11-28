@@ -108,7 +108,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
   `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
-  `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/presets/Ron/` (6 Presets, dem Nutzer am wichtigsten). Neue Presets kommen
+  `Programmieren/Musik/MKS50 App/MKS-Ultra-Vorlage/app/presets/Ron/` (6 Presets, dem Nutzer am wichtigsten). Neue Presets kommen
   laufend dazu: Jeder Baustein bekommt ein Werkzeug (`tools/` im Baustein), das **alle** Dateien im Quellordner einliest und
   die Preset-Tabelle neu erzeugt (Ergebnis wird eingecheckt, damit der Build ohne Dropbox geht), und ein gemeinsames Skript
   `tools/iphone_presets_pull.sh` holt sie per `xcrun devicectl` vom iPhone in diesen Ordner. Presets, die nur eine
@@ -158,14 +158,14 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `varianten/gemeinsam/README.md`.
 - **Offen:** Gerätetest (Last mit Drive und Distortion, Pegel `SH_GAIN`, Bedienung, Speichern über einen Neustart); Speicher knapp (RAM 4 kB frei, Pool 2 kB; 0.1.3); nur noch Kennungen frei laut Tafel; `release.yml` legt für `firmware/SH101-*` keinen Release an (Bau-Chat). Poly gestrichen (bleibt mono).
 
-### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
+### mksultra: Alpha Juno / MKS-50 „Ultra“ (Rust-Nachbau)
 
 - **In Arbeit:** frei (Solo-Firmware 0.1.0-alpha gebaut, sh101-Chat, 28.11.2026)
 - **Solo-Firmware** (`varianten/mksultra/`, ADR 0045, Y13): A = 1 Stimme mit vollem Filter (`firmware/MKSULTRA-0.1.1-alpha.fwsc`),
   B = 2 Stimmen mit VCF 2× (`MKU_B=1`, nur `build/`). Stimmen auf Kern 1, Master auf Kern 0 im Fließband. 6 Stimmen passen
   in keiner Fassung (A ~300 %, B ~220 % bei 140 %). Offen: Frage A/B an den Nutzer; Delay 0,5 s (Micro Ticks braucht
   1,17 s); 307 Presets fehlen (Gerüst zählt Werkssounds in einem Byte); Knacks beim Preset-Wechsel.
-- **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/` (Rust),
+- **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/MKS-Ultra-Vorlage/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/` (Rust),
   `spec/`, `MECHANICS.md`, 520 Presets in `presets/`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
 - **Stand:** C-Kern fertig, alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). 520 Presets als C-Tabelle,
   alle gegen den Rust-Kern geprüft (`make sweep`, bitgleich).

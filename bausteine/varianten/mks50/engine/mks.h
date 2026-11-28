@@ -4,7 +4,7 @@
  * the MKS-50 iOS app's DSP): MB87123-style DCO (chopped ramp, pulse, sub,
  * noise, PolyBLEP), 4-step HPF, 24 dB zero-delay-feedback ladder, 4-segment
  * envelope, LFO with delay and tempo sync, BBD chorus, poly / mono / unison,
- * portamento, TAL-Pha style pulse detune / sync and voice drift.
+ * portamento, Alpha Juno style pulse detune / sync and voice drift.
  *
  * Changed for this firmware (docs/adr/0002, 0003): the voices are one pool
  * shared by all parts (a part alone gets them all), each part with its own

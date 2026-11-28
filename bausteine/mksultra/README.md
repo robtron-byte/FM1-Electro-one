@@ -9,7 +9,7 @@ Wer daran arbeitet: [../ARBEITSTAFEL.md](../ARBEITSTAFEL.md).
 
 ## Was drin ist
 
-Der Klang des Rust-Nachbaus „MKS Ultra“ (TAL-Pha-Nachbau), vollständig:
+Der Klang des Rust-Nachbaus „MKS Ultra“ (Alpha-Juno-Nachbau), vollständig:
 
 - 12 Stimmen. Je Stimme ein DCO bei 2× Fs (Säge-, Puls- und Sub-Familie, Rauschen, PWM, Hard Sync, BLEP) und bis zu
   6 Unisono-DCOs. Dazu das VCF bei 4× Fs (zwei nichtlineare SVFs in Reihe, Halbband-Filter hiir), DC-Blocker und VCA.
@@ -112,9 +112,14 @@ Die Presets in `presets/Ron/` der Vorlage sind dem Nutzer am wichtigsten. Stand 
 
 `make sweep RUST=<Liste>` rendert jedes Preset kurz (Noten 60 und 64, 0,26 s halten, 0,26 s loslassen). Dann vergleicht
 es die Prüfsumme mit einer Liste, die das Rust-Programm `tools/sweep-rust/` erzeugt. Es nutzt die Vorlage als
-Abhängigkeit (Dropbox-Pfad in `Cargo.toml`) und denselben Ablauf. Stand 28.11.2026: **alle 520 Presets bitgleich**.
+Abhängigkeit und denselben Ablauf. Stand 28.11.2026: **alle 520 Presets bitgleich**.
+
+Die Vorlage wird über einen Symlink `tools/sweep-rust/vorlage` eingebunden (gitignoriert). Er zeigt auf den Ordner
+`app/` der Vorlage. Im Repository heißt der Ordner nur `MKS50 App/MKS-Ultra-Vorlage/` (Platzhalter); der echte
+Ordnername steht nur in der privaten Dropbox-Übersicht des Nutzers. Einmal anlegen:
 
 ```sh
+ln -s "<Dropbox>/…/MKS50 App/<Ordner der Vorlage>/app" bausteine/mksultra/tools/sweep-rust/vorlage
 CARGO_TARGET_DIR=/tmp/sweep cargo run --release --manifest-path bausteine/mksultra/tools/sweep-rust/Cargo.toml -- "<…/app/presets>" > /tmp/rust.txt
 make -C bausteine/mksultra sweep RUST=/tmp/rust.txt
 ```

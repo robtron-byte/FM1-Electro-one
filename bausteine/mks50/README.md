@@ -4,7 +4,7 @@
 Port der MKS-50-iOS-App des Nutzers), als Baustein nach `baustein.h`. Der Ordner **bindet die Dateien aus `engine/`
 nur ein** (keine Kopie); `engine/` bleibt unverändert, der Klang ist bitgleich mit dem Kern. Entscheidung:
 [ADR 0047](../../docs/adr/0047-mks50-baustein.md), eigene Presets: [ADR 0051](../../docs/adr/0051-eigene-presets.md).
-Nicht zu verwechseln mit [`mksultra/`](../mksultra/) (TAL-Pha-Nachbau, eigener Kern).
+Nicht zu verwechseln mit [`mksultra/`](../mksultra/) (Alpha-Juno-Nachbau, eigener Kern).
 
 ## Dateien
 
@@ -46,7 +46,7 @@ Hauptordner grün.
   Test 11 Presets ab, fast alle im Akkord-Modus (drei Tasten × Akkordnoten): JX STRI 01, TRANS E 02–04, INIT TO 04/05,
   SAW SWE 01, HOUSE STAB, ELEC STAB, GATE CHORD, STR CHORD.
 - **Je Stimme:** DCO nach MB87123 (Puls, Sägezahn in 6 Formen, Sub in 6 Formen, Rauschen, PolyBLEP), Range 4'…32',
-  Pulse-Detune/Sync im Stil des TAL-Pha, HPF in 4 Stufen, 24-dB-Ladder (ZDF), VCA, Hüllkurve mit 4 Segmenten
+  Pulse-Detune/Sync im Alpha-Juno-Stil, HPF in 4 Stufen, 24-dB-Ladder (ZDF), VCA, Hüllkurve mit 4 Segmenten
   (T1/L1/T2/L2/T3/L3/T4), Drift.
 - **Je Teil:** LFO mit Delay, 7 Formen, Tempo-Sync und Key-Sync, PWM-LFO, BBD-Chorus (FREE, I, II, I+II), Portamento
   (an/aus/auto), Key-Modi Poly / Akkord / Mono / Unisono (6 Stimmen, Detune), Sends zu Delay und Hall (Effekte bringt
