@@ -160,6 +160,65 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   console.log(`Lauf ${name}: ${got.result || got.error}, ${got.log.length} Nachrichten`);
 }
 
+// ---------------------------------------------- Web-MIDI-Schicht (fake MIDIAccess) ---
+// Fährt WebMidiBackend/WebMidiLink (die Teile, die im Browser das Gerät ansprechen) mit einem nachgebildeten
+// MIDIAccess: eigene Port-Objekte, der Lader meldet sich unter neuem Portnamen (ota-…), Abziehen trennt die Ports.
+class FakeAccess {
+  constructor(dev, log) {
+    Object.assign(this, { dev, log, inputs: new Map(), outputs: new Map(), n: 0, cur: null });
+    this.plug();
+  }
+  portName() { return this.dev.ident.startsWith("ota-") ? "ota-FM-1" : "FM-1 USB MIDI"; }
+  plug() {
+    const id = `p${++this.n}`, name = this.portName(), acc = this;
+    const input = { id, name, state: "connected", onmidimessage: null, async open() {} };
+    const output = { id, name, state: "connected", async open() {},
+      send(bytes) {
+        if (this.state === "disconnected") throw new Error("disconnected");
+        acc.log.push(hex(bytes));
+        acc.dev.receive(Array.from(bytes));
+        acc.after();
+      } };
+    this.inputs.set(id, input); this.outputs.set(id, output); this.cur = { input, output, name };
+  }
+  unplug() {
+    for (const p of [this.cur.input, this.cur.output]) p.state = "disconnected";
+    this.inputs.delete(this.cur.input.id); this.outputs.delete(this.cur.output.id);
+  }
+  after() {
+    if (this.dev.lost) { this.unplug(); return; }
+    const msgs = this.dev.out.splice(0), input = this.cur.input;
+    for (const m of msgs) setTimeout(() => input.onmidimessage && input.onmidimessage({ data: Uint8Array.from(m) }), 0);
+    if (this.portName() !== this.cur.name) { this.unplug(); this.plug(); }   // Neustart: neuer Port
+  }
+}
+
+async function simulateWebMidi(ident, product, image, unplugAt = null) {
+  const dev = new FakeDevice(ident, product, image.length, unplugAt);
+  const log = [], steps = [];
+  const be = new ota.WebMidiBackend(new FakeAccess(dev, log));
+  const open = be.open.bind(be);
+  be.open = async (i, o) => { log.push("open"); return open(i, o); };
+  const up = new ota.Updater(be, fast);
+  try {
+    const d = await up.find();
+    if (!d) return { error: "notfound", log, steps };
+    return { result: await up.install(d, image, product, (k, a = null) => steps.push([k, a])), log, steps };
+  } catch (e) {
+    if (!(e instanceof ota.InstallError)) throw e;
+    return { error: e.code, log, steps };
+  }
+}
+
+for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
+  const got = await simulateWebMidi(ident, good.product, good.image, unplugAt ?? null);
+  const want = ref.sim[name];
+  eq(got.result ?? got.error, want.result ?? want.error, `Web MIDI ${name}: Ergebnis`);
+  eq(sha(got.log.join(",")), sha(want.log.join(",")), `Web MIDI ${name}: Byte-Folge aller gesendeten Nachrichten`);
+  eq(got.steps, want.steps, `Web MIDI ${name}: Schritte/Fortschritt`);
+  console.log(`Web MIDI ${name}: ${got.result || got.error}, ${got.log.length} Nachrichten`);
+}
+
 // eigene Fälle (nur JS): ohne Lader-Kennung abgelehnt, falsche Datei, Fortschritt monoton bis 100
 const noMark = Uint8Array.from(readFileSync(join(ROOT, "firmware", ref.sim_package)));
 const at = Buffer.from(noMark).indexOf(LOADER_MARK);

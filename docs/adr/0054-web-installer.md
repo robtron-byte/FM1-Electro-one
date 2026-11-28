@@ -33,11 +33,13 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   `.github/workflows/`:** der Git-Schlüssel des Chats hat keinen Scope `workflow`, GitHub lehnte den Push ab. Bis jemand
   ihn einmal nach `.github/workflows/installer-pages.yml` verschiebt (Weboberfläche oder Schlüssel mit Scope), wird
   `gh-pages` von Hand gebaut: `python3 web/installer/make_site.py /tmp/site`, dort `git init -b gh-pages`, Commit,
-  `git push -f origin gh-pages`. Alles läuft im Browser, nichts geht an einen Server.
+  `git push -f origin gh-pages`. Der Workflow ist noch nie gelaufen; nach dem Verschieben prüfen, dass `liste.json`
+  auf der Seite sich ändert. Alles läuft im Browser, nichts geht an einen Server.
 - **Test ohne Gerät:** `node web/installer/test/test.mjs` lässt `test/vectors.py` mit dem unveränderten `fm1_install.py`
   rechnen und vergleicht: Prüfergebnis und logisches Abbild jedes Pakets samt kaputter Abwandlungen (Bit gekippt, Kopf,
   abgeschnitten, zu kurz), Antwort-Bytes, und ganze simulierte Läufe (normal, Weiterschreiben im Lader, falsches Modell,
-  fremder Lader, Abziehen beim Schreiben): jede gesendete Nachricht Byte für Byte gleich. Stand 28.11.: 77 Prüfungen gleich.
+  fremder Lader, Abziehen beim Schreiben): jede gesendete Nachricht Byte für Byte gleich; dieselben Läufe zusätzlich durch die Web-MIDI-Schicht (`WebMidiBackend`/`WebMidiLink`) mit
+  nachgebildetem `MIDIAccess`, der Lader unter neuem Portnamen. Stand 28.11.: 92 Prüfungen gleich.
 
 ## Alternativen
 
@@ -59,4 +61,5 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
 
 - 2026-11-28: angelegt (Web-Installer-Chat). Pages per Push des Zweigs `gh-pages` eingeschaltet (Quelle Zweig statt
   Actions, weil der Workflow ohne Scope `workflow` nicht gepusht werden konnte). Seite online, zwei Pakete bytegleich
-  mit dem Repository geprüft.
+  mit dem Repository geprüft. Seite im Browser mit nachgebildetem Web MIDI durchgespielt (Verbinden, SH-101 → JX-8P,
+  Balken, „Fertig“, danach JX-8P 0.2.6-alpha erkannt).

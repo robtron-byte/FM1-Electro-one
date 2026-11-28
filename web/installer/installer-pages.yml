@@ -9,7 +9,7 @@ name: Web-Installer (GitHub Pages)
 on:
   push:
     branches: [main]
-    paths: ["firmware/**", "web/installer/**", "platform/tools/fm1_install.py"]
+    paths: ["firmware/**", "web/installer/**", "platform/tools/fm1_install.py", ".github/workflows/installer-pages.yml"]
   workflow_dispatch:
 
 permissions:
