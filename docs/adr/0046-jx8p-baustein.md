@@ -21,8 +21,8 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 - Host-Test: jedes Preset über den Baustein und direkt über den Kern, Sample für Sample gleich, dazu Prüfsummen je
   Preset (`ref/sums.txt`, `ref/sums4.txt`).
 - **Solo-Firmware „JX-8P solo“** (FEATURES Y14) in `bausteine/varianten/jx8p/` auf dem Gerüst `varianten/gemeinsam/`
-  (ADR 0044), Kennung FM-1_97 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „JX01“ (die Daten der fm1-synths-Fassung,
-  „JX8P“, bleiben unberührt), Journal „JXST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns (68),
+  (ADR 0044), Kennung FM-1_97 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „JX01“ (den Speicher der fm1-synths-Fassung,
+  „JX8P“, liest sie nicht: Neustart leer, überschrieben beim ersten Speichern), Journal „JXST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns (68),
   Seiten nach der fm1-synths-Fassung. Alle 74 Sounds des Bausteins, eigene vorn (Gruppe EIGENE). Delay-/Hall-Anteil
   bleibt im Sound und geht direkt in die Effekte des Gerüsts (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0:
   im Emulator höchstens ≈ 48 % (Ziel < 70 %).

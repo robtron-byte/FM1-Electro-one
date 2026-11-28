@@ -6,6 +6,8 @@ Löst die JX-8P-Firmware aus fm1-synths ab (gleiche Kennung FM-1_97, eigene Spei
 [ADR 0046](../../../docs/adr/0046-jx8p-baustein.md), [ADR 0044](../../../docs/adr/0044-solo-firmware-geruest.md),
 eigene Presets [ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y14.
 
+Die Kennung FM-1_97 ersetzt die fm1-synths-Fassung. Deren Speicher (`STORE_MAGIC` „JX8P“, eigene Sounds, Sets) liest diese Firmware nicht: sie beginnt leer und überschreibt den Bereich beim ersten Speichern (`platform/firmware/src/store.h`). Die fm1-synths-Fassung hatte 4 Parts mit Stimmen-Pool, MIX und SETS; diese hat einen Part mit allen 6 Stimmen.
+
 ## Stand (28.11.2026)
 
 | | |
@@ -63,6 +65,8 @@ prüfen, `firmware/JX8P-<Version>.fwsc` ersetzen (die alte entfernen).
 ## Offen
 
 - Am Gerät: Last (Seite SYSTEM), Pegel, Bedienung.
-- Pitch Bend und Modulationsrad: der Kern hat keine Eingänge dafür (wie in FM1-Electro); BEND/BEND LFO stehen nur im Sound.
+- Pitch Bend und Modulationsrad per MIDI werden nicht ausgewertet: der Kern hat keine Eingänge dafür (wie in FM1-Electro);
+  BEND, BEND LFO und MOD SENS (Seite PATCH) stehen nur im Sound und wirken nicht. Nächste Fassung: Seite PATCH weglassen
+  oder Bender im Kern nachrüsten (Schalter, ADR 0006).
 - Mehr als 6 Stimmen oder Stimmen auf Kern 1: braucht eine Änderung am Kern (`JX8P_MAX_VOICES`) bzw. am Gerüst.
 - Speichern (eigene Sounds, Journal, Sequenzen): gebaut wie im Gerüst, im Emulator nicht über einen Neustart geprüft.

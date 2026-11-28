@@ -52,3 +52,4 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
 
 - 2026-11-28: angelegt (sh101-Chat).
 - 2026-11-28: Blob 0 mit fester Länge, Journal-Einträge mit Längen vorn (vor der ersten Auslieferung).
+- 2026-11-28 (jx8p-Chat): abwärtskompatibel ergänzt: `app.ld` nimmt `.ctrl_text` (EL_CTRL_CODE der Kerne aus `engine/`) in `.text`; `GM_SEND_FIRST` und `GM_FX_FIRST_ON` (erster Start: Part-Sends, Effekte an/aus), für JX-8P solo.
