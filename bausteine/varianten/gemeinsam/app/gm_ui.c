@@ -636,12 +636,16 @@ static void panic_all(void)
 #define JR_N (JR_SECT * JR_PER)
 _Static_assert(JR_AT + JR_SECT * 0x1000u <= SLOTS_AT + NSLOT * SLOT_SECT * 0x1000u, "das Journal passt in die Slots");
 typedef struct { uint32_t magic, seq; uint16_t len, crc; uint32_t sum; } jr_head_t;
+/* Ein Eintrag beschreibt sich selbst: Längen vorn, dann die Einstellungen, dann die Werte je Part. So lädt eine
+ * spätere Fassung (längeres `set`, mehr Parameter) einen älteren Eintrag (jr_load). */
 typedef struct {
+    uint16_t set_len, np;
+    uint8_t page, parts;
     __typeof__(set) set;
     uint8_t v[GM_PARTS][GM_NP];
-    uint8_t page, np;
 } jr_state_t;
 _Static_assert(sizeof(jr_head_t) + sizeof(jr_state_t) <= JR_REC, "ein Stand passt in einen Eintrag");
+_Static_assert(__builtin_offsetof(jr_state_t, set) == 6u, "Kopf des Eintrags: 6 Bytes (jr_load)");
 static jr_state_t jr_now, jr_saved;
 static uint32_t jr_seq, jr_pos, jr_t_change, jr_ok;
 static uint8_t jr_clean[JR_SECT];
@@ -659,13 +663,13 @@ static void jr_take(jr_state_t *st)
     set.sel = sel; set.oct = oct;
     st->set = set;
     for (unsigned p = 0; p < GM_PARTS; p++) memcpy(st->v[p], up[p].v, GM_NP);
-    st->page = page; st->np = GM_NP;
+    st->page = page; st->np = GM_NP; st->set_len = sizeof st->set; st->parts = GM_PARTS;
 }
 static int jr_head(uint32_t i, jr_head_t *h) { return st_read(JR_AT + (i / JR_PER) * 0x1000u + (i % JR_PER) * JR_REC, h, sizeof *h); }
 static int jr_playing(void)
 {
     if (!quiet() || silent_blocks < 700u) return 1;
-    for (unsigned p = 0; p < GM_PARTS; p++) if ((arp[p].cfg[ARP_ON] && arp[p].nkeys) || sq.cfg[p][SQ_ON]) return 1;
+    for (unsigned p = 0; p < GM_PARTS; p++) if ((arp[p].cfg[ARP_ON] && arp[p].nkeys) || (sq.cfg[p][SQ_ON] && sq.len[p])) return 1;
     return 0;
 }
 static int jr_prog(uint32_t off, const uint8_t *src, uint32_t n)
@@ -718,9 +722,17 @@ static int jr_load(jr_state_t *st)
             uint32_t off = JR_AT + (i / JR_PER) * 0x1000u + (i % JR_PER) * JR_REC + sizeof h;
             if (st_read(off, jr_buf, h.len) || jr_crc(jr_buf, h.len) != h.crc) continue;
         }
-        jr_seq = h.seq; best = i; found = 1;
-        memset(st, 0, sizeof *st);
-        memcpy(st, jr_buf, h.len < sizeof *st ? h.len : sizeof *st);   /* (ein älterer, kürzerer Stand: so weit er reicht) */
+        {   /* die Längen des Eintrags: set so weit es reicht, die Werte je Part mit ihrer Anzahl */
+            uint32_t sl = (uint32_t)jr_buf[0] | (uint32_t)jr_buf[1] << 8, np = (uint32_t)jr_buf[2] | (uint32_t)jr_buf[3] << 8;
+            uint32_t parts = jr_buf[5], vo = 6u + sl;
+            if (vo + parts * np > h.len || parts != GM_PARTS || !np) continue;
+            jr_seq = h.seq; best = i; found = 1;
+            memset(st, 0, sizeof *st);
+            st->set_len = (uint16_t)sl; st->np = (uint16_t)np; st->page = jr_buf[4]; st->parts = (uint8_t)parts;
+            memcpy(&st->set, jr_buf + 6, sl < sizeof st->set ? sl : sizeof st->set);
+            for (unsigned p = 0; p < GM_PARTS; p++)
+                for (unsigned k = 0; k < GM_NP; k++) st->v[p][k] = k < np ? jr_buf[vo + p * np + k] : 0xFFu;   /* (0xFF: aus dem Sound) */
+        }
     }
     jr_pos = found ? (best + 1u) % JR_N : 0;
     for (uint32_t sct = 0; sct < JR_SECT; sct++) {
@@ -801,7 +813,7 @@ static void app_main(void)
         load_sound(p, set.p[p].kind, set.p[p].idx);
         if (have == 0) {                        /* die Werte wie beim Ausschalten, geändert oder nicht */
             for (unsigned i = 0; i < GM_NP; i++) {
-                uint8_t x = i < st.np || !st.np ? st.v[p][i] : up[p].base[i];
+                uint8_t x = st.v[p][i];
                 up[p].v[i] = x <= gm_params[i].max ? x : up[p].base[i];
             }
             mark_dirty(p); push_part(p);

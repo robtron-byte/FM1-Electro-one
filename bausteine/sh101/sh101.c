@@ -1149,13 +1149,17 @@ static inline float clip(sh101_t *e, float xf)
 {
     sh101_real x = (sh101_real)xf, xp = e->adaa_prev;
     e->adaa_prev = x;
-    if (SH_FABS(x - xp) < K(1e-6)) {
+    sh101_real d = x - xp;
+    int near = SH_FABS(d) < K(1e-6);
+    /* Nenner nie 0, auch wenn der Compiler die Division vor den Test zieht (FM-1: Divisions-Trap, docs/adr/0018) */
+    sh101_real q = (antiderivative(x) - antiderivative(xp)) / (near ? 1 : d);
+    if (near) {
         sh101_real y = (x + xp) * K(0.5);
         y = y > 1 ? 1 : y;
         y = y < -1 ? -1 : y;
         return (float)y;
     }
-    return (float)((antiderivative(x) - antiderivative(xp)) / (x - xp));
+    return (float)q;
 }
 
 static inline sh101_real lerp(const float *t, int i, sh101_real f)

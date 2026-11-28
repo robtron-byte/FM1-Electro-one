@@ -8,9 +8,9 @@ Gerüst [`../gemeinsam`](../gemeinsam/). Entscheidungen: [ADR 0042](../../../doc
 
 | | |
 |---|---|
-| Firmware | `firmware/SH101-0.1.0-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/SH101-0.1.1-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
 | Klang | eine Stimme in voller Gerätequalität: 4× Ladder, 8× Clipper, BLEP; float und Polynome (`SH101_FLOAT`, `SH101_FASTMATH`), RMS ≤ 6e-5 neben der Vorlage |
-| Last (Emulator) | eine Note 44 %, mit Drive und hoher Resonanz 58,5 % Spitze (Kern 0); Delay + Hall 6,6 % (Kern 1); keine verspäteten Blöcke. **Am Gerät nicht gemessen** (dort ~10 % mehr zu erwarten) |
+| Last (Emulator) | eine Note 44 %, mit Drive und hoher Resonanz 58,5 % Spitze (Kern 0); Delay + Hall 6,6 % (Kern 1); keine verspäteten Blöcke. Kostenmodell des Emulators: 98 % Laufzeit mit Note (MKS-50 zum Abgleich 80 %, dort Gerät = Zeitgeber), Einordnung in ADR 0042. **Am Gerät nicht gemessen** |
 | Am Gerät | nicht geprüft |
 
 ## Bedienung
@@ -55,6 +55,7 @@ Aufspielen wie die anderen Pakete: `python3 bausteine/varianten/gemeinsam/platfo
 ## Offen
 
 - Am Gerät: Last mit Drive (Seite SYSTEM), Bedienung, Pegel (`SH_GAIN`).
+- Speichern (eigene Sounds, Journal, Sequenzen): gebaut wie in fm1-synths, im Emulator nicht über einen Neustart geprüft.
 - Poly mit 2 Stimmen (eine je Kern): braucht eine Block-Schnittstelle im Baustein und Effekte auf Kern 0 (ADR 0042).
 - Bilder für VCO und VCF (bisher nur ENV und PLAY).
 - Velocity: die FM-1-Tasten spielen mit 100; per MIDI mit Anschlag.

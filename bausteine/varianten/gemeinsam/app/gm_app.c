@@ -563,9 +563,12 @@ static const char *cat_label(unsigned c) { return c < GM_NCAT ? gm_cat_name[c] :
 typedef struct { char name[GM_NAMEMAX + 1]; uint8_t cat, used; uint8_t v[GM_NP]; } own_t;
 typedef struct { uint32_t magic; uint16_t ver, np; } own_head_t;
 #define OWN_MAGIC 0x4E574F47u                   /* "GOWN" */
-static struct { own_head_t h; own_t s[NOWN]; } ownb;
-#define own (ownb.s)
-_Static_assert(sizeof ownb <= 4096u - 16u, "die eigenen Sounds passen in einen Blob");
+/* Blob 0 hat immer dieselbe Länge (die Plattform lädt nur genau die gespeicherte Länge): so lädt eine spätere Fassung
+ * mit mehr Parametern die älteren Sounds (Kopf: Formatversion, Anzahl Parameter je Sound) */
+#define OWN_BYTES 4000u
+static union { struct { own_head_t h; own_t s[NOWN]; } d; uint8_t raw[OWN_BYTES]; } ownb;
+#define own (ownb.d.s)
+_Static_assert(sizeof ownb == OWN_BYTES && OWN_BYTES <= SECTOR_MAX, "die eigenen Sounds passen in einen Blob");
 
 typedef struct {
     uint8_t kind, idx, chan, level, cat_view, cat, dirty;
@@ -659,15 +662,15 @@ static void step_sound(unsigned p, int32_t e)   /* links: der Sound davor, recht
 /* eigene Sounds aus Blob 0 laden; ein älteres Format (weniger Parameter) wird ergänzt */
 static void own_load(void)
 {
-    static uint8_t raw[4096];
+    static uint8_t raw[OWN_BYTES];
     own_head_t h;
     memset(&ownb, 0, sizeof ownb);
-    if (!flash_ok || blob_load(0, raw, sizeof ownb)) return;
+    if (!flash_ok || blob_load(0, raw, OWN_BYTES)) return;
     memcpy(&h, raw, sizeof h);
-    if (h.magic != OWN_MAGIC || !h.np || h.np > 255u) return;
+    if (h.magic != OWN_MAGIC || !h.ver || !h.np || h.np > 255u) return;   /* (h.ver: GM_SOUND_VER der Fassung, die schrieb) */
     {
-        uint32_t old = GM_NAMEMAX + 1u + 2u + h.np;
-        for (unsigned j = 0; j < NOWN && sizeof h + (j + 1u) * old <= sizeof raw; j++) {
+        uint32_t old = GM_NAMEMAX + 3u + h.np;  /* ein Sound im gespeicherten Format */
+        for (unsigned j = 0; j < NOWN && sizeof h + (j + 1u) * old <= OWN_BYTES; j++) {
             const uint8_t *s = raw + sizeof h + j * old;
             memcpy(own[j].name, s, GM_NAMEMAX + 1u);
             own[j].name[GM_NAMEMAX] = 0;
@@ -682,9 +685,9 @@ static void own_load(void)
 }
 static void own_flash(void)
 {
-    ownb.h.magic = OWN_MAGIC; ownb.h.ver = GM_SOUND_VER; ownb.h.np = GM_NP;
+    ownb.d.h.magic = OWN_MAGIC; ownb.d.h.ver = GM_SOUND_VER; ownb.d.h.np = GM_NP;
     _Static_assert(sizeof(own_t) == GM_NAMEMAX + 3u + GM_NP, "own_t ohne Füllbytes (Formatumwandlung in own_load)");
-    blob_save(0, &ownb, sizeof ownb);
+    blob_save(0, &ownb, OWN_BYTES);
 }
 
 /* ======================================================================================================

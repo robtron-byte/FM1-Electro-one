@@ -6,8 +6,11 @@
 #include <stdint.h>
 #include "syn_fx.h"                             /* FX_* (Seiten der Effekte) */
 
-#ifndef GM_BLOCK
-#define GM_BLOCK 64u                            /* Frames je Audioblock: 1,45 ms (fm1-synths ADR 0004) */
+/* Frames je Audioblock: 1,45 ms (fm1-synths ADR 0004); eine Quelle: SYN_BLOCK aus tools/build.py (GM_BLOCK=…) */
+#ifdef SYN_BLOCK
+#define GM_BLOCK ((uint32_t)SYN_BLOCK)
+#else
+#define GM_BLOCK 64u
 #endif
 
 typedef struct {

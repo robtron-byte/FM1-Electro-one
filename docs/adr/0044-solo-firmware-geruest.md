@@ -1,7 +1,7 @@
 # 0044: Gemeinsames Gerüst der Solo- und Kombi-Firmwares (`bausteine/varianten/gemeinsam`), erste Variante SH-101 solo
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-28 (SH-101 solo 0.1.0-alpha baut und besteht `tools/fm1-emu/check.sh`; am Gerät nicht geprüft)
+- **Stand:** 2026-11-28 (SH-101 solo 0.1.1-alpha baut und besteht `tools/fm1-emu/check.sh`; am Gerät nicht geprüft)
 
 ## Kontext
 
@@ -24,9 +24,11 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
   Stimmen, eigene Bilder). Klangdateien werden als `dsp_*.o` ins SRAM gelegt. Bauen: `gemeinsam/tools/build.py`
   (nach fm1-synths `mks50/tools/build.py`); auf dem Mac startet es Docker über `tools/mac_docker.py` mit dem ganzen
   Repository unter demselben Pfad.
-- **Speicherversionen:** eigene Sounds in Blob 0 mit Kopf (Kennung, Formatversion, Anzahl Parameter); ein älterer
-  Stand mit weniger Parametern wird geladen und aus dem Grundklang ergänzt. Journal je Variante mit eigener Kennung
-  (`GM_JR_MAGIC`); ein kürzerer (älterer) Eintrag wird übernommen, so weit er reicht. Sequenzen in Blob 3.
+- **Speicherversionen:** eigene Sounds in Blob 0, immer 4000 Bytes (die Plattform lädt nur genau die gespeicherte
+  Länge), mit Kopf (Kennung, Formatversion, Anzahl Parameter); ein älterer Stand mit weniger Parametern wird geladen
+  und aus dem Grundklang ergänzt. Journal je Variante mit eigener Kennung (`GM_JR_MAGIC`); jeder Eintrag beginnt mit
+  den Längen (Einstellungen, Parameter, Parts), so lädt eine spätere Fassung ältere Einträge. Sequenzen in Blob 3.
+  Die Umwandlung ist bisher nur gebaut, nicht mit echten Altständen geprüft (es gibt noch keine).
 - **Kennungen** (Update-Lader, Hub): FM-1_9x; vergeben 95 MKS-50, 96 FM1-Electro, 97 JX-8P, 98 MKS+JX, 99 Dinghy;
   **94 SH-101 solo**. Frei: 90–93 (Tabelle in `gemeinsam/README.md`). Es gibt nur noch vier.
 - **Versionen** je Variante (`<variante>/VERSION`, X.Y.Z-alpha); Paket `firmware/<NAME>-<Version>.fwsc`. Die
@@ -49,3 +51,4 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat).
+- 2026-11-28: Blob 0 mit fester Länge, Journal-Einträge mit Längen vorn (vor der ersten Auslieferung).

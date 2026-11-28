@@ -1,7 +1,7 @@
 # 0042: SH-101 (Baustein sh101) im FM-1: Gerätefassung, eine Stimme, Sequencer aus dem Gerüst
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-28 (Solo-Firmware 0.1.0-alpha gebaut, im Emulator geprüft; auf dem Gerät nicht gemessen)
+- **Stand:** 2026-11-28 (Solo-Firmware 0.1.1-alpha gebaut, im Emulator geprüft; auf dem Gerät nicht gemessen)
 
 ## Kontext
 
@@ -24,8 +24,15 @@ Gemessen im Emulator (fm1-emu, Block 64 = 1,45 ms, eine gehaltene Note, Laufzeit
 | dasselbe mit Drive (8× Clipper) | 51 % |
 
 In der fertigen Firmware (mit Gerüst, Bild, MIDI): eine Note 44 %, schlimmster Fall (Drive + hohe Resonanz) 58,5 % Spitze
-auf Kern 0; Delay und Hall auf Kern 1: 6,6 %. Keine verspäteten Blöcke. Am Gerät kann niemand messen; nach FM1-Electro
-liegt das Gerät etwa 10 % über dem Emulator, fm1-synths schätzt Gleitkomma am Gerät teurer als im Emulator ein.
+auf Kern 0; Delay und Hall auf Kern 1: 6,6 %. Keine verspäteten Blöcke. Am Gerät kann niemand messen.
+
+**Einordnung der Emulator-Zahlen:** Die Prozente oben sind die Messung der Firmware selbst (Zeitgeber je Block, wie die
+Seite SYSTEM am Gerät). Das Kostenmodell des Emulators (`MODEL … % of real time`, ADR 0019) liegt höher: mit gehaltener
+Note 98 % Laufzeit gegen 34 % ohne. Zum Abgleich dieselben Läufe mit der MKS-50-Firmware aus fm1-synths (6 Stimmen):
+Zeitgeber 32 %, Modell 80 % gegen 30 %. Das Verhältnis Modell zu Zeitgeber ist bei beiden gleich (1,45 SH-101,
+1,56 MKS-50); für die MKS-50 stimmte die Zeitgeber-Zahl mit dem Gerät überein (fm1-synths: Emulator 56 %, Gerät 56 %
+Spitze). Schätzung fürs Gerät deshalb: wie der Zeitgeber, 44 % mit einer Note, um 60 % mit Drive. Unsicher bleibt der
+Anteil der FPU-Befehle (SH-101 37 Mio./s gegen MKS-50 18 Mio./s).
 
 ## Entscheidung
 
@@ -60,3 +67,4 @@ liegt das Gerät etwa 10 % über dem Emulator, fm1-synths schätzt Gleitkomma am
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat); Messungen im Emulator.
+- 2026-11-28: 0.1.1-alpha: Clipper ohne bewachte Division (Nenner nie 0), Abgleich der Lastzahlen mit der MKS-50.
