@@ -178,6 +178,17 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   muss bitgleich bleiben (`make test` im Hauptordner). Erster Schritt ohne Risiko: ein Baustein-Ordner, der die Dateien aus
   `engine/` nur einbindet (keine Kopie) und einen Host-Test über `baustein.h` hat.
 
+### Kombi JX-8P + SH-101 (Wunsch des Nutzers 28.11.)
+
+- **In Arbeit:** frei (wird nach den Solo-Firmwares vergeben, vor den 808-Kombis)
+- **Vorbild Bedienung:** die vorhandene Firmware MKS-50 + JX-8P aus fm1-synths (`combo/`, `MKSJX-*.fwsc`, Kennung FM-1_98):
+  Parts, Seite PARTS, Raster nach fm1-synths ADR 0008. Hier: Parts spielen JX-8P oder SH-101 (Bausteine `jx8p`, `sh101`).
+- **Sequencer:** wie in den iOS-Apps des Nutzers (Dropbox `Programmieren/Musik/MKS50 App/JX8P/ios/Shared/UI/SequencerViews.swift`,
+  `PatternBank.swift`, `SynthViewModel.swift`; dieselbe Logik in `Mks50-iOS-/`). Umfang und Bedienung von dort übernehmen,
+  auf das Gerüst `varianten/gemeinsam/` (dessen Sequencer erweitern, abwärtskompatibel). Eigene Patterns des Nutzers aus den
+  Apps (falls in den App-Daten auf dem iPhone, siehe `tools/iphone_presets_pull.sh`) wie die eigenen Presets mitnehmen.
+- **Nummern/Kennung:** ADR 0052, FEATURES P16, FM-1_99, Paket `firmware/JXSH-<Version>.fwsc`, Code in `bausteine/varianten/jxsh/`.
+
 ### Firmware-Varianten
 
 - **In Arbeit:** frei
