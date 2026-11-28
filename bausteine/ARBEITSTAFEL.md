@@ -90,7 +90,9 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   Solo- und Kombi-Firmwares wird die Distortion der Synths weggelassen (JP-6 `dist.c` samt DIST_FIXED-Tabellen, SH-101
   Drive/8×-Clipper), um Speicher und Rechenzeit zu sparen; die frei werdende Last geht in Stimmen. Im Baustein bleibt sie
   (voller Umfang, Schalter `*_WITH_DIST`/`SH101_WITH_DRIVE`, Firmware baut mit 0). Presets mit Distortion klingen dann ohne.
-  In FM1-Electro als Schalter nach ADR 0006 über den Bau-Chat.
+  **Ausnahme:** Firmwares mit 808 behalten die Distortion: FM1-Electro bleibt unverändert, ebenso 808 solo, 808 + 101 und
+  808 + 101 + JX. Weggelassen wird sie nur in den reinen Synth-Firmwares (SH-101, MKS Ultra, JX-8P, MKS-50, JP-6 solo,
+  JX-8P + SH-101).
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
   `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
