@@ -86,13 +86,15 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   FM-1_95 MKS-50 solo (löst die fm1-synths-Fassung ab), FM-1_97 JX-8P solo (löst die fm1-synths-Fassung ab),
   FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX, FM-1_99 JX-8P + SH-101 (99 war nur die Dinghy-Vorlage, keine Firmware des Nutzers). Für 808 solo ist keine 9x
   mehr frei: der dk808-Chat prüft im Lader/Hub, ob FM-1_8x geht, sonst teilt sich 808 solo eine Kennung mit 808 + 101.
-- **Keine Distortion in den Synth-Firmwares (Wunsch des Nutzers 28.11.):** Distortion/Drive nur bei der 808. In allen
-  Solo- und Kombi-Firmwares wird die Distortion der Synths weggelassen (JP-6 `dist.c` samt DIST_FIXED-Tabellen, SH-101
-  Drive/8×-Clipper), um Speicher und Rechenzeit zu sparen; die frei werdende Last geht in Stimmen. Im Baustein bleibt sie
-  (voller Umfang, Schalter `*_WITH_DIST`/`SH101_WITH_DRIVE`, Firmware baut mit 0). Presets mit Distortion klingen dann ohne.
-  **Ausnahme:** Firmwares mit 808 behalten die Distortion: FM1-Electro bleibt unverändert, ebenso 808 solo, 808 + 101 und
-  808 + 101 + JX. Weggelassen wird sie nur in den reinen Synth-Firmwares (SH-101, MKS Ultra, JX-8P, MKS-50, JP-6 solo,
-  JX-8P + SH-101).
+- **Keine Distortion in den Synth-Engines (Wunsch des Nutzers 28.11.):** Keine Synth-Engine rechnet eine eigene
+  Distortion (JP-6 `dist_process` je Part in `engine/jp6.c`, SH-101 Drive/8×-Clipper). Distortion gibt es, wenn überhaupt,
+  nur als **Send-Effekt der Firmware für alle Parts** (wie heute in FM1-Electro `engine/fx.c`, Send DIST). Regeln:
+  - Reine Synth-Firmwares (SH-101, MKS Ultra, JX-8P, MKS-50, JP-6 solo, JX-8P + SH-101): keine Distortion, auch kein Send;
+    Speicher und Last gehen in Stimmen.
+  - Firmwares mit 808 (FM1-Electro, 808 solo, 808 + 101, 808 + 101 + JX): Distortion als Send für alle Parts.
+  - FM1-Electro: die interne JP-6-Distortion als Schalter nach ADR 0006 ausbauen (Bau-Chat); der Send DIST bleibt.
+  - Bausteine behalten sie für die Prüfung gegen die Vorlage (Schalter `*_WITH_DIST`/`SH101_WITH_DRIVE`, Firmwares bauen mit 0).
+    Presets mit Distortion klingen in den Firmwares ohne.
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
   `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
