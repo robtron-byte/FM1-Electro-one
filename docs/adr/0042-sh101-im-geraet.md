@@ -83,5 +83,8 @@ Anteil der FPU-Befehle (SH-101 37 Mio./s gegen MKS-50 18 Mio./s).
 
 - 2026-11-28: angelegt (sh101-Chat); Messungen im Emulator.
 - 2026-11-28: 0.1.3-alpha: Live-Aufnahme (Seite LOOP) aus dem Gerüst, RAM-Reserve 4 kB.
+- 2026-11-28: 0.1.4-alpha: Gerätetest 0.1.3 – Delay und Hall stumm, leises Knacksen. Ursache: Wettlauf um `fx_in` im Gerüst
+  (Kern 1 las, Kern 0 löschte), behoben über `fx_src`; im Emulator nachgestellt (0.1.3 stumm, 0.1.4 klingt). Distortion-Kurven im
+  Flash (`GM_DIST_ROM`).
 - 2026-11-28: 0.1.2-alpha: Distortion-Send (TUBE, OD, DIST, RAT) auf Kern 1, Drive bleibt, mono, Delay 0,6 s.
 - 2026-11-28: 0.1.1-alpha: Clipper ohne bewachte Division (Nenner nie 0), Abgleich der Lastzahlen mit der MKS-50.

@@ -150,7 +150,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `SH101_WITH_POLY`, `SH101_WITH_ARPSEQ`, dazu die Gerätefassung `SH101_FLOAT` + `SH101_FASTMATH` (RMS ≤ 6e-5 neben der
   Vorlage, eigener Testlauf).
 - **0.1.2 (28.11.):** Distortion-Send TUBE/OD/DIST/RAT (FM1-Electros dist.c, Kern 1), Drive bleibt, mono, Delay ≤ 0,6 s; Kern 0 57,5 %, Kern 1 13,9 %.
-- **Stand Solo-Firmware** (`varianten/sh101/`, Y12, ADR 0042): `firmware/SH101-0.1.3-alpha.fwsc`, Kennung FM-1_94, eine
+- **Stand Solo-Firmware** (`varianten/sh101/`, Y12, ADR 0042): `firmware/SH101-0.1.4-alpha.fwsc` (Delay/Hall-Fehler aus 0.1.3 behoben), Kennung FM-1_94, eine
   Stimme, 46 Parameter, 14 Werkssounds, Arp, SH-101-Sequencer, Delay/Hall auf Kern 1. `check.sh` ok. Last im Emulator:
   eine Note 44 %, mit Drive 58,5 % Spitze (Kern 0), Effekte 6,6 % (Kern 1). Am Gerät nicht gemessen.
 - **Stand Gerüst** (`varianten/gemeinsam/`, P14, ADR 0044): Plattform, shared und App-Rahmen aus fm1-synths (2a7b4fa),
