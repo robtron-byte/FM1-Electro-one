@@ -43,7 +43,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0040 | Bausteine-Aufbau | vergeben |
 | ADR | 0041 | dk808 (DrumKern) im Gerät | frei (reserviert) |
 | ADR | 0042 | sh101 (MonoBass) im Gerät | frei (reserviert) |
-| ADR | 0043 | mksultra im Gerät | frei (reserviert) |
+| ADR | 0043 | mksultra im Gerät | vergeben (mksultra-Chat) |
 | FEATURES | P13 | Bausteine-System | vergeben |
 | FEATURES | B19 | dk808 | vergeben |
 | FEATURES | Y10 | sh101 | vergeben |
@@ -108,7 +108,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
-- **In Arbeit:** frei
+- **In Arbeit:** mksultra-Chat (Unterchat des Koordinators), 28.11.2026: C-Kern + Test, noch keine Firmware
 - **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/*.rs`,
   `spec/*.md`, `MECHANICS.md`, 520 Presets `presets/**/*.mks`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
 - **Stand:** nicht begonnen.
