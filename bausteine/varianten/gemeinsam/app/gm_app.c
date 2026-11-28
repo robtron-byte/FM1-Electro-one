@@ -183,9 +183,15 @@ static uint8_t fx_on;
 #define GM_FX_EXTRA(wl, wr) ((void)0)
 #define GM_FX_EXTRA_ON() 0
 #endif
+/* GM_FX_PRE(sl, sr): die Variante addiert vor Delay und Hall eigene Sends des Blocks davor in den Abzug (z. B. Klang,
+ * den Kern 1 in GM_FX_EXTRA rechnet: 808, ADR 0050). Läuft wie GM_FX_EXTRA auf Kern 1 (sonst Kern 0). Standard: nichts. */
+#ifndef GM_FX_PRE
+#define GM_FX_PRE(sl, sr) ((void)0)
+#endif
 static DSP void fx_run(void)
 {
     for (uint32_t i = 0; i < GM_BLOCK; i++) fx_wet[0][i] = fx_wet[1][i] = 0;
+    GM_FX_PRE(fx_src[0], fx_src[1]);
     if (fx_on) syn_fx_process(fx_src[0], fx_src[1], fx_wet[0], fx_wet[1], GM_BLOCK, bpm_now);
     GM_FX_EXTRA(fx_wet[0], fx_wet[1]);
 }

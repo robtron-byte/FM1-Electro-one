@@ -53,6 +53,7 @@ was sie spielt. Entscheidung: [ADR 0044](../../../docs/adr/0044-solo-firmware-ge
 | `GM_ENGINES` (wahlweise, Standard 1) mit `GM_ENG_OF(v)`, `GM_PARAMS_E/INIT_E/PAGES_E/NPAGE_E/LAYERS_E(e)`, `GM_CAT_ENG(c)`, `GM_ENG_OK(p,e)`, `GM_ENG_NAME(e)`, `GM_FIRST_ENG(p)` | mehrere Klangerzeuger (ADR 0052): Erzeuger steht in einem Wert des Sounds; Seiten, Tabellen und Soundliste folgen dem Erzeuger des gewählten Parts; Felder `K_ENGINE` (PARTS), `K_CHANP` (MIDI-Kanal je Part), `GM_EXTRA_IDX(i)` (Feld `K_EXTRA` → Wert, z. B. Send des gewählten Parts) |
 | `GM_SET_EXTRA` (wahlweise) mit `gm_extra_max/text/default`, `kern_extra` | weitere Werte der Variante im Set (Feld `K_EXTRA`), z. B. globale Distortion der Kombi |
 | `GM_FX_EXTRA(wl, wr)`, `GM_FX_EXTRA_ON()` (wahlweise) | weitere Arbeit auf Kern 1 im Effekt-Takt (SH-101: Distortion; Kombi: JX-Pool und Distortion). Delay und Hall lesen den Abzug `fx_src` von `fx_in` (vor dem Start von Kern 1 kopiert) |
+| `GM_FX_PRE(sl, sr)` (wahlweise) | vor Delay und Hall auf Kern 1: eigene Sends des Blocks davor in den Abzug addieren (808: Instrumente auf Kern 1, ADR 0050) |
 | `GM_OUT_GAIN` (wahlweise) | Ausgangspegel (Standard 0,6 × Vollaussteuerung) |
 
 `kern_*` außer `kern_boot` und `kern_stage` laufen im Audio-Interrupt (`.dsp_text`). `<variante>/tools/build.py` ruft
