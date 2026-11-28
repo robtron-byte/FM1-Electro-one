@@ -13,6 +13,8 @@
 #define GM_NAMEMAX 10u
 #define GM_SOUND_VER 1u                         /* Format der eigenen Sounds: 68 Rohwerte JX_* */
 #define GM_JR_MAGIC 0x5453584Au                 /* "JXST": Journal dieser Firmware */
+#define GM_SEND_FIRST 0                         /* Delay-/Hall-Anteil steht im Sound (JX_DELAY_SEND, JX_REVERB_SEND) */
+#define GM_FX_FIRST_ON 1                        /* Delay und Hall gleich an, wie in fm1-synths */
 #include "gm_types.h"
 /* engine/el_config.h deckt sich hier mit shared/syn_config.h (über syn_fx.h schon geladen: EL_DSP_CODE, el_clampi);
  * die App braucht aus jx8p.h nur die Namen (JX_*, Typen), der Kern selbst wird für sich mit el_config.h übersetzt. */
