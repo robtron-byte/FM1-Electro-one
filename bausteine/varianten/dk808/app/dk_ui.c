@@ -54,7 +54,7 @@ static void PC(int32_t cx, int32_t y, int32_t s, const char *t, uint16_t c) { P(
 enum { BACK = 0x0000, PANEL = 0x18e3, GRID = 0x2945, TEXT = 0xef5d, DIM = 0x738e, FAINT = 0x4208,
        ACCENTC = 0x07ff, RED = 0xf9a6, AMBER = 0xfd20, GREEN = 0x37e6, BEATC = 0xfb44 };
 static const uint16_t part_color[DB_PARTS] = {0xf8a3, 0xfc40, 0xfd8c, 0xfd8c, 0xfd8c, 0x5e7f, 0x5e7f, 0x5e7f, 0x87f0, 0xffff,
-                                              0xfc40, 0xfc40, 0xfc40, 0xfd8c, 0xfd8c, 0xfd8c, 0xffff};
+                                              0xfc40, 0xfc40, 0xfd8c, 0xfd8c, 0xffff};
 enum { HOLD_EDIT = 1, HOLD_GLO = 2, HOLD_GEN = 4 };
 enum { UI_WHITE = 16, UI_BLACK = 11 };
 static const uint8_t white_keys[UI_WHITE] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};
@@ -71,6 +71,7 @@ static struct {
     uint8_t fx[FX_COUNT];
     uint8_t clk_src, clk_send, gen_style, gen_density, gen_keep, preview_off;
 } us;
+#include "dk_punch.c"
 static struct {
     uint32_t now, buttons_prev, keys_prev;
     uint8_t part, acc_lane, page, overview, mute_mode, step_page, fill_edit, hold;
@@ -375,10 +376,59 @@ static void home_slot_key(unsigned slot)
     notice(text);
 }
 
+/* Punch-ins (HOME, wie FM1-Electro): schwarze Tasten 5–11 gehalten = an, losgelassen = aus; solange eine gehalten
+ * ist, stellen die weißen Tasten 1–6 ihren Wert ein (REPEAT: 1–16 der Step, erst damit beginnt es) */
+static uint8_t punch_key[PN_PUNCHES], punch_last;
+static char punch_text[28];
+static void punch_notice(unsigned n, unsigned v)
+{
+    const char *val = pn_value_name(n, v);
+    char *q = put(punch_text, pn_names[n]);
+    if (val) { *q++ = ' '; q = put(q, val); }
+    *q = 0;
+    notice(punch_text);
+}
+static void punch_release(uint32_t keys)
+{
+    for (unsigned n = 0; n < PN_PUNCHES; n++) {
+        if (!punch_key[n] || (keys >> (punch_key[n] - 1u) & 1u)) continue;
+        punch_key[n] = 0;
+        pn.punch &= (uint8_t)~(1u << n);
+        if ((1u << n) == PN_REPEAT) db_post(DB_REPEAT, 0, 0, 0, 0);
+    }
+}
+static unsigned punch_held(void) { unsigned b = 0; for (unsigned n = 0; n < PN_PUNCHES; n++) if (punch_key[n]) b |= 1u << n; return b; }
+static int home_punch_key(unsigned key)
+{
+    int w = key_white(key), b = key_black(key);
+    unsigned held = punch_held();
+    if (w >= 0 && held) {
+        unsigned shown = punch_last, any = 0;
+        for (unsigned n = 0; n < PN_PUNCHES; n++)
+            if ((held >> n & 1u) && pn_value_name(n, (unsigned)w)) {
+                any = 1;
+                if ((1u << n) == PN_REPEAT) { db_post(DB_REPEAT, 0, 1, (uint8_t)w, 0); pn.punch |= PN_REPEAT; }
+                pn.div[n] = (uint8_t)w;
+            }
+        if (any) { if (!(held >> shown & 1u) || !pn_value_name(shown, (unsigned)w)) for (shown = 0; shown < PN_PUNCHES && !((held >> shown & 1u) && pn_value_name(shown, (unsigned)w)); shown++) {} punch_notice(shown, (unsigned)w); }
+        return 1;
+    }
+    if (b >= 4 && b < 4 + PN_PUNCHES) {
+        unsigned n = (unsigned)b - 4u;
+        punch_key[n] = (uint8_t)(key + 1u);
+        punch_last = (uint8_t)n;
+        if ((1u << n) == PN_REPEAT) notice("REPEAT: WHITE KEY = STEP");
+        else { pn.punch |= (uint8_t)(1u << n); punch_notice(n, pn.div[n]); }
+        return 1;
+    }
+    return 0;
+}
+
 static uint32_t keys_seen;
 static void keys_poll(void)
 {
     uint32_t keys = fm1_in.notes, down = keys & ~keys_seen;
+    punch_release(keys);
     unsigned hold = ui.hold;
     keys_seen = keys;
     step_hold_release(keys);
@@ -389,6 +439,7 @@ static void keys_poll(void)
         if (hold & HOLD_GEN) { if (key_white(key) >= 0) generator_key(key); }
         else if (ui.overview) {
             int w = key_white(key), b = key_black(key);
+            if (home_punch_key(key)) continue;
             if (w >= 0 && w < DB_PATTERNS) home_slot_key((unsigned)w);
             else if (b == 0) db_post(DB_AREA_MUTE, 0, !db.muted, 0, 0);
         } else keys_beat(key, hold);
@@ -426,6 +477,14 @@ static void lights(void)
             if (next != now && (ui.now / 250u) & 1u) fm1_led_key(KEY_LED(white_keys[next]), 1);
         }
         fm1_led_key(KEY_LED(black_keys[0]), !db.muted);
+        for (unsigned n = 0; n < PN_PUNCHES; n++) {
+            fm1_led_key(KEY_LED(black_keys[4 + n]), (pn.punch >> n & 1u) != 0);
+            if (!(pn.punch >> n & 1u)) fm1_led_key_glow(KEY_LED(black_keys[4 + n]), 1);
+        }
+        if (punch_key[punch_last] && pn_value_name(punch_last, 0)) {   /* gehalten: der Wert auf den weißen Tasten */
+            for (unsigned i = 0; i < UI_WHITE; i++) fm1_led_key(KEY_LED(white_keys[i]), 0);
+            fm1_led_key(KEY_LED(white_keys[pn.div[punch_last] & 15u]), 1);
+        }
         return;
     }
     for (unsigned i = 0; i < UI_WHITE; ++i) {
@@ -465,8 +524,8 @@ static void draw_header(void)
     t[0] = (char)('A' + db.next); t[1] = 0;
     P(46, 4, 1, t, db.next != db.current ? AMBER : BACK);
     if (db.chain_len) { q = t; for (unsigned i = 0; i < db.chain_len; ++i) { if (i) *q++ = '>'; *q++ = (char)('A' + db.chain[i]); } *q = 0; Q(80, 5, 1, t, AMBER); }
-    if (db.recording) R(60, 4, 6, 6, RED);
-    if (db.muted) Q(120, 5, 1, "MUTE", RED);
+    if (db.recording) P(110, 4, 1, "REC", RED);
+    if (db.muted) Q(140, 5, 1, "MUTE", RED);
     P(4, 19, 1, db.s.pattern[db.next].name, TEXT);
     q = t; fmt_int(q, (int32_t)(us.bpm_x10 / 10u)); q += str_len(q); *q = 0;
     P(140, 19, 1, t, TEXT);
@@ -531,8 +590,29 @@ static void draw_home(void)
         PC(x + 24, 72, 3, sl[s], s == db.current ? BACK : TEXT);
         Q(x + 2, 112, 1, slot_empty(s) ? "EMPTY" : db.s.pattern[s].name, DIM);
     }
-    QC(120, 140, 1, "WHITE 1-4: PATTERN  HELD + MORE: CHAIN", DIM);
-    QC(120, 152, 1, "BLACK 1: BEAT MUTE", DIM);
+    {
+        unsigned bits = pn.punch | punch_held(), n = 0;
+        static const char *const sn[PN_PUNCHES] = {"STUT", "THROW", "TAPE", "REPT", "DLY", "CRSH", "PHSR"};
+        for (unsigned i = 0; i < PN_PUNCHES; i++) n += bits >> i & 1u;
+        if (!n) {
+            QC(120, 136, 1, "WHITE 1-4: PATTERN  HELD + MORE: CHAIN", DIM);
+            QC(120, 148, 1, "BLACK 1: MUTE   BLACK 5-11: PUNCH-IN", DIM);
+            QC(120, 160, 1, "STUT THROW TAPE REPT DLY CRSH PHSR", FAINT);
+            return;
+        }
+        int gap = 4, w = (232 - (int)(n - 1u) * gap) / (int)n, x = 4;
+        for (unsigned i = 0; i < PN_PUNCHES; i++) {
+            if (!(bits >> i & 1u)) continue;
+            int lit = (pn.punch >> i & 1u) && ((ui.now / 125u) & 1u);
+            R(x, 128, w, 44, lit ? ACCENTC : 0x2945);
+            QC(x + w / 2, 134, 1, sn[i], lit ? BACK : TEXT);
+            {
+                const char *v = (1u << i) == PN_REPEAT ? pn_step_names[pn.div[i] & 15u] + 5 : pn_value_name(i, pn.div[i]);
+                if (v) QC(x + w / 2, 150, 2, v, lit ? BACK : ACCENTC);
+            }
+            x += w + gap;
+        }
+    }
 }
 static void draw_footer(void)
 {

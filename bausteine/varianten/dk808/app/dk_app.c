@@ -49,6 +49,8 @@ static void dk_pre_c1(void);
 #define GM_FX_EXTRA(wl, wr) dk_k1(wl, wr)
 #define GM_FX_EXTRA_ON() 1
 #define GM_PRE_C1() dk_pre_c1()
+static void dk_post_mix(float *ml, float *mr, float *wl, float *wr);
+#define GM_POST_MIX(ml, mr, wl, wr) dk_post_mix(ml, mr, wl, wr)
 
 static void kern_boot(void) { gm_dist_init(); }   /* (der Klang: db_init/db_restore in app_main, vor dem Audio) */
 static DSPF void kern_set(unsigned p, unsigned i, uint8_t v) { (void)p; (void)i; (void)v; }
@@ -71,19 +73,20 @@ static int kern_stage(unsigned stage, unsigned p) { (void)stage; (void)p; return
 enum { DK_PH = 688u, DK_STEP = 86u, DK_NPH = 20u };
 volatile uint32_t dk_last_peak[DK_NPH], dk_last_sum[DK_NPH], dk_last_n[DK_NPH];
 volatile uint32_t dk_last_peak1[DK_NPH], dk_last_sum1[DK_NPH];
-static volatile uint32_t dk_blk, dk_t1;
+static volatile uint32_t dk_blk, dk_t1, dk_k0;   /* dk_k0: Takte auf Kern 0 in diesem Block (Sequencer, A, Punch-ins) */
 static DSPF void dk_last_pattern(void)
 {
     static const uint32_t pat[16] = {
         1u << P_BD | 1u << P_CH | 1u << P_CY, 1u << P_CH, 1u << P_OH | 1u << P_LC, 1u << P_CH | 1u << P_RS,
-        1u << P_SD | 1u << P_CP | 1u << P_CH, 1u << P_CH | 1u << P_CB, 1u << P_OH | 1u << P_MC, 1u << P_CH | 1u << P_BD,
+        1u << P_SD | 1u << P_CP | 1u << P_CH, 1u << P_CH | 1u << P_CB, 1u << P_OH | 1u << P_HC, 1u << P_CH | 1u << P_BD,
         1u << P_BD | 1u << P_CH, 1u << P_CH | 1u << P_HC, 1u << P_OH | 1u << P_LT, 1u << P_CH | 1u << P_MA,
-        1u << P_SD | 1u << P_CP | 1u << P_CH, 1u << P_CH | 1u << P_MT, 1u << P_OH | 1u << P_HT | 1u << P_CL, 1u << P_CH | 1u << P_SD | 1u << P_LG};
+        1u << P_SD | 1u << P_CP | 1u << P_CH, 1u << P_CH | 1u << P_LT, 1u << P_OH | 1u << P_HT | 1u << P_CL, 1u << P_CH | 1u << P_SD | 1u << P_LG};
     uint32_t ph = dk_blk / DK_PH, k = dk_blk % DK_PH, hit = 0;
     if (dk_blk == 100u) {
         syn_fx_set(FX_DLY_LEVEL, 100); syn_fx_set(FX_REV_LEVEL, 100); fx_on = 1;
         part_send[0][0] = part_send[0][1] = 0.5f;
         db_engA.dist = db_engB.dist = 0.3f;
+        pn.punch = 0x7Fu & ~(8u | 2u);          /* alle Punch-ins an; nicht REPEAT (spielt das Muster um) und THROW (blendet aus: Delay/Hall ruhen) */
     }
     if (k == 0) db_post(DB_PANIC, 0, 0, 0, 0);
     if (ph && ph < DK_NPH && k % DK_STEP == 0)
@@ -95,12 +98,18 @@ static DSPF void dk_last_pattern(void)
 /* Kern 0, bevor Kern 1 startet: der Sequencer (Befehle, Steps mit Swing, Rolls) für beide Zustände */
 static DSPF void dk_pre_c1(void)
 {
+#if defined(DK_LAST) && DK_LAST
+    uint32_t t0 = fm1_ticks();
+#endif
     float tick_len = EL_SR * 60.0f / ((tempo_set < 40.0f ? 40.0f : tempo_set) * 24.0f);
     float ticks = (float)clk_ticks + (ext_follow ? 0.0f : int_acc / tick_len);
 #if defined(DK_LAST) && DK_LAST
     dk_last_pattern();
 #endif
     db_block(xport == 1, ticks, bpm_now, GM_BLOCK);
+#if defined(DK_LAST) && DK_LAST
+    dk_k0 = fm1_ticks() - t0;
+#endif
 }
 /* Kern 0: Zustand A; sein Distortion-Send für Kern 1 im nächsten Block */
 static DSPF void kern_render(unsigned p, float *l, float *r, unsigned n)
@@ -115,11 +124,7 @@ static DSPF void kern_render(unsigned p, float *l, float *r, unsigned n)
     for (unsigned i = 0; i < n; i++) { l[i] *= DK_GAIN; r[i] *= DK_GAIN; dist_buf[q][i] *= DK_GAIN * part_level[0]; }
     FM1_C1_SYNC();
 #if defined(DK_LAST) && DK_LAST
-    {
-        uint32_t t = fm1_ticks() - t0, ph = dk_blk / DK_PH;
-        if (ph < DK_NPH) { if (t > dk_last_peak[ph]) dk_last_peak[ph] = t; dk_last_sum[ph] += t; dk_last_n[ph]++; }
-        dk_blk++;
-    }
+    dk_k0 += fm1_ticks() - t0;
 #endif
 }
 /* Kern 1, vor Delay und Hall: die Sends von Zustand B aus dem Block davor */
@@ -157,3 +162,14 @@ static DSPF void dk_k1(float *wl, float *wr)
     }
 #endif
 }
+
+#if defined(DK_LAST) && DK_LAST
+/* Messung: nach den Punch-ins (GM_POST_MIX) steht die Arbeit von Kern 0 dieses Blocks fest */
+static DSPF void dk_last_k0(uint32_t t)
+{
+    uint32_t ph = dk_blk / DK_PH;
+    t += dk_k0;
+    if (ph < DK_NPH) { if (t > dk_last_peak[ph]) dk_last_peak[ph] = t; dk_last_sum[ph] += t; dk_last_n[ph]++; }
+    dk_blk++;
+}
+#endif

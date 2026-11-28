@@ -1,4 +1,4 @@
 # Display-Bild für den Web-Installer (web/installer/bildschirme/make_bildschirme.sh, ADR 0054):
-# Seite STEPS (SEQ) mit einem kleinen Pattern auf drei Instrumenten, Bild nach 3 s.
-KEYS='800:SEQ,1000:n0,1080:n4,1160:n7,1240:n11,1320:n14,1400:n17,1480:n21,1560:n24,1700:n1,1800:n4,1880:n11,1960:n17,2040:n24,2200:n6,2300:n0,2370:n2,2440:n4,2510:n5,2580:n7,2650:n9,2720:n11,2790:n12,2860:n14,2930:n16'
-MS=3000
+# 808 solo 0.2.0 (Bedienung wie BEAT): der Startbildschirm ist das Pattern; PLAY, Bild nach 2,4 s (Laufmarke im Raster).
+KEYS='1000-1050:PLAY'
+MS=2400

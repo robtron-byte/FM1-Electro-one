@@ -20,11 +20,11 @@ dk808_bs_t db_engA POOL;   /* Kern 0 */
 dk808_bs_t db_engB POOL;   /* Kern 1 */
 
 const char *const db_part_names[DB_PARTS] = {"BD", "SD", "RS", "CP", "CB", "CY", "OH", "CH", "LG", "CL",
-                                              "LT", "MT", "HT", "LC", "MC", "HC", "MA"};
+                                              "LT", "HT", "LC", "HC", "MA"};
 const uint8_t db_part_dk[DB_PARTS] DSPD = {DK_BD, DK_SD, DK_RS, DK_CP, DK_CB, DK_CY, DK_OH, DK_CH, DK_LG, DK_CL,
-                                           DK_LT, DK_MT, DK_HT, DK_LC, DK_MC, DK_HC, DK_MA};
+                                           DK_LT, DK_HT, DK_LC, DK_HC, DK_MA};
 const char *const db_kit_names[DB_KITS] = {"TR-808", "ELECTRO", "MIAMI", "KRAFT"};
-static const uint8_t part_notes[DB_PARTS] = {36, 38, 37, 39, 56, 49, 46, 42, 58, 75, 41, 47, 43, 64, 63, 62, 70};
+static const uint8_t part_notes[DB_PARTS] = {36, 38, 37, 39, 56, 49, 46, 42, 58, 75, 41, 43, 64, 62, 70};
 
 enum { NORMAL_Q7 = 84, ROLL_Q7 = 96 };
 #define NORMAL (NORMAL_Q7 / 127.0f)
@@ -62,6 +62,8 @@ static void v_trigger(unsigned part, float velocity)
     int v = (int)(velocity * 127.0f + 0.5f);
     if (part >= DB_PARTS || v <= 0) return;
     if (v > 127) v = 127;
+    /* CH und OH auf verschiedenen Zuständen: die geschlossene Hat dämpft die offene auch drüben (Choke des Kerns) */
+    if (part == P_CH && db.s.sound.hat_choke) { dk808_choke(&db_engA.k, DK_OH); dk808_choke(&db_engB.k, DK_OH); }
     dk808_trigger(&db_engA.k, db_part_dk[part], v);
     dk808_trigger(&db_engB.k, db_part_dk[part], v);
 }
@@ -278,6 +280,24 @@ static void step(uint32_t sixteenth, float step_frames)
     db.roll_countdown = 0.5f * step_frames;
 }
 
+/* REPEAT (Punch-in, dr_step_at in FM1-Electro): jedes Sechzehntel spielt den gewählten Step des Takts noch einmal,
+ * die Laufmarke geht darunter weiter */
+static void step_at(uint32_t sixteenth, float step_frames, unsigned target)
+{
+    unsigned len = db.s.pattern[db.current].length ? db.s.pattern[db.current].length : 1u;
+    unsigned real = !db.playing ? 0u : db.pos + 1u < len ? db.pos + 1u : 0u;
+    uint8_t next = db.next, pass = (uint8_t)(db.pass + (db.playing && real == 0)), chain = db.chain_len;
+    db.next = db.current;
+    db.playing = 1;
+    db.pos = (uint8_t)((target % len + len - 1u) % len);
+    db.pass = (uint8_t)(target % len == 0 ? pass - 1u : pass);
+    db.chain_len = 0;                           /* (ein wiederholter Step bewegt die Kette nicht) */
+    step(sixteenth, step_frames);
+    db.chain_len = chain;
+    db.next = next;
+    db.pos = (uint8_t)real;
+    db.pass = pass;
+}
 static void apply(const db_cmd_t *c)
 {
     db_pattern_t *p = &db.s.pattern[db.current];
@@ -418,6 +438,7 @@ static void apply(const db_cmd_t *c)
         if (db.chain_len && !db.playing && db.next != db.current) enter(db.next);
         break;
     case DB_AREA_MUTE: db.muted = st ? 1 : 0; break;
+    case DB_REPEAT: db.repeat_on = st ? 1 : 0; db.repeat_step = (uint8_t)(c->c & 15u); return;
     default: return;
     }
     ++db.revision;
@@ -436,6 +457,7 @@ void db_block(int running, float ticks, float bpm, unsigned frames)
     if (running && !db.was_running) { rewind(); db.step_abs = 0; }
     if (!running && db.was_running) rewind();
     db.was_running = (uint8_t)running;
+    db.fired = 0;
     if (running) {
         const db_pattern_t *p = &db.s.pattern[db.current];
         float share = (float)clampi(p->swing, 50, 75) * 0.01f, b = bpm < 20.0f ? 20.0f : bpm;
@@ -444,7 +466,9 @@ void db_block(int running, float ticks, float bpm, unsigned frames)
             uint32_t k = db.step_abs;
             float due = 6.0f * (float)k + ((k & 1u) ? 12.0f * share - 6.0f : 0.0f);
             if (ticks + 0.001f < due) break;
-            step(k, pair * ((k & 1u) ? 1.0f - share : share));
+            if (db.repeat_on) step_at(k, pair * ((k & 1u) ? 1.0f - share : share), db.repeat_step);
+            else step(k, pair * ((k & 1u) ? 1.0f - share : share));
+            db.fired = 1; db.fired_step = k;
             db.step_abs = k + 1u;
         }
     }

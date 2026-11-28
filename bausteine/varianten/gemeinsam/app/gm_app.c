@@ -193,6 +193,11 @@ static uint8_t fx_on;
 #ifndef GM_PRE_C1
 #define GM_PRE_C1() ((void)0)
 #endif
+/* GM_POST_MIX(ml, mr, wl, wr): die Summe des Blocks (trocken ml/mr, Effekte wl/wr) vor der Ausgabe, auf Kern 0 nach dem
+ * Warten auf Kern 1 (808: die Punch-in-Effekte, ADR 0050). Standard: nichts. */
+#ifndef GM_POST_MIX
+#define GM_POST_MIX(ml, mr, wl, wr) ((void)0)
+#endif
 static DSP void fx_run(void)
 {
     for (uint32_t i = 0; i < GM_BLOCK; i++) fx_wet[0][i] = fx_wet[1][i] = 0;
@@ -685,6 +690,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
         fx_run();
         c1_fx_t = fm1_ticks() - t;
     }
+    GM_POST_MIX(mix_l, mix_r, fx_wet[0], fx_wet[1]);   /* (Variante: die fertige Summe, Kern 1 ist fertig) */
     for (uint32_t i = 0; i < GM_BLOCK; i++) {
         float l = (mix_l[i] + fx_wet[0][i]) * GM_OUT_GAIN, r = (mix_r[i] + fx_wet[1][i]) * GM_OUT_GAIN;
         l = l > 32767.0f ? 32767.0f : l < -32767.0f ? -32767.0f : l;

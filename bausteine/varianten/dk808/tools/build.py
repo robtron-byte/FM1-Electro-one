@@ -18,6 +18,6 @@ g.build(dict(name="DK808", root=R, app=R / "app" / "dk_app.c",
                   G / "fx" / "gm_dist.c"],
              flash=[G / "fx" / "gm_dist_tab.c"],
              inc=[R / "app", B / "dk808", B, G / "fx", B.parent / "sdk_include"],
-             defs=["-DDK808_FLOAT=1", f"-DDK_LAST={LAST}", "-DSYN_FX_DLY_MAX_S=0.6f", "-DGM_DIST_ROM=1"],
+             defs=["-DDK808_FLOAT=1", "-DDK808_INSTRUMENTS=(DK808_MASK_ALL&~((1u<<DK_MT)|(1u<<DK_MC)))", f"-DDK_LAST={LAST}", "-DSYN_FX_DLY_MAX_S=0.6f", "-DGM_DIST_ROM=1"],
              product="FM-1_910", prefix="FM-1_91", screen="TR-808", colour=0xFBC0, family="DK808",
              store_magic=0x31304B44))   # "DK01"

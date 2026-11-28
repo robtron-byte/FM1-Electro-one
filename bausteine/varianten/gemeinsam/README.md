@@ -56,6 +56,7 @@ was sie spielt. Entscheidung: [ADR 0044](../../../docs/adr/0044-solo-firmware-ge
 | `GM_FX_PRE(sl, sr)` (wahlweise) | vor Delay und Hall auf Kern 1: eigene Sends des Blocks davor in den Abzug addieren (808: Instrumente auf Kern 1, ADR 0050) |
 | `GM_KEY(k, down, keys)`, `GM_LIGHTS()` (wahlweise) | Taste k (0..26) zuerst an die Variante (1 = genommen, auch fürs Loslassen); LEDs der Tasten nach dem Gerüst setzen (808: Steps, ADR 0050) |
 | `GM_PRE_C1()` (wahlweise) | im Audio-Takt nach Takt und Sequencern, bevor Kern 1 startet (808: Drum-Sequencer für beide Kerne) |
+| `GM_POST_MIX(ml, mr, wl, wr)` (wahlweise) | die Summe des Blocks vor der Ausgabe, auf Kern 0 nach Kern 1 (808: Punch-in-Effekte) |
 | `GM_UI_FILE` (wahlweise) | eigene Bedienung statt `gm_ui.c` (Datei mit `app_main` und `keys_poll`; 808 solo wie BEAT, ADR 0050) |
 | `GM_OUT_GAIN` (wahlweise) | Ausgangspegel (Standard 0,6 × Vollaussteuerung) |
 

@@ -14,8 +14,9 @@
 #include "dk808_bs.h"
 
 /* Teile in der Reihenfolge der schwarzen Tasten von BEAT (ZAP und PULSE von FM1-Electro: Laser Gun und Claves), dann
- * die übrigen sieben (GLO + SELECT) */
-enum { P_BD, P_SD, P_RS, P_CP, P_CB, P_CY, P_OH, P_CH, P_LG, P_CL, P_LT, P_MT, P_HT, P_LC, P_MC, P_HC, P_MA, DB_PARTS };
+ * die übrigen fünf (GLO + SELECT) */
+/* (Mid Tom und Mid Conga gestrichen, Wunsch des Nutzers 28.11.: es bleiben je zwei, Low und High) */
+enum { P_BD, P_SD, P_RS, P_CP, P_CB, P_CY, P_OH, P_CH, P_LG, P_CL, P_LT, P_HT, P_LC, P_HC, P_MA, DB_PARTS };
 enum {
     DB_KEYPARTS = 10,       /* schwarze Tasten 1–10; die 11. ist die Akzent-Zeile */
     DB_STEPS = 32,
@@ -62,7 +63,8 @@ enum db_command {
     DB_FILL_EDIT,   /* b = an */
     DB_FILL_TOGGLE, DB_FILL_ACCENT, DB_FILL_ROLL,   /* a = Teil, b = Step 0..15 */
     DB_CHAIN_SET,   /* b = Glieder 0..4, value = Plätze je 2 Bit */
-    DB_AREA_MUTE    /* b = an */
+    DB_AREA_MUTE,   /* b = an */
+    DB_REPEAT       /* Punch-in REPEAT: b = an, c = Step des Takts 0..15 */
 };
 
 typedef struct { uint8_t type, a, b, c; int16_t value; } db_cmd_t;
@@ -93,13 +95,15 @@ typedef struct {
     uint32_t step_abs, last_tick_step;      /* Takt: Step seit Start, Stand */
     uint8_t was_running, pad[3];
     uint32_t hits_now;                      /* angeschlagene Teile im letzten Step (Anzeige) */
+    uint8_t repeat_on, repeat_step, fired;  /* REPEAT (Punch-in); fired: in diesem Block kam ein Step (Raster der Punch-ins) */
+    uint32_t fired_step;
     volatile uint32_t revision;
 } db_machine_t;
 
 extern db_machine_t db;                     /* im Pool */
 extern dk808_bs_t db_engA, db_engB;         /* Klang: Kern 0, Kern 1 (dist = Anteil in den Distortion-Send) */
 #ifndef DK_K1_MASK
-#define DK_K1_MASK DK808_METAL_USERS        /* Instrumente auf Kern 1 (Kombis: DK808_MASK_ALL) */
+#define DK_K1_MASK ((1u << DK_OH) | (1u << DK_CY))   /* Instrumente auf Kern 1 (CH auf Kern 0: gleiche Last; Kombis: DK808_MASK_ALL) */
 #endif
 extern const char *const db_part_names[DB_PARTS];
 extern const char *const db_kit_names[DB_KITS];
