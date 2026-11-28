@@ -67,6 +67,34 @@ Die Sparfassung wird gegen die volle Fassung gemessen:
   - Bei 6 Stimmen ab 0,6 s: Differenz −1,1 dB (PolySynth) bzw. −2,9 dB (Brass), Gesamtpegel +0,40 bzw. −0,12 dB.
   - Bei 4 Stimmen ab 0,4 s: Differenz +0,8 dB bzw. −0,6 dB, Gesamtpegel +0,07 bzw. −0,37 dB.
 
+## Presets des Nutzers (Ron) – Pflicht (ADR 0051)
+
+Die Presets in `presets/Ron/` der Vorlage sind dem Nutzer am wichtigsten. Stand 28.11.2026 sind es 6:
+041 Lead 6 short ron, Bass Hit 01, Micro Ticks, R2 Random, Short Hit, Stringer.
+
+- **Tabelle:** `tools/mks2c.py` liest **alle** `.mks`-Dateien der Vorlage neu ein, auch neue im Ordner `Ron/`. Es stellt
+  die Ron-Presets an den Anfang der Tabelle (Index 0–5), vor die Werks-Sounds. Das Ergebnis `mksultra_presets.c` ist
+  eingecheckt, der Build braucht die Dropbox also nicht. Neu erzeugen mit `make -C bausteine/mksultra presets PRESETS=<…/app/presets>`.
+- **Prüfung:** Jedes Ron-Preset bekommt im Test einen eigenen Render: Akkord 48 55 60 64, 1 s halten, 1 s loslassen,
+  48 kHz. Verglichen werden Prüfsumme, RMS und Spitze mit `ref/ron.txt`. Die Datei erzeugt der Rust-Kern:
+  `cargo run --release --manifest-path tools/sweep-rust/Cargo.toml -- <presets> ron`.
+  Stand: alle 6 bitgleich. Der Test schlägt fehl, wenn ein Ron-Preset fehlt, nicht vorn steht oder abweicht. Zwei davon
+  (Micro Ticks, 041 Lead) sind zusätzlich Golden-Fälle der Vorlage. Kommt ein neues Ron-Preset dazu, `ref/ron.txt` neu
+  erzeugen.
+- **Sparfassung an den Ron-Presets.** Gemessen wurden der Akkord (4 Noten) und ein Stressfall (8 Noten,
+  Stimmenzahl des Presets):
+
+| Stimmen | Ergebnis |
+|---|---|
+| 6 | alle 6 Ron-Presets Sample für Sample gleich (beide Fälle) |
+| 4 | Lead, Micro Ticks, Short Hit gleich (sie spielen einstimmig). Bass Hit 01 und Stringer weichen im Stressfall ab (Pegel +0,05 / −1,16 dB). R2 Random weicht schon beim Akkord ab, weil Round Robin andere Stimmen wählt (Pegel −0,04 dB); im Stressfall −0,40 dB. |
+| 2 | Bass Hit 01, R2 Random, Stringer weichen deutlich ab (Pegel bis −4,5 dB) |
+
+**Pflicht für die Firmware:**
+
+- Die Ron-Presets stehen vorn (Preset 1–6).
+- Es gibt mindestens 6 Stimmen. Weniger nur nach Rücksprache mit dem Nutzer.
+
 ## Alle 520 Presets gegen den Rust-Kern
 
 `make sweep RUST=<Liste>` rendert jedes Preset kurz (Noten 60 und 64, 0,26 s halten, 0,26 s loslassen). Dann vergleicht

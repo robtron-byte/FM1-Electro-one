@@ -124,8 +124,16 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   alle gegen den Rust-Kern geprüft (`make sweep`, bitgleich).
   Sparfassung `MKSULTRA_VOICES` (weniger Stimmen, Filter unverändert): bei 6 und 4 Stimmen alle Golden-Fälle gleich.
   Rechenzeit auf dem PC ≈ 100 ns je Stimme und Sample (Unisono ≈ 330 ns). Details in `mksultra/README.md`, ADR 0043.
+  **Ron-Presets** (`presets/Ron/`, ADR 0051): `tools/mks2c.py` liest den ganzen Ordner neu ein und stellt sie an den
+  Anfang der Tabelle (Index 0–5). Jedes hat einen eigenen Render gegen den Rust-Kern (`ref/ron.txt`), alle bitgleich.
+  Sparfassung mit 6 Stimmen: alle 6 Ron-Presets bitgleich. Mit 4 Stimmen weichen R2 Random, Bass Hit 01 und Stringer
+  ab (sie spielen 6-stimmig).
 - **Nächster Schritt:** Solo-Firmware „Alpha Juno solo“ (ADR 0045, Y13), sobald `varianten/gemeinsam/` abgenommen ist:
   Stimmenzahl und Puffergröße (`MKSULTRA_MAX_SR`, Delay 2 × 4 s ≈ 1,5 MB bei 48 kHz) im Emulator einmessen.
+  **Pflicht für die Firmware:**
+  - Die Ron-Presets stehen an vorderster Stelle (Preset 1–6).
+  - Mindestens 6 Stimmen, damit die Ron-Presets klingen wie im Baustein. Weniger nur nach Rücksprache mit dem Nutzer.
+  - Die Ron-Prüfung (`make -C bausteine mksultra`) muss auch mit den Schaltern der Firmware grün bleiben.
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
