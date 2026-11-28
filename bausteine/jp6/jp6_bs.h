@@ -17,6 +17,14 @@
 extern const baustein_t jp6_baustein;
 
 double jp6_bs_rate(void);
+/* Direkte Aufrufe für Firmwares (dieselben wie über jp6_baustein, dazu Legato wie engine/synth_track.c). */
+size_t jp6_bs_state_size(void);
+void jp6_bs_init(void *state, double sample_rate);
+void jp6_bs_note_on(void *state, int note, int velocity, int legato);
+void jp6_bs_note_off(void *state, int note);
+void jp6_bs_all_off(void *state);
+void jp6_bs_load_values(void *state, const unsigned char *v);   /* alle Rohwerte, wie ein Preset */
+int jp6_bs_voices(const void *state);                           /* klingende Stimmen */
 /* Presets: zuerst die eigenen des Nutzers (jp6_eigene.c, aus den iPhone-JSON erzeugt), dann die Werks-Sounds aus
  * engine/jp6_presets.c (74 Sounds der JP-6-App). */
 unsigned jp6_bs_preset_count(void);

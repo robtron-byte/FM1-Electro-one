@@ -17,6 +17,14 @@
 extern const baustein_t mks50_baustein;
 
 double mks50_bs_rate(void);
+/* Direkte Aufrufe für Firmwares (dieselben wie über mks50_baustein, dazu Legato wie engine/synth_track.c). */
+size_t mks50_bs_state_size(void);
+void mks50_bs_init(void *state, double sample_rate);
+void mks50_bs_note_on(void *state, int note, int velocity, int legato);
+void mks50_bs_note_off(void *state, int note);
+void mks50_bs_all_off(void *state);
+void mks50_bs_load_values(void *state, const unsigned char *v);   /* alle Rohwerte, wie ein Preset */
+int mks50_bs_voices(const void *state);                           /* klingende Stimmen */
 /* Presets: zuerst die eigenen des Nutzers (mks50_eigene.c, aus den iPhone-JSON erzeugt), dann die Werks-Sounds aus
  * engine/mks_presets.c (56 Sounds der MKS-50-App). */
 unsigned mks50_bs_preset_count(void);

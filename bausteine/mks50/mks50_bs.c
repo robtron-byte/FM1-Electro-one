@@ -62,7 +62,9 @@ int mks50_bs_get_raw(const void *state, unsigned param)
 }
 void mks50_bs_set_bpm(void *state, double bpm) { ((mks50_bs_t *)state)->bpm = (float)bpm; }
 
-static void init(void *state, double sample_rate)
+size_t mks50_bs_state_size(void) { return sizeof(mks50_bs_t); }
+
+void mks50_bs_init(void *state, double sample_rate)
 {
     mks50_bs_t *s = state;
     memset(s, 0, sizeof *s);
@@ -83,24 +85,24 @@ static void set_param(void *state, unsigned param, double value)
     mks50_bs_set_raw(state, param, (int)(value * max + 0.5));
 }
 
-static void chord_notes(mks50_bs_t *s, int root, unsigned type, int on, float velocity)
+static void chord_notes(mks50_bs_t *s, int root, unsigned type, int on, float velocity, int legato)
 {
     for (unsigned k = 0; k < MKS_CHORD_NOTES && mks_chords[type][k] != -128; ++k) {
         int n = root + mks_chords[type][k];
         if (n < 0 || n > 127) continue;
-        if (on) mks_note_on(&s->part, n, velocity, 0);
+        if (on) mks_note_on(&s->part, n, velocity, legato);
         else mks_note_off(&s->part, n);
     }
 }
 
-static void note_on(void *state, int note, int velocity)
+void mks50_bs_note_on(void *state, int note, int velocity, int legato)
 {
     mks50_bs_t *s = state;
     float vel = (float)(velocity < 0 ? 0 : velocity > 127 ? 127 : velocity) / 127.0f;
-    if (s->part.v[MP_KEY_MODE] != 1) { mks_note_on(&s->part, note, vel, 0); return; }
+    if (s->part.v[MP_KEY_MODE] != 1) { mks_note_on(&s->part, note, vel, legato); return; }
     unsigned type = s->part.v[MP_CHORD] < MKS_CHORDS ? s->part.v[MP_CHORD] : 0, slot = 0;
     while (slot < HELD_CHORDS && s->chord_root[slot] != note) ++slot;     /* dieselbe Taste noch gehalten? */
-    if (slot < HELD_CHORDS) chord_notes(s, note, s->chord_type[slot], 0, 0);
+    if (slot < HELD_CHORDS) chord_notes(s, note, s->chord_type[slot], 0, 0, 0);
     else {
         slot = 0;
         while (slot < HELD_CHORDS && s->chord_root[slot] >= 0) ++slot;   /* freie Zeile */
@@ -108,15 +110,17 @@ static void note_on(void *state, int note, int velocity)
     }
     s->chord_root[slot] = (int16_t)note;
     s->chord_type[slot] = (uint8_t)type;
-    chord_notes(s, note, type, 1, vel);
+    chord_notes(s, note, type, 1, vel, legato);
 }
 
-static void note_off(void *state, int note)
+static void note_on(void *state, int note, int velocity) { mks50_bs_note_on(state, note, velocity, 0); }
+
+void mks50_bs_note_off(void *state, int note)
 {
     mks50_bs_t *s = state;
     for (unsigned i = 0; i < HELD_CHORDS; ++i)
         if (s->chord_root[i] == note) {
-            chord_notes(s, note, s->chord_type[i], 0, 0);
+            chord_notes(s, note, s->chord_type[i], 0, 0, 0);
             s->chord_root[i] = -1;
             return;
         }
@@ -142,7 +146,24 @@ static void render(void *state, float *left, float *right, int n)
 
 static int active(const void *state) { return mks_active(&((const mks50_bs_t *)state)->part); }
 
+void mks50_bs_all_off(void *state)
+{
+    mks50_bs_t *s = state;
+    mks_all_off(&s->part);
+    for (unsigned i = 0; i < HELD_CHORDS; ++i) s->chord_root[i] = -1;
+}
+
+void mks50_bs_load_values(void *state, const unsigned char *v) { mks_part_load(&((mks50_bs_t *)state)->part, v); }
+
+int mks50_bs_voices(const void *state)
+{
+    const mks50_bs_t *s = state;
+    int n = 0;
+    for (unsigned i = 0; i < s->part.voices; ++i) n += s->part.voice[i].active;
+    return n;
+}
+
 const baustein_t mks50_baustein = {
     "mks50", "MKS-50 / Alpha Juno (FM1-Electro)", sizeof(mks50_bs_t), MP_COUNT, param_name,
-    init, note_on, note_off, set_param, render, active,
+    mks50_bs_init, note_on, mks50_bs_note_off, set_param, render, active,
 };
