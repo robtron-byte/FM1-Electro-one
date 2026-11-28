@@ -209,6 +209,10 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   JX-Pool 4 auf Kern 1, Distortion global + Send je Part, eigene Presets vorn, Sequencer und LOOP des Gerüsts. Emulator:
   Kern 0 60 %, Kern 1 36 % (mit Distortion RAT), RAM 13,1 kB frei; JX und SH gleich laut (Gain-Staging), Sequencer der iOS-Apps (`GM_SEQ_IOS`), `check.sh` ok. Gerüst: Kern-1-Wettlauf um `fx_in` behoben (`fx_src`).
   ADR 0052, P16. Am Gerät ungeprüft.
+- **Pause (28.11.2026, Wunsch des Nutzers):** sh101-Chat hält an. Stand main 6cdc4b4: SH-101 0.1.6, JXSH 0.1.4, JP-6 0.1.4,
+  MKS Ultra 0.1.3 (Pakete = Build, check.sh mit dieser ELF): Grafik-Kopf (ADR 0055), iOS-Sequencer und Pegel-Trim (JXSH),
+  GLO-Ebene SH-Part, REC ohne Schritt behält die Folge, Info cmd 0x12 mit `APP_PKG`. **Nächster Schritt:** Abnahme durch
+  den Koordinator, dann Gerätetest des Nutzers; offen bleibt die 4-Stimmen-Frage bei MKS Ultra (ADR 0045).
 - **Vorbild Bedienung:** die vorhandene Firmware MKS-50 + JX-8P aus fm1-synths (`combo/`, `MKSJX-*.fwsc`, Kennung FM-1_98):
   Parts, Seite PARTS, Raster nach fm1-synths ADR 0008. Hier: Parts spielen JX-8P oder SH-101 (Bausteine `jx8p`, `sh101`).
 - **Sequencer:** wie in den iOS-Apps des Nutzers (Dropbox `Programmieren/Musik/MKS50 App/JX8P/ios/Shared/UI/SequencerViews.swift`,
