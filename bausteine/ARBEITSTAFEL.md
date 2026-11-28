@@ -42,13 +42,13 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 |---|---|---|---|
 | ADR | 0040 | Bausteine-Aufbau | vergeben |
 | ADR | 0041 | dk808 (DrumKern) im Gerät | frei (reserviert) |
-| ADR | 0042 | sh101 (MonoBass) im Gerät | frei (reserviert) |
+| ADR | 0042 | sh101 (MonoBass) im Gerät | vergeben (sh101-Chat) |
 | ADR | 0043 | mksultra im Gerät | vergeben (mksultra-Chat) |
 | FEATURES | P13 | Bausteine-System | vergeben |
 | FEATURES | B19 | dk808 | vergeben |
 | FEATURES | Y10 | sh101 | vergeben |
 | FEATURES | Y11 | mksultra | vergeben |
-| ADR | 0044 | Solo-Firmware-Gerüst (gemeinsam: Plattform, Sequencer, Speichern, MIDI, Raster) + SH101 solo | frei (reserviert) |
+| ADR | 0044 | Solo-Firmware-Gerüst (gemeinsam: Plattform, Sequencer, Speichern, MIDI, Raster) + SH101 solo | vergeben (sh101-Chat) |
 | ADR | 0045 | mksultra solo | frei (reserviert) |
 | ADR | 0046 | jx8p als Baustein + solo | frei (reserviert) |
 | ADR | 0047 | mks50 als Baustein + solo | frei (reserviert) |
@@ -56,9 +56,9 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
-| FEATURES | P14 | Solo-Firmware-Gerüst | frei (reserviert) |
+| FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
-| FEATURES | Y12 | SH101 solo | frei (reserviert) |
+| FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
 | FEATURES | Y13 | mksultra solo | frei (reserviert) |
 | FEATURES | Y14 | jx8p solo | frei (reserviert) |
 | FEATURES | Y15 | mks50 solo | frei (reserviert) |
@@ -99,7 +99,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### sh101: SH-101 (MonoBass)
 
-- **In Arbeit:** Auftrag vergeben (Koordinator, 28.11.2026), Unterchat trägt sich ein
+- **In Arbeit:** sh101-Chat (Unterchat des Koordinators, Worktree heuristic-easley-bfab0d), seit 28.11.2026: Kern, dann Solo-Firmware + Gerüst `varianten/gemeinsam/`
 - **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
   `Voice`, `Engine`, `Halfband`, `Params`, `Preset`), Testvektoren `docs/test-vectors/` (`vectors.json`, WAVs)
 - **Stand:** nicht begonnen.
