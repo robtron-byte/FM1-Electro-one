@@ -654,6 +654,9 @@ static void keys_poll(void)
     uint32_t keys = fm1_in.notes, down = keys & ~keys_prev, upk = keys_prev & ~keys;
     keys_prev = keys;
     for (uint32_t k = 0; k < 27u && (down | upk); k++) {
+#ifdef GM_KEY
+        if ((down | upk) >> k & 1u && GM_KEY(k, (int)(down >> k & 1u), keys)) continue;   /* die Variante nimmt die Taste */
+#endif
         if (down >> k & 1u) {
             held[k] = (uint8_t)(53 + 12 * oct + (int32_t)k); held_part[k] = sel;
             if (rec_on && rec_part == sel && seq_rec_key(k, held[k], keys)) continue;
@@ -674,6 +677,9 @@ static void lights(void)
 {
     unsigned g = pages[page].group;
     for (uint32_t k = 0; k < 27u; k++) fm1_led_key(KEY_LED(k), keys_prev >> k & 1u);
+#ifdef GM_LIGHTS
+    GM_LIGHTS();                                /* die Variante setzt Tasten-LEDs (808: Steps) */
+#endif
     fm1_led_key(BTN_OCT_DOWN, oct < 0); fm1_led_key(BTN_OCT_UP, oct > 0);
     if (layer) g = layer;
     fm1_led_key(BTN_HOME, !saving && g == G_HOME); fm1_led_key(BTN_EDIT, !saving && g == G_EDIT);
