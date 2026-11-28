@@ -49,7 +49,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y10 | sh101 | vergeben |
 | FEATURES | Y11 | mksultra | vergeben |
 | ADR | 0044 | Solo-Firmware-Gerüst (gemeinsam: Plattform, Sequencer, Speichern, MIDI, Raster) + SH101 solo | vergeben (sh101-Chat) |
-| ADR | 0045 | mksultra solo | frei (reserviert) |
+| ADR | 0045 | mksultra solo | vergeben (sh101-Chat) |
 | ADR | 0046 | jx8p als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0047 | mks50 als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0048 | jp6 als Baustein + solo | vergeben (jx8p-Chat) |
@@ -60,7 +60,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
-| FEATURES | Y13 | mksultra solo | frei (reserviert) |
+| FEATURES | Y13 | mksultra solo | vergeben (sh101-Chat) |
 | FEATURES | Y14 | jx8p solo | vergeben (jx8p-Chat) |
 | FEATURES | Y15 | mks50 solo | vergeben (jx8p-Chat) |
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
