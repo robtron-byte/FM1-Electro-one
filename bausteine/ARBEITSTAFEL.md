@@ -70,6 +70,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
 | FEATURES | P16 | Kombi JX-8P + SH-101 | frei (reserviert) |
 | FEATURES | S20 | Live-Aufnahme nach RK-008 | vergeben (jx8p-Chat) |
+| FEATURES | P17 | Web-Installer | vergeben (Web-Installer-Chat) |
 
 ## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
 

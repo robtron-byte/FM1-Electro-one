@@ -1,0 +1,45 @@
+{
+  "_hinweis": "Beschreibung und Stimmenzahl je Paketname (Dateiname vor der Version). make_site.py liest alle .fwsc in firmware/; ein Name ohne Eintrag hier erscheint trotzdem, nur ohne Beschreibung. Stimmenzahl bei neuen Versionen nachführen.",
+  "FM1_ELECTRO": {
+    "titel": "FM1-Electro",
+    "de": "808-Drums mit Groove-Generator, dazu RHYTHM, STRINGS und BASS mit JX-8P- und JP-6-Klängen, Sequencer und Effekte.",
+    "en": "808 drums with a groove generator plus RHYTHM, STRINGS and BASS with JX-8P and JP-6 sounds, sequencer and effects.",
+    "stimmen_de": "Drums + 3 Stimmen STRINGS",
+    "stimmen_en": "drums + 3 STRINGS voices"
+  },
+  "SH101": {
+    "titel": "SH-101",
+    "de": "Monophoner SH-101-Bass mit Arpeggiator, SH-101-Sequencer, Delay und Hall.",
+    "en": "Monophonic SH-101 bass with arpeggiator, SH-101 sequencer, delay and reverb.",
+    "stimmen_de": "1 Stimme (mono)",
+    "stimmen_en": "1 voice (mono)"
+  },
+  "JX8P": {
+    "titel": "JX-8P",
+    "de": "JX-8P mit zwei DCOs, Chorus, 4 Parts und deinen eigenen Presets zuerst.",
+    "en": "JX-8P with two DCOs, chorus, 4 parts and your own presets first.",
+    "stimmen_de": "4 Stimmen",
+    "stimmen_en": "4 voices"
+  },
+  "MKS50": {
+    "titel": "MKS-50",
+    "de": "MKS-50 / Alpha Juno mit 4 Parts und deinen eigenen Presets zuerst.",
+    "en": "MKS-50 / Alpha Juno with 4 parts and your own presets first.",
+    "stimmen_de": "4 Stimmen",
+    "stimmen_en": "4 voices"
+  },
+  "JP6": {
+    "titel": "JP-6",
+    "de": "Jupiter-6 mit deinen eigenen Presets zuerst, ohne Distortion.",
+    "en": "Jupiter-6 with your own presets first, without distortion.",
+    "stimmen_de": "4 Stimmen",
+    "stimmen_en": "4 voices"
+  },
+  "MKSULTRA": {
+    "titel": "MKS Ultra",
+    "de": "Alpha Juno „Ultra“ (TAL-Pha-Nachbau) mit vollem Filter, die Ron-Presets zuerst.",
+    "en": "Alpha Juno “Ultra” (TAL-Pha recreation) with the full filter, Ron's presets first.",
+    "stimmen_de": "1 Stimme",
+    "stimmen_en": "1 voice"
+  }
+}

@@ -1,5 +1,7 @@
 # FM1-Electro: fertige Firmware zum Ausprobieren
 
+**Aufspielen ohne Terminal, ohne dass Presets gelöscht werden:** [Web-Installer](https://robtron-byte.github.io/FM1-Electro-one/) in Chrome oder Edge öffnen, FM-1 per USB anschließen, „Verbinden“, Firmware wählen, „Installieren“. Alle Pakete aus diesem Ordner stehen dort in der Liste.
+
 ## Neu: `FM1_ELECTRO-0.5.6-alpha.fwsc` (eigene Plattform, Version 0.5.6-alpha, 21.11.2026)
 
 Ab jetzt mit Versionsnummer statt Build-Zählung (`docs/adr/0035`); die Version steht im Dateinamen und unten rechts auf der Seite OPTIONS (HOME halten + SAVE). Kennung `FM-1_965`.

@@ -8,10 +8,11 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 
 | Ordner / Datei | Inhalt | Für wen |
 |---|---|---|
-| `firmware/` | **Fertige Firmware zum Aufspielen** (`FM1_ELECTRO-<Version>.fwsc`) | alle |
+| `firmware/` | **Fertige Firmware zum Aufspielen** (`FM1_ELECTRO-<Version>.fwsc`); am einfachsten mit dem **[Web-Installer](https://robtron-byte.github.io/FM1-Electro-one/)** (Chrome/Edge, Presets bleiben) | alle |
 | `docs/FM1-Electro-Anleitung.pdf`, `docs/manual/` | Bedienungsanleitung | alle |
 | `docs/FEATURES.md` | Feature-Liste mit Nummern zum Bestellen und Streichen | alle |
 | `bausteine/` | Neue Klangerzeuger als austauschbare Bausteine (808 DrumKern, SH-101, MKS Ultra); [Arbeitstafel](bausteine/ARBEITSTAFEL.md): wer arbeitet woran | alle / Chats |
+| `web/installer/` | Web-Installer (Seite auf GitHub Pages) | alle |
 | `docs/adr/` | Entscheidungen (warum etwas so ist), eine Datei je Entscheidung | Nachlesen |
 | `docs/plaene/`, `docs/UEBERGABE.md`, `docs/TR808.md` | Pläne, alte Übergabe, 808-Quellen | Nachlesen |
 | `engine/` | Klangerzeugung im Gerät (Drums, JX-8P, MKS-50, JP-6, Effekte, Sequencer) | Programmierer |

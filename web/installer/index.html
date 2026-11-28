@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FM-1 Installer</title>
+<meta name="description" content="Firmware auf das M-VAVE FM-1 aufspielen, im Browser, ohne Presets zu löschen.">
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1b1b1b; --mute:#666; --line:#ddd; --acc:#0a6cff; --ok:#13803b; --bad:#c62828; --warn:#fff4d6; --warnline:#e0b000; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141414; --card:#1f1f1f; --ink:#f2f2f2; --mute:#aaa; --line:#333; --acc:#4d94ff; --ok:#3ccf6e; --bad:#ff6b6b; --warn:#3a3014; --warnline:#a88600; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:18px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  h1 { font-size:30px; margin:0; }
+  h2 { font-size:22px; margin:0 0 12px; display:flex; gap:10px; align-items:center; }
+  .num { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--acc); color:#fff; font-size:18px; flex:none; }
+  .lead { color:var(--mute); margin:8px 0 20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin:16px 0; }
+  button { font:inherit; font-size:20px; padding:14px 26px; border-radius:10px; border:0; background:var(--acc); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.4; cursor:default; }
+  button.small { font-size:15px; padding:6px 12px; background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .status { margin-top:12px; font-size:19px; min-height:1.5em; }
+  .status.ok { color:var(--ok); } .status.bad { color:var(--bad); }
+  .fw { display:flex; gap:12px; padding:12px; border:2px solid var(--line); border-radius:10px; margin:8px 0; cursor:pointer; align-items:flex-start; }
+  .fw:has(input:checked) { border-color:var(--acc); }
+  .fw input { margin-top:6px; width:20px; height:20px; flex:none; }
+  .fw b { font-size:20px; } .fw .meta { color:var(--mute); font-size:15px; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:18px; text-align:center; color:var(--mute); margin-top:12px; cursor:pointer; }
+  .drop.over { border-color:var(--acc); color:var(--ink); }
+  .warn { background:var(--warn); border-left:5px solid var(--warnline); padding:12px 14px; border-radius:8px; margin:12px 0; }
+  .bar { height:26px; background:var(--line); border-radius:13px; overflow:hidden; margin-top:14px; }
+  .bar > div { height:100%; width:0; background:var(--acc); transition:width .2s; }
+  .done { font-size:34px; font-weight:700; color:var(--ok); margin-top:12px; }
+  .nomidi { background:var(--bad); color:#fff; padding:16px; border-radius:10px; font-size:19px; }
+  details { margin-top:8px; } summary { cursor:pointer; font-weight:600; }
+  footer { color:var(--mute); font-size:14px; margin-top:28px; }
+  footer a { color:inherit; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 data-t="title">FM-1 Installer</h1>
+    <button class="small" id="lang" type="button">English</button>
+  </header>
+  <p class="lead" data-t="lead">Firmware auf das M-VAVE FM-1 aufspielen. Es wird nur das Programm ersetzt, dein Speicher (Sounds, Grooves) wird nicht gelöscht. Alles läuft hier im Browser, nichts geht an einen Server.</p>
+
+  <div class="nomidi" id="nomidi" hidden data-t="nomidi">Dieser Browser kann kein Web MIDI. Bitte die Seite in Google Chrome oder Microsoft Edge auf einem Computer öffnen (nicht Safari, nicht Firefox).</div>
+
+  <section>
+    <h2><span class="num">1</span><span data-t="s1">FM-1 verbinden</span></h2>
+    <p data-t="s1text">FM-1 einschalten und mit einem USB-Datenkabel an den Computer anschließen. Dann auf „Verbinden“ klicken und den MIDI-Zugriff erlauben.</p>
+    <button id="connect" type="button" data-t="connect">Verbinden</button>
+    <div class="status" id="devstatus"></div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span><span data-t="s2">Firmware wählen</span></h2>
+    <div id="list"><span data-t="loading">Liste wird geladen …</span></div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".fwsc" hidden>
+      <span data-t="drop">Oder eine eigene .fwsc-Datei hierher ziehen (oder klicken).</span>
+    </label>
+    <div class="status" id="pkgstatus"></div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span><span data-t="s3">Installieren</span></h2>
+    <div class="warn" data-t="unplug"><b>Während des Schreibens nicht abziehen</b> und das FM-1 nicht ausschalten. Das dauert etwa zwei Minuten.</div>
+    <button id="install" type="button" disabled data-t="install">Installieren</button>
+    <div class="bar" id="bar" hidden><div></div></div>
+    <div class="status" id="progress"></div>
+    <div class="done" id="done" hidden data-t="done">Fertig</div>
+  </section>
+
+  <section>
+    <h2 data-t="helpT">Wenn etwas schiefgeht</h2>
+    <p data-t="help1">Wurde die Verbindung unterbrochen, bleibt das FM-1 im Update-Modus. Einfach wieder anschließen, „Verbinden“ und noch einmal „Installieren“: das Schreiben wird beendet.</p>
+    <p data-t="help2"><b>Rettungsweg:</b> Startet das FM-1 gar nicht mehr, ausschalten, die Taste <b>OCT −</b> gedrückt halten und einschalten. Es startet dann ohne Ton nur im Update-Modus. Jetzt hier verbinden und eine funktionierende Firmware installieren.</p>
+    <details>
+      <summary data-t="moreT">Mehr dazu</summary>
+      <p data-t="more1">Der Installer nutzt dasselbe USB-MIDI-Update (M-UPGRADE) wie das Werkzeug fm1_install.py der Plattform: Die laufende Firmware startet den Update-Lader, der Lader schreibt den Programmbereich, danach startet das FM-1 neu und meldet seine Kennung. Jede Datei wird vorher geprüft (Kennung, Update-Lader im Paket, Prüfsummen); fremde oder beschädigte Dateien werden abgelehnt.</p>
+      <p data-t="more2">Ob eine andere Firmware die gespeicherten Daten einer vorherigen lesen kann, hängt von der Firmware ab. Gelöscht werden sie beim Installieren nicht.</p>
+      <p data-t="more3">Zurück zur Original-Firmware von M-VAVE geht mit dem FM-1 Firmware Hub (thefirmwarehub.com). Installieren auf eigene Gefahr.</p>
+    </details>
+  </section>
+
+  <footer>
+    <a href="https://github.com/robtron-byte/FM1-Electro-one">FM1-Electro-one</a> ·
+    <span data-t="foot">Update-Protokoll nach Felucca von Leo Kuroshita / Hügelton Instruments (GPL-3.0).</span>
+  </footer>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
