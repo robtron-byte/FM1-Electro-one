@@ -58,7 +58,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | frei (reserviert) |
 | ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
-| ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | frei (reserviert) |
+| ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | vergeben (Web-Installer-Chat) |
 | ADR | 0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
@@ -224,6 +224,12 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 - **In Arbeit:** frei
 - Gerüst `varianten/gemeinsam/` steht (ADR 0044); erste Variante `varianten/sh101/`. Neue Variante: App-Datei mit Tabellen und `kern_*`-Haken plus `tools/build.py` (siehe `varianten/gemeinsam/README.md`).
+
+### Web-Installer (Browser, Web MIDI, GitHub Pages)
+
+- **In Arbeit:** Web-Installer-Chat (Worktree vigilant-gates-f4d8fa), seit 28.11.2026
+- **Ziel:** öffentliche Seite `web/installer/`, installiert jede `.fwsc` aus `firmware/` per Web MIDI (M-UPGRADE wie
+  `platform/tools/fm1_install.py`), Presets bleiben. Workflow für GitHub Pages. ADR 0054, FEATURES P17.
 
 ## Weitere offene Punkte
 
