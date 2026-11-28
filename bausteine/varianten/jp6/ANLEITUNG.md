@@ -1,6 +1,6 @@
 # JP-6
 
-Diese Firmware macht aus dem M-VAVE FM-1 einen JP-6 nach dem Jupiter-6: zwei VCOs mit Cross-Mod und Sync, Filter (Tiefpass, Bandpass, Hochpass) und zusätzlichem Hochpass (HPF), zwei Hüllkurven, LFO, Chorus, Akkord- und Unisono-Modus. **4 Stimmen**. Dazu Arpeggiator, Step-Sequencer, Live-Aufnahme (LOOP), Delay und Hall. Keine Distortion. Fassung 0.1.1-alpha.
+Diese Firmware macht aus dem M-VAVE FM-1 einen JP-6 nach dem Jupiter-6: zwei VCOs mit Cross-Mod und Sync, Filter (Tiefpass, Bandpass, Hochpass) und zusätzlichem Hochpass (HPF), zwei Hüllkurven, LFO, Chorus, Akkord- und Unisono-Modus. **4 Stimmen**. Dazu Arpeggiator, Step-Sequencer, Live-Aufnahme (LOOP), Delay und Hall. Keine Distortion. Fassung 0.1.2-alpha.
 
 ## Überblick der Bedienung
 

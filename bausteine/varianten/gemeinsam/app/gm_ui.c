@@ -1053,7 +1053,7 @@ static void app_main(void)
     ev_put(EV_TEMPO, 0, tempo, 0);
     clkv[0] = set.clk_src <= 2u ? set.clk_src : 0; clkv[1] = set.clk_send <= 1u ? set.clk_send : 0;
     ev_put(EV_CLK, 0, 0, clkv[0]); ev_put(EV_CLK, 0, 1, clkv[1]);
-    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)syn_fx_default(i); ev_put(EV_FX, 0, i, fxv[i]); }
+    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)(i == FX_DLY_TIME ? syn_fx_max(i) : syn_fx_default(i)); ev_put(EV_FX, 0, i, fxv[i]); }
     fx_on = fxv[FX_DLY_LEVEL] || fxv[FX_REV_LEVEL];
 #if GM_SET_EXTRA
     for (unsigned i = 0; i < GM_SET_EXTRA; i++) {

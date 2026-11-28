@@ -1,6 +1,6 @@
 # MKS-50
 
-Firmware for the M-VAVE FM-1 with the sound of the Roland MKS-50 (version 0.2.7-alpha), continued from the fm1-synths firmware. Four parts (A–D) play at once, each with its own sound, level and MIDI channel; they share a pool of **4 voices**. Also on board: arpeggiator, chord mode, step sequencer, live loop, delay, reverb and 8 sets. Updating from the fm1-synths version keeps your own sounds, sets, sequences and the last state.
+Firmware for the M-VAVE FM-1 with the sound of the Roland MKS-50 (version 0.2.8-alpha), continued from the fm1-synths firmware. Four parts (A–D) play at once, each with its own sound, level and MIDI channel; they share a pool of **4 voices**. Also on board: arpeggiator, chord mode, step sequencer, live loop, delay, reverb and 8 sets. Updating from the fm1-synths version keeps your own sounds, sets, sequences and the last state.
 
 ## Controls at a glance
 
@@ -141,7 +141,7 @@ One sequencer per part with up to 64 steps. The SEQ button shows LOOP first; tap
 2. Every key is the next step. A key pressed while the one before is still held: tied (legato). The **top key**: a rest. **GLO + key**: the note before one step longer. MIDI notes on the part's channel count as well.
 3. **REC** again: done, the sequence plays.
 
-Caution: REC on the page SEQ always starts a new sequence; REC without playing a key leaves an empty one. Changing the part (ALGORITHM) ends the recording.
+REC on the page SEQ starts a new sequence as soon as a key is played. REC and REC again without playing a key keeps the old sequence ("NOTHING RECORDED: SEQ KEPT"). To clear: **hold EDIT + REC** on the page SEQ ("SEQ CLEARED"). Changing the part (ALGORITHM) ends the recording.
 
 KNOB 1 SEQ on/off, 2 RATE (note value), 3 GATE, 4 SHIFT (transpose). While the sequence plays, the keys transpose it (C4 = no shift). It runs at the tempo or with the MIDI clock; holding PLAY starts (from step 1) and stops.
 
@@ -161,7 +161,7 @@ TEMPO 40–240 BPM. SOURCE: AUTO (follow an incoming MIDI clock, else own tempo)
 
 - **CHORUS** belongs to the sound: OFF, FREE, I, II, I+II; RATE for FREE.
 - **Delay and reverb** exist once for the whole device. Each sound feeds them through its sends (page CHORUS: DELAY, REVERB).
-- DELAY: TIME (at most 0.6 s; with SYNC a note value), FEEDBK, TONE, LEVEL, PING (ping-pong), MOD.
+- DELAY: TIME (up to 600 MS; with SYNC a note value, then also at most 0.6 s), FEEDBK, TONE, LEVEL, PING (ping-pong), MOD.
 - REVERB: SIZE, DECAY, DAMP, LEVEL, TYPE (SPACE, ROOM, PLATE), MOD.
 
 ## Tips

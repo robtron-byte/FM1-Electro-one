@@ -1,6 +1,6 @@
 # MKS-50
 
-Firmware für das M-VAVE FM-1 mit dem Klang des Roland MKS-50 (Fassung 0.2.7-alpha), fortgeführt aus der fm1-synths-Firmware. Vier Parts (A–D) spielen gleichzeitig, jeder mit eigenem Sound, Pegel und MIDI-Kanal; sie teilen sich einen Pool von **4 Stimmen**. Dazu Arpeggiator, Akkord-Modus, Step-Sequencer, Live-Loop, Delay, Hall und 8 Sets. Wer von der fm1-synths-Fassung aktualisiert, behält eigene Sounds, Sets, Sequenzen und den letzten Stand.
+Firmware für das M-VAVE FM-1 mit dem Klang des Roland MKS-50 (Fassung 0.2.8-alpha), fortgeführt aus der fm1-synths-Firmware. Vier Parts (A–D) spielen gleichzeitig, jeder mit eigenem Sound, Pegel und MIDI-Kanal; sie teilen sich einen Pool von **4 Stimmen**. Dazu Arpeggiator, Akkord-Modus, Step-Sequencer, Live-Loop, Delay, Hall und 8 Sets. Wer von der fm1-synths-Fassung aktualisiert, behält eigene Sounds, Sets, Sequenzen und den letzten Stand.
 
 ## Überblick der Bedienung
 
@@ -141,7 +141,7 @@ Ein Sequencer je Part mit bis zu 64 Schritten. Die Taste SEQ zeigt zuerst LOOP; 
 2. Jede Taste ist der nächste Schritt. Eine Taste, während die vorige noch gehalten ist: gebunden (Legato). Die **oberste Taste**: Pause. **GLO + Taste**: die Note davor einen Schritt länger. MIDI-Noten auf dem Kanal des Parts zählen ebenso.
 3. **REC** noch einmal: fertig, die Sequenz spielt.
 
-Achtung: REC auf der Seite SEQ beginnt immer eine neue Sequenz; REC ohne gespielte Taste hinterlässt eine leere. Ein Partwechsel (ALGORITHM) beendet die Aufnahme.
+REC auf der Seite SEQ beginnt eine neue Sequenz, sobald eine Taste gespielt wird. REC und noch einmal REC ohne gespielte Taste lässt die bisherige Sequenz stehen („NOTHING RECORDED: SEQ KEPT“). Löschen: **EDIT halten + REC** auf der Seite SEQ („SEQ CLEARED“). Ein Partwechsel (ALGORITHM) beendet die Aufnahme.
 
 KNOB 1 SEQ an/aus, 2 RATE (Notenwert), 3 GATE, 4 SHIFT (Transponieren). Solange die Sequenz spielt, transponieren die Tasten sie (C4 = keine Verschiebung). Sie läuft im Tempo bzw. mit der MIDI-Clock; PLAY halten startet (ab Schritt 1) und stoppt.
 
@@ -161,7 +161,7 @@ TEMPO 40–240 BPM. SOURCE: AUTO (einer ankommenden MIDI-Clock folgen, sonst eig
 
 - **CHORUS** gehört zum Sound: OFF, FREE, I, II, I+II; RATE für FREE.
 - **Delay und Hall** gibt es einmal für das ganze Gerät. Jeder Sound schickt über seine Sends (Seite CHORUS: DELAY, REVERB) dorthin.
-- DELAY: TIME (höchstens 0,6 s; mit SYNC ein Notenwert), FEEDBK, TONE, LEVEL, PING (Ping-Pong), MOD.
+- DELAY: TIME (bis 600 MS; mit SYNC ein Notenwert, auch dann höchstens 0,6 s), FEEDBK, TONE, LEVEL, PING (Ping-Pong), MOD.
 - REVERB: SIZE, DECAY, DAMP, LEVEL, TYPE (SPACE, ROOM, PLATE), MOD.
 
 ## Tipps

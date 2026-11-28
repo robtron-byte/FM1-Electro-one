@@ -342,7 +342,7 @@ static void perf_apply(const perf_t *r)         /* as at power-on (app_main), bu
     ev_put(EV_TEMPO, 0, tempo, 0);
     clkv[0] = set.clk_src <= 2u ? set.clk_src : 0; clkv[1] = set.clk_send <= 1u ? set.clk_send : 0;
     ev_put(EV_CLK, 0, 0, clkv[0]); ev_put(EV_CLK, 0, 1, clkv[1]);
-    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)syn_fx_default(i); ev_put(EV_FX, 0, i, fxv[i]); }
+    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)(i == FX_DLY_TIME ? syn_fx_max(i) : syn_fx_default(i)); ev_put(EV_FX, 0, i, fxv[i]); }
     fx_on = fxv[FX_DLY_LEVEL] || fxv[FX_REV_LEVEL];
     for (unsigned p = 0; p < JX_PARTS; p++) {
         ev_put(EV_PANIC, p, 0, 0);                  /* (nothing hangs from the sounds before) */
@@ -1276,6 +1276,7 @@ static uint8_t held_part[27], held[27];
  * when the key makes no sound. */
 static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen, lv_sum_saved;
 static uint8_t rec_play, rec_mheld[16];         /* it plays on while recording (SEQ was on); MIDI notes held */
+static uint8_t rec_old_len, rec_old_shift;       /* REC without a step keeps the old sequence (0.2.8) */
 static int seq_rec_key(uint32_t k, uint8_t note, uint32_t keys)
 {
     unsigned s = rec_cur, glo = (fm1_in.buttons >> BTN_GLO) & 1u;
@@ -1305,6 +1306,7 @@ static void seq_rec(int on)                     /* REC: start (the selected part
         rec_on = 1; rec_part = sel; rec_cur = 0; rec_key = rec_note = 0xff;
         rec_mr = rec_mw; seq_rec_p = (uint8_t)(sel + 1u);
         rec_play = sq.cfg[sel][SQ_ON];
+        rec_old_len = sq.len[sel]; rec_old_shift = sq.cfg[sel][SQ_SHIFT];
         if (rec_play) {                         /* as FM1-Electro: the new sequence plays while it grows */
             ev_put(EV_SEQ_LEN, sel, 0, 1);
             ev_put(EV_SEQ, sel, SQ_SHIFT, 24);  /* (as recorded) */
@@ -1314,6 +1316,12 @@ static void seq_rec(int on)                     /* REC: start (the selected part
         return;
     }
     rec_on = 0; seq_rec_p = 0;
+    if (!rec_cur) {                             /* nothing recorded: the old sequence stays (clear: EDIT + REC) */
+        ev_put(EV_SEQ_LEN, rec_part, rec_old_len, rec_play);
+        ev_put(EV_SEQ, rec_part, SQ_SHIFT, rec_old_shift);
+        msg_set(rec_old_len ? "NOTHING RECORDED: SEQ KEPT" : "NOTHING RECORDED", 0);
+        return;
+    }
     ev_put(EV_SEQ_LEN, rec_part, rec_cur, rec_play);
     if (rec_cur) {
         char b[24], *q = b;
@@ -1602,7 +1610,7 @@ static void app_main(void)
     ev_put(EV_TEMPO, 0, tempo, 0);
     clkv[0] = set.clk_src <= 2u ? set.clk_src : 0; clkv[1] = set.clk_send <= 1u ? set.clk_send : 0;
     ev_put(EV_CLK, 0, 0, clkv[0]); ev_put(EV_CLK, 0, 1, clkv[1]);
-    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)syn_fx_default(i); ev_put(EV_FX, 0, i, fxv[i]); }
+    for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)(i == FX_DLY_TIME ? syn_fx_max(i) : syn_fx_default(i)); ev_put(EV_FX, 0, i, fxv[i]); }
     fx_on = fxv[FX_DLY_LEVEL] || fxv[FX_REV_LEVEL];
     sel = set.sel < JX_PARTS ? set.sel : 0;
     oct = set.oct < -3 || set.oct > 3 ? 0 : set.oct;
@@ -1689,6 +1697,12 @@ static void app_main(void)
                     break;
                 case BTN_REC:
                     if (saving) break;
+                    if (!rec_on && pages[page].stage == ST_SEQ && (cur >> BTN_EDIT & 1u)) {   /* EDIT + REC: clear (0.2.8) */
+                        ev_put(EV_SEQ, sel, SQ_ON, 0); ev_put(EV_SEQ_LEN, sel, 0, 0);
+                        layer_used = 1;
+                        msg_set("SEQ CLEARED", 0);
+                        break;
+                    }
                     if (rec_on || pages[page].stage == ST_SEQ) { seq_rec(!rec_on); break; }   /* SEQ page: steps as before */
                     {   /* else the live recording after the RK-008 (ADR 0053): tap now, twice with a count-in, REC keeps */
                         int r = lv_ui_rec(sel, now);

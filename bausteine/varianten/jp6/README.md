@@ -47,7 +47,7 @@ JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 bausteine
 tools/fm1-emu/check.sh ~/fm1-emu $PWD/bausteine/varianten/jp6/build/jp6.fwsc $PWD/bausteine/varianten/jp6/build/dinghy.elf
 ```
 
-Stimmen: `JP_VOICES=<n>` vor dem Build (Standard 6). Neue Fassung: `VERSION` erhöhen (Z), bauen, prüfen,
+Stimmen: `JP_VOICES=<n>` vor dem Build (Standard 4, Regel des Nutzers; der Kern hätte 6). Neue Fassung: `VERSION` erhöhen (Z), bauen, prüfen,
 `firmware/JP6-<Version>.fwsc` ersetzen (die alte entfernen).
 
 ## Offen

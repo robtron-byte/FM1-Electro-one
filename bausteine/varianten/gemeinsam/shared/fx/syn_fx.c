@@ -276,7 +276,18 @@ EL_DSP_CODE void syn_fx_process(const float *dly_in, const float *rev_in, float 
     delay_process(dly_in, out_l, out_r, n, bpm);
     reverb_process(rev_in, out_l, out_r, n);
 }
+#ifdef SYN_FX_DLY_MAX_S
+/* TIME endet dort, wo die Grenze erreicht ist (0,6 s: 109 = 600 MS), statt bis 127 gleich zu klingen (0.2.8) */
+static int dly_time_max(void)
+{
+    static int m;
+    if (!m) { int t = 1; while (t < 127 && syn_fx_delay_seconds(t, 0, 0, 120.0f) < SYN_FX_DLY_MAX_S) t++; m = t; }
+    return m;
+}
+int syn_fx_max(unsigned param) { return param == FX_DLY_TIME ? dly_time_max() : param < FX_COUNT ? maxv[param] : 0; }
+#else
 int syn_fx_max(unsigned param) { return param < FX_COUNT ? maxv[param] : 0; }
+#endif
 int syn_fx_default(unsigned param) { return param < FX_COUNT ? defv[param] : 0; }
 const char *syn_fx_value_name(unsigned param, int value)
 {

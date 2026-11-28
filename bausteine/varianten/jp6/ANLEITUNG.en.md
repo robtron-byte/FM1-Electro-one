@@ -1,6 +1,6 @@
 # JP-6
 
-This firmware turns the M-VAVE FM-1 into a JP-6 modelled on the Jupiter-6: two VCOs with cross-mod and sync, a filter (low-pass, band-pass, high-pass) plus an extra high-pass (HPF), two envelopes, LFO, chorus, chord and unison modes. **4 voices**. On top come an arpeggiator, step sequencer, live recording (LOOP), delay and reverb. No distortion. Version 0.1.1-alpha.
+This firmware turns the M-VAVE FM-1 into a JP-6 modelled on the Jupiter-6: two VCOs with cross-mod and sync, a filter (low-pass, band-pass, high-pass) plus an extra high-pass (HPF), two envelopes, LFO, chorus, chord and unison modes. **4 voices**. On top come an arpeggiator, step sequencer, live recording (LOOP), delay and reverb. No distortion. Version 0.1.2-alpha.
 
 ## Controls at a glance
 

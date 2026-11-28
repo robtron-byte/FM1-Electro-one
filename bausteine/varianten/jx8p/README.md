@@ -18,7 +18,7 @@ aus derselben Portierung der iOS-App; mit einem Part klingen sie **Sample für S
 
 | | |
 |---|---|
-| Firmware | `firmware/JX8P-0.2.7-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX8P“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/JX8P-0.2.8-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX8P“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
 | Last (Emulator) | 0.2.6 (Pool 4, Delay ≤ 0,6 s), 6 gehaltene Noten auf Part A: Kern 0 höchstens 17 %, Kern 1 höchstens 17 %; keine verspäteten Blöcke. 0.2.5 mit Pool 6: höchstens 23 % je Kern |
 | Am Gerät | 0.2.5 nicht geprüft; die fm1-synths-Fassung 0.2.0 am Gerät: 55 % Spitze (dort ADR 0002) |
 
@@ -82,3 +82,10 @@ REC tippen: Aufnahme sofort; zweimal schnell: 1 Takt Einzählen; REC übernimmt,
 Durchgang. Die erste Aufnahme legt die Länge fest (ganze Takte, bis 16), danach Overdub. Fest auf 1/16, Notenlänge wie
 gehalten. Seite LOOP (Taste SEQ): LOOP an/aus, BARS (0 = leer), LONGER (REPEAT/EMPTY), SHORTER (START/END). Auf der
 SEQUENCER-Seite bleibt REC die Schritt-Aufnahme. Gespeichert in Blob 4 (alte Stände laden, Schleifen dann leer).
+
+## 0.2.8 (28.11.2026)
+
+- Delay TIME endet bei 600 MS (`syn_fx_max` mit `SYN_FX_DLY_MAX_S`): Vorher ging der Regler bis 127, ab 109 klang es
+  gleich (0,6 s). Ältere gespeicherte Werte darüber werden auf 600 MS gesetzt.
+- REC auf der Seite SEQ ohne gespielte Taste lässt die Sequenz stehen (vorher war sie danach leer). Löschen mit
+  EDIT + REC (`SEQ CLEARED`).
