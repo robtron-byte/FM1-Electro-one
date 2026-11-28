@@ -185,7 +185,8 @@ function renderList() {
       const a = document.createElement("a");
       a.className = "howto"; a.target = "_blank"; a.rel = "noopener";
       a.href = `anleitung/${encodeURIComponent(e.name)}.html${BILD_V ? BILD_V + "&" : "?"}lang=${lang}`;
-      a.textContent = lang === "en" ? "Manual" : "Anleitung";
+      a.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M8 7h8M8 11h6"/></svg><span></span>';
+      a.querySelector("span").textContent = lang === "en" ? "Manual" : "Anleitung";
       lab.querySelector(".txt").append(document.createElement("br"), a);
     }
     const scr = lab.querySelector(".screen");   // Display des FM-1 mit dieser Firmware (Emulator); fehlt es, entfällt es

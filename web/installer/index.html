@@ -32,7 +32,9 @@
   .fw .media { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:96px; }
   .fw .pic { width:96px; height:64px; border-radius:8px; }
   .fw .txt { flex:1; min-width:0; }
-  .fw .howto { display:inline-block; margin-top:6px; font-size:16px; color:var(--acc); font-weight:600; }
+  .fw .howto { display:inline-flex; align-items:center; gap:7px; margin-top:8px; min-height:40px; padding:6px 14px; font-size:16px; color:inherit; text-decoration:none; border:1px solid var(--line); border-radius:9px; background:color-mix(in srgb, currentColor 5%, transparent); }
+  .fw .howto:hover { background:color-mix(in srgb, currentColor 10%, transparent); }
+  .fw .howto svg { flex:none; }
   .fw .screen { width:96px; height:96px; image-rendering:pixelated; border-radius:5px; border:2px solid #111; background:#000; }
   @media (max-width:520px) { .fw { gap:10px; } .fw .media { width:76px; } .fw .pic { width:76px; height:51px; } .fw .screen { width:76px; height:76px; } .fw b { font-size:18px; } }
   .fw b { font-size:20px; } .fw .meta { color:var(--mute); font-size:15px; }
