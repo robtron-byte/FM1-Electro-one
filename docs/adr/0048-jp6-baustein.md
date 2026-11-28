@@ -55,3 +55,5 @@ deshalb nicht gemacht. Am Gerät die Seite SYSTEM prüfen.
   fm1-synths `jx.c`) wurde auf Hinweis des Nutzers verworfen: für JP-6 gibt es keine ältere Solo-Firmware, gegen die etwas
   fehlen könnte. Distortion auf Wunsch des Nutzers aus (`JP6_BS_DIST=0`). 0.1.0-alpha, Emulator-Prüfung ok, am Gerät offen.
 - 2026-11-28: Regel des Nutzers: 4 Stimmen, Delay höchstens 0,6 s. `firmware/JP6-0.1.0-alpha.fwsc`, Emulator ≤ 41 %.
+- 2026-11-28 (sh101-Chat): 0.1.2-alpha: Delay und Hall waren stumm (Wettlauf um `fx_in` im Gerüst, ADR 0044, behoben über
+  `fx_src`); im Emulator nachgestellt: 0.1.1 nach der Note Pegel 0, 0.1.2 klingt nach.

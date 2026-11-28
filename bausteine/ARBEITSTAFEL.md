@@ -161,7 +161,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
 - **In Arbeit:** frei (Solo-Firmware 0.1.0-alpha gebaut, sh101-Chat, 28.11.2026)
-- **Solo-Firmware** (`varianten/mksultra/`, ADR 0045, Y13): A = 1 Stimme mit vollem Filter (`firmware/MKSULTRA-0.1.0-alpha.fwsc`),
+- **Solo-Firmware** (`varianten/mksultra/`, ADR 0045, Y13): A = 1 Stimme mit vollem Filter (`firmware/MKSULTRA-0.1.1-alpha.fwsc`),
   B = 2 Stimmen mit VCF 2× (`MKU_B=1`, nur `build/`). Stimmen auf Kern 1, Master auf Kern 0 im Fließband. 6 Stimmen passen
   in keiner Fassung (A ~300 %, B ~220 % bei 140 %). Offen: Frage A/B an den Nutzer; Delay 0,5 s (Micro Ticks braucht
   1,17 s); 307 Presets fehlen (Gerüst zählt Werkssounds in einem Byte); Knacks beim Preset-Wechsel.
@@ -203,7 +203,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **jp6 Stand:** `bausteine/jp6/` bindet `engine/jp6.c`, `dist.c` und Co. ein (`engine/` unverändert), Adapter `jp6_bs.c`
   wie jx8p. Alle 79 Presets (5 eigene aus der Sicherung vorn, dann 74 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen in
   `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.
-- **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.1-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
+- **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.2-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
   ohne Distortion (`JP6_BS_DIST=0`), Delay ≤ 0,6 s, 5 eigene Presets vorn. Emulator ≤ 41 % (Kern 0). **Am Gerät ungeprüft.**
 - **In Arbeit:** sh101-Chat (Worktree heuristic-easley-bfab0d), seit 28.11.2026. **Stand:** `firmware/JXSH-0.1.1-alpha.fwsc`
   (FM-1_99): Gerüst mit `GM_ENGINES` (abwärtskompatibel, SH-101/MKS Ultra/JP-6 bauen), Seiten PARTS/MIX/MIDI, ein SH-101,

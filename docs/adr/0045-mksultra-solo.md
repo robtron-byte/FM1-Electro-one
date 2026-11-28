@@ -89,8 +89,8 @@ DCO 1×, ohne TAL-Chorus und mit den Gerüst-Effekten statt TAL-Delay/Hall.
 ## Entscheidung (vorgeschlagen)
 
 - **Standard A:** volles Filter, **1 Stimme** (`MKSULTRA_VOICES=1`, mono wie bei einem Preset mit einer Stimme),
-  `firmware/MKSULTRA-0.1.0-alpha.fwsc`, Kennung FM-1_93. Unisono-Presets liegen auch einstimmig an der Grenze (98 %).
-- **B als Schalter:** `MKU_B=1 python3 tools/build.py` baut `build/MKSULTRA-ab-0.1.0-alpha.fwsc` (2 Stimmen, VCF 2×,
+  `firmware/MKSULTRA-0.1.1-alpha.fwsc`, Kennung FM-1_93. Unisono-Presets liegen auch einstimmig an der Grenze (98 %).
+- **B als Schalter:** `MKU_B=1 python3 tools/build.py` baut `build/MKSULTRA-ab-0.1.1-alpha.fwsc` (2 Stimmen, VCF 2×,
   `check.sh` ok), nicht in `firmware/`.
 - **Zwei Kerne im Fließband:** Kern 1 rechnet die Stimmen von Block N, Kern 0 die Master-Kette von Block N−1 (bitgleich,
   1,45 ms später). Delay und Hall der Vorlage; das Gerüst-Delay ist aus (`GM_FX 0`, neu im Gerüst).
@@ -121,3 +121,5 @@ DCO 1×, ohne TAL-Chorus und mit den Gerüst-Effekten statt TAL-Delay/Hall.
 - 2026-11-28: angelegt (sh101-Chat), Messungen im Emulator.
 - 2026-11-28: begrenzter Versuch 2 + 2 mit Gerüst-Effekten und VCF 2×: Kern 0 ~72–79 %, passt nicht; Tabelle oben.
 - 2026-11-28: Regel 4 Stimmen + Delay 0,6 s gemessen: passt nicht (VCF 4× 153 %, VCF 2× 114 % auf Kern 1).
+- 2026-11-28: 0.1.1-alpha: Seite LOOP (Live-Aufnahme des Gerüsts, ADR 0053), aktueller Gerüststand; Klang unverändert
+  (eigene Effekte, nicht vom `fx_in`-Fehler betroffen).
