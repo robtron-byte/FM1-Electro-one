@@ -6,15 +6,16 @@ Entscheidungen: [ADR 0048](../../../docs/adr/0048-jp6-baustein.md), [ADR 0044](.
 eigene Presets [ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y16. Kennung FM-1_92 (neu, keine Vorgängerin),
 `STORE_MAGIC` „JP01“, Journal „JPST“. **Ohne Distortion** (Wunsch des Nutzers 28.11.2026): statt `engine/dist.c` wird
 `bausteine/jp6/dist_aus.c` gebunden (Schalter `JP6_BS_DIST=0`); die Distortion-Werte bleiben im Sound, haben aber keine
-Seite und keine Wirkung. Ein Part, alle 6 Stimmen auf Kern 0, Kern 1 rechnet Delay und Hall (Gerüst, ADR 0044).
+Seite und keine Wirkung. Ein Part, **4 Stimmen** auf Kern 0 (Regel des Nutzers 28.11.2026; der Kern hätte 6), Kern 1 rechnet Delay und Hall
+(Gerüst, ADR 0044). Delay höchstens **0,6 s** (`-DSYN_FX_DLY_MAX_S=0.6f`).
 
 ## Stand (28.11.2026)
 
 | | |
 |---|---|
 | Firmware | `firmware/JP6-0.1.0-alpha.fwsc` (Kennung FM-1_92), `tools/fm1-emu/check.sh` ok |
-| Klang | der Kern von FM1-Electro unverändert außer der Distortion (aus), 6 Stimmen (alle, die der Kern hat), Chorus je Sound, Delay und Hall des Gerüsts; Pegel wie in FM1-Electro (JP-6 × 1,4, `GM_OUT_GAIN`) |
-| Last (Emulator) | LAST_ZEILE |
+| Klang | der Kern von FM1-Electro unverändert außer der Distortion (aus), 4 Stimmen (`JP_VOICES`, Standard 4), Chorus je Sound, Delay und Hall des Gerüsts; Pegel wie in FM1-Electro (JP-6 × 1,4, `GM_OUT_GAIN`) |
+| Last (Emulator) | 4 gehaltene Stimmen, Unisono-Preset 12 VCO 01 (das teuerste): Kern 0 höchstens 41 %, Kern 1 7 % (Delay und Hall); keine verspäteten Blöcke. Mit 6 Stimmen waren es 66 % (darum 4, ADR 0048) |
 | Geräteunterschied | keine Distortion (FM1-Electro: Festkomma-Distortion); sonst rechnet der Kern wie im Baustein-Test |
 | Am Gerät | nicht geprüft |
 

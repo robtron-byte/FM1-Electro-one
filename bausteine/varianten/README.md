@@ -12,9 +12,9 @@ dem Gerüst [`gemeinsam/`](gemeinsam/) auf (ADR 0044); eine Variante ist ein Ord
 | Alpha Juno solo | mksultra (mehr Stimmen) | voller Synth-Klang | geplant |
 | 808 solo | dk808 mit allen 17 Instrumenten | volle Drum-Machine | geplant |
 | 101 solo | sh101 | voller Bass/Lead | gebaut: [`sh101/`](sh101/), `firmware/SH101-0.1.1-alpha.fwsc` (Emulator ok, Gerät ungeprüft) |
-| JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | gebaut: [`jx8p/`](jx8p/), `firmware/JX8P-0.2.5-alpha.fwsc` (fm1-synths fortgeführt, FM-1_97, Emulator ok, Gerät ungeprüft) |
-| MKS-50 solo | mks50 (alle Stimmen) | voller MKS-50 | gebaut: [`mks50/`](mks50/), `firmware/MKS50-0.2.5-alpha.fwsc` (fm1-synths fortgeführt, FM-1_95, Emulator ok, Gerät ungeprüft) |
-| JP-6 solo | jp6 (alle Stimmen) | voller JP-6 | geplant |
+| JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | gebaut: [`jx8p/`](jx8p/), `firmware/JX8P-0.2.6-alpha.fwsc` (fm1-synths fortgeführt, FM-1_97, Pool 4, Emulator ok, Gerät ungeprüft) |
+| MKS-50 solo | mks50 (alle Stimmen) | voller MKS-50 | gebaut: [`mks50/`](mks50/), `firmware/MKS50-0.2.6-alpha.fwsc` (fm1-synths fortgeführt, FM-1_95, Pool 4, Emulator ok, Gerät ungeprüft) |
+| JP-6 solo | jp6 (alle Stimmen) | voller JP-6 | gebaut: [`jp6/`](jp6/), `firmware/JP6-0.1.0-alpha.fwsc` (Gerüst, FM-1_92, 4 Stimmen, ohne Distortion, Emulator ok, Gerät ungeprüft) |
 
 **Solo-Firmware je Baustein (Wunsch 28.11.):** Jeder Baustein bekommt eine eigene Firmware, die das FM-1 ganz für ihn nutzt:
 so viele Stimmen und so viel Qualität (Überabtastung, alle Instrumente/Parameter), wie die Last auf dem Gerät erlaubt,

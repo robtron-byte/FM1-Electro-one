@@ -179,31 +179,22 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
   Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
   Eigene Presets: `tools/eigene2c.py` (ADR 0051), gemeinsames Skript `tools/iphone_presets_pull.sh`. ADR 0046, Y14.
-- **JX-8P solo** (`varianten/jx8p/`, Y14, ADR 0046): `firmware/JX8P-0.2.5-alpha.fwsc` = fm1-synths-Fassung fortgeführt
+- **JX-8P solo** (`varianten/jx8p/`, Y14, ADR 0046): `firmware/JX8P-0.2.6-alpha.fwsc` (Pool 4, Delay ≤ 0,6 s) = fm1-synths-Fassung fortgeführt
   (Wahl A: FM-1_97, `STORE_MAGIC` „JX8P“, 4 Parts, Pool 6 Stimmen auf 2 Kernen, SETS; Speicher bleibt), 7 eigene Presets
   angehängt, EIGENE zuerst. Pool-Kern bitgleich mit dem Baustein (`make -C bausteine jx8p`). Emulator ≤ 23 % je Kern.
   **Am Gerät ungeprüft.** (0.1.0 auf dem Gerüst: zurückgezogen.)
 - **mks50 Stand:** `bausteine/mks50/` bindet `engine/mks.c` und Co. ein (mit `EL_SYNTH_JX=0`, `engine/` unverändert),
   Adapter `mks50_bs.c` wie jx8p. Alle 79 Presets (23 eigene vorn, dann 56 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen
   in `ref/`. Last auf dem PC ≈ 20 ns je Stimme und Sample (WOBBLE 01 ≈ 40 ns). ADR 0047, Y15.
-- **MKS-50 solo** (`varianten/mks50/`, Y15, ADR 0047): `firmware/MKS50-0.2.5-alpha.fwsc` = fm1-synths fortgeführt (FM-1_95,
+- **MKS-50 solo** (`varianten/mks50/`, Y15, ADR 0047): `firmware/MKS50-0.2.6-alpha.fwsc` (Pool 4, Delay ≤ 0,6 s) = fm1-synths fortgeführt (FM-1_95,
   „MK50“, 4 Parts, Pool auf 2 Kernen, SETS; Speicher bleibt), 23 eigene Presets angehängt, EIGENE zuerst, Schalter
   `MK_RELEASE_HURRY` (aus). Pool-Kern bitgleich mit dem Baustein (mit Hurry, `make -C bausteine mks50`). Emulator ≤ 35 %.
   **Am Gerät ungeprüft.**
 - **jp6 Stand:** `bausteine/jp6/` bindet `engine/jp6.c`, `dist.c` und Co. ein (`engine/` unverändert), Adapter `jp6_bs.c`
   wie jx8p. Alle 79 Presets (5 eigene aus der Sicherung vorn, dann 74 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen in
   `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.
-- **jp6 nächster Schritt:** Solo-Firmware „JP-6 solo“ in `varianten/jp6/`, sobald `varianten/gemeinsam/` abgenommen ist:
-  eigene Presets vorn (Preset 1–5), 6 Stimmen anstreben (mit 4 weichen 14 Presets ab, Unisono/Akkord), Distortion-Presets
-  mit `DIST_FIXED=1` des Geräts gegen den Baustein abhören.
-- Die vorhandenen Engines liegen heute in `engine/`: JX-8P (`engine/jx8p.c`), MKS-50 (`engine/mks.c`), JP-6 (`engine/jp6.c`)
-  und die bisherige 808 (`engine/tr808*.c`). Jede wird ein eigener Ordner in `bausteine/` mit demselben Aufbau und
-  `baustein.h`. Das ist nur nach Absprache mit dem Bau-Chat möglich, weil die Engines im Gerätebuild stecken. Der Klang
-  muss bitgleich bleiben (`make test` im Hauptordner). Erster Schritt ohne Risiko: ein Baustein-Ordner, der die Dateien aus
-  `engine/` nur einbindet (keine Kopie) und einen Host-Test über `baustein.h` hat.
-
-### Kombi JX-8P + SH-101 (Wunsch des Nutzers 28.11.)
-
+- **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.0-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
+  ohne Distortion (`JP6_BS_DIST=0`), Delay ≤ 0,6 s, 5 eigene Presets vorn. Emulator ≤ 41 % (Kern 0). **Am Gerät ungeprüft.**
 - **In Arbeit:** frei (wird nach den Solo-Firmwares vergeben, vor den 808-Kombis)
 - **Vorbild Bedienung:** die vorhandene Firmware MKS-50 + JX-8P aus fm1-synths (`combo/`, `MKSJX-*.fwsc`, Kennung FM-1_98):
   Parts, Seite PARTS, Raster nach fm1-synths ADR 0008. Hier: Parts spielen JX-8P oder SH-101 (Bausteine `jx8p`, `sh101`).

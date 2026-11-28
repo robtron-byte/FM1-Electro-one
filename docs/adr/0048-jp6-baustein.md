@@ -43,11 +43,10 @@ Baustein mit `baustein.h` werden, ohne `engine/` zu ändern.
   (12 VCO 01, Unisono) ≈ 23 ns je Stimme samt Grundlast.
 - Neue eigene Presets nur, wenn die JP-6-App wieder auf das iPhone kommt; bis dahin ist die Sicherung vom 05.11. die Quelle.
 
-**Offen für den Gerätetest (Koordinator 28.11.):** Mit 6 Stimmen Unisono (12 VCO 01) braucht Kern 0 im Emulator bis
-66 % Spitze, Kern 1 nur 7 % (Delay und Hall). Ziel wären ≤ 55 % je Kern. Stimmen eines Parts auf Kern 1 zu legen, geht
+**Last:** Mit 6 Stimmen Unisono (12 VCO 01) brauchte Kern 0 im Emulator bis 66 %, Kern 1 nur 7 % (Delay und Hall).
+Nach der Regel des Nutzers (28.11.: 4 Stimmen, Delay ≤ 0,6 s) sind es 41 % auf Kern 0. Stimmen eines Parts auf Kern 1 zu legen, geht
 mit `engine/jp6.c` nur mit einem Umbau (Steuerwerte je Schritt vorab festlegen, wie im verworfenen Pool-Kern) und ist
-deshalb nicht gemacht. Am Gerät die Seite SYSTEM prüfen; reicht die Reserve nicht, `JP_VOICES=5` (tools/build.py) oder
-den Umbau angehen.
+deshalb nicht gemacht. Am Gerät die Seite SYSTEM prüfen.
 
 ## Verlauf
 
@@ -55,3 +54,4 @@ den Umbau angehen.
 - 2026-11-28: Solo-Firmware JP-6: erste Fassung auf dem Gerüst. Ein Versuch mit vier Parts und eigenem Pool-Kern (nach
   fm1-synths `jx.c`) wurde auf Hinweis des Nutzers verworfen: für JP-6 gibt es keine ältere Solo-Firmware, gegen die etwas
   fehlen könnte. Distortion auf Wunsch des Nutzers aus (`JP6_BS_DIST=0`). 0.1.0-alpha, Emulator-Prüfung ok, am Gerät offen.
+- 2026-11-28: Regel des Nutzers: 4 Stimmen, Delay höchstens 0,6 s. `firmware/JP6-0.1.0-alpha.fwsc`, Emulator ≤ 41 %.

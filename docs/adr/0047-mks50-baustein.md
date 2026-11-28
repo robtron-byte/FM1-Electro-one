@@ -48,3 +48,5 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 - 2026-11-28: Solo-Firmware MKS-50: erste Fassung gebaut, Emulator-Prüfung ok, noch kein Paket (Gleichstand mit fm1-synths zuerst).
 - 2026-11-28: MKS-50 solo = fm1-synths-Fassung fortgeführt (0.2.5-alpha, FM-1_95, „MK50“), eigene Presets angehängt;
   Bitgleichheit Pool-Kern ↔ Baustein (mit RELEASE_HURRY) als Prüfung in `make -C bausteine mks50`.
+- 2026-11-28: MKS-50 solo 0.2.6-alpha nach der Regel des Nutzers: Pool 4 Stimmen, Delay höchstens 0,6 s (Schalter
+  `SYN_FX_DLY_MAX_S` in `gemeinsam/shared/fx/syn_fx.c`); Speicherformat unverändert.

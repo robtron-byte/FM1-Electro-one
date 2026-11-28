@@ -60,3 +60,5 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
   Gerüst dafür abwärtskompatibel ergänzt: `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`/`GM_FX_FIRST_ON`.
 - 2026-11-28: Wahl A des Koordinators: JX-8P solo = fm1-synths-Fassung fortgeführt (0.2.5-alpha, FM-1_97, „JX8P“), eigene
   Presets angehängt; Bitgleichheit Pool-Kern ↔ Baustein als Prüfung in `make -C bausteine jx8p`.
+- 2026-11-28: JX-8P solo 0.2.6-alpha nach der Regel des Nutzers: Pool 4 Stimmen, Delay höchstens 0,6 s (Schalter
+  `SYN_FX_DLY_MAX_S` in `gemeinsam/shared/fx/syn_fx.c`); Speicherformat unverändert.

@@ -22,9 +22,14 @@ Die fm1-synths-Fassung 0.2.4 hat ihn aus. Damit sich für die Nutzer nichts änd
 
 | | |
 |---|---|
-| Firmware | `firmware/MKS50-0.2.5-alpha.fwsc` (Kennung FM-1_95, `STORE_MAGIC` „MK50“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
-| Last (Emulator) | 6 gehaltene Noten auf Part A, drei Sounds: Kern 0 höchstens 35 %, Kern 1 höchstens 14 % (Pool auf beide Kerne, Delay/Hall dazu); keine verspäteten Blöcke. Ziel < 70 % erfüllt |
+| Firmware | `firmware/MKS50-0.2.6-alpha.fwsc` (Kennung FM-1_95, `STORE_MAGIC` „MK50“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
+| Last (Emulator) | 0.2.6 (Pool 4, Delay ≤ 0,6 s), 6 gehaltene Noten auf Part A: Kern 0 höchstens 29 %, Kern 1 höchstens 8 %; keine verspäteten Blöcke. 0.2.5 mit Pool 6: höchstens 35 % |
 | Am Gerät | 0.2.5 nicht geprüft |
+
+## 0.2.6: Regel des Nutzers (28.11.2026)
+
+Pool **4 Stimmen** (`-DMKS_POOL=4`, fm1-synths: 6) und Delay höchstens **0,6 s** (`-DSYN_FX_DLY_MAX_S=0.6f`).
+Speicherformat unverändert, gespeicherte Stände laden weiter.
 
 ## Gleichstand mit fm1-synths MKS50-0.2.4 (keine Rückschritte)
 
