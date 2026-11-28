@@ -17,6 +17,14 @@
 extern const baustein_t jx8p_baustein;
 
 double jx8p_bs_rate(void);
+/* Direkte Aufrufe für Firmwares (dieselben wie über jx8p_baustein, dazu Legato wie engine/synth_track.c). */
+size_t jx8p_bs_state_size(void);
+void jx8p_bs_init(void *state, double sample_rate);
+void jx8p_bs_note_on(void *state, int note, int velocity, int legato);
+void jx8p_bs_note_off(void *state, int note);
+void jx8p_bs_all_off(void *state);
+void jx8p_bs_load_values(void *state, const unsigned char *v);   /* JX_COUNT Rohwerte, wie ein Preset */
+int jx8p_bs_voices(const void *state);                           /* klingende Stimmen */
 /* Presets: zuerst die eigenen des Nutzers (jx8p_eigene.c, aus den iPhone-JSON erzeugt), dann die Werks-Sounds aus
  * engine/jx8p_presets.c (64 Töne der JX-8P-ROM und INIT je Bereich). */
 unsigned jx8p_bs_preset_count(void);
