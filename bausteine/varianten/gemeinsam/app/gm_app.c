@@ -52,6 +52,33 @@ static void gm_boot(void);
 #include "syn_font.h"
 #include "gm_theme.h"
 
+/* Mehrere Klangerzeuger (Kombis, ADR 0052): eine Variante mit GM_ENGINES > 1 legt fest, welcher Erzeuger einen Sound
+ * spielt (GM_ENG_OF(v), meist ein verborgener Wert im Sound), und je Erzeuger Parameter, INIT, Seiten und Ebenen; jede
+ * Soundgruppe gehört zu einem Erzeuger (GM_CAT_ENG). GM_ENG_OK(p, e): darf Part p Erzeuger e spielen (z. B. nur ein
+ * SH-101). Ohne diese Angaben gilt wie bisher ein Erzeuger mit gm_params, gm_init_v, gm_pages, gm_layers. */
+#ifndef GM_ENGINES
+#define GM_ENGINES 1u
+#define GM_ENG_OF(v) 0u
+#define GM_PARAMS_E(e) gm_params
+#define GM_INIT_E(e) gm_init_v
+#define GM_PAGES_E(e) gm_pages
+#define GM_NPAGE_E(e) (sizeof gm_pages / sizeof gm_pages[0])
+#define GM_LAYERS_E(e) gm_layers
+#define GM_CAT_ENG(c) 0u
+#define GM_ENG_OK(p, e) 1
+#define GM_ENG_NAME(e) ""
+#endif
+/* GM_SET_EXTRA: so viele weitere Einstellungen der Variante (z. B. Distortion global), gespeichert in set, Felder K_EXTRA;
+ * die Variante liefert gm_extra_max(i), gm_extra_text(i, v, b), gm_extra_default(i) und bekommt EV_EXTRA im Klang. */
+#ifndef GM_SET_EXTRA
+#define GM_SET_EXTRA 0u
+#endif
+#ifndef GM_FIRST_IDX
+#define GM_FIRST_IDX(p) 0u                      /* Startsound je Part (Werks-Index) und sein Erzeuger, ohne gespeicherten Stand */
+#define GM_FIRST_ENG(p) 0u
+#endif
+static unsigned gm_eng;                         /* der Erzeuger, für den gerade Sounds gelistet oder geladen werden */
+
 #define DSP __attribute__((section(".dsp_text"), noinline))
 #define EL_SR 44100.0f
 
@@ -72,7 +99,7 @@ static void cpu1_selftest(uint32_t arg) { cpu1_test_out = cpu1_lcg(arg); }
  * Ereignisse vom Hauptprogramm zum Audio-Interrupt (ein Schreiber, ein Leser)
  * ====================================================================================================== */
 static uint8_t ready;
-enum { EV_ON, EV_OFF, EV_PANIC, EV_SET, EV_LEVEL, EV_FX, EV_ARP, EV_TEMPO, EV_CLK, EV_SEQ, EV_SEQ_LEN, EV_SEND };
+enum { EV_ON, EV_OFF, EV_PANIC, EV_SET, EV_LEVEL, EV_FX, EV_ARP, EV_TEMPO, EV_CLK, EV_SEQ, EV_SEQ_LEN, EV_SEND, EV_EXTRA };
 typedef struct { uint8_t type, part, a, b; } gm_ev_t;
 #define EVQ 128u
 static gm_ev_t evq[EVQ];
@@ -472,6 +499,9 @@ static DSP void events_to_synth(void)
         case EV_SET: kern_set(e.part, e.a, e.b); break;
         case EV_LEVEL: part_level[e.part] = (float)e.a * (1.0f / 127.0f); break;
         case EV_SEND: part_send[e.part][e.a & 1u] = (float)e.b * (1.0f / 127.0f); break;
+#if GM_SET_EXTRA
+        case EV_EXTRA: kern_extra(e.a, e.b); break;
+#endif
         default: break;
         }
     }
@@ -607,11 +637,11 @@ enum { NOWN = GM_NOWN, CAT_OWN = GM_NCAT, CAT_INIT = GM_NCAT + 1, NCAT_ALL = GM_
  * gm_factory, z. B. aus Presets im Flash (MKS Ultra). gm_fac_v darf in einen eigenen Puffer schreiben (sofort kopiert). */
 #ifdef GM_FAC_FUNCS
 static const char *fac_name(unsigned i) { return i < GM_NFAC ? gm_fac_name(i) : "INIT"; }
-static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_fac_v(i) : gm_init_v; }
+static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_fac_v(i) : GM_INIT_E(gm_eng); }
 static unsigned fac_cat(unsigned i) { return i < GM_NFAC ? gm_fac_cat(i) : CAT_INIT; }
 #else
 static const char *fac_name(unsigned i) { return i < GM_NFAC ? gm_factory[i].name : "INIT"; }
-static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_factory[i].v : gm_init_v; }
+static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_factory[i].v : GM_INIT_E(gm_eng); }
 static unsigned fac_cat(unsigned i) { return i < GM_NFAC ? gm_factory[i].cat : CAT_INIT; }
 #endif
 static const char *cat_label(unsigned c) { return c < GM_NCAT ? gm_cat_name[c] : c == CAT_OWN ? "OWN" : "INIT"; }
@@ -638,8 +668,9 @@ static struct { uint8_t ok, kind, idx; char name[GM_NAMEMAX + 1]; uint8_t v[GM_N
 static unsigned cat_count(unsigned c)
 {
     unsigned n = 0;
+    if (c < GM_NCAT && GM_CAT_ENG(c) != gm_eng) return 0;   /* (Gruppe eines anderen Erzeugers) */
     if (c != CAT_OWN) for (unsigned i = 0; i < FAC_N; i++) n += fac_cat(i) == c;
-    for (unsigned j = 0; j < NOWN; j++) n += own[j].used && (c == CAT_OWN || own[j].cat == c);
+    for (unsigned j = 0; j < NOWN; j++) n += own[j].used && GM_CAT_ENG(own[j].cat) == gm_eng && (c == CAT_OWN || own[j].cat == c);
     return n;
 }
 static int cat_item(unsigned c, unsigned n, uint8_t *kind, uint8_t *idx)
@@ -647,7 +678,7 @@ static int cat_item(unsigned c, unsigned n, uint8_t *kind, uint8_t *idx)
     if (c != CAT_OWN) for (unsigned j = 0; j < FAC_N; j++)
         if (fac_cat(FAC_AT(j)) == c && n-- == 0) { *kind = 0; *idx = (uint8_t)FAC_AT(j); return 0; }
     for (unsigned j = 0; j < NOWN; j++)
-        if (own[j].used && (c == CAT_OWN || own[j].cat == c) && n-- == 0) { *kind = 1; *idx = (uint8_t)j; return 0; }
+        if (own[j].used && GM_CAT_ENG(own[j].cat) == gm_eng && (c == CAT_OWN || own[j].cat == c) && n-- == 0) { *kind = 1; *idx = (uint8_t)j; return 0; }
     return -1;
 }
 static int cat_pos(unsigned c, unsigned kind, unsigned idx)
@@ -690,7 +721,7 @@ static void load_sound(unsigned p, unsigned kind, unsigned idx)
     }
     if (kind == 1u && (idx >= NOWN || !own[idx].used)) kind = 0, idx = 0;
     if (kind == 0u && idx >= FAC_N) idx = 0;
-    if (kind) { src = own[idx].v; name = own[idx].name; u->cat = own[idx].cat; }
+    if (kind) { src = own[idx].v; name = own[idx].name; u->cat = own[idx].cat; gm_eng = GM_CAT_ENG(own[idx].cat); }
     else { src = fac_v(idx); name = fac_name(idx); u->cat = (uint8_t)fac_cat(idx); }
     u->kind = (uint8_t)kind; u->idx = (uint8_t)idx;
     memcpy(u->base, src, GM_NP); memcpy(u->v, src, GM_NP);
@@ -703,6 +734,7 @@ static void step_sound(unsigned p, int32_t e)   /* links: der Sound davor, recht
 {
     unsigned c = up[p].cat_view, k = up[p].kind, i = up[p].idx;
     int dir = e > 0 ? 1 : -1;
+    gm_eng = GM_ENG_OF(up[p].v);
     for (int32_t n = e < 0 ? -e : e; n > 0; n--) {
         int pos = cat_pos(c, k, i), cnt = (int)cat_count(c);
         uint8_t kk, ii;
@@ -734,9 +766,12 @@ static void own_load(void)
             memcpy(own[j].name, s, GM_NAMEMAX + 1u);
             own[j].name[GM_NAMEMAX] = 0;
             own[j].cat = s[GM_NAMEMAX + 1u]; own[j].used = s[GM_NAMEMAX + 2u];
-            for (unsigned i = 0; i < GM_NP; i++) {
-                uint8_t x = i < h.np ? s[GM_NAMEMAX + 3u + i] : gm_init_v[i];
-                own[j].v[i] = x <= gm_params[i].max ? x : gm_init_v[i];
+            {
+                unsigned e = own[j].cat < GM_NCAT ? GM_CAT_ENG(own[j].cat) : 0u;
+                for (unsigned i = 0; i < GM_NP; i++) {
+                    uint8_t x = i < h.np ? s[GM_NAMEMAX + 3u + i] : GM_INIT_E(e)[i];
+                    own[j].v[i] = x <= GM_PARAMS_E(e)[i].max ? x : GM_INIT_E(e)[i];
+                }
             }
             if (own[j].used && (own[j].cat >= GM_NCAT || !own[j].name[0])) own[j].used = 0;
         }
@@ -757,10 +792,16 @@ static struct {
     struct { uint8_t kind, idx, chan, level, send[2]; uint8_t arp[ARP_N]; } p[GM_PARTS];
     uint8_t fx[FX_COUNT];
     uint8_t clk_src, clk_send;
+#if GM_SET_EXTRA                                /* (angehängt: ältere Einträge des Journals bleiben lesbar) */
+    uint8_t extra[GM_SET_EXTRA];
+#endif
 } set;
 enum { SET_VER = 1 };
 static uint32_t t_set;
 static uint8_t fxv[FX_COUNT], arpc[GM_PARTS][ARP_N], sendv[GM_PARTS][2], tempo = 80, clkv[2];
+#if GM_SET_EXTRA
+static uint8_t extrav[GM_SET_EXTRA];
+#endif
 static int quiet(void)
 {
     for (unsigned p = 0; p < GM_PARTS; p++) if (kern_voices(p)) return 0;
@@ -776,6 +817,9 @@ static void set_pack(void)
     }
     memcpy(set.fx, fxv, FX_COUNT);
     set.clk_src = clkv[0]; set.clk_send = clkv[1];
+#if GM_SET_EXTRA
+    memcpy(set.extra, extrav, GM_SET_EXTRA);
+#endif
 }
 
 #include "gm_ui.c"

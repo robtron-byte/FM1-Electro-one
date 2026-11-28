@@ -47,9 +47,12 @@ static void QC(int32_t cx, int32_t y, int32_t s, const char *t, uint16_t c) { Q(
 static void QR(int32_t xr, int32_t y, int32_t s, const char *t, uint16_t c) { Q(xr - Q_W(t, s), y, s, t, c); }
 
 /* ---- Seiten (Tabelle der Variante: gm_pages, gm_layers) */
-enum { NPAGE = sizeof gm_pages / sizeof gm_pages[0] };
-#define pages gm_pages
-#define layers gm_layers
+/* Seiten, Ebenen und Parameter des Erzeugers, den der gewählte Part spielt (ein Erzeuger: die festen Tabellen) */
+#define SEL_ENG ((unsigned)GM_ENG_OF(up[sel].v))
+#define NPAGE ((unsigned)GM_NPAGE_E(SEL_ENG))
+#define pages (GM_PAGES_E(SEL_ENG))
+#define layers (GM_LAYERS_E(SEL_ENG))
+#define PRMS (GM_PARAMS_E(SEL_ENG))
 static uint8_t layer, layer_used;
 static uint32_t layer_t0;
 static int layer_shown(void) { return layer && (layer_used || fm1_ms - layer_t0 > 220u); }
@@ -98,14 +101,19 @@ static const char *const arp_modes[5] = {"UP", "DOWN", "UP/DN", "RAND", "ORDER"}
 static const char *const div_names[FX_DIVS] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/1"};
 static uint16_t k_colour(const kn_t *k)
 {
-    if (k->kind == K_PARAM) return gm_class_colour[gm_params[k->param].cls % 5u];
+    if (k->kind == K_PARAM) return gm_class_colour[PRMS[k->param].cls % 5u];
     if (k->kind == K_FX || k->kind == K_TEMPO || k->kind == K_CLK || k->kind == K_SEQ || k->kind == K_SEND) return T_VIOLET;
     return T_SEL;
 }
 static int k_max(const kn_t *k)
 {
     switch (k->kind) {
-    case K_PARAM: return gm_params[k->param].max;
+    case K_PARAM: return PRMS[k->param].max;
+    case K_ENGINE: return (int)GM_ENGINES - 1;
+    case K_CHANP: return 16;
+#if GM_SET_EXTRA
+    case K_EXTRA: return gm_extra_max(k->param);
+#endif
     case K_LEVEL: case K_SEND: return 127;
     case K_CHAN: return 16;
     case K_FX: return syn_fx_max(k->param);
@@ -123,6 +131,11 @@ static int k_get(const kn_t *k)
     case K_PARAM: return up[sel].v[k->param];
     case K_LEVEL: return up[k->param < GM_PARTS ? k->param : sel].level;
     case K_CHAN: return up[sel].chan;
+    case K_ENGINE: return (int)GM_ENG_OF(up[k->param < GM_PARTS ? k->param : sel].v);
+    case K_CHANP: return up[k->param < GM_PARTS ? k->param : sel].chan;
+#if GM_SET_EXTRA
+    case K_EXTRA: return extrav[k->param % GM_SET_EXTRA];
+#endif
     case K_FX: return fxv[k->param];
     case K_ARP: return arpc[sel][k->param % ARP_N];
     case K_TEMPO: return tempo;
@@ -139,10 +152,14 @@ static void k_text(const kn_t *k, int v, char *b)
 {
     switch (k->kind) {
     case K_PARAM:
-        if (gm_params[k->param].text) gm_params[k->param].text((uint8_t)v, b);
+        if (PRMS[k->param].text) PRMS[k->param].text((uint8_t)v, b);
         else fmt_int(b, v);
         return;
-    case K_CHAN: if (v) fmt_int(b, v); else str_cpy(b, "OMNI", 8); return;
+    case K_CHAN: case K_CHANP: if (v) fmt_int(b, v); else str_cpy(b, "OMNI", 8); return;
+    case K_ENGINE: str_cpy(b, GM_ENG_NAME((unsigned)v), 8); return;
+#if GM_SET_EXTRA
+    case K_EXTRA: gm_extra_text(k->param, v, b); return;
+#endif
     case K_FX: { const char *n = syn_fx_value_name(k->param, v); if (n) str_cpy(b, n, 8); else fmt_int(b, v); return; }
     case K_ARP:
         if (k->param == ARP_ON || k->param == ARP_HOLD) str_cpy(b, v ? "ON" : "OFF", 8);
@@ -184,6 +201,18 @@ static void k_turn(const kn_t *k, int32_t d)
         break;
     case K_LEVEL: { unsigned p = k->param < GM_PARTS ? k->param : sel; up[p].level = (uint8_t)v; ev_put(EV_LEVEL, p, (uint32_t)v, 0); break; }
     case K_CHAN: up[sel].chan = (uint8_t)v; part_ch[sel] = (uint8_t)v; break;
+    case K_CHANP: { unsigned p = k->param < GM_PARTS ? k->param : sel; up[p].chan = (uint8_t)v; part_ch[p] = (uint8_t)v; break; }
+    case K_ENGINE: {   /* der Part spielt einen anderen Erzeuger: dessen INIT */
+        unsigned p = k->param < GM_PARTS ? k->param : sel;
+        if (!GM_ENG_OK(p, (unsigned)v)) { msg_set(GM_ENG_NAME((unsigned)v), 1); return; }
+        ev_put(EV_PANIC, p, 0, 0);
+        gm_eng = (unsigned)v;
+        load_sound(p, 0, FAC_N - 1u);
+        break;
+    }
+#if GM_SET_EXTRA
+    case K_EXTRA: extrav[k->param % GM_SET_EXTRA] = (uint8_t)v; ev_put(EV_EXTRA, 0, k->param, (uint32_t)v); break;
+#endif
     case K_FX:
         fxv[k->param] = (uint8_t)v; ev_put(EV_FX, 0, k->param, (uint32_t)v);
         fx_on = fxv[FX_DLY_LEVEL] || fxv[FX_REV_LEVEL];
@@ -235,6 +264,7 @@ static void dlg_open(unsigned p)
     memset(dlg.name, ' ', GM_NAMEMAX); dlg.name[GM_NAMEMAX] = 0;
     memcpy(dlg.name, up[p].name, n > GM_NAMEMAX ? GM_NAMEMAX : n);
     dlg.cursor = 0; dlg.cat = (uint8_t)(up[p].cat < GM_NCAT ? up[p].cat : 0); dlg.slot = (uint8_t)(f < 0 ? 0 : f);
+    for (unsigned t = 0; t < GM_NCAT && GM_CAT_ENG(dlg.cat) != GM_ENG_OF(up[p].v); t++) dlg.cat = (uint8_t)((dlg.cat + 1u) % GM_NCAT);
     saving = 1;
 }
 static void save_short(unsigned p)
@@ -328,6 +358,7 @@ static void stage_sys(void)
 }
 static void stage_browse(void)
 {
+    gm_eng = SEL_ENG;
     upart_t *u = &up[sel];
     int cnt = (int)cat_count(u->cat_view), pos = cat_pos(u->cat_view, u->kind, u->idx), first;
     QR(236, 30, 2, cat_label(u->cat_view), T_DIM);
@@ -833,7 +864,7 @@ static void app_main(void)
         set.tempo = 80;
         for (unsigned p = 0; p < GM_PARTS; p++) {
             static const uint8_t arp_def[ARP_N] = {0, 0, 2, 0, 80, 0};
-            set.p[p].idx = 0; set.p[p].chan = (uint8_t)(GM_PARTS == 1 ? 0 : p + 1); set.p[p].level = 100;
+            set.p[p].idx = (uint8_t)GM_FIRST_IDX(p); set.p[p].chan = (uint8_t)(GM_PARTS == 1 ? 0 : p + 1); set.p[p].level = 100;
             set.p[p].send[0] = set.p[p].send[1] = GM_SEND_FIRST;
             memcpy(set.p[p].arp, arp_def, ARP_N);
         }
@@ -846,17 +877,24 @@ static void app_main(void)
     ev_put(EV_CLK, 0, 0, clkv[0]); ev_put(EV_CLK, 0, 1, clkv[1]);
     for (unsigned i = 0; i < FX_COUNT; i++) { fxv[i] = set.fx[i] <= (unsigned)syn_fx_max(i) ? set.fx[i] : (uint8_t)syn_fx_default(i); ev_put(EV_FX, 0, i, fxv[i]); }
     fx_on = fxv[FX_DLY_LEVEL] || fxv[FX_REV_LEVEL];
+#if GM_SET_EXTRA
+    for (unsigned i = 0; i < GM_SET_EXTRA; i++) {
+        extrav[i] = have == 0 && set.extra[i] <= (unsigned)gm_extra_max(i) ? set.extra[i] : (uint8_t)gm_extra_default(i);
+        ev_put(EV_EXTRA, 0, i, extrav[i]);
+    }
+#endif
     sel = set.sel < GM_PARTS ? set.sel : 0;
     oct = set.oct < -3 || set.oct > 3 ? 0 : set.oct;
     for (unsigned p = 0; p < GM_PARTS; p++) {
         up[p].chan = set.p[p].chan <= 16u ? set.p[p].chan : 0;
         up[p].level = set.p[p].level > 127u ? 100 : set.p[p].level;
         part_ch[p] = up[p].chan;
+        gm_eng = have == 0 ? (unsigned)GM_ENG_OF(st.v[p]) : (unsigned)GM_FIRST_ENG(p);   /* (für INIT) */
         load_sound(p, set.p[p].kind, set.p[p].idx);
         if (have == 0) {                        /* die Werte wie beim Ausschalten, geändert oder nicht */
             for (unsigned i = 0; i < GM_NP; i++) {
                 uint8_t x = st.v[p][i];
-                up[p].v[i] = x <= gm_params[i].max ? x : up[p].base[i];
+                up[p].v[i] = x <= GM_PARAMS_E(GM_ENG_OF(st.v[p]))[i].max ? x : up[p].base[i];
             }
             mark_dirty(p); push_part(p);
         }
@@ -864,6 +902,7 @@ static void app_main(void)
         for (unsigned s = 0; s < 2u; s++) { sendv[p][s] = set.p[p].send[s] & 127u; ev_put(EV_SEND, p, s, sendv[p][s]); }
         for (unsigned a = 0; a < ARP_N; a++) { arpc[p][a] = set.p[p].arp[a] <= arp_max[a] ? set.p[p].arp[a] : 0; ev_put(EV_ARP, p, a, arpc[p][a]); }
     }
+    if (page >= NPAGE) page = 0;                /* (der gewählte Part spielt einen anderen Erzeuger als beim Ausschalten) */
     jr_take(&jr_now);
     jr_saved = jr_now;
     if (flash_ok) for (int k = 0; k < 2; k++) jr_tidy(1);
@@ -969,6 +1008,7 @@ static void app_main(void)
             if (rec_on) seq_rec(0);
             int s = (int)sel + e;
             sel = (uint8_t)(s < 0 ? 0 : s >= (int)GM_PARTS ? GM_PARTS - 1 : s);
+            if (page >= NPAGE) { page = 0; touched = 255; }   /* (anderer Erzeuger: andere Seiten) */
             touch_set();
         }
         if ((e = fm1_enc_take(ENC_SELECT)) != 0 && !saving) {
@@ -986,7 +1026,12 @@ static void app_main(void)
                     const char *c = find_char(CHARS, dlg.name[dlg.cursor]);
                     int i = c ? (int)(c - CHARS) : 0, n = (int)sizeof CHARS - 1;
                     dlg.name[dlg.cursor] = CHARS[((i + e) % n + n) % n];
-                } else if (k == 2) { int c = ((int)dlg.cat + e) % GM_NCAT; dlg.cat = (uint8_t)(c < 0 ? c + GM_NCAT : c); }
+                } else if (k == 2) {    /* nur Gruppen des Erzeugers dieses Parts */
+                    int c = dlg.cat, d = e > 0 ? 1 : -1;
+                    for (int32_t n = e < 0 ? -e : e; n > 0; n--)
+                        for (unsigned t = 0; t < GM_NCAT; t++) { c = ((c + d) % (int)GM_NCAT + (int)GM_NCAT) % (int)GM_NCAT; if (GM_CAT_ENG((unsigned)c) == SEL_ENG) break; }
+                    dlg.cat = (uint8_t)c;
+                }
                 else { int s = (int)dlg.slot + e; dlg.slot = (uint8_t)(s < 0 ? 0 : s >= NOWN ? NOWN - 1 : s); }
             } else {
                 const kn_t *kn;
