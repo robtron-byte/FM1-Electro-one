@@ -188,6 +188,11 @@ static uint8_t fx_on;
 #ifndef GM_FX_PRE
 #define GM_FX_PRE(sl, sr) ((void)0)
 #endif
+/* GM_PRE_C1(): Arbeit der Variante im Audio-Takt nach Takt, Arp, Sequencer und Live-Aufnahme, bevor Kern 1 startet
+ * (808: der Drum-Sequencer schlägt beide Zustände an, ADR 0050). Standard: nichts. */
+#ifndef GM_PRE_C1
+#define GM_PRE_C1() ((void)0)
+#endif
 static DSP void fx_run(void)
 {
     for (uint32_t i = 0; i < GM_BLOCK; i++) fx_wet[0][i] = fx_wet[1][i] = 0;
@@ -648,6 +653,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
         seq_block(xport == 2 ? 0 : ticks);
         lv_block(xport == 2 ? 0 : ticks);
     }
+    GM_PRE_C1();                                /* (Variante: vor dem Start von Kern 1, der Block davor ist fertig) */
     block_no++;
     c1_fx_t = 0;
     for (uint32_t i = 0; i < GM_BLOCK; i++) { fx_src[0][i] = fx_in[0][i]; fx_src[1][i] = fx_in[1][i]; }
@@ -913,4 +919,9 @@ static void set_pack(void)
 #endif
 }
 
-#include "gm_ui.c"
+/* GM_UI_FILE: eine Variante mit ganz eigener Bedienung (808 solo wie BEAT, ADR 0050) bringt statt gm_ui.c ihre eigene
+ * Datei mit app_main und keys_poll; Klang, Takt, MIDI und Kern 1 bleiben die dieser Datei. Standard: gm_ui.c. */
+#ifndef GM_UI_FILE
+#define GM_UI_FILE "gm_ui.c"
+#endif
+#include GM_UI_FILE

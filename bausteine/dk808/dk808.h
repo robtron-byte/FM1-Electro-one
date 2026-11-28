@@ -224,7 +224,8 @@ void dk808_set_knob(dk808_t *d, unsigned instrument, unsigned knob, double value
  * sie braucht. So teilen sich zwei Zustände mit getrennten Masken die Instrumente auf zwei Kerne auf; zusammen klingen
  * sie wie einer mit allen (Choke wirkt nur innerhalb einer Maske: Hats, Congas und Toms je zusammenlassen). */
 void dk808_set_run(dk808_t *d, uint32_t mask);
-void dk808_set_level(dk808_t *d, unsigned instrument, double level);   /* 0..1 (Standard 1) */
+void dk808_set_level(dk808_t *d, unsigned instrument, double level);
+void dk808_choke(dk808_t *d, unsigned instrument);   /* wie die Choke-Logik des Kerns (OH, Congas, Toms): abklingen lassen */   /* 0..1 (Standard 1) */
 void dk808_render(dk808_t *d, float *left, float *right, int n);    /* addiert, mono auf beide Seiten */
 dk_real dk808_tick(dk808_t *d);                                       /* ein Sample, löst wartende Trigger aus */
 int dk808_note_instrument(int note);   /* MIDI-Note -> Instrument (Drum-Map des DrumKern), -1 = keins */

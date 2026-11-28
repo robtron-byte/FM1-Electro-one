@@ -87,6 +87,10 @@ static dk_real vca(dk_real m, dk_real c, dk_real K)
 #if DK808_FLOAT
     /* float: 1 - X / expm1(X) löscht sich bei kleinem X aus; dort die Reihe X/2 - X^2/12 + X^4/720 (docs/adr/0050) */
     if (DK_FABS(X) < 0.5f) { dk_real X2 = X * X; return (X * 0.5f - X2 * (1.0f / 12.0f) + X2 * X2 * (1.0f / 720.0f)) / K; }
+    /* bitgleich und ohne expm1f: für X > 24 ist X / expm1(X) < 2^-25 (1 - ratio = 1); für X < -18 ist expm1f(X) = -1
+     * (ratio = -X). Bei c = 1000 ist das der häufige Fall (Becken, Hats; Last, ADR 0049). */
+    if (X > 24.0f) return 1.0f / K;
+    if (X < -18.0f) return (1.0f + X) / K;
 #endif
     dk_real ratio = DK_FABS(X) < 1e-9 ? 1.0 - X * 0.5 : X / DK_EXPM1(X);
     return (1.0 - ratio) / K;
@@ -606,10 +610,11 @@ static dk_real cy_sub(dk808_t *d, dk_real a, dk_real b)
     v->envB = follow(v->envB, v->tB, v->rB);
     v->n -= v->n * v->rN;
     dk_real env3 = dmax(v->n - 0.01, 0);
-    dk_real vA = vca(a, 1000, 500) * envA;
+    dk_real va = vca(a, 1000, 500);             /* (einmal statt zweimal: bitgleich) */
+    dk_real vA = va * envA;
     v->pA = 1.7 * vA + v->pA * (1.0 - 0.3 * S40);
     dk_real hA = bq_run(&v->hpA, v->pA) * 2.4;
-    dk_real vB = vca(a, 1000, 500) * v->envB;
+    dk_real vB = va * v->envB;
     v->pB = 1.7 * vB + v->pB * (1.0 - 0.3 * S40);
     dk_real hB = bq_run(&v->hpB, v->pB);
     dk_real vL = vca(b, 300, 100) * env3;
@@ -891,6 +896,8 @@ void dk808_set_run(dk808_t *d, uint32_t mask)
     d->run = mask & DK808_MASK_ALL;
     for (unsigned i = 0; i < DK_COUNT; ++i) if (!(d->run >> i & 1u)) d->active[i] = 0;
 }
+static void choke(dk808_t *d, unsigned i);
+void dk808_choke(dk808_t *d, unsigned i) { if (i < DK_COUNT && (d->run >> i & 1u)) choke(d, i); }
 void dk808_set_level(dk808_t *d, unsigned i, double level)
 {
     if (i < DK_COUNT) d->level[i] = (dk_real)(level < 0 ? 0 : level > 1 ? 1 : level);
