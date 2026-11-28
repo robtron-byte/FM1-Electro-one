@@ -51,6 +51,8 @@ TUBE zuerst. Der Ersatz der 808 in FM1-Electro (`engine/`, ADR 0041) bleibt beim
    | volles Pattern (BD, SD, CP, CH/OH, CY, Toms, Congas, Perkussion über 16 Schritte) | 69,9 % | 44,9 % |
 
    Das Becken kostet allein etwa 20 % (zwei Bandpässe, zweifach überabgetastet). Jede Hi-Hat kostet etwa 8 %.
+   Kern 1 (Delay, Hall und Distortion-Send TUBE mit Send 40) braucht 7,5 %. Der ganze Block kostet höchstens 87 % (bei
+   allen 17 zugleich), und es gab keinen verspäteten Block.
 
 ## Alternativen
 
