@@ -169,6 +169,9 @@ static float int_acc;
 
 /* Delay und Hall: gespeist von den Sends des Blocks davor, gerechnet auf Kern 1 (oder Kern 0, wenn Kern 1 fehlt) */
 static float fx_in[2][GM_BLOCK], fx_wet[2][GM_BLOCK];
+/* fx_src: Abzug von fx_in vor dem Start von Kern 1 (Kern 0 füllt fx_in schon für den nächsten Block, während Kern 1
+ * rechnet; Delay und Hall lesen nur den Abzug) */
+static float fx_src[2][GM_BLOCK];
 static uint8_t fx_on;
 /* GM_FX_EXTRA(wl, wr): ein weiterer Send-Effekt der Variante (SH-101: Distortion), läuft mit Delay und Hall (Kern 1,
  * sonst Kern 0) und addiert sein nasses Signal; GM_FX_EXTRA_ON(): ist er gerade an. Standard: keiner. */
@@ -179,7 +182,7 @@ static uint8_t fx_on;
 static DSP void fx_run(void)
 {
     for (uint32_t i = 0; i < GM_BLOCK; i++) fx_wet[0][i] = fx_wet[1][i] = 0;
-    if (fx_on) syn_fx_process(fx_in[0], fx_in[1], fx_wet[0], fx_wet[1], GM_BLOCK, bpm_now);
+    if (fx_on) syn_fx_process(fx_src[0], fx_src[1], fx_wet[0], fx_wet[1], GM_BLOCK, bpm_now);
     GM_FX_EXTRA(fx_wet[0], fx_wet[1]);
 }
 static DSP void c1_job(uint32_t blk)
@@ -560,6 +563,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
     }
     block_no++;
     c1_fx_t = 0;
+    for (uint32_t i = 0; i < GM_BLOCK; i++) { fx_src[0][i] = fx_in[0][i]; fx_src[1][i] = fx_in[1][i]; }
     if ((fx_on || GM_FX_EXTRA_ON()) && cpu1_ok && fm1_c1_on) started = (uint32_t)fm1_cpu1_run(c1_job, block_no);
     /* die Parts auf Kern 0, während Kern 1 die Effekte des Blocks davor rechnet */
     t = fm1_ticks();
