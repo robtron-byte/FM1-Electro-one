@@ -345,6 +345,10 @@ static DSPF void dk_seq(uint32_t q)
             1u << DK_BD | 1u << DK_CH, 1u << DK_CH | 1u << DK_HC, 1u << DK_OH | 1u << DK_LT, 1u << DK_CH | 1u << DK_MA,
             1u << DK_SD | 1u << DK_CP | 1u << DK_CH, 1u << DK_CH | 1u << DK_MT, 1u << DK_OH | 1u << DK_HT | 1u << DK_CL, 1u << DK_CH | 1u << DK_SD | 1u << DK_LG};
         uint32_t ph = dk_blk / DK_PH, k = dk_blk % DK_PH;
+        if (dk_blk == 100u) {                   /* Delay, Hall und Sends an (ab Werk zu), wie JXSH_LAST */
+            syn_fx_set(FX_DLY_LEVEL, 100); syn_fx_set(FX_REV_LEVEL, 100); fx_on = 1;
+            part_send[0][0] = part_send[0][1] = 0.5f;
+        }
         if (k == 0) { dk808_bs_all_off(&engA); off = 1; }
         if (ph && ph < DK_NPH && k % DK_STEP == 0) {
             hit = ph <= DK_COUNT ? 1u << (ph - 1u) : ph == DK_COUNT + 1u ? (1u << DK_COUNT) - 1u : pat[(k / DK_STEP + ph * 4u) & 15u];

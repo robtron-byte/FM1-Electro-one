@@ -53,7 +53,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0046 | jx8p als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0047 | mks50 als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0048 | jp6 als Baustein + solo | vergeben (jx8p-Chat) |
-| ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
+| ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | vergeben (jx8p-Chat) |
 | ADR | 0050 | dk808 float, Adapter, solo | vergeben (jx8p-Chat) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | vergeben (sh101-Chat) |
@@ -61,7 +61,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | vergeben (Web-Installer-Chat) |
 | ADR | 0055 | Grafik-Kopf je Seite (LFO, Hüllkurve, Filter, Effekte live), sh101-Chat | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
-| FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
+| FEATURES | P15 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | vergeben (jx8p-Chat) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
 | FEATURES | Y13 | mksultra solo | vergeben (sh101-Chat) |
 | FEATURES | Y14 | jx8p solo | vergeben (jx8p-Chat) |
@@ -121,7 +121,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** frei (jx8p-Chat: 808 solo 0.1.0 fertig, 28.11.2026, ADR 0050, B20)
+- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Kombis 808 + 101 (`varianten/dk101`) und 808 + 101 + JX (`varianten/dkjxsh`), ADR 0049, P15 (808 solo 0.1.0 fertig, ADR 0050, B20)
 - **Stand 808 solo:** `firmware/DK808-0.1.0-alpha.fwsc` (FM-1_91 geteilt mit 808 + 101, STORE_MAGIC „DK01“).
   - Alle 17 Instrumente in float auf zwei Kernen: Kern 0 alles außer CH/OH/CY, Kern 1 CH/OH/CY und die Effekte.
   - Volles Pattern: Kern 0 Spitze 26 %, Kern 1 50 %.
