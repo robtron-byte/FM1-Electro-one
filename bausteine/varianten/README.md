@@ -11,6 +11,13 @@ baubar; dafür fehlen die Adapter (Arbeitstafel, ADR 0041–0043).
 | Alpha Juno solo | mksultra (mehr Stimmen) | voller Synth-Klang | geplant |
 | 808 solo | dk808 mit allen 17 Instrumenten | volle Drum-Machine | geplant |
 | 101 solo | sh101 | voller Bass/Lead | geplant |
+| JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | geplant |
+| MKS-50 solo | mks50 (alle Stimmen) | voller MKS-50 | geplant |
+| JP-6 solo | jp6 (alle Stimmen) | voller JP-6 | geplant |
+
+**Solo-Firmware je Baustein (Wunsch 28.11.):** Jeder Baustein bekommt eine eigene Firmware, die das FM-1 ganz für ihn nutzt:
+so viele Stimmen und so viel Qualität (Überabtastung, alle Instrumente/Parameter), wie die Last auf dem Gerät erlaubt,
+mit eigener Bedienung nach dem Raster der vorhandenen Synths.
 
 In der Firmware des Nutzers fehlen vorerst Toms, Congas, Claves, Maracas und Laser (Wunsch 28.11.). In den
 Solo-Varianten sind sie dabei.
