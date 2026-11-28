@@ -86,6 +86,9 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   FM-1_95 MKS-50 solo (löst die fm1-synths-Fassung ab), FM-1_97 JX-8P solo (löst die fm1-synths-Fassung ab),
   FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX, FM-1_99 JX-8P + SH-101 (99 war nur die Dinghy-Vorlage, keine Firmware des Nutzers). Für 808 solo ist keine 9x
   mehr frei: der dk808-Chat prüft im Lader/Hub, ob FM-1_8x geht, sonst teilt sich 808 solo eine Kennung mit 808 + 101.
+- **Feste Werte für alle Firmwares (Wunsch des Nutzers 28.11.):** Delay höchstens **0,6 s** in jeder Firmware.
+  Polyphone Synths (MKS Ultra, JX-8P, MKS-50, JP-6, auch in Kombis) spielen mit **4 Stimmen** (Pool), SH-101 mono.
+  Damit entfällt das Einmessen der Stimmenzahl; gemessen wird nur noch, dass 4 Stimmen sicher < 70 % je Kern bleiben.
 - **Keine Distortion in den Synth-Engines (Wunsch des Nutzers 28.11.):** Keine Synth-Engine rechnet eine eigene
   Distortion (JP-6 `dist_process` je Part in `engine/jp6.c`, SH-101 Drive/8×-Clipper). Distortion gibt es, wenn überhaupt,
   nur als **Send-Effekt der Firmware für alle Parts** (wie heute in FM1-Electro `engine/fx.c`, Send DIST). Regeln:
