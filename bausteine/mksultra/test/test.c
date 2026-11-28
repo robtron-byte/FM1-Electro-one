@@ -123,10 +123,36 @@ static float *render_case(const gcase_t *c)
     return d;
 }
 
+/* Kein Golden-Fall: 8 Noten im Abstand von 0,1 s, je 0,5 s gehalten, NumberOfVoices auf 12. Misst, was die
+ * Sparfassung (weniger Stimmen) hörbar ändert, wenn mehr Noten gleichzeitig klingen, als sie Stimmen hat. */
+#define STRESS_LEN 96000
+static float *render_stress(const char *preset)
+{
+    void *s = state();
+    mksultra_init(s, 48000.0f);
+    mksultra_load_preset(s, &mksultra_presets[mksultra_preset_find(preset)]);
+    mksultra_set_param(s, mksultra_param_find("NumberOfVoices"), 11.0f);
+    static const int keys[8] = {48, 55, 60, 64, 67, 71, 72, 76};
+    float l[512], r[512];
+    for (int k = 0; k < 20; k++) mksultra_process(s, l, r, 512);
+    float *d = malloc(sizeof(float) * 2 * STRESS_LEN);
+    for (int pos = 0; pos < STRESS_LEN; pos += 480) {
+        for (int k = 0; k < 8; k++) {
+            if (pos == k * 4800) mksultra_note_on(s, keys[k], 100);
+            if (pos == k * 4800 + 24000) mksultra_note_off(s, keys[k]);
+        }
+        mksultra_process(s, l, r, 480);
+        for (int k = 0; k < 480; k++) { d[2 * (pos + k)] = l[k]; d[2 * (pos + k) + 1] = r[k]; }
+    }
+    return d;
+}
+static const char *STRESS[2][2] = {{"stress_polysynth", "Factory Bank A/000 PolySynth1.mks"},
+                                   {"stress_brass", "Factory Bank B/002 BrassHorns.mks"}};
+
 /* Abweichung a gegen Referenz b: größte Differenz, erste abweichende Stelle, Rest in dB */
 static void compare(const char *name, const float *a, const float *b, size_t n)
 {
-    double e2 = 0.0, r2 = 0.0, mx = 0.0;
+    double e2 = 0.0, r2 = 0.0, a2 = 0.0, mx = 0.0;
     long first = -1;
     for (size_t i = 0; i < n; i++) {
         double d = (double)a[i] - (double)b[i];
@@ -134,11 +160,13 @@ static void compare(const char *name, const float *a, const float *b, size_t n)
         if (fabs(d) > mx) mx = fabs(d);
         e2 += d * d;
         r2 += (double)b[i] * (double)b[i];
+        a2 += (double)a[i] * (double)a[i];
     }
     if (first < 0) { printf("  %-20s Sample für Sample gleich\n", name); return; }
     double db = e2 > 0.0 && r2 > 0.0 ? 10.0 * log10(e2 / r2) : -999.0;
-    printf("  %-20s erste Abweichung bei Sample %ld (Kanal %s), größte %.3g, Rest %.1f dB\n", name, first / 2,
-           first % 2 ? "R" : "L", mx, db);
+    double lv = a2 > 0.0 && r2 > 0.0 ? 10.0 * log10(a2 / r2) : 0.0;
+    printf("  %-20s erste Abweichung bei Sample %ld (Kanal %s), größte %.3g, Differenz %.1f dB, Pegel %+.2f dB\n", name,
+           first / 2, first % 2 ? "R" : "L", mx, db, lv);
 }
 
 static int golden(const char *ref, const char *out, const char *wavdir)
@@ -168,6 +196,13 @@ static int golden(const char *ref, const char *out, const char *wavdir)
         }
         free(d);
     }
+    for (int i = 0; i < 2; i++) {
+        float *d = render_stress(STRESS[i][1]);
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s.wav", out, STRESS[i][0]);
+        write_wav(path, 48000, d, 2 * STRESS_LEN);
+        free(d);
+    }
     printf("mksultra: %s (%d/%d Prüfsummen gleich)\n", fails ? "FEHLER" : "bestanden", NCASES - fails, NCASES);
     return fails ? 1 : 0;
 }
@@ -189,6 +224,16 @@ static int versus(const char *out, const char *fulldir)
         size_t gn = read_wav(path, &g);
         if (gn == n) compare(c->name, d, g, n);
         else printf("  %-20s keine Vergleichsdatei\n", c->name);
+        free(g);
+        free(d);
+    }
+    for (int i = 0; i < 2; i++) {
+        float *d = render_stress(STRESS[i][1]), *g = NULL;
+        char path[1024];
+        snprintf(path, sizeof path, "%s/%s.wav", out, STRESS[i][0]);
+        write_wav(path, 48000, d, 2 * STRESS_LEN);
+        snprintf(path, sizeof path, "%s/%s.wav", fulldir, STRESS[i][0]);
+        if (read_wav(path, &g) == 2 * STRESS_LEN) compare(STRESS[i][0], d, g, 2 * STRESS_LEN);
         free(g);
         free(d);
     }
