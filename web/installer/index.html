@@ -25,6 +25,8 @@
   .fw { display:flex; gap:12px; padding:12px; border:2px solid var(--line); border-radius:10px; margin:8px 0; cursor:pointer; align-items:flex-start; }
   .fw:has(input:checked) { border-color:var(--acc); }
   .fw input { margin-top:6px; width:20px; height:20px; flex:none; }
+  .fw .pic { width:120px; height:80px; flex:none; border-radius:10px; }
+  @media (max-width:520px) { .fw .pic { width:84px; height:56px; } }
   .fw b { font-size:20px; } .fw .meta { color:var(--mute); font-size:15px; }
   .drop { border:2px dashed var(--line); border-radius:10px; padding:18px; text-align:center; color:var(--mute); margin-top:12px; cursor:pointer; }
   .drop.over { border-color:var(--acc); color:var(--ink); background:color-mix(in srgb, var(--acc) 12%, transparent); }

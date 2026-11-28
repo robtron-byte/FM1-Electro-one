@@ -72,3 +72,5 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   Balken, „Fertig“, danach JX-8P 0.2.6-alpha erkannt).
 - 2026-11-28: Liste live aus `main` (neueste Version je Firmware, Git-Prüfsumme), Ablegen überall auf der Seite,
   „Verbinden“ nennt Firmware + neueste Version statt einer Version, die das Gerät nicht meldet. JXSH in die Beschreibungen.
+- 2026-11-28: kleines Bild je Firmware in der Liste (Wunsch des Nutzers): eigene schlichte SVG-Zeichnungen in
+  `web/installer/bilder/` (keine Herstellerlogos), Rückfall `allgemein.svg` für neue Namen; kommen mit dem Deploy der Seite.

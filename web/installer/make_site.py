@@ -63,6 +63,9 @@ def main(dest):
     (dest / "firmware").mkdir(parents=True, exist_ok=True)
     for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js", "beschreibungen.json"):
         shutil.copy(HERE / f, dest / f)
+    (dest / "bilder").mkdir(exist_ok=True)
+    for f in (HERE / "bilder").glob("*.svg"):
+        shutil.copy(f, dest / "bilder" / f.name)
     items = liste(ROOT / "firmware")
     for e in items:
         shutil.copy(ROOT / e["datei"], dest / e["datei"])

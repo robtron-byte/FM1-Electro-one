@@ -140,7 +140,10 @@ function renderList() {
     const lab = document.createElement("label");
     lab.className = "fw";
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
-    lab.innerHTML = `<input type="radio" name="fw"><span><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
+    lab.innerHTML = `<input type="radio" name="fw"><img class="pic" alt="" width="120" height="80"><span><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
+    const pic = lab.querySelector(".pic");
+    pic.onerror = () => { pic.onerror = null; pic.src = "bilder/allgemein.svg"; };
+    pic.src = `bilder/${encodeURIComponent(e.name)}.svg`;
     lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
     lab.querySelector(".d").textContent = desc;
     lab.querySelector(".meta").textContent = [voices, `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
