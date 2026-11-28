@@ -9,6 +9,12 @@
 #define JP6_BS_H
 #include "baustein.h"
 
+/* Distortion (engine/dist.c): 1 = an wie in FM1-Electro (Standard, Baustein-Test und Prüfsummen); 0 = aus: statt
+ * engine/dist.c wird dist_aus.c gebunden, JP_DIST_MODE bleibt 0. JP-6 solo baut mit 0 (Wunsch des Nutzers 28.11.2026). */
+#ifndef JP6_BS_DIST
+#define JP6_BS_DIST 1
+#endif
+
 /* Stimmen des Bausteins: voll wie der Jupiter-6 (6). Sparfassung für ein Gerät: -DJP6_BS_VOICES=4 o. ä. */
 #ifndef JP6_BS_VOICES
 #define JP6_BS_VOICES 6

@@ -14,8 +14,8 @@ SRC := jp6_bs.c jp6_eigene.c $(KERN)
 HDR := jp6_bs.h jp6_eigene.h ../baustein.h $(TOP)/engine/jp6.h $(TOP)/engine/dist.h $(TOP)/engine/el_config.h $(TOP)/engine/chords.h
 BUILD := ../build/jp6
 
-.PHONY: test ref last eigene pool
-test: $(BUILD)/test $(BUILD)/test_4 pool
+.PHONY: test ref last eigene
+test: $(BUILD)/test $(BUILD)/test_4
 	@mkdir -p $(BUILD)/wav $(BUILD)/wav4
 	$(BUILD)/test ref $(BUILD)/wav
 	$(BUILD)/test_4 ref $(BUILD)/wav4
@@ -39,13 +39,3 @@ $(BUILD)/test: $(SRC) $(HDR) test/test.c
 $(BUILD)/test_4: $(SRC) $(HDR) test/test.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -DJP6_BS_VOICES=4 -o $@ $(SRC) test/test.c -lm
-
-# JP-6 solo rechnet mit dem Pool-Kern varianten/jp6/engine/jpp.c (bindet engine/jp6.c ein, ADR 0048): mit einem Part
-# bitgleich mit jp6_render
-pool: $(BUILD)/pool
-	$(BUILD)/pool
-
-$(BUILD)/pool: test/pool.c ../varianten/jp6/engine/jpp.c ../varianten/jp6/engine/jpp.h jp6_eigene.c $(HDR)
-	@mkdir -p $(BUILD)
-	$(CC) $(CPPFLAGS) -I../varianten/jp6/engine $(CFLAGS) -o $@ test/pool.c ../varianten/jp6/engine/jpp.c jp6_eigene.c \
-	  $(TOP)/engine/jp6_presets.c $(TOP)/engine/dist.c $(TOP)/engine/chords.c -lm

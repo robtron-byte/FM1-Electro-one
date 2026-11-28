@@ -50,10 +50,14 @@ const unsigned char *jp6_bs_preset_values(unsigned i)
 void jp6_bs_load_preset(void *state, unsigned i)
 {
     const jp6_preset_t *p = preset(i);
-    if (p) jp6_part_load(&((jp6_bs_t *)state)->part, p->v);
+    if (p) jp6_bs_load_values(state, p->v);
 }
 
-void jp6_bs_set_raw(void *state, unsigned param, int value) { jp6_part_set(&((jp6_bs_t *)state)->part, param, value); }
+void jp6_bs_set_raw(void *state, unsigned param, int value)
+{
+    if (!JP6_BS_DIST && param == JP_DIST_MODE) value = 0;   /* Distortion aus (jp6_bs.h) */
+    jp6_part_set(&((jp6_bs_t *)state)->part, param, value);
+}
 int jp6_bs_get_raw(const void *state, unsigned param)
 {
     return param < JP_COUNT ? ((const jp6_bs_t *)state)->part.v[param] : 0;
@@ -152,7 +156,11 @@ void jp6_bs_all_off(void *state)
     for (unsigned i = 0; i < HELD_CHORDS; ++i) s->chord_root[i] = -1;
 }
 
-void jp6_bs_load_values(void *state, const unsigned char *v) { jp6_part_load(&((jp6_bs_t *)state)->part, v); }
+void jp6_bs_load_values(void *state, const unsigned char *v)
+{
+    jp6_part_load(&((jp6_bs_t *)state)->part, v);
+    if (!JP6_BS_DIST) jp6_part_set(&((jp6_bs_t *)state)->part, JP_DIST_MODE, 0);
+}
 
 int jp6_bs_voices(const void *state)
 {
