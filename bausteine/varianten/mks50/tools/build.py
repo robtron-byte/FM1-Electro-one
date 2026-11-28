@@ -21,6 +21,6 @@ g.build(dict(name="MKS50", root=R, app=R / "app" / "mk_app.c",
              dsp=[R / "engine" / "mks.c", SH / "fx" / "syn_fx.c"],
              flash=[R / "engine" / "mks_presets.c", R / "engine" / "mks_cats.c", B / "mks50" / "mks50_eigene.c"],
              inc=[R / "engine", R / "app", B / "mks50", SH / "dsp"],
-             defs=[f"-DMK_RELEASE_HURRY={int(os.environ.get('MK_RELEASE_HURRY', '0'))}"],
+             defs=[f"-DMKS_POOL=4", "-DSYN_FX_DLY_MAX_S=0.6f", f"-DMK_RELEASE_HURRY={int(os.environ.get('MK_RELEASE_HURRY', '0'))}"],
              product="FM-1_950", prefix="FM-1_95", screen="MKS-50", colour=0x5D5F, family="MKS50",
              store_magic=0x30354B4D))   # "MK50", wie fm1-synths

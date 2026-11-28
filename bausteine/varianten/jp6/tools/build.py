@@ -14,7 +14,7 @@ G = R.parent / "gemeinsam"
 sys.path.insert(0, str(G / "tools"))
 import build as g   # noqa: E402
 
-VOICES = int(os.environ.get("JP_VOICES", "6"))
+VOICES = int(os.environ.get("JP_VOICES", "4"))   # 4 Stimmen: Regel des Nutzers 28.11.2026 (Arbeitstafel)
 # die Soundliste (app/jp_sounds.h) muss zur Zahl der Presets passen, sonst bliebe die Firmware stumm (kern_boot)
 n = sum(len(re.findall(r'^    \{"', p.read_text(), re.M))
         for p in (B / "jp6" / "jp6_eigene.c", REPO / "engine" / "jp6_presets.c"))
@@ -28,6 +28,7 @@ g.build(dict(name="JP6", root=R, app=R / "app" / "jp_app.c",
              inc=[R / "app", B / "jp6", REPO / "engine", REPO / "sdk_include"],
              defs=["-DEL_SYNTH_JX=1", f"-DJP6_BS_VOICES={VOICES}",
                    # ohne Distortion (Wunsch des Nutzers 28.11.2026): bausteine/jp6/dist_aus.c statt engine/dist.c
-                   "-DJP6_BS_DIST=0"],
+                   "-DJP6_BS_DIST=0",
+                   "-DSYN_FX_DLY_MAX_S=0.6f"],   # Delay höchstens 0,6 s (Regel des Nutzers 28.11.2026)
              product="FM-1_920", prefix="FM-1_92", screen="JP-6", colour=0xE545, family="JP6",
              store_magic=0x3130504A))   # "JP01"

@@ -24,7 +24,10 @@ Baustein mit `baustein.h` werden, ohne `engine/` zu ändern.
 - **Solo-Firmware „JP-6 solo“** in `bausteine/varianten/jp6/` auf dem Gerüst `varianten/gemeinsam/` (ADR 0044),
   Kennung FM-1_92 (neu), `STORE_MAGIC` „JP01“, Journal „JPST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns, alle Sounds des
   Bausteins mit den eigenen vorn (Gruppe EIGENE), Delay-/Hall-Anteil aus dem Sound direkt in die Effekte des Gerüsts
-  (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0, im Emulator eingemessen (Ziel < 70 %). Die Distortion rechnet in float ohne Tabellen (`DIST_FIXED=0`, `DIST_TABLE=0`) wie im Baustein-Test: die Tabellen von FM1-Electro (48 KB im Pool) passen nicht neben Delay und Hall. Pegel wie in FM1-Electro (× 1,4, `GM_OUT_GAIN`).
+  (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0, im Emulator eingemessen (Ziel < 70 %). Ein Part, Kern 1 rechnet Delay und Hall. **Ohne Distortion** (Wunsch des Nutzers 28.11.2026): Schalter
+  `JP6_BS_DIST` im Baustein (Standard 1, Test und Prüfsummen mit Distortion); die Firmware baut mit 0 und bindet
+  `bausteine/jp6/dist_aus.c` statt `engine/dist.c` (keine Tabellen, kein Speicher-Engpass, keine Rechenzeit). Pegel wie in
+  FM1-Electro (× 1,4, `GM_OUT_GAIN`).
 
 ## Alternativen
 
@@ -40,7 +43,15 @@ Baustein mit `baustein.h` werden, ohne `engine/` zu ändern.
   (12 VCO 01, Unisono) ≈ 23 ns je Stimme samt Grundlast.
 - Neue eigene Presets nur, wenn die JP-6-App wieder auf das iPhone kommt; bis dahin ist die Sicherung vom 05.11. die Quelle.
 
+**Offen für den Gerätetest (Koordinator 28.11.):** Mit 6 Stimmen Unisono (12 VCO 01) braucht Kern 0 im Emulator bis
+66 % Spitze, Kern 1 nur 7 % (Delay und Hall). Ziel wären ≤ 55 % je Kern. Stimmen eines Parts auf Kern 1 zu legen, geht
+mit `engine/jp6.c` nur mit einem Umbau (Steuerwerte je Schritt vorab festlegen, wie im verworfenen Pool-Kern) und ist
+deshalb nicht gemacht. Am Gerät die Seite SYSTEM prüfen; reicht die Reserve nicht, `JP_VOICES=5` (tools/build.py) oder
+den Umbau angehen.
+
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 79 Presets (5 eigene) bitgleich mit dem Kern, Solo-Firmware offen.
-- 2026-11-28: Solo-Firmware JP-6: erste Fassung gebaut, Emulator-Prüfung ok, noch kein Paket (Gleichstand mit fm1-synths zuerst).
+- 2026-11-28: Solo-Firmware JP-6: erste Fassung auf dem Gerüst. Ein Versuch mit vier Parts und eigenem Pool-Kern (nach
+  fm1-synths `jx.c`) wurde auf Hinweis des Nutzers verworfen: für JP-6 gibt es keine ältere Solo-Firmware, gegen die etwas
+  fehlen könnte. Distortion auf Wunsch des Nutzers aus (`JP6_BS_DIST=0`). 0.1.0-alpha, Emulator-Prüfung ok, am Gerät offen.

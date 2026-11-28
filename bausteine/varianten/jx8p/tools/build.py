@@ -19,5 +19,6 @@ g.build(dict(name="JX8P", root=R, app=R / "app" / "jx_app.c",
              dsp=[R / "engine" / "jx.c", SH / "fx" / "syn_fx.c"],
              flash=[R / "engine" / "jx_presets.c", R / "engine" / "jx_eigene.c"],
              inc=[R / "engine", R / "app", SH / "dsp"],
+             defs=["-DJX_POOL=4", "-DSYN_FX_DLY_MAX_S=0.6f"],   # Pool 4, Delay höchstens 0,6 s (Regel des Nutzers 28.11.2026)
              product="FM-1_970", prefix="FM-1_97", screen="JX-8P", colour=0xE9C5, family="JX8P",
              store_magic=0x5038584A))   # "JX8P", wie fm1-synths

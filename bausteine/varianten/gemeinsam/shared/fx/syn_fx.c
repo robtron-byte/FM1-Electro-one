@@ -52,10 +52,17 @@ static float delay_feedback(float raw)
     float x = dsp_clamp(raw, 0, 127) / 127.0f;
     return x <= 0.5f ? x * 0.95f : 0.475f + (x - 0.5f) * 2.0f * 0.675f;
 }
+/* FM1-Electro-one (bausteine, Regel des Nutzers 28.11.2026): -DSYN_FX_DLY_MAX_S=0.6f begrenzt die Delay-Zeit (frei und
+ * synchron) auf so viele Sekunden; ohne den Schalter wie bisher. */
 float syn_fx_delay_seconds(int time, int sync, int div, float bpm)
 {
-    if (sync) return quarters[div < 0 ? 0 : div >= FX_DIVS ? FX_DIVS - 1 : div] * 60.0f / (bpm < 20.0f ? 20.0f : bpm);
-    return 0.0005f * dsp_exp2((float)time / 127.0f * 11.965784f);   /* 0.0005 * 4000^(t/127) */
+    float s;
+    if (sync) s = quarters[div < 0 ? 0 : div >= FX_DIVS ? FX_DIVS - 1 : div] * 60.0f / (bpm < 20.0f ? 20.0f : bpm);
+    else s = 0.0005f * dsp_exp2((float)time / 127.0f * 11.965784f);   /* 0.0005 * 4000^(t/127) */
+#ifdef SYN_FX_DLY_MAX_S
+    if (s > SYN_FX_DLY_MAX_S) s = SYN_FX_DLY_MAX_S;
+#endif
+    return s;
 }
 
 static inline EL_DSP_HELPER float dl_read(const int16_t *b, float delay)

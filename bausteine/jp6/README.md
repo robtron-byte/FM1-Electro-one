@@ -18,6 +18,12 @@ JP-6-iOS-App des Nutzers), als Baustein nach `baustein.h`. Der Ordner **bindet d
 
 Gebaut mit `-DFM1_HOST_TEST` und den Standardschaltern des Kerns, wie `jp6_test` im Hauptordner.
 
+## Schalter `JP6_BS_DIST` (Distortion)
+
+`JP6_BS_DIST=1` (Standard): mit `engine/dist.c`, so laufen Test und Prüfsummen. `JP6_BS_DIST=0`: statt `engine/dist.c`
+wird `dist_aus.c` gebunden (kein Code, keine Tabellen), und der Adapter hält `JP_DIST_MODE` auf 0. JP-6 solo baut so
+(Wunsch des Nutzers 28.11.2026); gegenüber DIST OFF in `dist.c` fehlt nur dessen kleine Verzögerung.
+
 ## Unterschiede Gerät / Host (für die Solo-Firmware)
 
 | Schalter | Host (Baustein, Prüfsummen) | eigene Plattform (`EL_PLATFORM`) | Wirkung |
