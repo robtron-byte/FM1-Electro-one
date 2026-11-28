@@ -567,9 +567,17 @@ static void app_idle(void) { if (idle_keys) keys_poll(); }
  * ====================================================================================================== */
 enum { NOWN = 40, CAT_OWN = GM_NCAT, CAT_INIT = GM_NCAT + 1, NCAT_ALL = GM_NCAT + 2 };
 #define FAC_N (GM_NFAC + 1u)                    /* die Werkssounds, dann INIT (zuletzt, damit die anderen ihre Nummer behalten) */
+/* GM_FAC_FUNCS: die Variante liefert die Werkssounds über gm_fac_name/gm_fac_v/gm_fac_cat (i < GM_NFAC) statt der Tabelle
+ * gm_factory, z. B. aus Presets im Flash (MKS Ultra). gm_fac_v darf in einen eigenen Puffer schreiben (sofort kopiert). */
+#ifdef GM_FAC_FUNCS
+static const char *fac_name(unsigned i) { return i < GM_NFAC ? gm_fac_name(i) : "INIT"; }
+static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_fac_v(i) : gm_init_v; }
+static unsigned fac_cat(unsigned i) { return i < GM_NFAC ? gm_fac_cat(i) : CAT_INIT; }
+#else
 static const char *fac_name(unsigned i) { return i < GM_NFAC ? gm_factory[i].name : "INIT"; }
 static const uint8_t *fac_v(unsigned i) { return i < GM_NFAC ? gm_factory[i].v : gm_init_v; }
 static unsigned fac_cat(unsigned i) { return i < GM_NFAC ? gm_factory[i].cat : CAT_INIT; }
+#endif
 static const char *cat_label(unsigned c) { return c < GM_NCAT ? gm_cat_name[c] : c == CAT_OWN ? "OWN" : "INIT"; }
 #define FAC_AT(j) (((j) + FAC_N - 1u) % FAC_N)
 
