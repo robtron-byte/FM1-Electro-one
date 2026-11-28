@@ -121,15 +121,21 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Kombis 808 + 101 (`varianten/dk101`) und 808 + 101 + JX (`varianten/dkjxsh`), ADR 0049, P15 (808 solo 0.1.0 fertig, ADR 0050, B20)
-- **Stand 808 solo:** `firmware/DK808-0.1.0-alpha.fwsc` (FM-1_91 geteilt mit 808 + 101, STORE_MAGIC „DK01“).
-  - Alle 17 Instrumente in float auf zwei Kernen: Kern 0 alles außer CH/OH/CY, Kern 1 CH/OH/CY und die Effekte.
-  - Volles Pattern: Kern 0 Spitze 26 %, Kern 1 50 %.
-  - Sequencer mit 16 Steps je Instrument und Akzent, LOOP, Distortion-Send TUBE.
-  - Gerüst-Haken `GM_FX_PRE`, `GM_KEY`, `GM_LIGHTS`.
-- **Nächster Schritt:** Kombis 808 + 101 und 808 + 101 + JX. Dort die ganze 808 auf Kern 1 legen
-  (`DK_K1_MASK=DK808_MASK_ALL`, `dk808_set_run`) und den Synth auf Kern 0. Später für 808 solo: Plätze A–D,
-  Swing, Fills.
+- **In Arbeit:** pausiert (jx8p-Chat, Worktree nervous-shamir-666aca, 28.11.2026): 808 solo 0.2.0, ADR 0050, B20
+- **Stand 0.2.0 (Code auf main, cb37106; noch kein Paket):**
+  - Bedienung wie BEAT: `app/dk_ui.c`, `GM_UI_FILE`.
+  - Drum-Machine aus FM1-Electro: `app/dk_beat.c`, Host-Test `test_beat`.
+  - Punch-ins 1:1: `app/dk_punch.c`, `GM_POST_MIX`.
+  - 15 Instrumente (ohne MT/MC), CH auf Kern 0.
+  - Emulator: volles Pattern mit allen Effekten Kern 0 ≤ 52,5 %, Kern 1 ≤ 56,6 % (eine Messung mit THROW, die Kern 1
+    unterschätzt); check.sh ok; ANLEITUNG de/en neu, BILDSCHIRM angepasst.
+- **Nächster Schritt:**
+  1. Messbau ohne THROW (`DK_LAST=1`, Skript im README) für die genaue Zahl von Kern 1.
+  2. Bauen, check.sh, `firmware/DK808-0.2.0-alpha.fwsc` (0.1.0 entfernen).
+  3. `make_bildschirme.sh` für das Display-Bild.
+  4. ADR 0050, README, FEATURES B20 mit den Zahlen nachführen; in der Arbeitskopie liegen dafür Entwürfe mit
+     Platzhaltern {K0P} …, nicht committet.
+  5. Danach die Kombis (ADR 0049, P15), erst nach Freigabe des Koordinators.
 - **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
 - **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
   und 127) mit den Referenz-Renders des Swift-Kerns. Bei Velocity 127 Sample für Sample gegen die Referenz-WAVs geprüft (Abweichung ≤ 2e-24). Bei Velocity 64 lagen die
