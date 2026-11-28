@@ -54,6 +54,7 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0047](0047-mks50-baustein.md) | mks50: MKS-50 aus `engine/mks.c` als Baustein eingebunden (keine Kopie), Adapter wie jx8p, bitgleich (79 Presets, 23 eigene); MKS-50 solo = fm1-synths fortgeführt (FM-1_95, 0.2.5), Pool-Kern bitgleich (mit RELEASE_HURRY) | vorgeschlagen | 2026-11-28 |
 | [0048](0048-jp6-baustein.md) | jp6: Jupiter-6 aus `engine/jp6.c` (mit `dist.c`) als Baustein eingebunden (keine Kopie), Adapter wie jx8p, bitgleich (79 Presets, 5 eigene); JP-6 solo in Arbeit | vorgeschlagen | 2026-11-28 |
 | [0051](0051-eigene-presets.md) | Eigene Presets des Nutzers aus den iPhone-Apps: `tools/iphone_presets_pull.sh`, Werkzeug je Baustein, eingecheckte Tabelle, eigene zuerst | vorgeschlagen | 2026-11-28 |
+| [0053](0053-live-aufnahme.md) | Live-Aufnahme nach RK-008 in jeder Firmware: ein Modul (`gemeinsam/shared/seq/syn_live.h`), REC sofort/Einzählen, Länge auf ganze Takte, Overdub, 1/16, Seite LOOP, Blob 4 | vorgeschlagen | 2026-11-28 |
 | [0054](0054-web-installer.md) | Web-Installer im Browser: Web MIDI (M-UPGRADE wie `fm1_install.py`), Liste aus `firmware/`, GitHub Pages | vorgeschlagen | 2026-11-28 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

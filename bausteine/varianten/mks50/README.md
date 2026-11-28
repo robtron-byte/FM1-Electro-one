@@ -22,7 +22,7 @@ Die fm1-synths-Fassung 0.2.4 hat ihn aus. Damit sich für die Nutzer nichts änd
 
 | | |
 |---|---|
-| Firmware | `firmware/MKS50-0.2.6-alpha.fwsc` (Kennung FM-1_95, `STORE_MAGIC` „MK50“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/MKS50-0.2.7-alpha.fwsc` (Kennung FM-1_95, `STORE_MAGIC` „MK50“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
 | Last (Emulator) | 0.2.6 (Pool 4, Delay ≤ 0,6 s), 6 gehaltene Noten auf Part A: Kern 0 höchstens 29 %, Kern 1 höchstens 8 %; keine verspäteten Blöcke. 0.2.5 mit Pool 6: höchstens 35 % |
 | Am Gerät | 0.2.5 nicht geprüft |
 
@@ -62,3 +62,10 @@ Herkunft: `LICENSES.md`, Doku der fm1-synths-Fassung unter `docs/`.
 
 - Am Gerät: 0.2.5 über 0.2.4 aufspielen, eigene Sounds und Sets prüfen; Last; `MK_RELEASE_HURRY` nach Gehör entscheiden.
 - Live-Aufnahme nach Art des RK-008 (ADR 0053, noch nicht freigegeben): der Sequencer bleibt dafür unverändert.
+
+## Live-Aufnahme (0.2.7, ADR 0053)
+
+REC tippen: Aufnahme sofort; zweimal schnell: 1 Takt Einzählen; REC übernimmt, PLAY tippen verwirft den laufenden
+Durchgang. Die erste Aufnahme legt die Länge fest (ganze Takte, bis 16), danach Overdub. Fest auf 1/16, Notenlänge wie
+gehalten. Seite LOOP (Taste SEQ): LOOP an/aus, BARS (0 = leer), LONGER (REPEAT/EMPTY), SHORTER (START/END). Auf der
+SEQUENCER-Seite bleibt REC die Schritt-Aufnahme. Gespeichert in Blob 4 (alte Stände laden, Schleifen dann leer).

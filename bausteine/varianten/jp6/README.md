@@ -13,7 +13,7 @@ Seite und keine Wirkung. Ein Part, **4 Stimmen** auf Kern 0 (Regel des Nutzers 2
 
 | | |
 |---|---|
-| Firmware | `firmware/JP6-0.1.0-alpha.fwsc` (Kennung FM-1_92), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/JP6-0.1.1-alpha.fwsc` (Kennung FM-1_92), `tools/fm1-emu/check.sh` ok |
 | Klang | der Kern von FM1-Electro unverändert außer der Distortion (aus), 4 Stimmen (`JP_VOICES`, Standard 4), Chorus je Sound, Delay und Hall des Gerüsts; Pegel wie in FM1-Electro (JP-6 × 1,4, `GM_OUT_GAIN`) |
 | Last (Emulator) | 4 gehaltene Stimmen, Unisono-Preset 12 VCO 01 (das teuerste): Kern 0 höchstens 41 %, Kern 1 7 % (Delay und Hall); keine verspäteten Blöcke. Mit 6 Stimmen waren es 66 % (darum 4, ADR 0048) |
 | Geräteunterschied | keine Distortion (FM1-Electro: Festkomma-Distortion); sonst rechnet der Kern wie im Baustein-Test |
@@ -55,3 +55,10 @@ Stimmen: `JP_VOICES=<n>` vor dem Build (Standard 6). Neue Fassung: `VERSION` erh
 - Am Gerät: Last (Seite SYSTEM), Pegel, Bedienung.
 - Pitch Bend und Modulationsrad: der Kern hat keine Eingänge dafür (wie in FM1-Electro).
 - Speichern (eigene Sounds, Journal, Sequenzen): gebaut wie im Gerüst, im Emulator nicht über einen Neustart geprüft.
+
+## Live-Aufnahme (0.1.1, ADR 0053)
+
+REC tippen: Aufnahme sofort; zweimal schnell: 1 Takt Einzählen; REC übernimmt, PLAY tippen verwirft den laufenden
+Durchgang. Die erste Aufnahme legt die Länge fest (ganze Takte, bis 16), danach Overdub. Fest auf 1/16, Notenlänge wie
+gehalten. Seite LOOP (Taste SEQ): LOOP an/aus, BARS (0 = leer), LONGER (REPEAT/EMPTY), SHORTER (START/END). Auf der
+SEQUENCER-Seite bleibt REC die Schritt-Aufnahme. Gespeichert in Blob 4 (alte Stände laden, Schleifen dann leer).
