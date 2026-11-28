@@ -19,7 +19,7 @@ aus derselben Portierung der iOS-App; mit einem Part klingen sie **Sample für S
 | | |
 |---|---|
 | Firmware | `firmware/JX8P-0.2.5-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX8P“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
-| Last (Emulator) | LAST_ZEILE |
+| Last (Emulator) | 6 gehaltene Noten auf Part A, drei Sounds: Kern 0 höchstens 22 %, Kern 1 höchstens 23 % (Stimmen auf beide Kerne verteilt, Delay/Hall/Chorus dazu); keine verspäteten Blöcke. Ziel < 70 % erfüllt |
 | Am Gerät | 0.2.5 nicht geprüft; die fm1-synths-Fassung 0.2.0 am Gerät: 55 % Spitze (dort ADR 0002) |
 
 ## Gleichstand mit fm1-synths JX8P-0.2.4 (keine Rückschritte)
