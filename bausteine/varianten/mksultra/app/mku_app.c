@@ -213,6 +213,7 @@ static const page_t gm_pages[] = {
     {G_FX, ST_NAME, "REVERB", {PRM("MIX", M_reverbDryWet), PRM("SIZE", M_reverbSize), PRM("PREDLY", M_reverbDelay), PRM("TONE", M_reverbTone)}},
     {G_ARP, ST_NAME, "ARP", {PRM("MODE", M_arpmode), PRM("RATE", M_arprate), PRM("RANGE", M_arprange), PRM("SYNC", M_arpsyncmode)}},
     {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
     {G_GLO, ST_TEMPO, "TEMPO", {{"TEMPO", K_TEMPO, 0}, {"CLOCK", K_CLK, 0}, {"SEND", K_CLK, 1}, {"MIDI CH", K_CHAN, 0}}},
     {G_GLO, ST_NAME, "VOICES", {PRM("VOICES", M_NumberOfVoices), PRM("FINE", M_MasterFineTune), PRM("BEND", M_BenderRange), {"LEVEL", K_LEVEL, 0}}},
     {G_GLO, ST_SYS, "SYSTEM", {{"LEVEL", K_LEVEL, 0}, NO, NO, NO}},

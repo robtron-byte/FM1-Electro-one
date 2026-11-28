@@ -708,7 +708,9 @@ static void step_sound(unsigned p, int32_t e)   /* links: der Sound davor, recht
 /* eigene Sounds aus Blob 0 laden; ein älteres Format (weniger Parameter) wird ergänzt */
 static void own_load(void)
 {
-    static uint8_t raw[OWN_BYTES];
+    /* (beim Start, vor dem ersten Bild: die Zeichenfläche dient als Lesepuffer, spart 4 kB RAM) */
+    _Static_assert(CV_MAX * 2u >= OWN_BYTES, "die Zeichenfläche fasst den Blob der eigenen Sounds");
+    uint8_t *raw = (uint8_t *)cv_px;
     own_head_t h;
     memset(&ownb, 0, sizeof ownb);
     if (!flash_ok || blob_load(0, raw, OWN_BYTES)) return;

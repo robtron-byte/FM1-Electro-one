@@ -63,7 +63,9 @@ Anteil der FPU-Befehle (SH-101 37 Mio./s gegen MKS-50 18 Mio./s).
 - **Delay höchstens 0,6 s** (`SYN_FX_DELAY_MAX_S=0.6f`).
 - Last im Emulator (SQUELCH mit Drive, Distortion, Delay, Hall): Kern 0 57,5 % (Spitze 58,2 %), Kern 1 13,9 %
   (Distortion allein 7,4 %), keine verspäteten Blöcke.
-- Speicher: knapp. RAM 98 292 von 98 304 Bytes, Pool 3 kB frei (Zeichenfläche in Streifen von 20 Zeilen, `GM_BAND_H`).
+- Speicher (0.1.3, mit der Live-Aufnahme des Gerüsts): RAM 4 044 Bytes frei, Pool 2 kB. Dafür liest das Gerüst die eigenen
+  Sounds beim Start in die Zeichenfläche (kein eigener 4-kB-Puffer), SH-101 zeichnet in Streifen von 12 Zeilen und der
+  Zustand des Bausteins liegt im Pool.
 
 ## Alternativen
 
@@ -80,5 +82,6 @@ Anteil der FPU-Befehle (SH-101 37 Mio./s gegen MKS-50 18 Mio./s).
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat); Messungen im Emulator.
+- 2026-11-28: 0.1.3-alpha: Live-Aufnahme (Seite LOOP) aus dem Gerüst, RAM-Reserve 4 kB.
 - 2026-11-28: 0.1.2-alpha: Distortion-Send (TUBE, OD, DIST, RAT) auf Kern 1, Drive bleibt, mono, Delay 0,6 s.
 - 2026-11-28: 0.1.1-alpha: Clipper ohne bewachte Division (Nenner nie 0), Abgleich der Lastzahlen mit der MKS-50.

@@ -8,7 +8,7 @@
 #define APP_NAME "SH-101"
 #define GM_TITLE "SH-101"
 #define GM_ACCENT RGB(255, 60, 40)              /* das Rot des SH-101 */
-#define GM_BAND_H 20u                           /* (kleinere Zeichenfläche: Platz für die Distortion-Tabellen) */
+#define GM_BAND_H 12u                           /* (kleinere Zeichenfläche: Platz für die Distortion-Tabellen) */
 #define GM_PARTS 1u
 #define GM_NAMEMAX 10u
 #define GM_SOUND_VER 2u                         /* Format der eigenen Sounds (2: Distortion-Send); älter = weniger Parameter, ergänzt aus INIT */
@@ -159,6 +159,7 @@ static const page_t gm_pages[] = {
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     {G_ARP, ST_ARP, "ARP 2", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), NO, NO}},
     {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
     {G_GLO, ST_TEMPO, "TEMPO", {{"TEMPO", K_TEMPO, 0}, {"CLOCK", K_CLK, 0}, {"SEND", K_CLK, 1}, {"MIDI CH", K_CHAN, 0}}},
     {G_GLO, ST_SYS, "SYSTEM", {{"LEVEL", K_LEVEL, 0}, NO, NO, NO}},
     {G_SEL, ST_BROWSE, "SOUNDS", {NO, NO, NO, NO}},
@@ -174,7 +175,7 @@ static const layer_t gm_layers[NGROUP] = {
 };
 
 /* ---- der Klang: Baustein sh101 (Gerätefassung, eine Stimme) */
-static sh101_t eng __attribute__((aligned(16)));   /* (RAM: der Pool ist mit Delay, Hall und Distortion voll) */
+static sh101_t eng __attribute__((section(".pool"), aligned(16)));
 /* Distortion-Send (wie FM1-Electros DIST-Send, gemeinsam/fx/gm_dist.c): kern_render schreibt den Send eines Blocks,
  * Kern 1 rechnet ihn im nächsten Block neben Delay und Hall (GM_FX_EXTRA) und addiert das nasse Signal. */
 #include "gm_dist.h"
