@@ -149,7 +149,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
-- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · tr808alt frei
+- **In Arbeit:** jx8p: jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Solo-Firmware JX-8P (FM-1_97), danach MKS-50 solo und JP-6 solo · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · tr808alt frei
 - **jx8p Stand:** `bausteine/jx8p/` bindet `engine/jx8p.c` und Co. ein (keine Kopie, `engine/` unverändert), Adapter
   `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
   Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
