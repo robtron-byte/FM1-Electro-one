@@ -46,6 +46,19 @@ Ron-Presets gegen den Baustein (Akkord 48 55 60 64, `make` Ziel wie `test_fm1`, 
 Die Pegelprüfung der Ron-Presets (RMS 1 %) besteht mit 6 Stimmen (`make -C bausteine mksultra`, `test_fm1`), mit 1 oder 2
 Stimmen nicht: die Akkorde verlieren Töne.
 
+## Regel des Nutzers: fest 4 Stimmen, Delay 0,6 s (28.11.)
+
+Gebaut mit `MKSULTRA_DELAY_EXTERN` (Delay 0,6 s, 16 Bit: linker Kanal im Pool, rechter im freien RAM) und 4 Stimmen
+(`tools/build.py`; `MKU_VCF2X=1` für VCF 2×). Gemessen (Stringer, 4 Tasten):
+
+| Fassung | Kern 1 (Stimmen) | Kern 0 (Master) | verspätete Blöcke in 4 s |
+|---|---|---|---|
+| VCF 4×, 4 Stimmen | 153 % | 60 % | 1399 (Aussetzer) |
+| VCF 2×, 4 Stimmen | 114 % | 60 % | 1368 (Aussetzer) |
+
+Auch mit den Stimmen auf beide Kerne verteilt bliebe es bei ~106 % (4×) bzw. ~87 % (2×) je Kern. **4 Stimmen passen
+nicht unter 70 %**; deshalb kein neues Paket in `firmware/` (dort bleibt 0.1.0-alpha mit 1 Stimme). Frage an den Nutzer.
+
 ## Entscheidung (vorgeschlagen)
 
 - **Standard A:** volles Filter, **1 Stimme** (`MKSULTRA_VOICES=1`, mono wie bei einem Preset mit einer Stimme),
@@ -79,3 +92,4 @@ Stimmen nicht: die Akkorde verlieren Töne.
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat), Messungen im Emulator.
+- 2026-11-28: Regel 4 Stimmen + Delay 0,6 s gemessen: passt nicht (VCF 4× 153 %, VCF 2× 114 % auf Kern 1).

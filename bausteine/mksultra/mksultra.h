@@ -44,6 +44,11 @@
 #ifndef MKSULTRA_VCF2X
 #define MKSULTRA_VCF2X 0
 #endif
+/* MKSULTRA_DELAY_EXTERN 1: die zwei Delay-Puffer liegen nicht im Zustand; der Aufrufer gibt sie vor mksultra_init mit
+ * mksultra_delay_memory (je mksultra_delay_bytes() Bytes). */
+#ifndef MKSULTRA_DELAY_EXTERN
+#define MKSULTRA_DELAY_EXTERN 0
+#endif
 #ifndef MKSULTRA_BLOCKWISE
 #define MKSULTRA_BLOCKWISE 0
 #endif
@@ -77,7 +82,9 @@ void mksultra_process(void *s, float *left, float *right, int n);
 void mksultra_voices(void *s, float *left, float *right, int n);
 void mksultra_master(void *s, float *left, float *right, int n);
 int mksultra_active_voices(const void *s);
-int mksultra_fx_ok(const void *s);                        /* 0: Hall-Speicher reichte nicht (MKSULTRA_REVERB_CAP) */
+int mksultra_fx_ok(const void *s);
+unsigned mksultra_delay_bytes(void);
+void mksultra_delay_memory(void *left, void *right);   /* nur mit MKSULTRA_DELAY_EXTERN */                        /* 0: Hall-Speicher reichte nicht (MKSULTRA_REVERB_CAP) */
 
 /* Presets (520 aus der Vorlage, Tabelle in mksultra_presets.c, erzeugt von tools/mks2c.py). */
 typedef struct {

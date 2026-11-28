@@ -233,6 +233,10 @@ static const layer_t gm_layers[NGROUP] = {
 #define MKU_STATE_BYTES 284000u
 #endif
 static uint8_t mku[MKU_STATE_BYTES] __attribute__((section(".pool"), aligned(16)));
+#if MKSULTRA_DELAY_EXTERN
+static uint8_t mku_dl[MKU_DELAY_BYTES] __attribute__((section(".pool"), aligned(4)));   /* Delay links: Pool */
+static uint8_t mku_dr[MKU_DELAY_BYTES] __attribute__((aligned(4)));                     /* Delay rechts: RAM */
+#endif
 static uint8_t mku_ok;
 static uint8_t eng_v[GM_NP];
 static volatile float mku_bpm;
@@ -254,6 +258,10 @@ static void kern_boot(void)
     }
     bytes_of(default_idx >= 0 ? (unsigned)default_idx : 0u, gm_init_v);
     if (mksultra_baustein.state_size > sizeof mku) return;   /* (Seite SYSTEM meldet es) */
+#if MKSULTRA_DELAY_EXTERN
+    if (mksultra_delay_bytes() > MKU_DELAY_BYTES) return;
+    mksultra_delay_memory(mku_dl, mku_dr);
+#endif
     mksultra_init(mku, 44100.0f);
     mku_ok = (uint8_t)mksultra_fx_ok(mku);
     for (unsigned i = 0; i < GM_NP; i++) eng_v[i] = 0xFFu;

@@ -9,6 +9,7 @@ Gerüst [`../gemeinsam`](../gemeinsam/). Entscheidung und Messungen: [ADR 0045](
 | A | 1 Stimme, VCF 4× wie der Baustein; Last im Emulator Kern 1 ~45 % (Unisono bis 98 %), Kern 0 19–59 % |
 | B | `MKU_B=1 python3 tools/build.py` → `build/MKSULTRA-ab-0.1.0-alpha.fwsc`: 2 Stimmen, VCF 2×; Kern 1 62 % (Unisono 79 %) |
 | Presets | Ron 1–6 vorn, dann Bank A, Bank B, MKS, emptyvessel (213); INIT = `default` der Vorlage |
+| Regel 4 Stimmen | gebaut (`tools/build.py`, Delay 0,6 s), aber zu schwer: Kern 1 153 % (VCF 4×) bzw. 114 % (VCF 2×), Aussetzer; nicht ausgeliefert (ADR 0045) |
 | Am Gerät | nicht geprüft |
 
 Kern 1 rechnet die Stimmen (Block N), Kern 0 die Master-Kette (Block N−1): bitgleich mit dem Baustein, 1,45 ms später.

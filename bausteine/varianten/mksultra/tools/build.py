@@ -12,14 +12,15 @@ sys.path.insert(0, str(G / "tools"))
 import build as g   # noqa: E402
 
 M = B / "mksultra"
-VB = os.environ.get("MKU_B") == "1"
-VOICES = os.environ.get("MKU_VOICES", "2" if VB else "1")   # gemessen, ADR 0045
-DEVICE = [f"-DMKSULTRA_VOICES={VOICES}", "-DMKSULTRA_MAX_SR=44100", "-DMKSULTRA_FM1=1", "-DMKSULTRA_FX_INT16=1",
-          "-DMKSULTRA_DELAY_TENTHS=" + os.environ.get("MKU_DELAY", "5"), "-DMKSULTRA_PREDELAY_TENTHS=2",
-          "-DMKSULTRA_ARP_MAX=256", "-DMKSULTRA_REVERB_CAP=69000",
-          "-DMKSULTRA_VCF2X=" + ("1" if VB else "0"),
-          "-DMKU_STATE_BYTES=" + ("277600u" if VB else "272400u")]   # (Zustand passt in den Pool; kern_boot prüft)
-g.build(dict(name="MKSULTRA" + ("-ab" if VB else ""), root=R, app=R / "app" / "mku_app.c",
+# Fest 4 Stimmen (Regel des Nutzers 28.11.), Delay 0,6 s (ein Kanal im Pool, einer im RAM). MKU_VCF2X=1: VCF 2×;
+# MKU_AB=1: Paket mit dem Zusatz -ab (nur build/, A/B nach ADR 0006).
+VCF2X = os.environ.get("MKU_VCF2X", "0")
+AB = os.environ.get("MKU_AB") == "1"
+DEVICE = ["-DMKSULTRA_VOICES=4", "-DMKSULTRA_MAX_SR=44100", "-DMKSULTRA_FM1=1", "-DMKSULTRA_FX_INT16=1",
+          "-DMKSULTRA_DELAY_TENTHS=6", "-DMKSULTRA_DELAY_EXTERN=1", "-DMKSULTRA_PREDELAY_TENTHS=2",
+          "-DMKSULTRA_ARP_MAX=256", "-DMKSULTRA_REVERB_CAP=69000", "-DMKSULTRA_VCF2X=" + VCF2X,
+          "-DMKU_STATE_BYTES=200000u", "-DMKU_DELAY_BYTES=52924u"]   # (kern_boot prüft beide)
+g.build(dict(name="MKSULTRA" + ("-ab" if AB else ""), root=R, app=R / "app" / "mku_app.c",
              dsp=[M / "mksultra.c"], flash=[M / "mksultra_presets.c"],
              double=[M / "mksultra.c", M / "mksultra_presets.c"],   # (Rust-Typen: f64 wo die Vorlage f64 rechnet)
              inc=[R / "app"], defs=DEVICE,

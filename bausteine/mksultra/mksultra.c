@@ -646,10 +646,18 @@ typedef struct {
     float bpm;
     int32_t quiet; /* Samples seit dem letzten hörbaren Ausgang (nur für active, nicht Teil der Vorlage) */
     float chorus_mem[2][CHORUS_CAP];
+#if !MKSULTRA_DELAY_EXTERN
     fxs_t delay_mem[2][DELAY_CAP];
+#endif
     fxs_t reverb_mem[REVERB_CAP];
 } synth_t;
 
+#if MKSULTRA_DELAY_EXTERN
+/* Delay-Puffer vom Aufrufer (je DELAY_CAP Werte, mksultra_delay_bytes()), z. B. ein Kanal in einem anderen Speicher */
+static void *ext_delay[2];
+void mksultra_delay_memory(void *left, void *right) { ext_delay[0] = left; ext_delay[1] = right; }
+#endif
+unsigned mksultra_delay_bytes(void) { return (unsigned)(sizeof(fxs_t) * DELAY_CAP); }
 static void synth_set_sr(synth_t *s, float sr);
 
 static void apply_param(synth_t *s, int id, float v)
@@ -741,7 +749,11 @@ static void synth_new(synth_t *s, float sample_rate)
     dcemu_new(&s->dcemu);
     chorus_new(&s->chorus_l, s->chorus_mem[0], 44100.0f, 1.0f);
     chorus_new(&s->chorus_r, s->chorus_mem[1], 44100.0f, 0.5f);
+#if MKSULTRA_DELAY_EXTERN
+    delay_new(&s->delay, (fxs_t *)ext_delay[0], (fxs_t *)ext_delay[1], 44100.0f);
+#else
     delay_new(&s->delay, s->delay_mem[0], s->delay_mem[1], 44100.0f);
+#endif
     sm_new(&s->vol, 1000.0f);
     s->fade = 0.0f;
     s->fade_step = 1.0f / (0.1f * 44100.0f);
