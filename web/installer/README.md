@@ -14,8 +14,9 @@ Verbinden, Firmware wählen (oder eigene `.fwsc` hineinziehen), Installieren. En
 | `make_site.py` | baut die Seite: jede gültige `firmware/NAME-VERSION.fwsc` landet automatisch in `liste.json` |
 | `test/test.mjs`, `test/vectors.py` | Test ohne Gerät: gleiche Bytes und Abläufe wie `fm1_install.py` |
 
-- **Neue Firmware:** `.fwsc` nach `firmware/` legen und pushen; der Workflow `.github/workflows/installer-pages.yml`
-  baut und veröffentlicht die Seite. Für Beschreibung und Stimmenzahl eine Zeile in `beschreibungen.json` (sonst
+- **Neue Firmware:** `.fwsc` nach `firmware/` legen und pushen; der Workflow baut und veröffentlicht die Seite (Zweig
+  `gh-pages`). **Offen:** `installer-pages.yml` muss einmal nach `.github/workflows/` (Push ohne Scope `workflow`
+  abgelehnt); bis dahin `gh-pages` von Hand bauen, siehe ADR 0054. Für Beschreibung und Stimmenzahl eine Zeile in `beschreibungen.json` (sonst
   erscheint nur Name, Version, Kennung). Pakete ohne Felucca-Lader (z. B. `FM1_ELECTRO.fwsc` aus dem SDK-Build) fehlen.
 - **Prüfen:** `node web/installer/test/test.mjs` (braucht Python 3).
 - **Lokal ansehen:** `python3 web/installer/make_site.py /tmp/site` und dort `python3 -m http.server`; dann

@@ -1,23 +1,26 @@
-# Web-Installer auf GitHub Pages (ADR 0054): baut die Seite aus web/installer/ und den Paketen in firmware/.
+# Web-Installer auf GitHub Pages (ADR 0054). Gehört nach .github/workflows/installer-pages.yml:
+# der Schlüssel des Chats darf keine Workflows anlegen (fehlender Scope "workflow"), also einmal von Hand
+# verschieben (GitHub-Weboberfläche: Add file → Create new file, Inhalt hierher kopieren) oder mit einem Schlüssel mit Scope.
+#
+# Baut die Seite aus web/installer/ und den Paketen in firmware/ und schreibt sie als einen einzigen Commit in den
+# Zweig gh-pages (Quelle von GitHub Pages: "Deploy from a branch", gh-pages, / (root)).
 name: Web-Installer (GitHub Pages)
 
 on:
   push:
     branches: [main]
-    paths: ["firmware/**", "web/installer/**", "platform/tools/fm1_install.py", ".github/workflows/installer-pages.yml"]
+    paths: ["firmware/**", "web/installer/**", "platform/tools/fm1_install.py"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: installer-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  pages:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,17 +31,12 @@ jobs:
         run: node web/installer/test/test.mjs
       - name: Seite bauen
         run: python3 web/installer/make_site.py _site
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Nach gh-pages schreiben
+        run: |
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Web-Installer-Seite aus ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages

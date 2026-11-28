@@ -27,8 +27,13 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   Pakete aus der Liste zusätzlich per SHA-256 gegen `liste.json`.
 - **Liste:** `make_site.py` liest beim Deploy jede `firmware/NAME-VERSION.fwsc`, prüft sie mit `fm1_install.py` und
   schreibt `liste.json`; Beschreibung und Stimmenzahl aus `beschreibungen.json`. Neue Pakete erscheinen von selbst.
-- **Deploy:** `.github/workflows/installer-pages.yml` (Push auf `main` bei Änderungen in `firmware/`, `web/installer/`),
-  erst Test, dann Pages (Quelle: GitHub Actions). Alles läuft im Browser, nichts geht an einen Server.
+- **Deploy:** Pages-Quelle ist der Zweig `gh-pages` (Wurzel); er enthält nur die gebaute Seite (ein Commit,
+  `make_site.py`). Der Workflow `web/installer/installer-pages.yml` baut bei jedem Push auf `main` mit Änderungen in
+  `firmware/` oder `web/installer/` erst den Test, dann die Seite, und schreibt `gh-pages` neu. **Er liegt noch nicht in
+  `.github/workflows/`:** der Git-Schlüssel des Chats hat keinen Scope `workflow`, GitHub lehnte den Push ab. Bis jemand
+  ihn einmal nach `.github/workflows/installer-pages.yml` verschiebt (Weboberfläche oder Schlüssel mit Scope), wird
+  `gh-pages` von Hand gebaut: `python3 web/installer/make_site.py /tmp/site`, dort `git init -b gh-pages`, Commit,
+  `git push -f origin gh-pages`. Alles läuft im Browser, nichts geht an einen Server.
 - **Test ohne Gerät:** `node web/installer/test/test.mjs` lässt `test/vectors.py` mit dem unveränderten `fm1_install.py`
   rechnen und vergleicht: Prüfergebnis und logisches Abbild jedes Pakets samt kaputter Abwandlungen (Bit gekippt, Kopf,
   abgeschnitten, zu kurz), Antwort-Bytes, und ganze simulierte Läufe (normal, Weiterschreiben im Lader, falsches Modell,
@@ -52,4 +57,6 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
 
 ## Verlauf
 
-- 2026-11-28: angelegt (Web-Installer-Chat)
+- 2026-11-28: angelegt (Web-Installer-Chat). Pages per Push des Zweigs `gh-pages` eingeschaltet (Quelle Zweig statt
+  Actions, weil der Workflow ohne Scope `workflow` nicht gepusht werden konnte). Seite online, zwei Pakete bytegleich
+  mit dem Repository geprüft.

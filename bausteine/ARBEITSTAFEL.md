@@ -228,9 +228,14 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### Web-Installer (Browser, Web MIDI, GitHub Pages)
 
-- **In Arbeit:** Web-Installer-Chat (Worktree vigilant-gates-f4d8fa), seit 28.11.2026
-- **Ziel:** öffentliche Seite `web/installer/`, installiert jede `.fwsc` aus `firmware/` per Web MIDI (M-UPGRADE wie
-  `platform/tools/fm1_install.py`), Presets bleiben. Workflow für GitHub Pages. ADR 0054, FEATURES P17.
+- **In Arbeit:** frei (Web-Installer-Chat fertig, 28.11.2026)
+- **Stand:** Seite online: https://robtron-byte.github.io/FM1-Electro-one/ (`web/installer/`, ADR 0054, P17). Web MIDI,
+  M-UPGRADE wie `platform/tools/fm1_install.py`, Paketprüfung, Liste automatisch aus `firmware/` (`make_site.py`,
+  Beschreibungen in `beschreibungen.json`). Test `node web/installer/test/test.mjs`: 77 Prüfungen gleich mit Python.
+  **Am Gerät ungeprüft.**
+- **Offen:** `web/installer/installer-pages.yml` nach `.github/workflows/` verschieben (Chat-Schlüssel ohne Scope
+  `workflow`); bis dahin baut der, der ein Paket ändert, den Zweig `gh-pages` von Hand (ADR 0054). Neue Pakete:
+  Zeile in `beschreibungen.json`.
 
 ## Weitere offene Punkte
 
