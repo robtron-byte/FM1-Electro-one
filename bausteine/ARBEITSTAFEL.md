@@ -48,6 +48,38 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | B19 | dk808 | vergeben |
 | FEATURES | Y10 | sh101 | vergeben |
 | FEATURES | Y11 | mksultra | vergeben |
+| ADR | 0044 | Solo-Firmware-Gerüst (gemeinsam: Plattform, Sequencer, Speichern, MIDI, Raster) + SH101 solo | frei (reserviert) |
+| ADR | 0045 | mksultra solo | frei (reserviert) |
+| ADR | 0046 | jx8p als Baustein + solo | frei (reserviert) |
+| ADR | 0047 | mks50 als Baustein + solo | frei (reserviert) |
+| ADR | 0048 | jp6 als Baustein + solo | frei (reserviert) |
+| ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
+| ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
+| ADR | 0051–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
+| FEATURES | P14 | Solo-Firmware-Gerüst | frei (reserviert) |
+| FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
+| FEATURES | Y12 | SH101 solo | frei (reserviert) |
+| FEATURES | Y13 | mksultra solo | frei (reserviert) |
+| FEATURES | Y14 | jx8p solo | frei (reserviert) |
+| FEATURES | Y15 | mks50 solo | frei (reserviert) |
+| FEATURES | Y16 | jp6 solo | frei (reserviert) |
+| FEATURES | B20 | dk808 solo | frei (reserviert) |
+
+## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
+
+Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimmt ab und hält diese Tafel aktuell.
+
+**Wo Firmware-Code liegt (der "eigene Bereich"):**
+- Solo-Firmware `<name>`: `bausteine/varianten/<name>/` (Code, Adapter, Bedienung, `VERSION` je Firmware, eigene
+  Speicherversion). Paket: `firmware/<NAME>-<Version>.fwsc` (z. B. `firmware/SH101-0.1.0-alpha.fwsc`), alte eigene Datei entfernen.
+- Gemeinsames Gerüst aller Solo-/Kombi-Firmwares (beide Kerne, Audio im SRAM, Sequencer, Speichern, MIDI, Seitenraster
+  nach fm1-synths ADR 0008): `bausteine/varianten/gemeinsam/`. Baut der sh101-Chat; spätere Chats nutzen es und ändern
+  es nur abwärtskompatibel.
+- `platform/`, `engine/`, `ui/`, Haupt-`Makefile`, `VERSION` und `firmware/FM1_ELECTRO-*` bleiben beim Bau-Chat.
+  Ausnahme: das Herauslösen von jx8p/mks50/jp6 (bitgleich, `make test`).
+- Werkzeuge auf dem Mac des Nutzers (einmal einrichten, alle nutzen dieselben): JieLi-Toolchain `~/.jieli/toolchain`
+  (`platform/tools/get_toolchain.sh`), SDK `~/fw-AC79_AIoT_SDK` (siehe `platform/README.md`), Emulator `~/fm1-emu`
+  (siehe `tools/fm1-emu/check.sh`), Docker Desktop.
 
 ## Bausteine
 
@@ -67,7 +99,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 
 ### sh101: SH-101 (MonoBass)
 
-- **In Arbeit:** frei
+- **In Arbeit:** Auftrag vergeben (Koordinator, 28.11.2026), Unterchat trägt sich ein
 - **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
   `Voice`, `Engine`, `Halfband`, `Params`, `Preset`), Testvektoren `docs/test-vectors/` (`vectors.json`, WAVs)
 - **Stand:** nicht begonnen.
