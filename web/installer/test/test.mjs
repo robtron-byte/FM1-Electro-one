@@ -278,6 +278,9 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   eq(installedName(L, dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "DK101", "geteilte Kennung mit Name: DK101");
   eq(installedName(L, dev({ version: "0.1.0-alpha", name: "SH101" }, "FM-1_991")), "JXSH", "unbekannter Name: Rückfall auf Kennung");
   eq(installedName(L, dev(null, "ota-FM-1_911", true)), null, "Update-Modus: keiner installiert");
+  // ältere Pakete (vor APP_PKG) senden den Anzeigenamen der App ("JX+SH", "808"): Rückfall auf die Kennung
+  eq(installedName(L, dev({ version: "0.1.3-alpha", name: "JX+SH" })), "JXSH", "Anzeigename statt Paketname: Rückfall auf Kennung");
+  eq(installedName(L, dev({ version: "0.1.0-alpha", name: "808" }, "FM-1_911")), null, "Anzeigename bei geteilter Kennung: mehrdeutig");
   eq(bf(L[1], dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "install", "DK808 bei laufendem DK101: Installieren");
   eq(bf(L[2], dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "installed", "DK101 bei laufendem DK101: Installiert");
   eq(bf(L[1], dev(null, "FM-1_911")), "install", "geteilte Kennung ohne Name: Installieren, keine Behauptung");
