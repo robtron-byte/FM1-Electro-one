@@ -84,3 +84,14 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   `bausteine/varianten/<name>/ANLEITUNG.md` + `.en.md` (FM1-Electro: `web/installer/anleitungen/`), aus dem Code
   geschrieben; `anleitung.py` erzeugt beim Bau `anleitung/<NAME>.html` (Deutsch/Englisch, druckbar, Handy), Link
   „Anleitung“ an jedem Listeneintrag. Pflicht zum Nachführen in `bausteine/varianten/README.md`.
+- 2026-11-28: Versionsvergleich nach „Verbinden“ (Wunsch des Nutzers über den Koordinator). Ohne Firmware-Änderung
+  meldet das Gerät nur die Kennung (cmd 0x11, `FM-1_9NN`, je Firmware fest, nicht je Version); mehr Text in den
+  27 Bytes der Kennung würde Felucca-/Hub-Installer brechen (sie lesen das ganze Feld). Deshalb ein **neues Kommando
+  cmd 0x12 „Info“** in `bausteine/varianten/gemeinsam/platform/firmware/src/ota.c`: Antwort `APP_VER \0 APP_DATE`
+  (≤ 32 Byte). `gemeinsam/tools/build.py` setzt `APP_DATE` (Build-Datum, `GM_APP_DATE` überschreibt). Gilt für alle
+  Firmwares auf dem Gerüst (SH-101, MKS Ultra, JP-6, JXSH, JX-8P, MKS-50) ab ihrem nächsten Paket; Firmwares ohne
+  es (FM1-Electro, ältere Pakete) schweigen, die Seite zeigt „Version unbekannt, ältere Firmware“. Die Seite zeigt
+  „Auf dem FM-1: <Firmware> <Version> vom <Datum> · Neueste hier: <Version> vom <Datum> → Update möglich/aktuell“,
+  hebt den Eintrag hervor und bietet „Update auf X“. Datum je Paket: `daten.json` (git log beim Bau), für neuere Pakete
+  Commit-Datum über die API. Test: `ota.c` wird mit dem Host-Compiler übersetzt und beantwortet die Abfrage selbst
+  (`test/ota_info_host.c`); mit und ohne `APP_DATE`; 104 Prüfungen.

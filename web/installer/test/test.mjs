@@ -5,6 +5,7 @@
 // simulierten Installationslauf (jede gesendete Nachricht) inklusive Fehlerfälle.
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -217,6 +218,35 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   eq(sha(got.log.join(",")), sha(want.log.join(",")), `Web MIDI ${name}: Byte-Folge aller gesendeten Nachrichten`);
   eq(got.steps, want.steps, `Web MIDI ${name}: Schritte/Fortschritt`);
   console.log(`Web MIDI ${name}: ${got.result || got.error}, ${got.log.length} Nachrichten`);
+}
+
+// ---------------------------------------------- Info-Abfrage (cmd 0x12, ADR 0054) ---
+// ota.c der gemeinsamen Plattform wird mit dem Host-C-Compiler übersetzt und beantwortet die Abfrage selbst;
+// fm1ota.js muss seine Antwort lesen. Ohne APP_DATE (ältere Firmware) kommt keine Antwort.
+{
+  const qInfo = hex(ota.INFO_QUERY), qHs = hex(ota.HS_QUERY);
+  const src = join(HERE, "ota_info_host.c"), inc = join(ROOT, "bausteine", "varianten", "gemeinsam", "platform", "firmware", "src");
+  const bin = join(tmpdir(), `ota_info_${process.pid}`);
+  let cc = true;
+  try {
+    execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.4-alpha"`, `-DAPP_DATE="2026-11-28"`, src, "-o", bin]);
+    execFileSync("cc", ["-std=c11", "-w", "-I", inc, src, "-o", bin + "_alt"]);
+  } catch (_) { cc = false; console.log("Info-Abfrage: kein C-Compiler, Prüfung gegen ota.c übersprungen"); }
+  if (cc) {
+    const out = execFileSync(bin, [qHs, qInfo]).toString().trim().split("--").map((x) => x.trim());
+    const id = ota.parseIdentity(Array.from(Buffer.from(out[0], "hex")));
+    eq(id && id.text, "FM-1_941", "ota.c: Kennung unverändert");
+    eq(ota.parseInfo(Array.from(Buffer.from(out[1], "hex"))), { version: "0.1.4-alpha", date: "2026-11-28" }, "ota.c: Info-Antwort gelesen");
+    const alt = execFileSync(bin + "_alt", [qInfo]).toString().trim();
+    eq(alt, "--", "ota.c ohne APP_DATE: keine Info-Antwort (ältere Firmware)");
+    eq(ota.parseIdentity(Array.from(Buffer.from(out[1], "hex"))), null, "Info-Antwort ist keine Kennung (alte Installer unberührt)");
+    // Updater.info über eine Leitung, die wie ota.c antwortet bzw. schweigt
+    for (const [name, reply, want] of [["mit", out[1], { version: "0.1.4-alpha", date: "2026-11-28" }], ["ohne", null, null]]) {
+      const link = { q: [], send(p) { if (hex(p) === qInfo && reply) this.q.push(Array.from(Buffer.from(reply, "hex"))); return true; },
+        async read() { return this.q.shift() || null; }, drain() { this.q.length = 0; } };
+      eq(await new ota.Updater(null, { ...fast, delay: { ...fast.delay, info: 50 } }).info(link), want, `Updater.info ${name} Erweiterung`);
+    }
+  }
 }
 
 // eigene Fälle (nur JS): ohne Lader-Kennung abgelehnt, falsche Datei, Fortschritt monoton bis 100

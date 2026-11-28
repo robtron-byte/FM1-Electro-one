@@ -93,6 +93,16 @@ def main(dest):
     items = liste(ROOT / "firmware")
     for e in items:
         shutil.copy(ROOT / e["datei"], dest / e["datei"])
+    # Datum je Paket (letzter Commit der Datei); die Seite zeigt es und fragt nur bei neueren Paketen die API
+    import subprocess
+    dates = {}
+    for f in sorted((ROOT / "firmware").glob("*.fwsc")):
+        r = subprocess.run(["git", "log", "-1", "--format=%cs", "--", str(f)], cwd=ROOT, capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            dates[f.name] = r.stdout.strip()
+    for e in items:
+        e["date"] = dates.get(Path(e["datei"]).name, "")
+    (dest / "daten.json").write_text(json.dumps(dates, indent=1), encoding="utf-8")
     (dest / "liste.json").write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
     (dest / ".nojekyll").write_text("")
     for e in items:

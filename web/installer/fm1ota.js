@@ -13,6 +13,8 @@
 
 export const HS_QUERY = [0xF0, 0x00, 0x32, 0x45, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7];
 export const UPGRADE = [0xF0, 0x22, 0x24, 0x35, 0x7F, 0xF7];
+// cmd 0x12 (Erweiterung FM1-Electro-one, ADR 0054): Version und Build-Datum der laufenden App; ältere Firmwares schweigen
+export const INFO_QUERY = [0xF0, 0x00, 0x32, 0x49, 0x00, 0x00, 0x00, 0x40, 0x7F, 0xF7];
 export const FINISH_CHECK = 0xE0000000, FINISH_WRITE = 0xF0000000;
 export const MAXDATA = 512;
 export const PORT_RE = /fm-1|smk|elite|mke-p37|starry|felucca|sloop|clipper|melodee|fomni|x0x|makkuro|maku|rainbow|snoop|vector|vox|ota|composite|sinco|usb-midi/i;
@@ -22,7 +24,7 @@ const SMK_FAMILY = /^(SMK-37[ +].*|MKE-P37|STARRYKEY-37.*)$/i;
 // Millisekunden, wie DELAY in fm1_install.py; der Test verkürzt sie
 export const DELAY = {
   open: 300, start: 2000, reply: 10, loader: 3000, reboot: 3000, retry: 1000,
-  poll: 1000, hs: 1000, idle_check: 8000, idle_write: 180000, wait_loader: 30000, wait_reboot: 40000,
+  poll: 1000, hs: 1000, info: 400, idle_check: 8000, idle_write: 180000, wait_loader: 30000, wait_reboot: 40000,
 };
 
 export class InstallError extends Error {
@@ -80,6 +82,21 @@ export function parseIdentity(pkt) {
   for (let i = 6; i < 33 && d[i]; i++) txt += String.fromCharCode(d[i]);
   const m = /^([^_]+)_(\d+)$/.exec(txt);
   return m ? { text: txt, model: m[1], version: parseInt(m[2], 10), loader: /^ota-/i.test(m[1]) } : null;
+}
+
+// Antwort auf INFO_QUERY -> { version, date } oder null
+export function parseInfo(pkt) {
+  if (pkt.length < 2 || pkt[0] !== 0xF0 || pkt[pkt.length - 1] !== 0xF7) return null;
+  const d = unpack7(pkt.slice(1, -1));
+  if (d.length < 7 || d[0] !== 0 || d[1] !== 0x59 || d[2] !== 0x12) return null;
+  const n = d[3] | (d[4] << 8) | (d[5] << 16);
+  if (d.length !== n + 7) return null;
+  let s = 0;
+  for (let i = 6; i < 6 + n; i++) s += d[i];
+  if ((~s & 0xFF) !== d[6 + n]) return null;
+  const [version = "", date = ""] = String.fromCharCode(...d.slice(6, 6 + n)).split("\0");
+  if (!/^\d+\.\d+\.\d+/.test(version)) return null;
+  return { version, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "" };
 }
 
 export const modelOf = (text) => text.split("_")[0].replace(/^ota-/i, "");
@@ -167,6 +184,21 @@ export class Updater {
         const id = parseIdentity(p);
         if (id) return id;
       }
+    }
+    return null;
+  }
+
+  // Version und Build-Datum der laufenden Firmware (cmd 0x12), null bei Firmwares ohne diese Erweiterung
+  async info(link) {
+    link.drain();
+    if (!link.send(INFO_QUERY)) return null;
+    const end = this.now() + this.delay.info;
+    let left;
+    while ((left = end - this.now()) > 0) {
+      const p = await link.read(left);
+      if (!p) break;
+      const i = parseInfo(p);
+      if (i) return i;
     }
     return null;
   }

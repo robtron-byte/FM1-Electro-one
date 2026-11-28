@@ -50,6 +50,8 @@ def build(cfg):
     b.DATA_FAMILY = cfg["family"]
     block = int(os.environ.get("GM_BLOCK", "64"))
     full_ver = (root / "VERSION").read_text().strip()
+    # Build-Datum: beantwortet die Firmware auf die Info-Abfrage (cmd 0x12) zusammen mit der Version (ADR 0054)
+    APP_DATE = os.environ.get("GM_APP_DATE") or time.strftime("%Y-%m-%d")
     if "--release" not in sys.argv:
         sys.argv += ["--release", full_ver]
     else:
@@ -66,7 +68,7 @@ def build(cfg):
         tc = b.toolchain()
         sysinc = ["-isystem", str(tc / "pi32v2" / "include")]
         flags = [*b.CFLAGS, *b.BOARD_DEFS[b.BOARD], "-Ifirmware/hal", "-Ifirmware/src", "-Ifirmware/gen",
-                 f'-DFELUCCA_ID="{b.PRODUCT}"', f'-DAPP_VER="{full_ver}"', f"-DSTORE_MAGIC={cfg['store_magic']:#x}u",
+                 f'-DFELUCCA_ID="{b.PRODUCT}"', f'-DAPP_VER="{full_ver}"', f'-DAPP_DATE="{APP_DATE}"', f"-DSTORE_MAGIC={cfg['store_magic']:#x}u",
                  *inc, *defs, "-DLCD_BAUD=1"]
         cmds = [("cc", "-c", fw / "crt0.S", "-o", out / "crt0.o"),
                 ("cc", "-c", fw / "hal" / "fm1_vec.S", "-o", out / "fm1_vec.o"),

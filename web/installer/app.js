@@ -48,7 +48,11 @@ const MSG = {
     denied: "MIDI-Zugriff nicht erlaubt. Oben in der Adresszeile auf das Schloss klicken und MIDI erlauben, dann noch einmal.",
     running: (n) => `Verbunden: ${n}`, loader: (n) => `Das FM-1 steht im Update-Modus (${n}). Firmware wählen und „Installieren“: das Schreiben wird beendet.`,
     foreign: (n) => `Das FM-1 steht im Update-Modus einer anderen Firmware (${n}). Dieses Update bitte mit dessen eigenem Installer beenden.`,
-    other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung", latest: (v) => `. Neueste Version hier: ${v}`,
+    other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung",
+    onDevice: "Auf dem FM-1", available: "Neueste hier", unknownVer: "Version unbekannt, ältere Firmware",
+    from: "vom", current: "aktuell", newer: "Update möglich", ahead: "neuer als die Liste hier",
+    updateTo: (v) => `Update auf ${v}`, installNewest: (v) => `${v} installieren`, installed: "auf dem FM-1",
+    today: "heute", yesterday: "gestern", daysAgo: (n) => `vor ${n} Tagen`,
     voices: "Stimmen", chosen: (n) => `Gewählt: ${n}`, fetching: "Paket wird geladen …", fetchfail: "Paket konnte nicht geladen werden.",
     badpkg: "Diese Datei ist kein FM-1-Paket. Nichts wurde geschrieben.",
     nomark: "Diese Datei enthält keinen Felucca-Update-Lader und wird hier nicht installiert (z. B. Original-Firmware: dafür den FM-1 Firmware Hub nutzen).",
@@ -74,7 +78,11 @@ const MSG = {
     denied: "MIDI access was not allowed. Click the lock in the address bar, allow MIDI and try again.",
     running: (n) => `Connected: ${n}`, loader: (n) => `The FM-1 is in update mode (${n}). Choose a firmware and “Install”: the write is finished.`,
     foreign: (n) => `The FM-1 is in the update mode of another firmware (${n}). Finish that update with its own installer.`,
-    other: (k) => `other firmware (identity ${k})`, kennung: "identity", latest: (v) => `. Newest version here: ${v}`,
+    other: (k) => `other firmware (identity ${k})`, kennung: "identity",
+    onDevice: "On the FM-1", available: "Newest here", unknownVer: "version unknown, older firmware",
+    from: "from", current: "up to date", newer: "update available", ahead: "newer than the list here",
+    updateTo: (v) => `Update to ${v}`, installNewest: (v) => `Install ${v}`, installed: "on the FM-1",
+    today: "today", yesterday: "yesterday", daysAgo: (n) => `${n} days ago`,
     voices: "voices", chosen: (n) => `Chosen: ${n}`, fetching: "Loading the package …", fetchfail: "The package could not be loaded.",
     badpkg: "This file is not an FM-1 package. Nothing was written.",
     nomark: "This file has no Felucca update loader and is not installed here (e.g. original firmware: use the FM-1 Firmware Hub).",
@@ -123,12 +131,38 @@ function describe(text) {
   return m().other(text);
 }
 
+// "2026-11-28" -> "28.11.2026 (heute)"
+function fmtDate(iso) {
+  if (!iso) return "";
+  const [y, mo, d] = iso.split("-").map(Number);
+  const then = Date.UTC(y, mo - 1, d), now = new Date();
+  const days = Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - then) / 86400000);
+  const age = days <= 0 ? m().today : days === 1 ? m().yesterday : m().daysAgo(days);
+  const shown = lang === "en" ? iso : `${String(d).padStart(2, "0")}.${String(mo).padStart(2, "0")}.${y}`;
+  return `${shown} (${age})`;
+}
+
+function verDate(v, date) { return date ? `${v} ${m().from} ${fmtDate(date)}` : v; }
+
 function renderDevice() {
   if (!device) return;
   const t = device.text;
+  $("update").hidden = true;
+  document.querySelectorAll(".fw").forEach((l) => l.classList.toggle("installed", !device.loader && l.dataset.kennung === t));
   if (!device.loader) {
     const e = list.find((x) => x.kennung === t);
-    setStatus("devstatus", m().running(describe(t)) + (e ? m().latest(e.version) : ""), "ok");
+    const title = e ? e.titel : describe(t);
+    let line = `${m().onDevice}: ${title} ` + (device.info ? verDate(device.info.version, device.info.date) : `(${m().unknownVer})`);
+    if (e) {
+      line += ` · ${m().available}: ${verDate(e.version, e.date)}`;
+      if (device.info) line += " → " + (newer(e.version, device.info.version) ? m().newer : newer(device.info.version, e.version) ? m().ahead : m().current);
+      if (!device.info || newer(e.version, device.info.version)) {
+        $("update").textContent = device.info ? m().updateTo(e.version) : m().installNewest(`${e.titel} ${e.version}`);
+        $("update").onclick = () => updateTo(e);
+        $("update").hidden = false;
+      }
+    }
+    setStatus("devstatus", line, "ok");
   }
   else if (/^ota-(FM-1|SMK-37 Pro|SMK-37 Elite|MKE-P37)_9\d\d$/i.test(t)) setStatus("devstatus", m().loader(t), "ok");
   else setStatus("devstatus", m().foreign(t), "bad");
@@ -141,6 +175,7 @@ function renderList() {
   for (const e of list) {
     const lab = document.createElement("label");
     lab.className = "fw";
+    lab.dataset.kennung = e.kennung;
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
     lab.innerHTML = `<input type="radio" name="fw"><span class="media"><img class="pic" alt="" width="96" height="64"><img class="screen" alt="" width="96" height="96"></span><span class="txt"><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
     const pic = lab.querySelector(".pic");
@@ -159,7 +194,10 @@ function renderList() {
     scr.src = `bildschirme/${encodeURIComponent(e.name)}.png${BILD_V}`;
     lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
     lab.querySelector(".d").textContent = desc;
-    lab.querySelector(".meta").textContent = [voices, `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
+    lab.querySelector(".meta").textContent = [voices, e.date ? fmtDate(e.date) : "", `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
+    const badge = document.createElement("span");
+    badge.className = "badge"; badge.textContent = m().installed;
+    lab.querySelector("b").after(badge);
     const input = lab.querySelector("input");
     input.checked = pkg && pkg.entry === e;
     input.addEventListener("change", () => chooseListed(e));
@@ -217,6 +255,8 @@ async function liveList() {
   const files = await json(`https://api.github.com/repos/${REPO}/contents/firmware?ref=main`);
   let meta;
   try { meta = await json(RAW + "web/installer/beschreibungen.json"); } catch (_) { meta = await json("beschreibungen.json"); }
+  let dates = {};
+  try { dates = await json("daten.json"); } catch (_) { /* ohne */ }
   const best = {};
   for (const f of files) {
     const mm = NAME_RE.exec(f.name);
@@ -234,7 +274,11 @@ async function liveList() {
       kennung = productOf(new Uint8Array(await r.arrayBuffer()));
     } catch (_) { /* ohne Kennung */ }
     if (!/^[^_]+_9\d\d$/.test(kennung)) return null;   // nur Pakete der eigenen Plattform (FM-1_9xx)
-    return { name, titel: d.titel || name, version, kennung, de: d.de || "", en: d.en || "",
+    let date = dates[file.name] || "";
+    if (!date) {
+      try { date = (await json(`https://api.github.com/repos/${REPO}/commits?path=firmware/${encodeURIComponent(file.name)}&per_page=1`))[0].commit.committer.date.slice(0, 10); } catch (_) { /* ohne Datum */ }
+    }
+    return { name, titel: d.titel || name, version, kennung, date, de: d.de || "", en: d.en || "",
       stimmen_de: d.stimmen_de || "", stimmen_en: d.stimmen_en || "", url, gitsha: file.sha };
   }));
   return out.filter(Boolean);
@@ -278,12 +322,23 @@ async function connect() {
   busy = true; updateButtons(); device = null;
   setStatus("devstatus", m().searching);
   try {
-    const dev = await new Updater(new WebMidiBackend(access)).find();
+    const up = new Updater(new WebMidiBackend(access));
+    const dev = await up.find();
     if (!dev) { setStatus("devstatus", m().notfound, "bad"); return; }
+    const info = dev.id.loader ? null : await up.info(dev.link);
     dev.link.close();
-    device = dev.id;
+    device = { ...dev.id, info };
     renderDevice();
   } finally { busy = false; updateButtons(); }
+}
+
+// Knopf „Update auf X“: Eintrag wählen, laden, installieren
+async function updateTo(e) {
+  if (busy) return;
+  const input = [...document.querySelectorAll(".fw")].find((l) => l.dataset.kennung === e.kennung)?.querySelector("input");
+  if (input) input.checked = true;
+  await chooseListed(e);
+  if (pkg && pkg.entry === e) install();
 }
 
 async function install() {
@@ -306,8 +361,10 @@ async function install() {
     const dev = await up.find();
     if (!dev) throw new InstallError("notfound", "notfound");
     const now = await up.install(dev, pkg.image, pkg.product, step);
-    device = { text: now, loader: false };
+    device = { text: now, loader: false, info: null };
     renderDevice();
+    busy = false;
+    setTimeout(connect, 1500);   // neu abfragen: zeigt die jetzt installierte Version
   } catch (e) {
     const text = (m().err[e.code] || e.message) + (e.code === "mismatch" ? ` (${e.detail})` : "");
     setStatus("progress", text, "bad");
