@@ -50,7 +50,8 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 - **In Arbeit:** frei (Port fertig, Feature-Chat session_01WM34DFe7NZGLWrVtNzsA4L, 28.11.2026)
 - **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
 - **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
-  und 127) mit den Referenz-Renders des Swift-Kerns. Abweichung ≤ 2e-24, also Sample für Sample gleich. Mit der Maske
+  und 127) mit den Referenz-Renders des Swift-Kerns. Bei Velocity 127 Sample für Sample gegen die Referenz-WAVs geprüft (Abweichung ≤ 2e-24). Bei Velocity 64 lagen die
+  WAVs nicht vor; dort stimmen die Kennwerte (erste 16 Samples genau, Spitze, RMS, Summe). Mit der Maske
   `DK808_MASK_FM1_ELECTRO` ohne Laser, Congas, Toms, Claves und Maracas gebaut und geprüft.
 - **Frei für andere (je ein eigener Auftrag):**
   1. float-Fassung als Schalter (`DK808_FLOAT`) und Abweichung gegen `double` messen.

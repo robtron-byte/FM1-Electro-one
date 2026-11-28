@@ -1,7 +1,7 @@
 # dk808: TR-808 (DrumKern) – Auftrag und Stand
 
-**Stand 28.11.2026: fertig.** Alle 17 Instrumente stimmen Sample für Sample mit den Referenz-Renders des Swift-Kerns
-(`make -C bausteine dk808`). Zum Anhören: `bausteine/build/dk808/hit-XX-v127.wav`.
+**Stand 28.11.2026: fertig.** Alle 17 Instrumente stimmen mit den Referenz-Renders des Swift-Kerns überein: Velocity 127 Sample für Sample
+(mit `make test WAV=<Ordner mit den Referenz-WAVs>`), Velocity 64 über die Kennwerte (`make -C bausteine dk808`). Zum Anhören: `bausteine/build/dk808/hit-XX-v127.wav`.
 
 Wer daran arbeitet: [../ARBEITSTAFEL.md](../ARBEITSTAFEL.md). Wer übernimmt, liest nur diese Datei, `../README.md` und
 `../baustein.h`.
