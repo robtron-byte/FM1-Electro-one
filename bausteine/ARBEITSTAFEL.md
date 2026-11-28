@@ -89,8 +89,10 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **Keine Distortion in den Synth-Engines (Wunsch des Nutzers 28.11.):** Keine Synth-Engine rechnet eine eigene
   Distortion (JP-6 `dist_process` je Part in `engine/jp6.c`, SH-101 Drive/8×-Clipper). Distortion gibt es, wenn überhaupt,
   nur als **Send-Effekt der Firmware für alle Parts** (wie heute in FM1-Electro `engine/fx.c`, Send DIST). Regeln:
-  - Reine Synth-Firmwares (SH-101, MKS Ultra, JX-8P, MKS-50, JP-6 solo, JX-8P + SH-101): keine Distortion, auch kein Send;
-    Speicher und Last gehen in Stimmen.
+  - Firmwares mit SH-101 (SH-101 solo, JX-8P + SH-101): Distortion als Send (aus FM1-Electro `engine/fx.c`/`dist.c`,
+    Modi OD/DIST/RAT/TUBE), statt des eingebauten Drive (Wunsch des Nutzers).
+  - Übrige Synth-Firmwares (MKS Ultra, JX-8P, MKS-50, JP-6 solo): keine Distortion, auch kein Send; Speicher und Last gehen
+    in Stimmen.
   - Firmwares mit 808 (FM1-Electro, 808 solo, 808 + 101, 808 + 101 + JX): Distortion als Send für alle Parts.
   - FM1-Electro: die interne JP-6-Distortion als Schalter nach ADR 0006 ausbauen (Bau-Chat); der Send DIST bleibt.
   - Bausteine behalten sie für die Prüfung gegen die Vorlage (Schalter `*_WITH_DIST`/`SH101_WITH_DRIVE`, Firmwares bauen mit 0).
