@@ -565,7 +565,10 @@ static void app_idle(void) { if (idle_keys) keys_poll(); }
  * Sounds: Werkssounds der Variante und eigene (Blob 0, mit Formatversion: ältere Stände werden übernommen, fehlende
  * Parameter kommen aus dem Grundklang). Ein Part hält eine Arbeitskopie; `base` ist der Stand beim Laden.
  * ====================================================================================================== */
-enum { NOWN = 40, CAT_OWN = GM_NCAT, CAT_INIT = GM_NCAT + 1, NCAT_ALL = GM_NCAT + 2 };
+#ifndef GM_NOWN
+#define GM_NOWN 40                              /* Plätze für eigene Sounds (weniger, wenn ein Sound viele Parameter hat) */
+#endif
+enum { NOWN = GM_NOWN, CAT_OWN = GM_NCAT, CAT_INIT = GM_NCAT + 1, NCAT_ALL = GM_NCAT + 2 };
 #define FAC_N (GM_NFAC + 1u)                    /* die Werkssounds, dann INIT (zuletzt, damit die anderen ihre Nummer behalten) */
 /* GM_FAC_FUNCS: die Variante liefert die Werkssounds über gm_fac_name/gm_fac_v/gm_fac_cat (i < GM_NFAC) statt der Tabelle
  * gm_factory, z. B. aus Presets im Flash (MKS Ultra). gm_fac_v darf in einen eigenen Puffer schreiben (sofort kopiert). */
