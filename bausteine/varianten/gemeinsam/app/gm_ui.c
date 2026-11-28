@@ -483,18 +483,20 @@ static void draw_all(uint32_t now)
     } else draw_page(page, 1);
     draw_footer(now);
 }
-static uint32_t band_sum[8];
+enum { GM_BANDS = 240u / GM_BAND_H };
+_Static_assert(240u % GM_BAND_H == 0u, "GM_BAND_H teilt 240");
+static uint32_t band_sum[GM_BANDS];
 static void render(uint32_t now)
 {
     idle_keys = 1;
-    for (uint32_t b = 0; b < 8u; b++) {
-        uint32_t sum = 0x1234567u, n = 240u * 30u;
-        cv_begin(240, 30, T_BG);
-        cv_oy = -(int32_t)b * 30;
+    for (uint32_t b = 0; b < GM_BANDS; b++) {
+        uint32_t sum = 0x1234567u, n = 240u * GM_BAND_H;
+        cv_begin(240, GM_BAND_H, T_BG);
+        cv_oy = -(int32_t)(b * GM_BAND_H);
         draw_all(now);
         cv_oy = 0;
         for (uint32_t i = 0; i < n; i++) sum = (sum ^ cv_px[i]) * 16777619u;
-        if (sum != band_sum[b]) { band_sum[b] = sum; cv_blit(0, b * 30u); }
+        if (sum != band_sum[b]) { band_sum[b] = sum; cv_blit(0, b * GM_BAND_H); }
         keys_poll();
     }
     lcd_sync();

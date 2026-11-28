@@ -8,8 +8,9 @@ Gerüst [`../gemeinsam`](../gemeinsam/). Entscheidungen: [ADR 0042](../../../doc
 
 | | |
 |---|---|
-| Firmware | `firmware/SH101-0.1.1-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/SH101-0.1.2-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
 | Klang | eine Stimme in voller Gerätequalität: 4× Ladder, 8× Clipper, BLEP; float und Polynome (`SH101_FLOAT`, `SH101_FASTMATH`), RMS ≤ 6e-5 neben der Vorlage |
+| 0.1.2 | Distortion-Send wie FM1-Electro (TUBE, OD, DIST, RAT; Seite FX/DIST), Kern 1; Drive bleibt; mono; Delay ≤ 0,6 s. Kern 0 57,5 %, Kern 1 13,9 % mit allen Effekten |
 | Last (Emulator) | eine Note 44 %, mit Drive und hoher Resonanz 58,5 % Spitze (Kern 0); Delay + Hall 6,6 % (Kern 1); keine verspäteten Blöcke. Kostenmodell des Emulators: 98 % Laufzeit mit Note (MKS-50 zum Abgleich 80 %, dort Gerät = Zeitgeber), Einordnung in ADR 0042. **Am Gerät nicht gemessen** |
 | Am Gerät | nicht geprüft |
 
@@ -24,7 +25,7 @@ Taste tippen = ihre Seiten, halten = ihre vier wichtigsten Werte. Regler 0.0 …
 | EDIT | VCO (RANGE MOD PW PWM SRC), SOURCE (PULSE SAW SUB NOISE), SOURCE 2 (SUB OCT WHITE FINE FLOOR), VCF (CUTOFF RESO ENV KYBD), VCF 2 (VCF MOD SLOPE ENV FULL RES COMP), FM + DRIVE | PULSE SAW SUB PW |
 | ENV | ENV mit Bild (A D S R), VCA (VCA TRIGGER DECLICK), VELOCITY | A D S R |
 | LFO | LFO (RATE WAVE MOD VCF MOD), LFO 2 (SYNC INVERT KEY TRIG SNAP), CONTROL (Bender, Mod-Rad), GLIDE | RATE MOD VCF MOD WAVE |
-| FX | EFFECTS (Sends, Pegel), DELAY, DELAY 2, REVERB | Sends, Zeit, Hall |
+| FX | EFFECTS (Sends, Pegel), DIST (Send, Modus, Drive, Tone), DIST 2 (Level), DELAY, DELAY 2, REVERB | DLY/REV/DST SEND, Zeit |
 | ARP | ARP (an, Modus, Rate, Oktaven), ARP 2 (Gate, Hold) | |
 | SEQ | SEQUENCER (an, Rate, Gate, Transponieren); tippen auf der Seite: an/aus | |
 | GLO | TEMPO (Tempo, Clock-Quelle, Clock senden, MIDI-Kanal), SYSTEM (Pegel, Last) | GLIDE DRIVE TRANSP VOLUME |
@@ -56,6 +57,6 @@ Aufspielen wie die anderen Pakete: `python3 bausteine/varianten/gemeinsam/platfo
 
 - Am Gerät: Last mit Drive (Seite SYSTEM), Bedienung, Pegel (`SH_GAIN`).
 - Speichern (eigene Sounds, Journal, Sequenzen): gebaut wie in fm1-synths, im Emulator nicht über einen Neustart geprüft.
-- Poly mit 2 Stimmen (eine je Kern): braucht eine Block-Schnittstelle im Baustein und Effekte auf Kern 0 (ADR 0042).
+- Speicher sehr knapp (RAM 12 Bytes frei, Pool 3 kB): neue Funktionen brauchen erst Platz.
 - Bilder für VCO und VCF (bisher nur ENV und PLAY).
 - Velocity: die FM-1-Tasten spielen mit 100; per MIDI mit Anschlag.

@@ -8,9 +8,10 @@
 #define APP_NAME "SH-101"
 #define GM_TITLE "SH-101"
 #define GM_ACCENT RGB(255, 60, 40)              /* das Rot des SH-101 */
+#define GM_BAND_H 20u                           /* (kleinere Zeichenfläche: Platz für die Distortion-Tabellen) */
 #define GM_PARTS 1u
 #define GM_NAMEMAX 10u
-#define GM_SOUND_VER 1u                         /* Format der eigenen Sounds; älter = weniger Parameter, ergänzt aus INIT */
+#define GM_SOUND_VER 2u                         /* Format der eigenen Sounds (2: Distortion-Send); älter = weniger Parameter, ergänzt aus INIT */
 #define GM_JR_MAGIC 0x54534853u                 /* "SHST": Journal dieser Firmware */
 #include "gm_types.h"
 #include "sh101/sh101.h"
@@ -21,7 +22,9 @@ enum {
     P_KYBD, P_VCA, P_ATTACK, P_DECAY, P_SUSTAIN, P_RELEASE, P_TRIGGER, P_LFO_RATE, P_LFO_WAVE, P_GLIDE, P_GLIDE_MODE,
     P_TRANSPOSE, P_FINE, P_VOLUME, P_DRIVE, P_12DB, P_ENV_FULL, P_RES_COMP, P_WHITE, P_NOISE_FLOOR, P_LFO_SYNC,
     P_LFO_INV, P_LFO_TRIG, P_MOD_SNAP, P_LIN_GLIDE, P_DECLICK, P_VEL_VCA, P_VEL_VCF, P_BEND_VCO, P_BEND_VCF, P_MOD_WHEEL,
-    P_FM_AMT, P_FM_SRC, GM_NP
+    P_FM_AMT, P_FM_SRC,
+    P_DIST_SEND, P_DIST_MODE, P_DIST_DRIVE, P_DIST_TONE, P_DIST_LEVEL,   /* Distortion-Send (0.1.2, nicht im Baustein) */
+    GM_NP
 };
 #define C200 200u
 /* (die Anzeigen laufen vor platform.c: eigene kleine Helfer statt str_cpy / fmt_int) */
@@ -48,6 +51,8 @@ static void t_trans(uint8_t v, char *b) { static const char *const n[3] = {"-1",
 static void t_fine(uint8_t v, char *b) { int c = ((int)v - 100) / 2; if (c > 0) *b++ = '+'; t_num(b, c); }
 static void t_fmsrc(uint8_t v, char *b) { static const char *const n[5] = {"OFF", "PULSE", "SAW", "SUB", "NOISE"}; t_put(b, n[v % 5u]); }
 static void t_12(uint8_t v, char *b) { t_put(b, v ? "12DB" : "24DB"); }
+static void t_int(uint8_t v, char *b) { t_num(b, v); }
+static void t_dmode(uint8_t v, char *b) { static const char *const n[4] = {"TUBE", "OD", "DIST", "RAT"}; t_put(b, n[v & 3u]); }
 
 static const gm_param_t gm_params[GM_NP] = {
     [P_RANGE] = {"RANGE", 3, C_SRC, t_range}, [P_MOD] = {"MOD", C200, C_MOD, t_slider},
@@ -73,6 +78,9 @@ static const gm_param_t gm_params[GM_NP] = {
     [P_VEL_VCF] = {"VEL VCF", C200, C_FLT, t_slider}, [P_BEND_VCO] = {"BEND VCO", C200, C_MOD, t_slider},
     [P_BEND_VCF] = {"BEND VCF", C200, C_MOD, t_slider}, [P_MOD_WHEEL] = {"MOD WHL", C200, C_MOD, t_slider},
     [P_FM_AMT] = {"FM AMT", C200, C_MOD, t_slider}, [P_FM_SRC] = {"FM SRC", 4, C_MOD, t_fmsrc},
+    [P_DIST_SEND] = {"DST SEND", 127, C_FX, t_int}, [P_DIST_MODE] = {"MODE", 3, C_FX, t_dmode},
+    [P_DIST_DRIVE] = {"DRIVE", 127, C_FX, t_int}, [P_DIST_TONE] = {"TONE", 127, C_FX, t_int},
+    [P_DIST_LEVEL] = {"LEVEL", 127, C_FX, t_int},
 };
 /* der Parameter des Bausteins zu jedem Wert (P_FM_SRC setzt vier Schalter) */
 static const uint8_t sh_id[GM_NP] = {
@@ -97,6 +105,7 @@ static const uint8_t sh_id[GM_NP] = {
 static const uint8_t gm_init_v[GM_NP] = {
     [P_RANGE] = 1, [P_SAW] = 200, [P_SUB] = 200, [P_CUTOFF] = 200, [P_KYBD] = 200, [P_DECAY] = 100, [P_TRIGGER] = 2,
     [P_LFO_RATE] = 100, [P_GLIDE_MODE] = 1, [P_TRANSPOSE] = 1, [P_FINE] = 100, [P_VOLUME] = 100,
+    [P_DIST_MODE] = 0, [P_DIST_DRIVE] = 60, [P_DIST_TONE] = 70, [P_DIST_LEVEL] = 64,   /* TUBE (Wunsch 28.11.) */
 };
 
 /* ---- Werkssounds: Abweichungen vom INIT (eigene Einstellungen, keine Daten eines Originals; nach Gehör anzupassen) */
@@ -142,6 +151,8 @@ static const page_t gm_pages[] = {
     {G_LFO, ST_NAME, "CONTROL", {PRM("BEND VCO", P_BEND_VCO), PRM("BEND VCF", P_BEND_VCF), PRM("MOD WHL", P_MOD_WHEEL), NO}},
     {G_LFO, ST_NAME, "GLIDE", {PRM("GLIDE", P_GLIDE), PRM("MODE", P_GLIDE_MODE), PRM("LINEAR", P_LIN_GLIDE), PRM("TRANSP", P_TRANSPOSE)}},
     {G_FX, ST_NAME, "EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("DELAY", FX_DLY_LEVEL), FXK("REVERB", FX_REV_LEVEL)}},
+    {G_FX, ST_NAME, "DIST", {PRM("DST SEND", P_DIST_SEND), PRM("MODE", P_DIST_MODE), PRM("DRIVE", P_DIST_DRIVE), PRM("TONE", P_DIST_TONE)}},
+    {G_FX, ST_NAME, "DIST 2", {PRM("LEVEL", P_DIST_LEVEL), NO, NO, NO}},
     {G_FX, ST_NAME, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBACK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("PING", FX_DLY_PING)}},
     {G_FX, ST_NAME, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("MOD", FX_DLY_MOD), NO}},
     {G_FX, ST_NAME, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("TYPE", FX_REV_TYPE)}},
@@ -156,14 +167,31 @@ static const layer_t gm_layers[NGROUP] = {
     [G_EDIT] = {"SOURCE", {PRM("PULSE", P_PULSE), PRM("SAW", P_SAW), PRM("SUB", P_SUB), PRM("PW", P_PW)}},
     [G_ENV] = {"ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
     [G_LFO] = {"LFO", {PRM("RATE", P_LFO_RATE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO), PRM("WAVE", P_LFO_WAVE)}},
-    [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("TIME", FX_DLY_TIME), FXK("REVERB", FX_REV_LEVEL)}},
+    [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, PRM("DST SEND", P_DIST_SEND), FXK("TIME", FX_DLY_TIME)}},
     [G_ARP] = {"ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     [G_GLO] = {"PERFORM", {PRM("GLIDE", P_GLIDE), PRM("DRIVE", P_DRIVE), PRM("TRANSP", P_TRANSPOSE), PRM("VOLUME", P_VOLUME)}},
     [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
 };
 
 /* ---- der Klang: Baustein sh101 (Gerätefassung, eine Stimme) */
-static sh101_t eng __attribute__((section(".pool"), aligned(16)));
+static sh101_t eng __attribute__((aligned(16)));   /* (RAM: der Pool ist mit Delay, Hall und Distortion voll) */
+/* Distortion-Send (wie FM1-Electros DIST-Send, gemeinsam/fx/gm_dist.c): kern_render schreibt den Send eines Blocks,
+ * Kern 1 rechnet ihn im nächsten Block neben Delay und Hall (GM_FX_EXTRA) und addiert das nasse Signal. */
+#include "gm_dist.h"
+static volatile uint8_t dist_v[5];              /* Send, Modus, Drive, Tone, Level */
+static float dist_buf[2][GM_BLOCK] __attribute__((section(".pool")));
+static volatile uint32_t dist_wr;               /* der Puffer, den kern_render gerade füllt */
+static float dist_tmp[GM_BLOCK] __attribute__((section(".pool")));
+static __attribute__((section(".dsp_text"), noinline)) void sh_dist_fx(float *wl, float *wr)
+{
+    const float *in = dist_buf[dist_wr ^ 1u];
+    if (!dist_v[0]) return;
+    for (unsigned i = 0; i < GM_BLOCK; i++) dist_tmp[i] = in[i];
+    gm_dist_process(dist_tmp, (int)GM_BLOCK, dist_v[1], dist_v[2], dist_v[3], dist_v[4]);
+    for (unsigned i = 0; i < GM_BLOCK; i++) { wl[i] += dist_tmp[i]; wr[i] += dist_tmp[i]; }
+}
+#define GM_FX_EXTRA(wl, wr) sh_dist_fx(wl, wr)
+#define GM_FX_EXTRA_ON() (dist_v[0] != 0)
 static uint8_t eng_v[GM_NP];                    /* was der Klang gerade hat (Audioseite) */
 #define SH_GAIN 4.0f                            /* der Baustein liefert um 0,1 RMS (offene Säge): so etwa -14 dBFS */
 static void kern_set(unsigned p, unsigned i, uint8_t v);
@@ -174,6 +202,7 @@ static void kern_boot(void)
         for (unsigned i = 0; i < GM_NP; i++) gm_factory[s].v[i] = gm_init_v[i];
         for (unsigned k = 0; k < recipes[s].n; k++) gm_factory[s].v[recipes[s].kv[k][0]] = recipes[s].kv[k][1];
     }
+    gm_dist_init();
     sh101_init(&eng, 44100.0);
     for (unsigned i = 0; i < GM_NP; i++) kern_set(0, i, gm_init_v[i]);
 }
@@ -183,6 +212,10 @@ static __attribute__((section(".dsp_text"), noinline)) void kern_set(unsigned p,
     if (i >= GM_NP) return;
     if (v > gm_params[i].max) v = gm_params[i].max;
     eng_v[i] = v;
+    if (i >= P_DIST_SEND) {                     /* Distortion-Send: Werte für sh_dist_fx */
+        dist_v[i - P_DIST_SEND] = v;
+        return;
+    }
     if (i == P_FM_SRC) {
         for (unsigned k = 0; k < 4u; k++) sh101_set(&eng, SH101_FM_PULSE + k, v == k + 1u ? 1.0f : 0.0f);
         return;
@@ -203,16 +236,7 @@ static __attribute__((section(".dsp_text"), noinline)) void kern_all_off(unsigne
 static __attribute__((section(".dsp_text"), noinline)) void kern_bend(unsigned p, float b) { (void)p; sh101_pitch_bend(&eng, b); }
 static __attribute__((section(".dsp_text"), noinline)) void kern_mod(unsigned p, float m) { (void)p; sh101_mod_wheel(&eng, m); }
 static volatile float bpm_now;
-static __attribute__((section(".dsp_text"), noinline)) void kern_render(unsigned p, float *l, float *r, unsigned n)
-{
-    (void)p;
-    eng.tempo = (double)bpm_now;
-    sh101_prepare(&eng);
-    for (unsigned i = 0; i < n; i++) {
-        float y = sh101_sample(&eng) * SH_GAIN;
-        l[i] += y; r[i] += y;
-    }
-}
+static void kern_render(unsigned p, float *l, float *r, unsigned n);
 static int kern_voices(unsigned p)
 {
     (void)p;
@@ -221,6 +245,24 @@ static int kern_voices(unsigned p)
 static int kern_stage(unsigned stage, unsigned p);
 
 #include "gm_app.c"
+
+static __attribute__((section(".dsp_text"), noinline)) void kern_render(unsigned p, float *l, float *r, unsigned n)
+{
+    (void)p;
+    eng.tempo = (double)bpm_now;
+    sh101_prepare(&eng);
+    {
+        uint32_t w = dist_wr;
+        float sg = (float)dist_v[0] * (1.0f / 127.0f);
+        for (unsigned i = 0; i < n; i++) {
+            float y = sh101_sample(&eng) * SH_GAIN;
+            l[i] += y; r[i] += y;
+            dist_buf[w][i] = y * sg;
+        }
+        FM1_C1_SYNC();
+        dist_wr = w ^ 1u;                       /* (Kern 1 liest im nächsten Block diesen Puffer) */
+    }
+}
 
 /* ---- Bilder der Variante */
 static int kern_stage(unsigned stage, unsigned p)

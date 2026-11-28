@@ -90,7 +90,12 @@ static EL_DSP_CODE void delay_process(const float *in, float *out_l, float *out_
     if (mix < 0.0005f && dl.mix < 0.0005f) return;
     for (int i = 0; i < n; i++) peak_in = dsp_max(peak_in, dsp_abs(in[i]));
     if (peak_in < 1e-6f && dl.quiet > 4000u) return;    /* (5.8 s of silence in and out: asleep) */
+#ifdef SYN_FX_DELAY_MAX_S   /* bausteine/varianten (Wunsch 28.11.): Delay höchstens so lang */
+    float target = dsp_clamp(syn_fx_delay_seconds(v[FX_DLY_TIME], v[FX_DLY_SYNC], v[FX_DLY_DIV], bpm) * sr, 2.0f,
+                             dsp_min(DL_SIZE * 0.95f, SYN_FX_DELAY_MAX_S * sr));
+#else
     float target = dsp_clamp(syn_fx_delay_seconds(v[FX_DLY_TIME], v[FX_DLY_SYNC], v[FX_DLY_DIV], bpm) * sr, 2.0f, DL_SIZE * 0.95f);
+#endif
     if (dl.smoothed == 0) dl.smoothed = target;
     float tone = v[FX_DLY_TONE] / 127.0f, low_coef = 1.0f - dsp_exp(-2.0f * DSP_PI * (900.0f + tone * tone * 15000.0f) / sr);
     float fb = dsp_clamp(delay_feedback(v[FX_DLY_FB]), 0, 1.15f), m = v[FX_DLY_MOD] / 127.0f;

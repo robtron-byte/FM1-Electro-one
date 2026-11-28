@@ -30,7 +30,10 @@ static void app_idle(void);
 #define LCD_IDLE app_idle
 static void gm_boot(void);
 #define APP_BOOT gm_boot
-#define CV_MAX (240u * 30u)                     /* das Bild in Streifen von 30 Zeilen */
+#ifndef GM_BAND_H
+#define GM_BAND_H 30u                           /* das Bild in Streifen von so vielen Zeilen (240 / GM_BAND_H ganz) */
+#endif
+#define CV_MAX (240u * GM_BAND_H)
 #include "platform.c"
 #include "syn_fx.h"
 /* GM_FX 0: eine Variante mit eigenen Effekten (MKS Ultra, ADR 0045) baut syn_fx nicht (spart ~190 kB Pool); die Seiten
@@ -138,10 +141,17 @@ static float int_acc;
 /* Delay und Hall: gespeist von den Sends des Blocks davor, gerechnet auf Kern 1 (oder Kern 0, wenn Kern 1 fehlt) */
 static float fx_in[2][GM_BLOCK], fx_wet[2][GM_BLOCK];
 static uint8_t fx_on;
+/* GM_FX_EXTRA(wl, wr): ein weiterer Send-Effekt der Variante (SH-101: Distortion), läuft mit Delay und Hall (Kern 1,
+ * sonst Kern 0) und addiert sein nasses Signal; GM_FX_EXTRA_ON(): ist er gerade an. Standard: keiner. */
+#ifndef GM_FX_EXTRA
+#define GM_FX_EXTRA(wl, wr) ((void)0)
+#define GM_FX_EXTRA_ON() 0
+#endif
 static DSP void fx_run(void)
 {
     for (uint32_t i = 0; i < GM_BLOCK; i++) fx_wet[0][i] = fx_wet[1][i] = 0;
     if (fx_on) syn_fx_process(fx_in[0], fx_in[1], fx_wet[0], fx_wet[1], GM_BLOCK, bpm_now);
+    GM_FX_EXTRA(fx_wet[0], fx_wet[1]);
 }
 static DSP void c1_job(uint32_t blk)
 {
@@ -497,7 +507,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
     }
     block_no++;
     c1_fx_t = 0;
-    if (fx_on && cpu1_ok && fm1_c1_on) started = (uint32_t)fm1_cpu1_run(c1_job, block_no);
+    if ((fx_on || GM_FX_EXTRA_ON()) && cpu1_ok && fm1_c1_on) started = (uint32_t)fm1_cpu1_run(c1_job, block_no);
     /* die Parts auf Kern 0, während Kern 1 die Effekte des Blocks davor rechnet */
     t = fm1_ticks();
     for (uint32_t i = 0; i < GM_BLOCK; i++) mix_l[i] = mix_r[i] = 0;

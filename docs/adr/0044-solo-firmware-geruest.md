@@ -51,5 +51,8 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat).
+- 2026-11-28 (sh101-Chat, abwärtskompatibel, Standard wie vorher): `GM_FX` (0 = ohne syn_fx, Kern 1 frei), `GM_FAC_FUNCS`
+  (Werkssounds über Funktionen), `GM_NOWN` (Plätze eigener Sounds), `GM_FX_EXTRA` (weiterer Send-Effekt mit Delay/Hall),
+  `GM_BAND_H` (Höhe der Zeichenstreifen), `SYN_FX_DELAY_MAX_S` (Delay-Grenze), `fx/gm_dist.c` (Distortion aus FM1-Electro).
 - 2026-11-28: Blob 0 mit fester Länge, Journal-Einträge mit Längen vorn (vor der ersten Auslieferung).
 - 2026-11-28 (jx8p-Chat): abwärtskompatibel ergänzt: `app.ld` nimmt `.ctrl_text` (EL_CTRL_CODE der Kerne aus `engine/`) in `.text`; `GM_SEND_FIRST` und `GM_FX_FIRST_ON` (erster Start: Part-Sends, Effekte an/aus), für JX-8P solo.

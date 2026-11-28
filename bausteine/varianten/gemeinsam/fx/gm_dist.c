@@ -1,0 +1,360 @@
+/* SPDX-License-Identifier: GPL-3.0-only WITH GPL-3.0-linking-exception
+ * Distortion als Send-Effekt für die Solo-/Kombi-Firmwares (ADR 0044): Kopie von FM1-Electros engine/dist.c (Stand
+ * faf3050, Rechnung unverändert, Festkomma DIST_FIXED auf dem Gerät), nur die Kurventabellen in zwei Speicherteilen.
+ * Dazu eine kleine Hülle (gm_dist.h), damit die App FM1-Electros el_config.h nicht sieht. */
+/* Device build: the constants of this file sit in internal SRAM; its audio
+ * code is marked EL_DSP_CODE / EL_DSP_HELPER (control code runs from Flash). */
+#if defined(EL_PLATFORM)   /* own platform: the constants in SRAM with the audio code */
+#pragma const_seg(".dsp_rodata")
+#elif !defined(FM1_HOST_TEST)   /* FM1 Open SDK build */
+#pragma const_seg(".volatile_ram.fm1")
+#endif
+#include "../../../../engine/dist.h"
+#include "../../../../third_party/daisy808/dsp_math.h"
+#include "gm_dist.h"
+#include <string.h>
+
+static inline float powf_fast(float a, float b) { return a <= 0.0f ? 0.0f : dsp_exp2(b * dsp_log2(a)); }
+
+/* ---- distortion (Effects.swift AcidDistortion) ----------------------------- */
+
+/* Half-band taps at odd offsets 1, 3, 5 ... from the centre (0.5). */
+static const float half_band[12] EL_DSP_DATA = {
+    0.3163647824f, -0.1003918960f, 0.0545327660f, -0.0334618158f, 0.0211372679f, -0.0132048055f,
+    0.0079527640f, -0.0045132248f, 0.0023474055f, -0.0010708521f, 0.0003905110f, -0.0000820879f};
+
+static inline EL_DSP_HELPER float dist_clip(float x, int mode)
+{
+    switch (mode) {
+    case 1: { /* OD: two cascaded asymmetric tube stages */
+        float a = dsp_tanh(x + 0.35f) - 0.3363758f;
+        return dsp_tanh(2.2f * a) * 1.03f;
+    }
+    case 2: { /* DIST: soft stage into a smooth-knee hard clipper (p = 6) */
+        float v = dsp_tanh(x) * 1.9f, a = dsp_abs(v) * 1.25f, a3 = a * a * a;
+        return v / powf_fast(1.0f + a3 * a3, 1.0f / 6.0f) * 1.25f;
+    }
+    case 4: { /* TUBE: triode-like asymmetry, soft knee */
+        float u = x + 0.2f;
+        float t = u >= 0 ? dsp_tanh(u * 0.9f) * (1.0f / 0.9f) : dsp_tanh(u * 1.35f) * (1.0f / 1.35f);
+        return (t - 0.1978676f) * 1.15f;
+    }
+    default: { /* RAT: silicon diodes, unequal halves, some rectification */
+        float d = x >= 0 ? 1.0f - dsp_exp(-2.2f * x) : -(1.0f - dsp_exp(1.8f * x)) * 0.8f;
+        return dsp_clamp(0.8f * d + 0.35f * dsp_abs(d), -1.0f, 1.0f);
+    }
+    }
+}
+
+/* DIST_TABLE (own platform, docs/adr/0019): the four curves above as
+ * tables, -12 .. +12 in steps of 1/128 with linear interpolation (beyond
+ * that they are flat); filled once by dist_init_tables (el_init, before
+ * the sound starts). Against the curves: OD -91 dB, DIST -85, TUBE -101,
+ * RAT -65 (only at its hard clip's corner). Each curve costs one or two
+ * tanh / exp / log2 and a division, twice a sample (2x oversampled). */
+#ifndef DIST_TABLE
+#if defined(EL_PLATFORM)
+#define DIST_TABLE 1
+#else
+#define DIST_TABLE 0
+#endif
+#endif
+#if DIST_FIXED
+#undef DIST_TABLE
+#define DIST_TABLE 0
+#endif
+#if DIST_TABLE
+enum { DIST_TAB = 3073 };
+static float dist_tab[4][DIST_TAB] __attribute__((section(".pool")));
+static uint8_t dist_tab_ready;
+void dist_init_tables(void)
+{
+    if (dist_tab_ready) return;
+    for (int m = 1; m <= 4; ++m)
+        for (int i = 0; i < DIST_TAB; ++i) dist_tab[m - 1][i] = dist_clip(-12.0f + (float)i * (1.0f / 128.0f), m);
+    dist_tab_ready = 1;
+}
+static inline EL_DSP_HELPER float dist_curve(float x, int mode)
+{
+    const float *t = dist_tab[mode - 1];
+    if (!dist_tab_ready) return dist_clip(x, mode);
+    if (x <= -12.0f) return t[0];
+    if (x >= 12.0f) return t[DIST_TAB - 1];
+    float p = (x + 12.0f) * 128.0f;
+    int i = (int)p;
+    if (i >= DIST_TAB - 1) i = DIST_TAB - 2;
+    return t[i] + (t[i + 1] - t[i]) * (p - (float)i);
+}
+#elif DIST_FIXED
+/* The curves as integer tables (Q24, -12 .. +12 in 1/128), the half-band
+ * taps in Q30; filled by dist_init_tables (el_init). */
+enum { DIST_TAB = 3073 };
+/* gemeinsam (ADR 0044): die vier Kurven nicht in einem Stück im Pool, sondern zwei im Pool und zwei im RAM (sonst
+ * passen sie neben Delay und Hall des Gerüsts nicht); gleiche Werte. */
+static int32_t dist_tabq0[2][DIST_TAB + 1] __attribute__((section(".pool")));
+static int32_t dist_tabq1[2][DIST_TAB + 1];
+static int32_t *const dist_tabq[4] = {dist_tabq0[0], dist_tabq0[1], dist_tabq1[0], dist_tabq1[1]};
+#define HBQ(x) ((int32_t)((x) * 1073741824.0))
+static const int32_t half_band_q[12] = {   /* half_band in Q30, constants: the unrolled loops take them as immediates */
+    HBQ(0.3163647824f), HBQ(-0.1003918960f), HBQ(0.0545327660f), HBQ(-0.0334618158f), HBQ(0.0211372679f), HBQ(-0.0132048055f),
+    HBQ(0.0079527640f), HBQ(-0.0045132248f), HBQ(0.0023474055f), HBQ(-0.0010708521f), HBQ(0.0003905110f), HBQ(-0.0000820879f)};
+static uint8_t dist_tab_ready;
+void dist_init_tables(void)
+{
+    if (dist_tab_ready) return;
+    for (int m = 1; m <= 4; ++m)
+        for (int i = 0; i <= DIST_TAB; ++i)
+            dist_tabq[m - 1][i] = (int32_t)(dist_clip(-12.0f + (float)i * (1.0f / 128.0f), m) * 16777216.0f);
+    dist_tab_ready = 1;
+}
+#define dist_curve dist_clip
+#else
+void dist_init_tables(void) {}
+#define dist_curve dist_clip
+#endif
+
+/* 2x oversampled clipping of one sample (24 samples latency). */
+static inline float dist_oversampled(el_dist_ch_t *c, unsigned ip, unsigned op, float x, int mode)
+{
+    c->in[ip] = c->in[ip + 32u] = x;
+    const float *in = c->in + ip + 32u;          /* in[-j] = the sample j back */
+    float even = in[-12], odd = 0;
+    for (unsigned k = 0; k < 12; ++k) odd += half_band[k] * (in[-12 - (int)k] + in[-11 + (int)k]);
+    odd *= 2.0f;
+    unsigned newest = op + 1u;                    /* (op is even, below 64) */
+    c->os[op] = c->os[op + 64u] = dist_curve(even, mode);
+    c->os[newest] = c->os[newest + 64u] = dist_curve(odd, mode);
+    const float *os = c->os + newest + 64u - 25u; /* the centre tap */
+    float y = 0.5f * os[0];
+    for (unsigned k = 0; k < 12; ++k)
+        y += half_band[k] * (os[2 * (int)k + 1] + os[-2 * (int)k - 1]);
+    return y;
+}
+
+#if DIST_FIXED
+static inline EL_DSP_HELPER int32_t dq_mul(int32_t a, int32_t b, int s) { return (int32_t)(((int64_t)a * b) >> s); }
+static inline EL_DSP_HELPER int32_t dq28(float x) { return (int32_t)(x * 268435456.0f); }
+static inline EL_DSP_HELPER int32_t dq30(float x) { return (int32_t)(x * 1073741824.0f); }
+
+/* the curve of a Q18 input, Q24 out */
+static inline EL_DSP_HELPER int32_t dist_curve_q(int32_t x18, int mode)
+{
+    const int32_t *t = dist_tabq[mode - 1];
+    if (x18 <= -(12 << 18)) return t[0];
+    if (x18 >= (12 << 18)) return t[DIST_TAB - 1];
+    uint32_t p = (uint32_t)(x18 + (12 << 18)), i = p >> 11;
+    int32_t f = (int32_t)(p & 2047u), ff = (f * (f - 2048)) >> 1;   /* f (f - 1) / 2 in Q22 */
+    int32_t t0 = t[i], t1 = t[i + 1], t2 = t[i + 2];
+    /* quadratic through three points: small signals keep their shape too */
+    return t0 + (int32_t)(((int64_t)(t1 - t0) * f) >> 11) + (int32_t)(((int64_t)(t2 - 2 * t1 + t0) * ff) >> 22);
+}
+
+/* dist_oversampled in fixed point: in Q18, out Q24 (pairs summed in 64 bits) */
+static inline EL_DSP_HELPER int32_t dist_oversampled_q(el_dist_ch_t *c, unsigned ip, unsigned op, int32_t x18, int mode)
+{
+    c->qin[ip] = c->qin[ip + 32u] = x18;
+    const int32_t *in = c->qin + ip + 32u;
+    int32_t even = in[-12];
+    /* each pair halved, then summed: one product per pair (x18 up to 2^31) */
+    int64_t acc = 0;
+EL_UNROLL
+    for (unsigned k = 0; k < 12; ++k) acc += (int64_t)half_band_q[k] * ((in[-12 - (int)k] >> 1) + (in[-11 + (int)k] >> 1));
+    int64_t od = acc >> 28;                       /* x 2 */
+    int32_t odd = od > INT32_MAX ? INT32_MAX : od < -INT32_MAX ? -INT32_MAX : (int32_t)od;
+    unsigned newest = op + 1u;
+    c->qos[op] = c->qos[op + 64u] = dist_curve_q(even, mode);
+    c->qos[newest] = c->qos[newest + 64u] = dist_curve_q(odd, mode);
+    const int32_t *os = c->qos + newest + 64u - 25u;
+    int64_t y = (int64_t)os[0] << 29;             /* 0.5 x the centre */
+EL_UNROLL
+    for (unsigned k = 0; k < 12; ++k) y += (int64_t)half_band_q[k] * (int32_t)(os[2 * (int)k + 1] + os[-2 * (int)k - 1]);   /* (Q24 curves: the pair fits) */
+    return (int32_t)(y >> 30);
+}
+
+/* dist_process in fixed point: the same stages, signals Q24 (the driven one
+ * Q18, held within +-8000: the curves are flat beyond +-12), the drive gain
+ * Q20, coefficients Q28 / Q30. */
+static EL_DSP_CODE void dist_process_fixed(el_dist_t *d, float *left, float *right, int frames, int mode, int drive_v,
+                                           int tone_v, int level_v, int mix_v, int stereo)
+{
+    int channels = stereo ? 2 : 1;
+    if (stereo && d->mono) d->ch[1] = d->ch[0];
+    d->mono = (uint8_t)!stereo;
+    if (!d->qinit) { d->qgain = (int32_t)(d->gain * 1048576.0f); d->qmix = dq30(d->mix); d->qinit = 1; }
+    unsigned ip0 = d->in_pos, op0 = d->os_pos, ip = ip0, op = op0;
+    if (mode == 0 && d->qmix < dq30(0.0001f)) {
+        d->qmix = 0; d->mix = 0;
+        for (int ch = 0; ch < channels; ++ch) {
+            el_dist_ch_t *c = &d->ch[ch];
+            float *x = ch ? right : left;
+            ip = ip0; op = op0;
+            for (int n = 0; n < frames; ++n) {
+                c->qdry[ip] = (int32_t)(x[n] * 16777216.0f);
+                x[n] = (float)c->qdry[(ip - DIST_LATENCY) & 31u] * (1.0f / 16777216.0f);
+                c->qin[ip] = c->qin[ip + 32u] = 0;
+                c->qos[op] = c->qos[op + 64u] = 0;
+                c->qos[op + 1u] = c->qos[op + 65u] = 0;
+                ip = (ip + 1u) & 31u;
+                op = (op + 2u) & 63u;
+            }
+        }
+        d->in_pos = (uint8_t)ip; d->os_pos = (uint8_t)op;
+        if (!stereo) memcpy(right, left, (size_t)frames * sizeof *left);
+        return;
+    }
+    int m = mode < 1 ? 1 : mode > 4 ? 4 : mode;
+    float drive = drive_v / 127.0f, drive_db, emphasis, tight_hz, makeup;
+    switch (m) {
+    case 1: drive_db = 6 + drive * 48; emphasis = 1.0f; tight_hz = 45; makeup = 0.55f; break;
+    case 2: drive_db = 6 + drive * 48; emphasis = 2.5f; tight_hz = 110; makeup = 0.4f; break;
+    case 3: drive_db = 12 + drive * 48; emphasis = 1.6f; tight_hz = 90; makeup = 0.45f; break;
+    default: drive_db = drive * 30; emphasis = 0.3f; tight_hz = 18; makeup = 0.85f; break;
+    }
+    const int32_t pre_c = dq30(0.0391080f), dc_c = dq30(0.9982918f), glide = dq30(0.002f);
+    const int32_t t_gain = (int32_t)(dsp_exp2(drive_db * 0.1660964f) * 1048576.0f);   /* Q20, up to ~1000 */
+    const int32_t t_mix = mode == 0 ? 0 : dq30(mix_v / 127.0f);
+    const int32_t tight_c = dq30(1.0f - dsp_exp(-2.0f * DSP_PI * tight_hz / EL_SAMPLE_RATE));
+    const int32_t out_g = dq28(dsp_exp2((level_v / 127.0f * 24.0f - 18.0f) * 0.1660964f) * makeup);
+    float tone_hz = dsp_min(1000.0f * dsp_exp2(tone_v / 127.0f * 4.0f), EL_SAMPLE_RATE * 0.45f);
+    const int32_t lp_c = dq30(1.0f - dsp_exp(-2.0f * DSP_PI * tone_hz / EL_SAMPLE_RATE));
+    const int32_t lp_c2 = dq30(1.0f - dsp_exp(-2.0f * DSP_PI * dsp_min(tone_hz * 2.0f, EL_SAMPLE_RATE * 0.45f) / EL_SAMPLE_RATE));
+    const int32_t emph = dq28(emphasis), lim = 8000 << 18;
+    int32_t gain = d->qgain, mix = d->qmix;
+    for (int ch = 0; ch < channels; ++ch) {
+        el_dist_ch_t *c = &d->ch[ch];
+        float *x = ch ? right : left;
+        ip = ip0; op = op0; gain = d->qgain; mix = d->qmix;
+        for (int n = 0; n < frames; ++n) {
+            /* the glides as the float code; where a step rounds to nothing,
+             * at the target (the float one gets there too) */
+            int32_t gs = dq_mul(t_gain - gain, glide, 30), ms = dq_mul(t_mix - mix, glide, 30);
+            gain = gs ? gain + gs : t_gain;
+            mix = ms ? mix + ms : t_mix;
+            int32_t xn = (int32_t)(x[n] * 16777216.0f);
+            c->qdry[ip] = xn;
+            int32_t dry = c->qdry[(ip - DIST_LATENCY) & 31u];
+            c->qtight += dq_mul(xn - c->qtight, tight_c, 30);
+            int32_t h = xn - c->qtight;
+            c->qpre += dq_mul(h - c->qpre, pre_c, 30);
+            int64_t driven = ((int64_t)(h + dq_mul(h - c->qpre, emph, 28)) * gain) >> 26;   /* Q24 x Q20 -> Q18 */
+            int32_t x18 = driven > lim ? lim : driven < -lim ? -lim : (int32_t)driven;
+            int32_t y = dist_oversampled_q(c, ip, op, x18, m);
+            ip = (ip + 1u) & 31u;
+            op = (op + 2u) & 63u;
+            int32_t dc = y - c->qdcx + dq_mul(c->qdcy, dc_c, 30);
+            c->qdcx = y; c->qdcy = dc;
+            c->qlp1 += dq_mul(dc - c->qlp1, lp_c, 30);
+            c->qlp2 += dq_mul(c->qlp1 - c->qlp2, lp_c2, 30);
+            int32_t o = dry + dq_mul(dq_mul(c->qlp2, out_g, 28) - dry, mix, 30);
+            x[n] = (float)o * (1.0f / 16777216.0f);
+        }
+    }
+    d->qgain = gain; d->qmix = mix;
+    d->gain = (float)gain * (1.0f / 1048576.0f); d->mix = (float)mix * (1.0f / 1073741824.0f);
+    d->in_pos = (uint8_t)ip; d->os_pos = (uint8_t)op;
+    if (!stereo) memcpy(right, left, (size_t)frames * sizeof *left);
+}
+#endif
+
+float dist_tight_hz(int mode)
+{
+    static const float hz[5] = {18, 45, 110, 90, 18};
+    return hz[mode < 1 ? 0 : mode > 4 ? 4 : mode];
+}
+
+EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frames, int mode, int drive_v, int tone_v,
+                              int level_v, int mix_v, int stereo)
+{
+#if DIST_FIXED
+    if (dist_tab_ready) { dist_process_fixed(d, left, right, frames, mode, drive_v, tone_v, level_v, mix_v, stereo); return; }
+#endif
+    int channels = stereo ? 2 : 1;
+    if (stereo && d->mono) d->ch[1] = d->ch[0]; /* mono -> stereo: R takes over L's state */
+    d->mono = (uint8_t)!stereo;
+    unsigned ip0 = d->in_pos, op0 = d->os_pos, ip = ip0, op = op0;
+    if (mode == 0 && d->mix < 0.0001f) {
+        /* Bypassed: keep the dry delay running so the latency never jumps
+         * (click) and let the rings fall silent. */
+        d->mix = 0;
+        for (int ch = 0; ch < channels; ++ch) {
+            el_dist_ch_t *c = &d->ch[ch];
+            float *x = ch ? right : left;
+            ip = ip0; op = op0;
+            for (int n = 0; n < frames; ++n) {
+                c->dry[ip] = x[n];
+                x[n] = c->dry[(ip - DIST_LATENCY) & 31u];
+                c->in[ip] = c->in[ip + 32u] = 0;
+                c->os[op] = c->os[op + 64u] = 0;
+                c->os[op + 1u] = c->os[op + 65u] = 0;
+                ip = (ip + 1u) & 31u;
+                op = (op + 2u) & 63u;
+            }
+        }
+        d->in_pos = (uint8_t)ip; d->os_pos = (uint8_t)op;
+        if (!stereo) memcpy(right, left, (size_t)frames * sizeof *left);
+        return;
+    }
+    int m = mode < 1 ? 1 : mode > 4 ? 4 : mode;
+    float drive = drive_v / 127.0f, drive_db, emphasis, tight_hz, makeup;
+    switch (m) {
+    case 1: drive_db = 6 + drive * 48; emphasis = 1.0f; tight_hz = 45; makeup = 0.55f; break;
+    case 2: drive_db = 6 + drive * 48; emphasis = 2.5f; tight_hz = 110; makeup = 0.4f; break;
+    case 3: drive_db = 12 + drive * 48; emphasis = 1.6f; tight_hz = 90; makeup = 0.45f; break;
+    default: drive_db = drive * 30; emphasis = 0.3f; tight_hz = 18; makeup = 0.85f; break;
+    }
+    const float pre_coef = 0.0391080f, dc_coef = 0.9982918f; /* 280 Hz low-pass, 12 Hz DC blocker */
+    float target_gain = dsp_exp2(drive_db * 0.1660964f);
+    float target_mix = mode == 0 ? 0.0f : mix_v / 127.0f;
+    float tight_coef = 1.0f - dsp_exp(-2.0f * DSP_PI * tight_hz / EL_SAMPLE_RATE);
+    float out = dsp_exp2((level_v / 127.0f * 24.0f - 18.0f) * 0.1660964f) * makeup;
+    /* Tone: 1 ... 16 kHz, second pole an octave above. */
+    float tone_hz = dsp_min(1000.0f * dsp_exp2(tone_v / 127.0f * 4.0f), EL_SAMPLE_RATE * 0.45f);
+    float lp_coef = 1.0f - dsp_exp(-2.0f * DSP_PI * tone_hz / EL_SAMPLE_RATE);
+    float lp_coef2 = 1.0f - dsp_exp(-2.0f * DSP_PI * dsp_min(tone_hz * 2.0f, EL_SAMPLE_RATE * 0.45f) / EL_SAMPLE_RATE);
+    float gain = d->gain, mix = d->mix;
+    for (int ch = 0; ch < channels; ++ch) {
+        el_dist_ch_t *c = &d->ch[ch];
+        float *x = ch ? right : left;
+        ip = ip0; op = op0; gain = d->gain; mix = d->mix;
+        for (int n = 0; n < frames; ++n) {
+            gain += (target_gain - gain) * 0.002f;
+            mix += (target_mix - mix) * 0.002f;
+            float xn = x[n];
+            c->dry[ip] = xn;
+            float dry = c->dry[(ip - DIST_LATENCY) & 31u];
+            /* Tightening high-pass, then pre-emphasis and drive. */
+            c->tight += (xn - c->tight) * tight_coef;
+            float h = xn - c->tight;
+            c->pre += (h - c->pre) * pre_coef;
+            float y = dist_oversampled(c, ip, op, (h + emphasis * (h - c->pre)) * gain, m);
+            ip = (ip + 1u) & 31u;
+            op = (op + 2u) & 63u;
+            float dc = y - c->dcx + dc_coef * c->dcy;
+            c->dcx = y; c->dcy = dc;
+            c->lp1 += (dc - c->lp1) * lp_coef;
+            c->lp2 += (c->lp1 - c->lp2) * lp_coef2;
+            x[n] = dry + (c->lp2 * out - dry) * mix;
+        }
+    }
+    d->gain = gain; d->mix = mix;
+    d->in_pos = (uint8_t)ip; d->os_pos = (uint8_t)op;
+    if (!stereo) memcpy(right, left, (size_t)frames * sizeof *left);
+}
+
+
+/* ---- Hülle für die Firmwares des Gerüsts: ein Send (mono), Modus in der Reihenfolge der Bedienung */
+static el_dist_t gmd;
+static float gmd_r[GM_BLOCK_MAX] __attribute__((section(".pool")));
+void gm_dist_init(void)
+{
+    memset(&gmd, 0, sizeof gmd);
+    gmd.gain = 1;
+    gmd.mono = 1;
+    dist_init_tables();
+}
+EL_DSP_CODE void gm_dist_process(float *send, int frames, int mode, int drive, int tone, int level)
+{
+    static const int8_t order[4] = {DIST_TUBE, DIST_OD, DIST_DIST, DIST_RAT};   /* TUBE, OD, DIST, RAT (Wunsch 28.11.) */
+    (void)gmd_r;
+    dist_process(&gmd, send, gmd_r, frames, order[mode & 3], drive, tone, level, 127, 0);
+}
