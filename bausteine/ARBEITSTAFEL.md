@@ -54,7 +54,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0047 | mks50 als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0048 | jp6 als Baustein + solo | vergeben (jx8p-Chat) |
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
-| ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
+| ADR | 0050 | dk808 float, Adapter, solo | vergeben (jx8p-Chat) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | vergeben (sh101-Chat) |
 | ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
@@ -67,7 +67,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y14 | jx8p solo | vergeben (jx8p-Chat) |
 | FEATURES | Y15 | mks50 solo | vergeben (jx8p-Chat) |
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
-| FEATURES | B20 | dk808 solo | frei (reserviert) |
+| FEATURES | B20 | dk808 solo | vergeben (jx8p-Chat) |
 | FEATURES | P16 | Kombi JX-8P + SH-101 | vergeben (sh101-Chat) |
 | FEATURES | S20 | Live-Aufnahme nach RK-008 | vergeben (jx8p-Chat) |
 | FEATURES | P17 | Web-Installer | vergeben (Web-Installer-Chat) |
@@ -121,7 +121,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** frei (Port fertig, Feature-Chat session_01WM34DFe7NZGLWrVtNzsA4L, 28.11.2026)
+- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Punkte 1–2 (float-Schalter, Gerüst-Adapter, Last), ADR 0050, B20
 - **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
 - **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
   und 127) mit den Referenz-Renders des Swift-Kerns. Bei Velocity 127 Sample für Sample gegen die Referenz-WAVs geprüft (Abweichung ≤ 2e-24). Bei Velocity 64 lagen die
