@@ -91,14 +91,30 @@ static inline EL_DSP_HELPER float dist_curve(float x, int mode)
 enum { DIST_TAB = 3073 };
 /* gemeinsam (ADR 0044): die vier Kurven nicht in einem Stück im Pool, sondern zwei im Pool und zwei im RAM (sonst
  * passen sie neben Delay und Hall des Gerüsts nicht); gleiche Werte. */
-static int32_t dist_tabq0[2][DIST_TAB + 1] __attribute__((section(".pool")));
+#if defined(EL_PLATFORM)
+#define GMD_POOL __attribute__((section(".pool")))
+#else
+#define GMD_POOL
+#endif
+#ifndef GM_DIST_ROM
+#define GM_DIST_ROM 0
+#endif
+#if GM_DIST_ROM   /* die Tabellen als Konstanten im Flash (fx/gm_dist_tab.c, erzeugt mit tools/gen_dist_tab.sh): 0 Byte SRAM */
+extern const int32_t gm_dist_tab[4][DIST_TAB + 1];
+#define dist_tabq gm_dist_tab
+#else
+static int32_t dist_tabq0[2][DIST_TAB + 1] GMD_POOL;
 static int32_t dist_tabq1[2][DIST_TAB + 1];
 static int32_t *const dist_tabq[4] = {dist_tabq0[0], dist_tabq0[1], dist_tabq1[0], dist_tabq1[1]};
+#endif
 #define HBQ(x) ((int32_t)((x) * 1073741824.0))
 static const int32_t half_band_q[12] = {   /* half_band in Q30, constants: the unrolled loops take them as immediates */
     HBQ(0.3163647824f), HBQ(-0.1003918960f), HBQ(0.0545327660f), HBQ(-0.0334618158f), HBQ(0.0211372679f), HBQ(-0.0132048055f),
     HBQ(0.0079527640f), HBQ(-0.0045132248f), HBQ(0.0023474055f), HBQ(-0.0010708521f), HBQ(0.0003905110f), HBQ(-0.0000820879f)};
 static uint8_t dist_tab_ready;
+#if GM_DIST_ROM
+void dist_init_tables(void) { dist_tab_ready = 1; }
+#else
 void dist_init_tables(void)
 {
     if (dist_tab_ready) return;
@@ -107,6 +123,7 @@ void dist_init_tables(void)
             dist_tabq[m - 1][i] = (int32_t)(dist_clip(-12.0f + (float)i * (1.0f / 128.0f), m) * 16777216.0f);
     dist_tab_ready = 1;
 }
+#endif
 #define dist_curve dist_clip
 #else
 void dist_init_tables(void) {}
@@ -344,7 +361,7 @@ EL_DSP_CODE void dist_process(el_dist_t *d, float *left, float *right, int frame
 
 /* ---- Hülle für die Firmwares des Gerüsts: ein Send (mono), Modus in der Reihenfolge der Bedienung */
 static el_dist_t gmd;
-static float gmd_r[GM_BLOCK_MAX] __attribute__((section(".pool")));
+static float gmd_r[GM_BLOCK_MAX] GMD_POOL;
 void gm_dist_init(void)
 {
     memset(&gmd, 0, sizeof gmd);

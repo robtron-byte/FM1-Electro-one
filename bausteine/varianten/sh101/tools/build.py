@@ -14,7 +14,8 @@ DEVICE = ["-DSH101_FLOAT=1", "-DSH101_FASTMATH=1", "-DSH101_WITH_POLY=0", "-DSH1
           '-DSH101_TABLES=__attribute__((section(".pool")))']
 g.build(dict(name="SH101", root=R, app=R / "app" / "sh_app.c",
              dsp=[B / "sh101" / "sh101.c", G / "shared" / "fx" / "syn_fx.c", G / "fx" / "gm_dist.c"],
+             flash=[G / "fx" / "gm_dist_tab.c"],   # (Kurven der Distortion als Flash-Konstanten, GM_DIST_ROM)
              double=[B / "sh101" / "sh101.c"],    # (Tabellen beim Start in double; Audiopfad float, SH101_FLOAT)
-             inc=[R / "app", G / "fx", B.parent / "sdk_include"], defs=DEVICE + ["-DSYN_FX_DELAY_MAX_S=0.6f"],
+             inc=[R / "app", G / "fx", B.parent / "sdk_include"], defs=DEVICE + ["-DSYN_FX_DELAY_MAX_S=0.6f", "-DGM_DIST_ROM=1"],
              product="FM-1_940", prefix="FM-1_94", screen="SH-101", colour=0xF9E5, family="SH101",
              store_magic=0x31304853))
