@@ -1,4 +1,4 @@
-# 0046: jx8p als Baustein (Einbinden statt Kopieren) und später solo
+# 0046: jx8p als Baustein (Einbinden statt Kopieren) und JX-8P solo
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
@@ -20,13 +20,20 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 - Stimmen voll wie der JX-8P (6), Sparschalter `JX8P_BS_VOICES` (getestet mit 4).
 - Host-Test: jedes Preset über den Baustein und direkt über den Kern, Sample für Sample gleich, dazu Prüfsummen je
   Preset (`ref/sums.txt`, `ref/sums4.txt`).
-- Solo-Firmware „JX-8P solo“ (FEATURES Y14) später in `bausteine/varianten/jx8p/` auf dem Gerüst `varianten/gemeinsam/`.
+- **Solo-Firmware „JX-8P solo“** (FEATURES Y14) in `bausteine/varianten/jx8p/` auf dem Gerüst `varianten/gemeinsam/`
+  (ADR 0044), Kennung FM-1_97 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „JX01“ (die Daten der fm1-synths-Fassung,
+  „JX8P“, bleiben unberührt), Journal „JXST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns (68),
+  Seiten nach der fm1-synths-Fassung. Alle 74 Sounds des Bausteins, eigene vorn (Gruppe EIGENE). Delay-/Hall-Anteil
+  bleibt im Sound und geht direkt in die Effekte des Gerüsts (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0:
+  im Emulator höchstens ≈ 48 % (Ziel < 70 %).
 
 ## Alternativen
 
 - **Kern nach `bausteine/jx8p/` verschieben** und `engine/` darauf zeigen lassen: sauberer, ändert aber Gerätebuild
   und Pfade des Bau-Chats. Später möglich, wenn der Bau-Chat zustimmt; der Adapter bleibt dann gleich.
 - **Kopie in den Baustein:** zwei Stände, die auseinanderlaufen. Verworfen.
+- **Die fm1-synths-Firmware weiterführen** (Stimmen-Pool über vier Parts auf beiden Kernen): eigener App-Rahmen neben dem
+  Gerüst; das Gerüst bringt Sequencer, Speichern und MIDI für alle Solo-Firmwares einheitlich.
 - **Freie Abtastrate** (Koeffizienten zur Laufzeit): Eingriff in `engine/`, nicht bitgleich. Erst wenn ein Gerät mit
   anderer Rate kommt.
 
@@ -40,3 +47,5 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 74 Presets bitgleich mit dem Kern, Solo-Firmware offen.
+- 2026-11-28: Solo-Firmware JX-8P 0.1.0-alpha (`firmware/JX8P-0.1.0-alpha.fwsc`), Emulator-Prüfung ok, am Gerät offen.
+  Gerüst dafür abwärtskompatibel ergänzt: `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`/`GM_FX_FIRST_ON`.

@@ -12,7 +12,7 @@ eigene Presets [ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y14
 |---|---|
 | Firmware | `firmware/JX8P-0.1.0-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX01“, Journal „JXST“), `tools/fm1-emu/check.sh` ok |
 | Klang | der Kern von FM1-Electro unverändert, 6 Stimmen (alle, die der Kern hat), Chorus je Sound, Delay und Hall des Gerüsts |
-| Last (Emulator) | LAST_ZEILE |
+| Last (Emulator) | 6 gehaltene Noten, verschiedene Sounds: Kern 0 ≈ 37–41 % im Mittel, höchstens 47,6 % (HI STRI 01, Akkord-Modus); Delay + Hall 12 % (Kern 1); keine verspäteten Blöcke. Ziel < 70 % erfüllt; am Gerät nach FM1-Electro etwa 10 % mehr |
 | Am Gerät | nicht geprüft |
 
 ## Bedienung

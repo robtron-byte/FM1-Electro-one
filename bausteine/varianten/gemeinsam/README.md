@@ -62,7 +62,7 @@ was sie spielt. Entscheidung: [ADR 0044](../../../docs/adr/0044-solo-firmware-ge
 | FM-1_94 | SH-101 solo | `0x31304853` „SH01“ | `0x54534853` „SHST“ |
 | FM-1_95 | MKS-50 (fm1-synths) | | |
 | FM-1_96 | FM1-Electro | | |
-| FM-1_97 | JX-8P (fm1-synths) | | |
+| FM-1_97 | JX-8P solo (löst fm1-synths ab) | `0x3130584A` „JX01“ | `0x5453584A` „JXST“ |
 | FM-1_98 | MKS-50 + JX-8P (fm1-synths) | | |
 | FM-1_99 | Dinghy | | |
 | FM-1_90 … 93 | frei (nur noch vier: Kombis ggf. bündeln) | | |
