@@ -687,7 +687,7 @@ static void draw_footer(uint32_t now)
     if (saving) Q(4, 228, 2, "SAVE AS", T_INK);
     else {
         int32_t x0 = 120 - ((int32_t)n * 14 - 6) / 2;
-        if (layer_shown()) { char b[24], *p = put(b, "HOLD: "); p = put(p, layers[layer].title); *p = 0; Q(4, 228, 2, b, T_ACC); }
+        if (layer_shown()) { char b[24], *p = put(b, "HOLD: "); p = put(p, layers[layer].title ? layers[layer].title : ""); *p = 0; Q(4, 228, 2, b, T_ACC); }
         else {
             Q(4, 228, 2, pages[page].title, T_INK);
             for (unsigned i = 0; i < n; i++) R(x0 + (int32_t)i * 14, 230, 8, 5, i == at ? T_INK : T_LINE);
@@ -744,6 +744,7 @@ static uint32_t keys_prev;
 static uint8_t held_part[27], held[27];
 static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen;
 static uint8_t rec_play, rec_mheld[16];
+static uint8_t rec_old_len, rec_old_shift;      /* REC ohne Schritt lässt die alte Folge stehen (wie JX-8P/MKS-50 0.2.8) */
 static int seq_rec_key(uint32_t k, uint8_t note, uint32_t keys)
 {
     unsigned s = rec_cur, glo = (fm1_in.buttons >> BTN_GLO) & 1u;
@@ -773,6 +774,7 @@ static void seq_rec(int on)
         rec_on = 1; rec_part = sel; rec_cur = 0; rec_key = rec_note = 0xff;
         rec_mr = rec_mw; seq_rec_p = (uint8_t)(sel + 1u);
         rec_play = sq.cfg[sel][SQ_ON];
+        rec_old_len = sq.len[sel]; rec_old_shift = sq.cfg[sel][SQ_SHIFT];
         if (rec_play) { ev_put(EV_SEQ_LEN, sel, 0, 1); ev_put(EV_SEQ, sel, SQ_SHIFT, 24); }
         else ev_put(EV_SEQ, sel, SQ_ON, 0);
         for (unsigned i = 0; i < NPAGE; i++) if (pages[i].stage == ST_SEQ) { goto_page(i, 0); break; }
@@ -780,6 +782,12 @@ static void seq_rec(int on)
         return;
     }
     rec_on = 0; seq_rec_p = 0;
+    if (!rec_cur) {                             /* nichts aufgenommen: die alte Folge bleibt (löschen: EDIT + REC) */
+        ev_put(EV_SEQ_LEN, rec_part, rec_old_len, rec_play);
+        ev_put(EV_SEQ, rec_part, SQ_SHIFT, rec_old_shift);
+        msg_set(rec_old_len ? "NOTHING RECORDED: SEQ KEPT" : "NOTHING RECORDED", 0);
+        return;
+    }
     ev_put(EV_SEQ_LEN, rec_part, rec_cur, rec_play);
     if (rec_cur) {
         char b[24], *q = b;
@@ -1119,7 +1127,7 @@ static void app_main(void)
                 } else if (!saving) {
                     unsigned g = btn_group(i);
                     if (i == BTN_SEL) group_button(G_SEL);
-                    else if (g) { layer = (uint8_t)g; layer_used = 0; layer_t0 = now; touched = 255; }
+                    else if (g && layers[g].title) { layer = (uint8_t)g; layer_used = 0; layer_t0 = now; touched = 255; }   /* (ohne Ebene: keine) */
                 }
             }
             if ((cur & m) && !(long_done & m) && i == BTN_PLAY && now - press_t[i] >= 600u && !saving) {
@@ -1151,6 +1159,12 @@ static void app_main(void)
                     break;
                 case BTN_REC:
                     if (saving) break;
+                    if (!rec_on && pages[page].stage == ST_SEQ && ((fm1_in.buttons >> BTN_EDIT) & 1u)) {   /* EDIT + REC: löschen */
+                        ev_put(EV_SEQ, sel, SQ_ON, 0); ev_put(EV_SEQ_LEN, sel, 0, 0);
+                        layer_used = 1;
+                        msg_set("SEQ CLEARED", 0);
+                        break;
+                    }
                     if (rec_on || pages[page].stage == ST_SEQ) { seq_rec(!rec_on); break; }   /* SEQUENCER: Schritte wie bisher */
                     {   /* sonst Live-Aufnahme nach RK-008 (ADR 0053): tippen sofort, zweimal Einzählen, REC übernimmt */
                         int r = lv_ui_rec(sel, now);

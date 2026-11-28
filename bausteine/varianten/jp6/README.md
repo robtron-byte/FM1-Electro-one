@@ -13,7 +13,7 @@ Seite und keine Wirkung. Ein Part, **4 Stimmen** auf Kern 0 (Regel des Nutzers 2
 
 | | |
 |---|---|
-| Firmware | `firmware/JP6-0.1.3-alpha.fwsc` (Kennung FM-1_92), `tools/fm1-emu/check.sh` ok. 0.1.2: Delay und Hall klingen wieder (in 0.1.1 stumm, Gerüst-Fehler `fx_in`, ADR 0044) |
+| Firmware | `firmware/JP6-0.1.4-alpha.fwsc` (Kennung FM-1_92), `tools/fm1-emu/check.sh` ok. 0.1.2: Delay und Hall klingen wieder (in 0.1.1 stumm, Gerüst-Fehler `fx_in`, ADR 0044) |
 | Klang | der Kern von FM1-Electro unverändert außer der Distortion (aus), 4 Stimmen (`JP_VOICES`, Standard 4), Chorus je Sound, Delay und Hall des Gerüsts; Pegel wie in FM1-Electro (JP-6 × 1,4, `GM_OUT_GAIN`) |
 | Last (Emulator) | 4 gehaltene Stimmen, Unisono-Preset 12 VCO 01 (das teuerste): Kern 0 höchstens 41 %, Kern 1 7 % (Delay und Hall); keine verspäteten Blöcke. Mit 6 Stimmen waren es 66 % (darum 4, ADR 0048) |
 | Geräteunterschied | keine Distortion (FM1-Electro: Festkomma-Distortion); sonst rechnet der Kern wie im Baustein-Test |

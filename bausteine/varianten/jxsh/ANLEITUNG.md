@@ -1,6 +1,6 @@
 # JX-8P + SH-101
 
-Firmware für das M-VAVE FM-1 (Fassung 0.1.1-alpha, im Display `JX+SH`). Vier Parts A–D; jeder Part spielt entweder den **JX-8P** oder den **SH-101**. Alle JX-Parts teilen sich einen Pool von **4 Stimmen**; der SH-101 ist **monophon** und darf auf höchstens einem Part laufen. Dazu kommen eine gemeinsame Distortion mit Send je Part, Delay und Hall, je Part ein Arpeggiator, ein Step-Sequencer und eine Live-Schleife (LOOP).
+Firmware für das M-VAVE FM-1 (Fassung 0.1.4-alpha, im Display `JX+SH`). Vier Parts A–D; jeder Part spielt entweder den **JX-8P** oder den **SH-101**. Alle JX-Parts teilen sich einen Pool von **4 Stimmen**; der SH-101 ist **monophon** und darf auf höchstens einem Part laufen. Dazu kommen eine gemeinsame Distortion mit Send je Part, Delay und Hall, je Part ein Arpeggiator, ein Step-Sequencer und eine Live-Schleife (LOOP).
 
 ## Überblick der Bedienung
 
@@ -27,7 +27,10 @@ Firmware für das M-VAVE FM-1 (Fassung 0.1.1-alpha, im Display `JX+SH`). Vier Pa
 |---|---|---|---|---|---|
 | HOME | PARTS | A | B | C | D |
 | HOME | MIX | A | B | C | D |
-| SEQ | SEQUENCER | SEQ | RATE | GATE | SHIFT |
+| SEQ | SEQUENCER | SEQ | RATE | GATE | G.VAR |
+| SEQ | PATTERN | STYLE | NEW | VARY | LENGTH |
+| SEQ | STEP | STEP | NOTE | ACCENT | TIE |
+| SEQ | BANK | SLOT | STORE | CLEAR | SHIFT |
 | SEQ | LOOP | LOOP | BARS | LONGER | SHORTER |
 | FX | DIST | MODE | DRIVE | TONE | LEVEL |
 | FX | DIST SEND | A | B | C | D |
@@ -102,8 +105,8 @@ Schieberegler-Werte zeigen 0.0–10.0.
 | LFO | RATE, DELAY, PITCH, FILTER | RATE, MOD, VCF MOD, WAVE |
 | FX | DELAY, REVERB (Sends im Sound), TIME, CHORUS | DLY SEND, REV SEND, TIME, DIST (DIST-Send dieses Parts) |
 | ARP | ARP, MODE, RATE, OCT | ARP, MODE, RATE, OCT |
-| SEQ | SEQ, RATE, GATE, SHIFT | SEQ, RATE, GATE, SHIFT |
-| GLO | Pegel A, B, C, D | — |
+| SEQ | SEQ, NEW, SLOT, G.VAR | SEQ, NEW, SLOT, G.VAR |
+| GLO | Pegel A, B, C, D | Pegel A, B, C, D |
 
 ## Sounds und Presets
 
@@ -133,8 +136,16 @@ Schieberegler-Werte zeigen 0.0–10.0.
 1. Seite SEQUENCER aufrufen, **REC** tippen (`REC  KEYS = STEPS  REC = DONE`).
 2. Jede Taste ist ein Schritt. Eine Taste, gedrückt während die vorige noch gehalten ist, wird gebunden. Die oberste Taste setzt eine Pause. **GLO** + Taste verlängert die vorige Note um einen Schritt. Noten über MIDI werden ebenfalls aufgenommen.
 3. **REC** beendet die Aufnahme, der Sequencer spielt (`… STEPS: PLAYING`).
+4. **REC** und gleich wieder **REC** ohne Schritt lässt die alte Folge stehen (`NOTHING RECORDED: SEQ KEPT`). Löschen: **EDIT** halten und **REC** tippen auf der Seite SEQUENCER (`SEQ CLEARED`).
 
-SEQ tippen auf der Seite SEQUENCER schaltet ihn an/aus. Läuft er, transponieren die Tasten die Folge (C4 = unverändert, Anzeige SHIFT). RATE = Notenwert, GATE = Notenlänge. Nach dem Einschalten ist jeder Sequencer aus.
+SEQ tippen auf einer SEQ-Seite (sobald es eine Folge gibt) schaltet ihn an/aus; SELECT blättert dann zwischen SEQUENCER, PATTERN, STEP, BANK und LOOP. Läuft er, transponieren die Tasten die Folge (C4 = unverändert, Anzeige SHIFT). Nach dem Einschalten ist jeder Sequencer aus.
+
+Wie in den iOS-Apps JX-8P/MKS-50:
+
+- **SEQUENCER**: RATE = Notenwert; GATE = Notenlänge, bis 100 % eines Schritts, darüber 1–8 ganze Schritte (die Note klingt über Pausen); **G.VAR** macht aus festen Schritten lange Noten (2–4 Schritte, zuerst auf den Zählzeiten); mehr G.VAR = mehr lange Noten, der Rhythmus bleibt.
+- **PATTERN**: STYLE KRAFT, ROTHER, ROBOT, ACID, MIAMI; **NEW** nach rechts drehen = neue 16er-Folge im Stil; **VARY** nach rechts = 1–2 Schritte ändern; LENGTH 1–64.
+- **STEP**: STEP wählt den Schritt (Strich im Bild), NOTE ändert ihn (ganz links = Pause), ACCENT (lauter, etwas länger, im Bild orange), TIE (legato in den nächsten Schritt).
+- **BANK**: 8 Plätze. **STORE** nach rechts = die Folge des Parts mit RATE, GATE, G.VAR in den Platz unter SLOT; **SLOT** drehen = diesen Platz spielen: läuft die Folge, wechselt sie erst am Ende (`SLOT 3 NEXT`), sonst sofort; `*` = spielt, `-` = leer. **CLEAR** nach rechts leert den Platz. Die Bank bleibt über das Ausschalten.
 
 **Live-Aufnahme LOOP** (je Part, REC auf jeder Seite außer SEQUENCER):
 
@@ -146,6 +157,18 @@ SEQ tippen auf der Seite SEQUENCER schaltet ihn an/aus. Läuft er, transponieren
 
 Quantisiert fest auf 1/16, jede Note so lang wie gehalten. Seite LOOP: LOOP an/aus (auch SEQ tippen auf dieser Seite), BARS = Länge 0–16 Takte (0 = leer, löscht die Schleife), LONGER = beim Verlängern wiederholen (REPEAT) oder leer anhängen (EMPTY), SHORTER = beim Kürzen den Anfang (START) oder das Ende (END) behalten. Das Display zeigt Takt/Länge. Nach dem Einschalten sind die Schleifen aus und werden mit LOOP wieder angeschaltet.
 
+## Bilder oben (Grafik-Kopf)
+
+Viele Seiten zeigen oben ein Bild, das live auf die Regler antwortet. Der gerade gedrehte Regler steht 1,5 s mit seinem Wert oben links (orange).
+
+- **LFO**: die Wellenform; Tiefe = Höhe, mehr Schwingungen = höhere Rate; ein grüner Punkt läuft mit dem LFO.
+- **Hüllkurve** (ENV): die Form aus Anstieg, Abfall, Halten, Ausklingen; der gedrehte Abschnitt ist orange; ein grüner Punkt zeigt, wo die gespielte Note gerade steht.
+- **VCF**: die Filterkurve aus CUTOFF und RESO (Buckel = Resonanz), der grüne Pfeil unten = Anteil der Hüllkurve.
+- **DELAY**: die Echos als abnehmende Striche (Abstand = Zeit, Abnahme = Feedback; PING abwechselnd oben/unten). **REVERB**: das Abklingen.
+- **DIST** (wo vorhanden): die Kennlinie des Modus mit DRIVE, daneben der Modus groß und TONE als Balken.
+
+Seiten ohne Bild zeigen ihren Namen; beim Drehen erscheint dort für 1,5 s groß der Regler mit Wert.
+
 ## Speichern
 
 - **SAVE kurz**: Ist der Sound ein eigener, wird er an seinem Platz überschrieben (`SAVED`). Sonst öffnet sich der Dialog.
@@ -155,6 +178,7 @@ Quantisiert fest auf 1/16, jede Note so lang wie gehalten. Seite LOOP: LOOP an/a
 
 ## Effekte
 
+- **Pegel:** JX-8P und SH-101 sind bei gleichem MIX gleich laut.
 - **DIST** (FX): eine Distortion für alle Parts. MODE TUBE / OD / DIST / RAT, DRIVE, TONE, LEVEL (Start TUBE, 60, 70, 64).
 - **DIST SEND** (FX): Anteil je Part A–D, 0–127 (Start 0 = aus). Die JX-Parts gehen gemeinsam in die Distortion: es gilt der höchste DIST SEND aller JX-Parts. DRIVE auf der SH-Seite FM + DRIVE ist die eigene Übersteuerung des SH-101-Sounds.
 - **DELAY / DELAY 2** (höchstens 0,6 s): TIME, FEEDBK, TONE, LEVEL; SYNC, NOTE, PING, MOD. **REVERB / REVERB 2**: SIZE, DECAY, DAMP, LEVEL; TYPE, MOD. Delay und Hall gelten für alle Parts und sind an, sobald ihr LEVEL über 0 steht. Beim allerersten Start stehen beide LEVEL auf 0.

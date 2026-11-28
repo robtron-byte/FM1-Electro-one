@@ -9,7 +9,7 @@ Feature P16. Klang: der Pool-Kern `jx.c` der JX-8P-Firmware ([`../jx8p/engine`](
 
 | | |
 |---|---|
-| Firmware | `firmware/JXSH-0.1.3-alpha.fwsc` (Kennung FM-1_99), `tools/fm1-emu/check.sh` ok (Paket, Messbau und ein Lauf mit Tasten durch PARTS, Erzeugerwechsel, DIST SEND, MIDI) |
+| Firmware | `firmware/JXSH-0.1.4-alpha.fwsc` (Kennung FM-1_99), `tools/fm1-emu/check.sh` ok (Paket, Messbau und ein Lauf mit Tasten durch PARTS, Erzeugerwechsel, DIST SEND, MIDI) |
 | 0.1.3 | Grafik-Kopf (ADR 0055) je Erzeuger: LFO, ENV (JX: ENV-1/2 mit der jüngsten Stimme), VCF, DIST, Delay, Hall |
 | Last (Emulator, Block 64) | SH-101 SQUELCH + 4 JX-Stimmen (STRINGS 01, Chorus voll) + Delay + Hall + Distortion RAT (alle Sends 64): **Kern 0 60 %** (Spitze 61 %), **Kern 1 36 %**, keine verspäteten Blöcke; ohne Distortion Kern 1 28 % (sie kostet 7,4 %). Nur JX: Kern 0 23 %, Kern 1 36 %; nur SH: Kern 0 60 %, Kern 1 8 %. Ohne laufenden Sequencer/Arp gemessen (Kern 0, klein). **Am Gerät nicht gemessen** |
 | Speicher | RAM 85 204 von 98 304 B (13,1 kB frei), Pool 341 052 von 344 064 B; Hall-Diffusoren im RAMTEXT, Bildpuffer im NOINIT |

@@ -30,7 +30,7 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 - **Speicher:** Hall-Diffusoren im RAMTEXT (`SYN_FX_DIFF_ATTR`), Bildpuffer im NOINIT (`CV_SECTION`): RAM 13,1 kB frei,
   Pool 2,9 kB frei.
 - Kennung FM-1_99 (99 war nur die Dinghy-Vorlage), `STORE_MAGIC` „1XSH“, Journal „TXSH“, Paket
-  `firmware/JXSH-0.1.3-alpha.fwsc`.
+  `firmware/JXSH-0.1.4-alpha.fwsc`.
 - **Pegel (Gain-Staging, 0.1.2):** gleicher MIX = gleich laut. Gemessen JX 44,9 dB, SH 63,4 dB (Median der klingenden
   Werkssounds, je eine Note); Trim SH −6 dB, JX +12,5 dB (mit Sends). Danach 55,8 gegen 57,4 dB.
 - **Sequencer der iOS-Apps (`GM_SEQ_IOS`, Gerüst, Standard aus):** Akzent (127/88, GATE + 15 %), Tie, GATE-Mehrschritt-

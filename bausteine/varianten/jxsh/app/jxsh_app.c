@@ -269,6 +269,7 @@ static const layer_t layers_sh[NGROUP] = {
     [G_ARP] = {"ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("TIME", FX_DLY_TIME), {"DIST", K_EXTRA, X_SEND_SEL}}},
     [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SXK("NEW", SX_NEW), SXK("SLOT", SX_SLOT), SQK("G.VAR", SQ_GVAR)}},
+    [G_GLO] = {"LEVELS", {{"A", K_LEVEL, 0}, {"B", K_LEVEL, 1}, {"C", K_LEVEL, 2}, {"D", K_LEVEL, 3}}},   /* wie beim JX-Part */
 };
 
 

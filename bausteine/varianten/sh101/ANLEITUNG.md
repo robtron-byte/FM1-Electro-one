@@ -1,6 +1,6 @@
 # SH-101
 
-Diese Firmware macht aus dem M-VAVE FM-1 einen SH-101: einen monofonen Synthesizer (eine Stimme) mit VCO, Sub-Oszillator, Rauschen, Filter, Hüllkurve, LFO, Glide, Arpeggiator, Step-Sequencer, Live-Aufnahme (LOOP), Distortion, Delay und Hall. Fassung 0.1.4-alpha.
+Diese Firmware macht aus dem M-VAVE FM-1 einen SH-101: einen monofonen Synthesizer (eine Stimme) mit VCO, Sub-Oszillator, Rauschen, Filter, Hüllkurve, LFO, Glide, Arpeggiator, Step-Sequencer, Live-Aufnahme (LOOP), Distortion, Delay und Hall. Fassung 0.1.6-alpha.
 
 ## Überblick der Bedienung
 
@@ -81,6 +81,7 @@ Gehaltene Tasten und gebundene Schritte spielen legato; mit GLIDE-Modus AUTO gle
 1. Mit **SEQ** auf die Seite SEQUENCER gehen und **REC** tippen.
 2. Jede Taste ist ein Schritt. Taste drücken, während die vorige noch gehalten ist = gebunden (legato). Die oberste Taste = Pause. **GLO** + Taste = die Note davor einen Schritt länger. MIDI-Noten werden ebenso aufgenommen.
 3. **REC** beendet die Aufnahme; die Folge spielt sofort.
+4. **REC** und gleich wieder **REC** ohne Schritt lässt die alte Folge stehen (`NOTHING RECORDED: SEQ KEPT`). Löschen: **EDIT** halten und **REC** tippen auf der Seite SEQUENCER (`SEQ CLEARED`).
 
 - **SEQ** tippen auf der Seite SEQUENCER schaltet den Sequencer an/aus (sobald eine Folge da ist). Die Leuchte SEQ zeigt, dass er läuft.
 - Während er läuft, transponieren die Tasten die Folge (C4 = unverändert); SHIFT zeigt die Verschiebung (−24 bis +24).
@@ -99,6 +100,18 @@ Gehaltene Tasten und gebundene Schritte spielen legato; mit GLIDE-Modus AUTO gle
 - **SEQ** tippen auf der Seite LOOP schaltet die Schleife an/aus, sobald sie Takte hat.
 - Die Schleife folgt Start/Stop (**PLAY** halten); Start beginnt sie von vorn.
 - Während der Aufnahme blinkt REC.
+
+## Bilder oben (Grafik-Kopf)
+
+Viele Seiten zeigen oben ein Bild, das live auf die Regler antwortet. Der gerade gedrehte Regler steht 1,5 s mit seinem Wert oben links (orange).
+
+- **LFO**: die Wellenform; Tiefe = Höhe, mehr Schwingungen = höhere Rate; ein grüner Punkt läuft mit dem LFO.
+- **Hüllkurve** (ENV): die Form aus Anstieg, Abfall, Halten, Ausklingen; der gedrehte Abschnitt ist orange; ein grüner Punkt zeigt, wo die gespielte Note gerade steht.
+- **VCF**: die Filterkurve aus CUTOFF und RESO (Buckel = Resonanz), der grüne Pfeil unten = Anteil der Hüllkurve.
+- **DELAY**: die Echos als abnehmende Striche (Abstand = Zeit, Abnahme = Feedback; PING abwechselnd oben/unten). **REVERB**: das Abklingen.
+- **DIST** (wo vorhanden): die Kennlinie des Modus mit DRIVE, daneben der Modus groß und TONE als Balken.
+
+Seiten ohne Bild zeigen ihren Namen; beim Drehen erscheint dort für 1,5 s groß der Regler mit Wert.
 
 ## Speichern
 

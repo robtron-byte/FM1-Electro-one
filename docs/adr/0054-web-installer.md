@@ -116,8 +116,8 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   Name und Version, Beschreibung, Kennzeichen, darunter die Knöpfe mit Abstand), hell/dunkel, Handy/Desktop; die
   Anleitungsseiten im gleichen Stil.
 - 2026-11-28: Geteilte Kennungen (Hinweis jx8p-/dk808-Chat: DK808 und DK101 melden beide FM-1_911): die Info-Antwort
-  cmd 0x12 trägt zusätzlich den Paketnamen, `APP_VER \0 APP_DATE \0 APP_NAME` (`gemeinsam/tools/build.py` setzt
-  `APP_NAME` = Name der Variante, nur wenn alles in 32 Byte passt). Die Seite erkennt die laufende Firmware zuerst am
+  cmd 0x12 trägt zusätzlich den Paketnamen, `APP_VER \0 APP_DATE \0 APP_PKG` (`gemeinsam/tools/build.py` setzt
+  `APP_PKG` = Name der Variante, nur wenn alles in 32 Byte passt). Die Seite erkennt die laufende Firmware zuerst am
   Namen (`installedName` in `logik.js`), sonst an der Kennung, aber nur wenn genau ein Eintrag sie hat; bei geteilter
   Kennung ohne Namen gilt keiner als installiert (nur „Installieren“, keine Behauptung). Test 135 Prüfungen.
 - 2026-11-28: Farben je Bereich, kein Orange mehr (Wunsch des Nutzers): 1 Verbinden blau (T_BLUE), 2 Firmware

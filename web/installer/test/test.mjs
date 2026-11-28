@@ -231,7 +231,7 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   let cc = true;
   try {
     execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.4-alpha"`, `-DAPP_DATE="2026-11-28"`, src, "-o", bin]);
-    execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.10-alpha"`, `-DAPP_DATE="2026-11-28"`, `-DAPP_NAME="DK808"`, src, "-o", bin + "_name"]);
+    execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.10-alpha"`, `-DAPP_DATE="2026-11-28"`, `-DAPP_PKG="DK808"`, src, "-o", bin + "_name"]);
     execFileSync("cc", ["-std=c11", "-w", "-I", inc, src, "-o", bin + "_alt"]);
   } catch (_) { cc = false; console.log("Info-Abfrage: kein C-Compiler, Prüfung gegen ota.c übersprungen"); }
   if (cc) {
