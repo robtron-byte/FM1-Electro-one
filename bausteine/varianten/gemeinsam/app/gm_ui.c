@@ -245,6 +245,14 @@ static void dlg_ok(unsigned p)
 
 /* ---- Last für die Seite SYSTEM */
 static uint32_t avg[M_N], peak[M_N], max_all, late_blocks;
+/* Erster Start (kein Journal): Sends der Parts und ob Delay/Hall an sind. Eine Variante, deren Sounds eigene Sends
+ * haben (JX-8P: JX_DELAY_SEND/JX_REVERB_SEND), setzt GM_SEND_FIRST 0 und GM_FX_FIRST_ON 1. */
+#ifndef GM_SEND_FIRST
+#define GM_SEND_FIRST 40
+#endif
+#ifndef GM_FX_FIRST_ON
+#define GM_FX_FIRST_ON 0
+#endif
 static uint32_t pct(uint32_t ticks) { return (ticks * 100u + BLOCK_TICKS / 2u) / BLOCK_TICKS; }
 
 /* ---- Bild */
@@ -792,11 +800,11 @@ static void app_main(void)
         for (unsigned p = 0; p < GM_PARTS; p++) {
             static const uint8_t arp_def[ARP_N] = {0, 0, 2, 0, 80, 0};
             set.p[p].idx = 0; set.p[p].chan = (uint8_t)(GM_PARTS == 1 ? 0 : p + 1); set.p[p].level = 100;
-            set.p[p].send[0] = set.p[p].send[1] = 40;
+            set.p[p].send[0] = set.p[p].send[1] = GM_SEND_FIRST;
             memcpy(set.p[p].arp, arp_def, ARP_N);
         }
         for (unsigned i = 0; i < FX_COUNT; i++) set.fx[i] = (uint8_t)syn_fx_default(i);
-        set.fx[FX_DLY_LEVEL] = 0; set.fx[FX_REV_LEVEL] = 0;   /* (Effekte zuerst aus: das SH-101 hat keine) */
+        if (!GM_FX_FIRST_ON) { set.fx[FX_DLY_LEVEL] = 0; set.fx[FX_REV_LEVEL] = 0; }   /* (Effekte zuerst aus: das SH-101 hat keine) */
     }
     tempo = set.tempo <= 200u ? set.tempo : 80;
     ev_put(EV_TEMPO, 0, tempo, 0);

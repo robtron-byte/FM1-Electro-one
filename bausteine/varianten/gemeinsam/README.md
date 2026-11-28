@@ -49,6 +49,8 @@ was sie spielt. Entscheidung: [ADR 0044](../../../docs/adr/0044-solo-firmware-ge
 | `gm_factory[]`, `GM_NFAC`, `GM_NCAT`, `gm_cat_name[]` | Werkssounds und Gruppen |
 | `gm_pages[]`, `gm_layers[NGROUP]` | Seiten (Gruppe = Taste, Bild, Titel, vier Felder) und Ebenen gehaltener Tasten |
 | `kern_boot/load/set/on/off/all_off/bend/mod/render/voices/stage` | der Klang: Laden eines ganzen Sounds, ein Wert, Noten, Block rendern (addiert), klingende Stimmen, eigenes Bild |
+| `GM_SEND_FIRST`, `GM_FX_FIRST_ON` (wahlweise) | erster Start: Sends der Parts (Standard 40) und Delay/Hall an (Standard aus); JX-8P: 0 und 1, weil die Sends im Sound stehen |
+| `GM_OUT_GAIN` (wahlweise) | Ausgangspegel (Standard 0,6 × Vollaussteuerung) |
 
 `kern_*` außer `kern_boot` und `kern_stage` laufen im Audio-Interrupt (`.dsp_text`). `<variante>/tools/build.py` ruft
 `build(dict(...))` aus `tools/build.py` mit App, Klangdateien (SRAM), Schaltern, Kennung, Speicherkennung.
