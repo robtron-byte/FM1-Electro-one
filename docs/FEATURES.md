@@ -23,9 +23,9 @@ Stand: 0.5.6-alpha (21.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde 
 | Y10 | Synths | SH-101 aus MonoBass (Swift, REA/SH101) als Baustein `bausteine/sh101`: BLEP-Oszillator, 4× Ladder, 8× Clipper, Arp/Seq, Poly 6; Poly und Arp/Seq abschaltbar | ◐ Baustein fertig, bitgleich mit den Referenz-WAVs der Vorlage; Gerätefassung als Schalter; Solo-Firmware Y12 | 0040, 0042 |
 | Y11 | Synths | Alpha Juno / MKS-50 „Ultra“ aus dem TAL-Pha-Nachbau (Rust) als Baustein `bausteine/mksultra`: 12 Stimmen, DCO 2×, VCF 4× mit zwei nichtlinearen SVFs, Chorus/Delay/Reverb, Arpeggiator, 520 Presets; Sparfassung über weniger Stimmen (`MKSULTRA_VOICES`), Filter unverändert | ◐ Baustein fertig, bitgenau mit allen 7 Golden-Renders der Vorlage; Solo-Firmware offen (Arbeitstafel) | 0040, 0043 |
 | Y12 | Synths | SH-101 solo (`firmware/SH101-0.1.1-alpha.fwsc`): eine Stimme in voller Gerätequalität, 46 Parameter auf 25 Seiten (KNOB 1–4), 14 Werkssounds, eigene Sounds, Arp, Step-Sequencer wie das SH-101 (REC), Delay/Hall auf Kern 1, MIDI und Clock | ◐ gebaut, Emulator-Prüfung ok (Last 44 %, mit Drive 58,5 %); am Gerät ungeprüft | 0042, 0044 |
+| Y13 | Synths | MKS Ultra solo (`firmware/MKSULTRA-0.1.0-alpha.fwsc`, FM-1_93): Baustein mksultra mit vollem Filter, Ron-Presets vorn, 213 Presets, Effekte und Arp des Bausteins, Sequencer des Gerüsts; A 1 Stimme, B (2 Stimmen, VCF 2×) als A/B-Paket | ◐ gebaut, `check.sh` ok; 6 Stimmen passen nicht (ADR 0045), Frage A/B offen | 0045 |
 | Y14 | Synths | JX-8P aus `engine/jx8p.c` als Baustein `bausteine/jx8p` (eingebunden, keine Kopie): 6 Stimmen, 2 DCOs mit Sync/XMOD, HPF, Ladder, 2 ADSR, LFO mit Sync, BBD-Chorus, Poly/Akkord/Mono/Unisono; eigene Presets des Nutzers vorn (ADR 0051) | ◐ Baustein fertig, bitgleich mit dem Kern (74 Presets, 7 eigene); Solo-Firmware `firmware/JX8P-0.2.5-alpha.fwsc` (FM-1_97, fm1-synths fortgeführt: 4 Parts, Pool auf 2 Kernen, Speicher bleibt; Emulator ok, Gerät offen) | 0040, 0044, 0046, 0051 |
 | Y15 | Synths | MKS-50 aus `engine/mks.c` als Baustein `bausteine/mks50` (eingebunden, keine Kopie): 6 Stimmen, DCO mit Puls/Säge/Sub/Rauschen, Pulse-Detune/Sync, HPF, Ladder, 4-Segment-Hüllkurve, LFO mit Sync, BBD-Chorus, Poly/Akkord/Mono/Unisono; eigene Presets des Nutzers vorn (ADR 0051) | ◐ Baustein fertig, bitgleich mit dem Kern (79 Presets, 23 eigene); Solo-Firmware `firmware/MKS50-0.2.5-alpha.fwsc` (FM-1_95, fm1-synths fortgeführt: 4 Parts, Pool auf 2 Kernen, Speicher bleibt; Emulator ok, Gerät offen) | 0040, 0047, 0051 |
-| Y13 | Synths | MKS Ultra solo (`firmware/MKSULTRA-0.1.0-alpha.fwsc`, FM-1_93): Baustein mksultra mit vollem Filter, Ron-Presets vorn, 213 Presets, Effekte und Arp des Bausteins, Sequencer des Gerüsts; A 1 Stimme, B (2 Stimmen, VCF 2×) als A/B-Paket | ◐ gebaut, `check.sh` ok; 6 Stimmen passen nicht (ADR 0045), Frage A/B offen | 0045 |
 | Y14 | Synths | JX-8P aus `engine/jx8p.c` als Baustein `bausteine/jx8p` (eingebunden, keine Kopie): 6 Stimmen, 2 DCOs mit Sync/XMOD, HPF, Ladder, 2 ADSR, LFO mit Sync, BBD-Chorus, Poly/Akkord/Mono/Unisono; eigene Presets des Nutzers vorn (ADR 0051) | ◐ Baustein fertig, bitgleich mit dem Kern (74 Presets, 7 eigene); Solo-Firmware in Arbeit (0.1.0 nicht abgenommen: Gleichstand mit fm1-synths JX8P-0.2.0 nötig) | 0040, 0044, 0046, 0051 |
 | Y15 | Synths | MKS-50 aus `engine/mks.c` als Baustein `bausteine/mks50` (eingebunden, keine Kopie): 6 Stimmen, DCO mit Puls/Säge/Sub/Rauschen, Pulse-Detune/Sync, HPF, Ladder, 4-Segment-Hüllkurve, LFO mit Sync, BBD-Chorus, Poly/Akkord/Mono/Unisono; eigene Presets des Nutzers vorn (ADR 0051) | ◐ Baustein fertig, bitgleich mit dem Kern (79 Presets, 23 eigene); Solo-Firmware offen (Arbeitstafel) | 0040, 0047, 0051 |
 | Y16 | Synths | Jupiter-6 aus `engine/jp6.c` als Baustein `bausteine/jp6` (eingebunden, keine Kopie): 6 Stimmen, 2 VCOs mit Sync/Cross-Mod, HPF, Multimode-VCF, 2 ADSR, LFO mit Sync, Distortion, BBD-Chorus, Poly/Akkord/Mono/Unisono; eigene Presets des Nutzers vorn (ADR 0051) | ◐ Baustein fertig, bitgleich mit dem Kern (79 Presets, 5 eigene); Solo-Firmware offen (Arbeitstafel) | 0040, 0048, 0051 |
@@ -43,7 +43,6 @@ Stand: 0.5.6-alpha (21.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde 
 
 ## Umgesetzt
 
-| Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
 | B1 | Beat/Drums | Kalibriertes 808-Modell (BD, SD, RS, CP, CB, CY, OH, CH), in Festkomma auf dem Gerät | ✓ | 0006, 0022 |
 | B2 | Beat/Drums | Clap-Ausklang nach Original (D) | ✓ | 0008 |
@@ -138,7 +137,6 @@ Stand: 0.5.6-alpha (21.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde 
 
 ## Gestrichen
 
-| Nr | Bereich | Feature | Status | ADR |
 |---|---|---|---|---|
 | N25 | Neu | Pattern-Chaining: einen Platz (A–D) gedrückt halten und einen anderen dazu drücken → die Plätze laufen nacheinander (Kette, z. B. A→B, A→C→D); ist der neue Platz leer, wird der aktuelle Platz zuerst dorthin kopiert (Wunsch 09.11.); Kette je Bereich (BEAT, RHYTHM, STRINGS, BASS getrennt); ein einfacher Druck auf einen Platz löst die Kette auf | ✗ doppelt, umgesetzt als S16 | 0034 |
 | S9 | Sequencer | Repeat-Punch-in nur solange gehalten | ✗ (zurückgenommen) | 0011 |
