@@ -78,6 +78,10 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   es nur abwärtskompatibel.
 - `platform/`, `engine/`, `ui/`, Haupt-`Makefile`, `VERSION` und `firmware/FM1_ELECTRO-*` bleiben beim Bau-Chat.
   Ausnahme: das Herauslösen von jx8p/mks50/jp6 (bitgleich, `make test`).
+- **Kennungen (Update-Lader) für die neuen Firmwares, vom Koordinator vergeben (28.11.):** FM-1_94 SH-101 solo,
+  FM-1_95 MKS-50 solo (löst die fm1-synths-Fassung ab), FM-1_97 JX-8P solo (löst die fm1-synths-Fassung ab),
+  FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX. Für 808 solo ist keine 9x
+  mehr frei: der dk808-Chat prüft im Lader/Hub, ob FM-1_8x geht, sonst teilt sich 808 solo eine Kennung mit 808 + 101.
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
   `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
