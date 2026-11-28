@@ -3,7 +3,7 @@
  *
  * Vorlage: DrumKern des Nutzers (Swift), Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`,
  * Voices.swift / DSPMath.swift (Stand 26.11.2026), Ablauf aus Engine.swift (27.11.2026). Formeln, Konstanten und
- * Reihenfolge der Rechnung unverändert, in double wie dort. Ohne Kanalzug, Busse, Effekte und Master.
+ * Reihenfolge der Rechnung unverändert, in dk_real wie dort. Ohne Kanalzug, Busse, Effekte und Master.
  *
  * Instrumente lassen sich beim Bauen weglassen: -DDK808_INSTRUMENTS=<Maske>, Bit i = Instrument i (DK_BD …).
  */
@@ -35,6 +35,17 @@
 /* Auswahl für die Firmware des Nutzers (28.11.): ohne Laser, Congas, Toms, Claves, Maracas */
 #define DK808_MASK_FM1_ELECTRO ((1u << DK_BD) | (1u << DK_SD) | (1u << DK_RS) | (1u << DK_CP) | (1u << DK_CH) | \
                                 (1u << DK_OH) | (1u << DK_CY) | (1u << DK_CB))
+/* Rechengenauigkeit (docs/adr/0050): 0 = double wie die Swift-Vorlage (Referenz, Standard), 1 = float für das Gerät
+ * (Abweichung gegen double: make -C bausteine dk808, Ausgabe "float"). Die Schnittstelle bleibt gleich. */
+#ifndef DK808_FLOAT
+#define DK808_FLOAT 0
+#endif
+#if DK808_FLOAT
+typedef float dk_real;
+#else
+typedef double dk_real;
+#endif
+
 #ifndef DK808_INSTRUMENTS
 #define DK808_INSTRUMENTS DK808_MASK_ALL
 #endif
@@ -54,12 +65,12 @@
 #define DK808_P_TOM_CHOKE (DK808_P_HAT_CHOKE + 2)
 #define DK808_PARAMS (DK808_P_HAT_CHOKE + 3)
 
-typedef struct { double p, y; } dk_lp_t;
-typedef struct { double p, b, x1, y1; } dk_hp_t;
-typedef struct { double b0, b1, b2, a1, a2, x1, x2, y1, y2; } dk_bq_t;
-typedef struct { double lo, bp; } dk_svf_t;
-typedef struct { double c, x1, y1; } dk_ap_t;
-typedef struct { dk_ap_t upA, upB, dnA, dnB; double dnHold; } dk_hb_t;
+typedef struct { dk_real p, y; } dk_lp_t;
+typedef struct { dk_real p, b, x1, y1; } dk_hp_t;
+typedef struct { dk_real b0, b1, b2, a1, a2, x1, x2, y1, y2; } dk_bq_t;
+typedef struct { dk_real lo, bp; } dk_svf_t;
+typedef struct { dk_real c, x1, y1; } dk_ap_t;
+typedef struct { dk_ap_t upA, upB, dnA, dnB; dk_real dnHold; } dk_hb_t;
 typedef struct { int quiet, limit; } dk_gate_t;
 
 typedef struct {
@@ -67,51 +78,56 @@ typedef struct {
     dk_lp_t lp2000, lp1;
     dk_bq_t bq;
     dk_hp_t hp1;
-    double out10, out138, raw;
+    dk_real out10, out138, raw;
 } dk_noise_t;
 
-typedef struct { double phase[6], inc[6], out; } dk_metal_t;
+typedef struct {
+    dk_real phase[6], inc[6], out;
+#if DK808_FLOAT
+    uint32_t ph[6], ph_inc[6];   /* float: Phasen ganzzahlig (2^32 = ein Zyklus), sonst läuft float über Sekunden weg */
+#endif
+} dk_metal_t;
 
 typedef struct {
     dk_hp_t outHP;
-    double tonePole, toneState, damping, sweep, A, c1, c2;
+    dk_real tonePole, toneState, damping, sweep, A, c1, c2;
     int f1, f2, envDone;
-    double r, rRate, E, a, h, e1, e2, e3, excP, excB, hpPrev, negEPrev, low, band;
+    dk_real r, rRate, E, a, h, e1, e2, e3, excP, excB, hpPrev, negEPrev, low, band;
 } dk_bd_t;
 
-typedef struct { double depth, adec, pdec, A, penv, aenv, phase, timer, tail, tailPhase; } dk_lg_t;
+typedef struct { dk_real depth, adec, pdec, A, penv, aenv, phase, timer, tail, tailPhase; } dk_lg_t;
 
 typedef struct {
-    double f1, f2, f3;
+    dk_real f1, f2, f3;
     dk_svf_t svf1, svf2, svf3;
     dk_hp_t hpA, hpB;
-    double toneMix, bodyLevel, snapDecay, snapLevel, toneMixS, bodyLevelS, A2;
+    dk_real toneMix, bodyLevel, snapDecay, snapLevel, toneMixS, bodyLevelS, A2;
     int t1, t2;
-    double e, eRate, g, nenv, nTarget, nRate;
+    dk_real e, eRate, g, nenv, nTarget, nRate;
 } dk_sd_t;
 
 typedef struct {
     dk_hp_t hp10k;
     dk_bq_t hp570;
-    double f1, f2, q1, q2;
+    dk_real f1, f2, q1, q2;
     dk_svf_t svf1, svf2;
-    double A, timer, p1, p2, p1Rate, p2Rate, e, eTarget, eRate;
+    dk_real A, timer, p1, p2, p1Rate, p2Rate, e, eTarget, eRate;
 } dk_rs_t;
 
 typedef struct {
     dk_hp_t hp;
     dk_lp_t lp;
     dk_svf_t svfA, svfB;
-    double f, tailDecay, A, a, e1, e2;
+    dk_real f, tailDecay, A, a, e1, e2;
     int k, done;
 } dk_cp_t;
 
 typedef struct {   /* Congas und Toms */
-    double f0, q0;
+    dk_real f0, q0;
     dk_hp_t hp;
-    double f, q, noiseMix;
+    dk_real f, q, noiseMix;
     dk_svf_t svf;
-    double A, dampMul, e, target, rate, nenv;
+    dk_real A, dampMul, e, target, rate, nenv;
     int timer;
 } dk_drum_t;
 
@@ -119,7 +135,7 @@ typedef struct {
     int open;
     dk_bq_t bp1, bp2, hpf;
     dk_hb_t hb;
-    double dec, A, timer, target, e, rate, p;
+    dk_real dec, A, timer, target, e, rate, p;
     int choked;
 } dk_hat_t;
 
@@ -127,23 +143,23 @@ typedef struct {
     dk_bq_t bp1, bp2, hpA, hpB, hpLow;
     dk_lp_t lpLow;
     dk_hb_t hbA, hbB, hbOut;
-    double d40, d60, d78, tone, A, timer, c, m1, m2, envB, n, r1, r2, rB, rN, tB, pA, pB, pL;
+    dk_real d40, d60, d78, tone, A, timer, c, m1, m2, envB, n, r1, r2, rB, rN, tB, pA, pB, pL;
 } dk_cy_t;
 
-typedef struct { double f, q; dk_svf_t svf; double e, timer; } dk_cl_t;
-typedef struct { dk_bq_t hp; double A, timer, env1, env1Target, env1Rate, e; } dk_ma_t;
+typedef struct { dk_real f, q; dk_svf_t svf; dk_real e, timer; } dk_cl_t;
+typedef struct { dk_bq_t hp; dk_real A, timer, env1, env1Target, env1Rate, e; } dk_ma_t;
 
 typedef struct {
     dk_bq_t hpf;
     dk_hb_t hb;
-    double period1, period2, thr1, thr2, ph1, ph2, D, A, timer, e1, e2, t, r1, r2, lp1, lp2;
+    dk_real period1, period2, thr1, thr2, ph1, ph2, D, A, timer, e1, e2, t, r1, r2, lp1, lp2;
 } dk_cb_t;
 
 enum { DK808_QUEUE = 32 };
 
 typedef struct {
-    double R, H, S40, R2, S40_2;   /* RateInfo bei R und bei 2·R */
-    double knob[DK_COUNT][DK808_KNOBS];
+    dk_real R, H, S40, R2, S40_2;   /* RateInfo bei R und bei 2·R */
+    dk_real knob[DK_COUNT][DK808_KNOBS];
     int hat_choke, conga_choke, tom_choke;
     uint8_t active[DK_COUNT];
     dk_gate_t gate[DK_COUNT];
@@ -200,7 +216,7 @@ void dk808_init(dk808_t *d, double sample_rate);
 void dk808_trigger(dk808_t *d, unsigned instrument, int velocity);   /* gilt ab dem nächsten render */
 void dk808_set_knob(dk808_t *d, unsigned instrument, unsigned knob, double value);
 void dk808_render(dk808_t *d, float *left, float *right, int n);    /* addiert, mono auf beide Seiten */
-double dk808_tick(dk808_t *d);                                       /* ein Sample, löst wartende Trigger aus */
+dk_real dk808_tick(dk808_t *d);                                       /* ein Sample, löst wartende Trigger aus */
 int dk808_note_instrument(int note);   /* MIDI-Note -> Instrument (Drum-Map des DrumKern), -1 = keins */
 const char *dk808_instrument_abbr(unsigned instrument);
 const char *dk808_knob_name(unsigned instrument, unsigned knob);   /* "" = kein Regler */

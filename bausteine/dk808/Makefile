@@ -9,8 +9,8 @@ CFLAGS += -I.. -I. -D_DEFAULT_SOURCE
 BUILD := ../build/dk808
 WAV ?= $(wildcard ref/wav)
 
-.PHONY: test
-test: $(BUILD)/test $(BUILD)/test_fm1
+.PHONY: test float
+test: $(BUILD)/test $(BUILD)/test_fm1 float
 	$(BUILD)/test ref $(BUILD) $(WAV)
 	$(BUILD)/test_fm1 ref $(BUILD)/fm1 $(WAV)
 
@@ -21,3 +21,17 @@ $(BUILD)/test: dk808.c dk808.h test/test.c ../baustein.h
 $(BUILD)/test_fm1: dk808.c dk808.h test/test.c ../baustein.h
 	@mkdir -p $(BUILD)/fm1
 	$(CC) $(CFLAGS) -DDK808_INSTRUMENTS=DK808_MASK_FM1_ELECTRO -o $@ dk808.c test/test.c -lm
+
+# float gegen double (docs/adr/0050): zwei Programme (DK808_FLOAT 0 und 1) rendern alle Instrumente, ein Skript vergleicht
+float: $(BUILD)/render_d $(BUILD)/render_f
+	$(BUILD)/render_d > $(BUILD)/all_d.raw
+	$(BUILD)/render_f > $(BUILD)/all_f.raw
+	python3 test/float_cmp.py $(BUILD)/all_d.raw $(BUILD)/all_f.raw -60
+
+$(BUILD)/render_d: dk808.c dk808.h test/render_all.c ../baustein.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ test/render_all.c dk808.c -lm
+
+$(BUILD)/render_f: dk808.c dk808.h test/render_all.c ../baustein.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DDK808_FLOAT=1 -o $@ test/render_all.c dk808.c -lm
