@@ -55,7 +55,8 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0048 | jp6 als Baustein + solo | frei (reserviert) |
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
-| ADR | 0051–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
+| ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | frei (reserviert) |
+| ADR | 0052–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
@@ -77,6 +78,14 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   es nur abwärtskompatibel.
 - `platform/`, `engine/`, `ui/`, Haupt-`Makefile`, `VERSION` und `firmware/FM1_ELECTRO-*` bleiben beim Bau-Chat.
   Ausnahme: das Herauslösen von jx8p/mks50/jp6 (bitgleich, `make test`).
+- **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
+  Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
+  `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
+  `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/presets/Ron/` (6 Presets, dem Nutzer am wichtigsten). Neue Presets kommen
+  laufend dazu: Jeder Baustein bekommt ein Werkzeug (`tools/` im Baustein), das **alle** Dateien im Quellordner einliest und
+  die Preset-Tabelle neu erzeugt (Ergebnis wird eingecheckt, damit der Build ohne Dropbox geht), und ein gemeinsames Skript
+  `tools/iphone_presets_pull.sh` holt sie per `xcrun devicectl` vom iPhone in diesen Ordner. Presets, die nur eine
+  unveränderte Kopie von INIT sind, auslassen. Dokumentiert in ADR 0051.
 - Werkzeuge auf dem Mac des Nutzers (einmal einrichten, alle nutzen dieselben): JieLi-Toolchain `~/.jieli/toolchain`
   (`platform/tools/get_toolchain.sh`), SDK `~/fw-AC79_AIoT_SDK` (siehe `platform/README.md`), Emulator `~/fm1-emu`
   (siehe `tools/fm1-emu/check.sh`), Docker Desktop.
