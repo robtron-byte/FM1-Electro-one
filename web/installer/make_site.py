@@ -8,6 +8,8 @@ Prüfsummen) und schreibt:
   index.html, app.js, fm1ota.js, fm1pkg.js   die Seite
   liste.json                                  Name, Version, Kennung, Beschreibung, Stimmen, Datei
   firmware/<Datei>.fwsc                       die Pakete
+liste.json und die Pakete sind nur der Rückfall: die Seite liest firmware/ und beschreibungen.json live aus dem
+Repository (Zweig main), damit immer die neuesten Pakete erscheinen.
 Pakete ohne Felucca-Lader (z. B. FM1_ELECTRO.fwsc aus dem alten SDK-Build) oder mit Fehler fehlen in der Liste.
 """
 import hashlib
@@ -59,7 +61,7 @@ def liste(fw_dir):
 def main(dest):
     dest = Path(dest)
     (dest / "firmware").mkdir(parents=True, exist_ok=True)
-    for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js"):
+    for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js", "beschreibungen.json"):
         shutil.copy(HERE / f, dest / f)
     items = liste(ROOT / "firmware")
     for e in items:

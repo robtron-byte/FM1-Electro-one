@@ -25,21 +25,28 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
 - **Paketprüfung vor dem Schreiben** (`fm1pkg.js`, Port von `load_package`/`package_damage`): Kennung, Felucca-Lader im
   Paket (`FELUCCA-LOADER-1`), Kopf-, Dateilisten- und Datei-CRC. Fremde oder kaputte Dateien: Abbruch, nichts geschrieben.
   Pakete aus der Liste zusätzlich per SHA-256 gegen `liste.json`.
-- **Liste:** `make_site.py` liest beim Deploy jede `firmware/NAME-VERSION.fwsc`, prüft sie mit `fm1_install.py` und
-  schreibt `liste.json`; Beschreibung und Stimmenzahl aus `beschreibungen.json`. Neue Pakete erscheinen von selbst.
+- **Liste live aus dem Repository (Wunsch des Nutzers 28.11.: „immer die aktuellste“):** Die Seite liest beim Öffnen
+  `firmware/` über die GitHub-API (Zweig `main`) und `web/installer/beschreibungen.json` von raw.githubusercontent.com.
+  Je Firmware-Name erscheint nur die **neueste Version**; die Kennung kommt aus dem ersten KB des Pakets (Range-Abruf).
+  Beim Wählen wird das Paket geladen, gegen die Git-Prüfsumme der API und mit `fm1pkg.js` geprüft. Ein neues Paket ist
+  also sichtbar, sobald es auf `main` liegt, ohne Deploy. Rückfall, wenn GitHub nicht erreichbar ist (oder das Limit von
+  60 API-Abrufen je Stunde und Adresse erreicht ist): `liste.json` und die Pakete aus dem letzten Deploy (`make_site.py`).
+  Eine eigene `.fwsc` kann überall auf der Seite abgelegt werden.
+- **Kennung ≠ Version:** Das Gerät meldet nur die Kennung (z. B. FM-1_972 für JX-8P 0.2.6 und 0.2.7). „Verbinden“
+  zeigt deshalb die Firmware und dazu „Neueste Version hier: …“, nicht die installierte Version.
 - **Deploy:** Pages-Quelle ist der Zweig `gh-pages` (Wurzel); er enthält nur die gebaute Seite (ein Commit,
   `make_site.py`). Der Workflow `web/installer/installer-pages.yml` baut bei jedem Push auf `main` mit Änderungen in
   `firmware/` oder `web/installer/` erst den Test, dann die Seite, und schreibt `gh-pages` neu. **Er liegt noch nicht in
   `.github/workflows/`:** der Git-Schlüssel des Chats hat keinen Scope `workflow`, GitHub lehnte den Push ab. Bis jemand
   ihn einmal nach `.github/workflows/installer-pages.yml` verschiebt (Weboberfläche oder Schlüssel mit Scope), wird
   `gh-pages` von Hand gebaut: `python3 web/installer/make_site.py /tmp/site`, dort `git init -b gh-pages`, Commit,
-  `git push -f origin gh-pages`. Der Workflow ist noch nie gelaufen; nach dem Verschieben prüfen, dass `liste.json`
+  `git push -f origin gh-pages`. Seit der Live-Liste braucht es das nur noch für Änderungen an der Seite selbst. Der Workflow ist noch nie gelaufen; nach dem Verschieben prüfen, dass `liste.json`
   auf der Seite sich ändert. Alles läuft im Browser, nichts geht an einen Server.
 - **Test ohne Gerät:** `node web/installer/test/test.mjs` lässt `test/vectors.py` mit dem unveränderten `fm1_install.py`
   rechnen und vergleicht: Prüfergebnis und logisches Abbild jedes Pakets samt kaputter Abwandlungen (Bit gekippt, Kopf,
   abgeschnitten, zu kurz), Antwort-Bytes, und ganze simulierte Läufe (normal, Weiterschreiben im Lader, falsches Modell,
   fremder Lader, Abziehen beim Schreiben): jede gesendete Nachricht Byte für Byte gleich; dieselben Läufe zusätzlich durch die Web-MIDI-Schicht (`WebMidiBackend`/`WebMidiLink`) mit
-  nachgebildetem `MIDIAccess`, der Lader unter neuem Portnamen. Stand 28.11.: 92 Prüfungen gleich.
+  nachgebildetem `MIDIAccess`, der Lader unter neuem Portnamen. Stand 28.11.: 98 Prüfungen gleich (mit JXSH).
 
 ## Alternativen
 
@@ -63,3 +70,5 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   Actions, weil der Workflow ohne Scope `workflow` nicht gepusht werden konnte). Seite online, zwei Pakete bytegleich
   mit dem Repository geprüft. Seite im Browser mit nachgebildetem Web MIDI durchgespielt (Verbinden, SH-101 → JX-8P,
   Balken, „Fertig“, danach JX-8P 0.2.6-alpha erkannt).
+- 2026-11-28: Liste live aus `main` (neueste Version je Firmware, Git-Prüfsumme), Ablegen überall auf der Seite,
+  „Verbinden“ nennt Firmware + neueste Version statt einer Version, die das Gerät nicht meldet. JXSH in die Beschreibungen.

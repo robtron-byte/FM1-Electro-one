@@ -1,10 +1,16 @@
 // Bedienung des Web-Installers (ADR 0054). Logik: fm1ota.js (Update), fm1pkg.js (Paketprüfung).
 import { Updater, WebMidiBackend, InstallError } from "./fm1ota.js";
-import { loadPackage } from "./fm1pkg.js";
+import { loadPackage, productOf } from "./fm1pkg.js";
+
+// Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
+const REPO = "robtron-byte/FM1-Electro-one";
+const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
+const NAME_RE = /^(.+?)-(\d+\.\d+\.\d+[^/]*)\.fwsc$/;
 
 const $ = (id) => document.getElementById(id);
 
-// Kennungen der Firmwares (bausteine/ARBEITSTAFEL.md); die genaue Version kommt aus liste.json
+// Kennungen der Firmwares (bausteine/ARBEITSTAFEL.md). Die Kennung ändert sich nicht mit jeder Version: das Gerät
+// meldet also nur, welche Firmware läuft; die Seite nennt dazu die neueste verfügbare Version.
 const FAMILIES = {
   "96": "FM1-Electro", "94": "SH-101", "95": "MKS-50", "97": "JX-8P", "93": "MKS Ultra", "92": "JP-6",
   "91": "808 + SH-101", "90": "808 + SH-101 + JX-8P", "99": "JX-8P + SH-101", "98": "MKS-50 + JX-8P",
@@ -19,7 +25,7 @@ const EN = {
   connect: "Connect",
   s2: "Choose a firmware",
   loading: "Loading the list …",
-  drop: "Or drop your own .fwsc file here (or click).",
+  drop: "Or drop your own .fwsc file anywhere on this page (or click here).",
   s3: "Install",
   unplug: "<b>Do not unplug</b> or switch off the FM-1 while writing. It takes about two minutes.",
   install: "Install",
@@ -40,7 +46,7 @@ const MSG = {
     denied: "MIDI-Zugriff nicht erlaubt. Oben in der Adresszeile auf das Schloss klicken und MIDI erlauben, dann noch einmal.",
     running: (n) => `Verbunden: ${n}`, loader: (n) => `Das FM-1 steht im Update-Modus (${n}). Firmware wählen und „Installieren“: das Schreiben wird beendet.`,
     foreign: (n) => `Das FM-1 steht im Update-Modus einer anderen Firmware (${n}). Dieses Update bitte mit dessen eigenem Installer beenden.`,
-    other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung",
+    other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung", latest: (v) => `. Neueste Version hier: ${v}`,
     voices: "Stimmen", chosen: (n) => `Gewählt: ${n}`, fetching: "Paket wird geladen …", fetchfail: "Paket konnte nicht geladen werden.",
     badpkg: "Diese Datei ist kein FM-1-Paket. Nichts wurde geschrieben.",
     nomark: "Diese Datei enthält keinen Felucca-Update-Lader und wird hier nicht installiert (z. B. Original-Firmware: dafür den FM-1 Firmware Hub nutzen).",
@@ -66,7 +72,7 @@ const MSG = {
     denied: "MIDI access was not allowed. Click the lock in the address bar, allow MIDI and try again.",
     running: (n) => `Connected: ${n}`, loader: (n) => `The FM-1 is in update mode (${n}). Choose a firmware and “Install”: the write is finished.`,
     foreign: (n) => `The FM-1 is in the update mode of another firmware (${n}). Finish that update with its own installer.`,
-    other: (k) => `other firmware (identity ${k})`, kennung: "identity",
+    other: (k) => `other firmware (identity ${k})`, kennung: "identity", latest: (v) => `. Newest version here: ${v}`,
     voices: "voices", chosen: (n) => `Chosen: ${n}`, fetching: "Loading the package …", fetchfail: "The package could not be loaded.",
     badpkg: "This file is not an FM-1 package. Nothing was written.",
     nomark: "This file has no Felucca update loader and is not installed here (e.g. original firmware: use the FM-1 Firmware Hub).",
@@ -109,7 +115,7 @@ function setStatus(id, text, cls = "") { const el = $(id); el.textContent = text
 
 function describe(text) {
   const e = list.find((x) => x.kennung === text);
-  if (e) return `${e.titel} ${e.version} (${m().kennung} ${text})`;
+  if (e) return `${e.titel} (${m().kennung} ${text})`;
   const f = /^FM-1_(9\d)\d$/.exec(text);
   if (f && FAMILIES[f[1]]) return `${FAMILIES[f[1]]} (${m().kennung} ${text})`;
   return m().other(text);
@@ -118,7 +124,10 @@ function describe(text) {
 function renderDevice() {
   if (!device) return;
   const t = device.text;
-  if (!device.loader) setStatus("devstatus", m().running(describe(t)), "ok");
+  if (!device.loader) {
+    const e = list.find((x) => x.kennung === t);
+    setStatus("devstatus", m().running(describe(t)) + (e ? m().latest(e.version) : ""), "ok");
+  }
   else if (/^ota-(FM-1|SMK-37 Pro|SMK-37 Elite|MKE-P37)_9\d\d$/i.test(t)) setStatus("devstatus", m().loader(t), "ok");
   else setStatus("devstatus", m().foreign(t), "bad");
 }
@@ -152,13 +161,23 @@ function pkgError(e) {
   pkg = null; updateButtons();
 }
 
+// Git-Blob-SHA-1 (wie die GitHub-API sie meldet) einer Datei
+async function gitBlobSha(bytes) {
+  const head = new TextEncoder().encode(`blob ${bytes.length}\0`);
+  const all = new Uint8Array(head.length + bytes.length);
+  all.set(head); all.set(bytes, head.length);
+  const h = await crypto.subtle.digest("SHA-1", all);
+  return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function chooseListed(e) {
   setStatus("pkgstatus", m().fetching);
   try {
-    const r = await fetch(e.datei, { cache: "no-cache" });
+    const r = await fetch(e.url, { cache: "no-cache" });
     if (!r.ok) throw new Error(r.status);
     const raw = new Uint8Array(await r.arrayBuffer());
-    if (await sha256(raw) !== e.sha256) { pkg = null; setStatus("pkgstatus", m().sha, "bad"); updateButtons(); return; }
+    const okSum = e.sha256 ? await sha256(raw) === e.sha256 : e.gitsha ? await gitBlobSha(raw) === e.gitsha : true;
+    if (!okSum) { pkg = null; setStatus("pkgstatus", m().sha, "bad"); updateButtons(); return; }
     const p = loadPackage(raw);
     pkg = { ...p, entry: e, label: `${e.titel} ${e.version}` };
     setStatus("pkgstatus", m().chosen(pkg.label), "ok");
@@ -166,6 +185,54 @@ async function chooseListed(e) {
     if (err.code) pkgError(err); else { pkg = null; setStatus("pkgstatus", m().fetchfail, "bad"); }
   }
   updateButtons();
+}
+
+const vkey = (v) => (v.match(/\d+/g) || []).map(Number);
+function newer(a, b) {
+  const x = vkey(a), y = vkey(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  return false;
+}
+
+async function json(url) { const r = await fetch(url, { cache: "no-cache" }); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+// live: firmware/ und beschreibungen.json aus main; je Name nur die neueste Version; Kennung aus den ersten 1 KB
+async function liveList() {
+  const files = await json(`https://api.github.com/repos/${REPO}/contents/firmware?ref=main`);
+  let meta;
+  try { meta = await json(RAW + "web/installer/beschreibungen.json"); } catch (_) { meta = await json("beschreibungen.json"); }
+  const best = {};
+  for (const f of files) {
+    const mm = NAME_RE.exec(f.name);
+    if (f.type !== "file" || !mm) continue;
+    if (!best[mm[1]] || newer(mm[2], best[mm[1]].version)) best[mm[1]] = { file: f, version: mm[2] };
+  }
+  const order = Object.keys(meta).filter((k) => !k.startsWith("_"));
+  const names = Object.keys(best).sort((a, b) => ((order.indexOf(a) + 1) || 999) - ((order.indexOf(b) + 1) || 999) || a.localeCompare(b));
+  const out = await Promise.all(names.map(async (name) => {
+    const { file, version } = best[name], d = meta[name] || {};
+    const url = RAW + "firmware/" + encodeURIComponent(file.name);
+    let kennung = "";
+    try {
+      const r = await fetch(url, { headers: { Range: "bytes=0-1023" }, cache: "no-cache" });
+      kennung = productOf(new Uint8Array(await r.arrayBuffer()));
+    } catch (_) { /* ohne Kennung */ }
+    if (!/^[^_]+_9\d\d$/.test(kennung)) return null;   // nur Pakete der eigenen Plattform (FM-1_9xx)
+    return { name, titel: d.titel || name, version, kennung, de: d.de || "", en: d.en || "",
+      stimmen_de: d.stimmen_de || "", stimmen_en: d.stimmen_en || "", url, gitsha: file.sha };
+  }));
+  return out.filter(Boolean);
+}
+
+async function loadList() {
+  try {
+    list = await liveList();
+    if (!list.length) throw new Error("leer");
+  } catch (_) {
+    try { list = (await json("liste.json")).map((e) => ({ ...e, url: e.datei })); } catch (_) { list = []; }
+  }
+  if (!list.length) $("list").textContent = "";
+  renderList(); renderDevice();
 }
 
 async function chooseFile(file) {
@@ -244,18 +311,21 @@ $("lang").addEventListener("click", () => {
 $("connect").addEventListener("click", connect);
 $("install").addEventListener("click", install);
 $("file").addEventListener("change", (ev) => { if (ev.target.files[0]) chooseFile(ev.target.files[0]); });
+// eine .fwsc kann überall auf der Seite abgelegt werden
 const drop = $("drop");
-drop.addEventListener("dragover", (ev) => { ev.preventDefault(); drop.classList.add("over"); });
-drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", (ev) => {
-  ev.preventDefault(); drop.classList.remove("over");
-  if (ev.dataTransfer.files[0]) chooseFile(ev.dataTransfer.files[0]);
+let dragDepth = 0;
+document.addEventListener("dragenter", (ev) => { ev.preventDefault(); dragDepth++; drop.classList.add("over"); document.body.classList.add("dragging"); });
+document.addEventListener("dragover", (ev) => { ev.preventDefault(); });
+document.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove("over"); document.body.classList.remove("dragging"); } });
+document.addEventListener("drop", (ev) => {
+  ev.preventDefault(); dragDepth = 0; drop.classList.remove("over"); document.body.classList.remove("dragging");
+  if (busy) return;
+  if (ev.dataTransfer.files[0]) { chooseFile(ev.dataTransfer.files[0]); drop.scrollIntoView({ behavior: "smooth", block: "center" }); }
 });
 
 if (!navigator.requestMIDIAccess) { $("nomidi").hidden = false; $("connect").disabled = true; }
 
-fetch("liste.json", { cache: "no-cache" }).then((r) => r.json()).then((l) => { list = l; renderList(); renderDevice(); })
-  .catch(() => { $("list").textContent = ""; });
+loadList();
 
 applyLang();
 updateButtons();
