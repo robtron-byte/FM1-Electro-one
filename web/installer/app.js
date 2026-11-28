@@ -141,10 +141,14 @@ function renderList() {
     const lab = document.createElement("label");
     lab.className = "fw";
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
-    lab.innerHTML = `<input type="radio" name="fw"><img class="pic" alt="" width="120" height="80"><span><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
+    lab.innerHTML = `<input type="radio" name="fw"><img class="pic" alt="" width="120" height="80"><span class="txt"><b></b><br><span class="d"></span><br><span class="meta"></span></span><img class="screen" alt="" width="120" height="120">`;
     const pic = lab.querySelector(".pic");
     pic.onerror = () => { pic.onerror = null; pic.src = `bilder/allgemein.svg${BILD_V}`; };
     pic.src = `bilder/${encodeURIComponent(e.name)}.svg${BILD_V}`;
+    const scr = lab.querySelector(".screen");   // Display des FM-1 mit dieser Firmware (Emulator); fehlt es, entfällt es
+    scr.onerror = () => scr.remove();
+    scr.title = lang === "en" ? "The FM-1 screen with this firmware" : "So sieht das Display des FM-1 mit dieser Firmware aus";
+    scr.src = `bildschirme/${encodeURIComponent(e.name)}.png${BILD_V}`;
     lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
     lab.querySelector(".d").textContent = desc;
     lab.querySelector(".meta").textContent = [voices, `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");

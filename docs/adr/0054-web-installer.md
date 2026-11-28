@@ -74,3 +74,9 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   „Verbinden“ nennt Firmware + neueste Version statt einer Version, die das Gerät nicht meldet. JXSH in die Beschreibungen.
 - 2026-11-28: kleines Bild je Firmware in der Liste (Wunsch des Nutzers): eigene schlichte SVG-Zeichnungen in
   `web/installer/bilder/` (keine Herstellerlogos), Rückfall `allgemein.svg` für neue Namen; kommen mit dem Deploy der Seite.
+- 2026-11-28: Bilder erschienen beim Nutzer nicht: der Browser nahm das alte `app.js` aus dem Cache (GitHub Pages
+  `max-age=600`, Module werden beim Neuladen nicht neu geprüft). `make_site.py` hängt jetzt eine Fassungskennung
+  (`?v=…`, Hash der Seitendateien) an Skripte und Bilder.
+- 2026-11-28: Display-Bild je Firmware (Wunsch des Nutzers): Startbildschirm aus dem Emulator fm1-emu (`--snap`),
+  `web/installer/bildschirme/<NAME>.png`, erzeugt mit `bildschirme/make_bildschirme.sh`. Fehlt ein Bild, entfällt es.
+  Die Bilder zeigen die Version zum Zeitpunkt der Aufnahme; bei neuen Versionen neu aufnehmen.

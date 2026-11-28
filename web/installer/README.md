@@ -11,6 +11,7 @@ Verbinden, Firmware wählen (oder eigene `.fwsc` hineinziehen), Installieren. En
 | `fm1ota.js` | USB-MIDI-Update (M-UPGRADE) über Web MIDI; aus Felucca `web/fm1ota.js`, angeglichen an `platform/tools/fm1_install.py` |
 | `fm1pkg.js` | Paketprüfung (Kennung, Felucca-Lader, Prüfsummen), Port von `fm1_install.py` |
 | `bilder/` | kleines Bild je Firmware (`<NAME>.svg`, 120 × 80, erzeugt mit `bilder/make_bilder.py`); fehlt eins, zeigt die Seite `allgemein.svg` |
+| `bildschirme/` | Display des FM-1 je Firmware (`<NAME>.png`, 240 × 240, Emulator fm1-emu: `bildschirme/make_bildschirme.sh ~/fm1-emu firmware/<Paket>.fwsc`); fehlt eins, entfällt es |
 | `beschreibungen.json` | Titel, ein Satz Beschreibung und Stimmenzahl je Paketname (`SH101`, `JX8P` …) |
 | `make_site.py` | baut die Seite: jede gültige `firmware/NAME-VERSION.fwsc` landet automatisch in `liste.json` |
 | `test/test.mjs`, `test/vectors.py` | Test ohne Gerät: gleiche Bytes und Abläufe wie `fm1_install.py` |

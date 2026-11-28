@@ -66,7 +66,8 @@ def main(dest):
     # Browser und GitHub Pages halten Dateien bis zu 10 Minuten im Cache: jede Fassung der Seite bekommt eine eigene
     # Kennung in den Aufrufen (?v=…), damit nach einem Deploy sofort die neuen Skripte und Bilder laden
     v = hashlib.sha256(b"".join((HERE / f).read_bytes() for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js"))
-                       + b"".join(f.read_bytes() for f in sorted((HERE / "bilder").glob("*.svg")))).hexdigest()[:10]
+                       + b"".join(f.read_bytes() for f in sorted((HERE / "bilder").glob("*.svg")))
+                       + b"".join(f.read_bytes() for f in sorted((HERE / "bildschirme").glob("*.png")))).hexdigest()[:10]
     html = (dest / "index.html").read_text(encoding="utf-8").replace('src="app.js"', f'src="app.js?v={v}"')
     (dest / "index.html").write_text(html, encoding="utf-8")
     js = (dest / "app.js").read_text(encoding="utf-8")
@@ -77,6 +78,9 @@ def main(dest):
     (dest / "bilder").mkdir(exist_ok=True)
     for f in (HERE / "bilder").glob("*.svg"):
         shutil.copy(f, dest / "bilder" / f.name)
+    (dest / "bildschirme").mkdir(exist_ok=True)
+    for f in (HERE / "bildschirme").glob("*.png"):
+        shutil.copy(f, dest / "bildschirme" / f.name)
     items = liste(ROOT / "firmware")
     for e in items:
         shutil.copy(ROOT / e["datei"], dest / e["datei"])
