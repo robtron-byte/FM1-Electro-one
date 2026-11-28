@@ -59,7 +59,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | vergeben (sh101-Chat) |
 | ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
 | ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | vergeben (Web-Installer-Chat) |
-| ADR | 0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
+| ADR | 0055 | Grafik-Kopf je Seite (LFO, Hüllkurve, Filter, Effekte live), sh101-Chat | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
