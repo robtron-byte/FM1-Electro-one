@@ -22,3 +22,16 @@ mit eigener Bedienung nach dem Raster der vorhandenen Synths.
 
 In der Firmware des Nutzers fehlen vorerst Toms, Congas, Claves, Maracas und Laser (Wunsch 28.11.). In den
 Solo-Varianten sind sie dabei.
+
+## Anleitung je Firmware (Pflicht, Wunsch des Nutzers 28.11.)
+
+Jede Variante mit Paket in `firmware/` hat eine kurze Anleitung **`<name>/ANLEITUNG.md`** (Deutsch) und
+**`<name>/ANLEITUNG.en.md`** (Englisch, gleicher Inhalt). Daraus erzeugt `web/installer/make_site.py` die Seite
+`anleitung/<NAME>.html`, die der Web-Installer an jedem Listeneintrag als „Anleitung“ verlinkt (ADR 0054).
+**Wer die Bedienung einer Firmware ändert, führt im selben Commit diese eine Datei nach.**
+
+- Inhalt nach dem Code, nichts erfinden: was die Firmware ist, Stimmen, Tasten und Regler, die Seiten der Reihe nach
+  mit KNOB 1–4, Presets (eigene vorn), Sequencer und Live-Aufnahme LOOP, Speichern, Effekte.
+- Nur einfaches Markdown: `#`/`##`/`###`, Absätze, `-`/`1.` Listen, Tabellen mit `|`, `**fett**`, `` `Code` ``.
+- FM1-Electro (kein Ordner hier): `web/installer/anleitungen/FM1_ELECTRO.md` und `.en.md`.
+- Ordnername = Paketname klein (`firmware/JXSH-…` → `jxsh/ANLEITUNG.md`).

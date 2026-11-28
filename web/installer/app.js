@@ -6,6 +6,7 @@ import { loadPackage, productOf } from "./fm1pkg.js";
 const REPO = "robtron-byte/FM1-Electro-one";
 const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
 const BILD_V = "";   // make_site.py setzt hier die Fassung ein (Cache)
+const ANLEITUNGEN = [];   // make_site.py setzt die Namen mit Anleitung ein (anleitung/<NAME>.html)
 const NAME_RE = /^(.+?)-(\d+\.\d+\.\d+[^/]*)\.fwsc$/;
 
 const $ = (id) => document.getElementById(id);
@@ -141,10 +142,17 @@ function renderList() {
     const lab = document.createElement("label");
     lab.className = "fw";
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
-    lab.innerHTML = `<input type="radio" name="fw"><img class="pic" alt="" width="120" height="80"><span class="txt"><b></b><br><span class="d"></span><br><span class="meta"></span></span><img class="screen" alt="" width="120" height="120">`;
+    lab.innerHTML = `<input type="radio" name="fw"><span class="media"><img class="pic" alt="" width="96" height="64"><img class="screen" alt="" width="96" height="96"></span><span class="txt"><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
     const pic = lab.querySelector(".pic");
     pic.onerror = () => { pic.onerror = null; pic.src = `bilder/allgemein.svg${BILD_V}`; };
     pic.src = `bilder/${encodeURIComponent(e.name)}.svg${BILD_V}`;
+    if (ANLEITUNGEN.includes(e.name)) {
+      const a = document.createElement("a");
+      a.className = "howto"; a.target = "_blank"; a.rel = "noopener";
+      a.href = `anleitung/${encodeURIComponent(e.name)}.html${BILD_V ? BILD_V + "&" : "?"}lang=${lang}`;
+      a.textContent = lang === "en" ? "Manual" : "Anleitung";
+      lab.querySelector(".txt").append(document.createElement("br"), a);
+    }
     const scr = lab.querySelector(".screen");   // Display des FM-1 mit dieser Firmware (Emulator); fehlt es, entfällt es
     scr.onerror = () => scr.remove();
     scr.title = lang === "en" ? "The FM-1 screen with this firmware" : "So sieht das Display des FM-1 mit dieser Firmware aus";

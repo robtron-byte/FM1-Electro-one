@@ -22,7 +22,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "platform" / "tools"))
+sys.path.insert(0, str(HERE))
 import fm1_install  # noqa: E402
+import anleitung  # noqa: E402
 
 NAME_RE = re.compile(r"^(?P<name>.+?)-(?P<ver>\d+\.\d+\.\d+[^/]*)\.fwsc$")
 
@@ -74,6 +76,13 @@ def main(dest):
     for mod in ("./fm1ota.js", "./fm1pkg.js"):
         js = js.replace(f'from "{mod}"', f'from "{mod}?v={v}"')
     js = js.replace("const BILD_V = \"\";", f"const BILD_V = \"?v={v}\";")
+    # Anleitungen: aus bausteine/varianten/<name>/ANLEITUNG.md bzw. anleitungen/<NAME>.md (anleitung.py)
+    meta = json.loads((HERE / "beschreibungen.json").read_text(encoding="utf-8"))
+    names = {f.name.split("-")[0] for f in (ROOT / "firmware").glob("*-*.fwsc")} | {k for k in meta if not k.startswith("_")}
+    built = sorted(n for n in names if anleitung.build(n, meta.get(n, {}).get("titel", n), dest,
+                                                         screen=(HERE / "bildschirme" / f"{n}.png").exists()))
+    js = js.replace("const ANLEITUNGEN = [];", f"const ANLEITUNGEN = {json.dumps(built)};")
+    print(f"  Anleitungen: {', '.join(built) or '(keine)'}")
     (dest / "app.js").write_text(js, encoding="utf-8")
     (dest / "bilder").mkdir(exist_ok=True)
     for f in (HERE / "bilder").glob("*.svg"):

@@ -80,3 +80,7 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
 - 2026-11-28: Display-Bild je Firmware (Wunsch des Nutzers): Startbildschirm aus dem Emulator fm1-emu (`--snap`),
   `web/installer/bildschirme/<NAME>.png`, erzeugt mit `bildschirme/make_bildschirme.sh`. Fehlt ein Bild, entfällt es.
   Die Bilder zeigen die Version zum Zeitpunkt der Aufnahme; bei neuen Versionen neu aufnehmen.
+- 2026-11-28: Anleitung je Firmware (Wunsch des Nutzers über den Koordinator): Quelle
+  `bausteine/varianten/<name>/ANLEITUNG.md` + `.en.md` (FM1-Electro: `web/installer/anleitungen/`), aus dem Code
+  geschrieben; `anleitung.py` erzeugt beim Bau `anleitung/<NAME>.html` (Deutsch/Englisch, druckbar, Handy), Link
+  „Anleitung“ an jedem Listeneintrag. Pflicht zum Nachführen in `bausteine/varianten/README.md`.

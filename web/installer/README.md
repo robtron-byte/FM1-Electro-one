@@ -12,6 +12,7 @@ Verbinden, Firmware wählen (oder eigene `.fwsc` hineinziehen), Installieren. En
 | `fm1pkg.js` | Paketprüfung (Kennung, Felucca-Lader, Prüfsummen), Port von `fm1_install.py` |
 | `bilder/` | kleines Bild je Firmware (`<NAME>.svg`, 120 × 80, erzeugt mit `bilder/make_bilder.py`); fehlt eins, zeigt die Seite `allgemein.svg` |
 | `bildschirme/` | Display des FM-1 je Firmware (`<NAME>.png`, 240 × 240, Emulator fm1-emu: `bildschirme/make_bildschirme.sh ~/fm1-emu firmware/<Paket>.fwsc`); fehlt eins, entfällt es |
+| `anleitung.py`, `anleitungen/` | Anleitung je Firmware als Seite `anleitung/<NAME>.html`: Quelle `bausteine/varianten/<name>/ANLEITUNG.md` (+ `.en.md`), für FM1-Electro `anleitungen/FM1_ELECTRO.md`; Link „Anleitung“ in der Liste |
 | `beschreibungen.json` | Titel, ein Satz Beschreibung und Stimmenzahl je Paketname (`SH101`, `JX8P` …) |
 | `make_site.py` | baut die Seite: jede gültige `firmware/NAME-VERSION.fwsc` landet automatisch in `liste.json` |
 | `test/test.mjs`, `test/vectors.py` | Test ohne Gerät: gleiche Bytes und Abläufe wie `fm1_install.py` |
