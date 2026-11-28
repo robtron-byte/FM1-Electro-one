@@ -4,7 +4,7 @@ Zum Abgleichen, Bestellen und Streichen. Jedes Feature hat eine feste Nummer; si
 
 **Status:** ○ offen · ◔ angefangen (wo der Stand liegt, steht dabei; nicht doppelt anfangen) · ◐ umgesetzt, wartet auf Gerätetest/Urteil · ✓ umgesetzt und bestätigt · ✗ gestrichen
 **Bereiche:** **B** Beat/Drums · **S** Sequencer · **Y** Synths · **F** Effekte/Master · **U** Bedienung/Display · **P** Plattform/Leistung · **N** neu
-Neue Nummern: im Bereich die nächste freie (B19, S20, Y9, F11, U15, P13, N31).
+Neue Nummern: im Bereich die nächste freie (B20, S20, Y12, F11, U15, P14, N31). Für Bausteine sind Nummern in `bausteine/ARBEITSTAFEL.md` reserviert.
 
 Stand: 0.5.6-alpha (21.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde (Auswahl des Nutzers 07.11., Checkliste): S8, N5, N8, N9, N11, B12, N1, N12, N13, N6. Reihenfolge der Umsetzung: N5/N8/N9/N11 → N13 → N1 → B12 → N6 + S8 → N12.
 
@@ -17,6 +17,10 @@ Stand: 0.5.6-alpha (21.11.2026). ADR = Entscheidung in `docs/adr/`. Erste Runde 
 | U5 | Bedienung/Display | Echtes Vsync (braucht TE-Leitung des Displays, unklar ob verdrahtet) | ○ | – |
 | B17 | Beat/Drums | 808-Bassdrum: zu wenig Attack, geht im Mix oft unter (Feedback 12.11.); mehr Klick/Anschlag (z. B. kürzerer Pitch-Sweep, Klick-Anteil, Transient), als A/B-Schalter (ADR 0006) | ○ für später | `docs/TR808.md` |
 | Y8 | Synths | Bass-Sounds fast nicht hörbar (Feedback 12.11.): Messung `make bass-check`: die meisten Bässe (FAT BASS, PLAIN BASS, SAW BASS, JUPI BASS …) haben den Grundton bei 32 Hz unter dem Lowcut des Mix und sind leise (RMS 0,02–0,06); anheben (Oktave höher bzw. Sub-Anteil statt 16'), Lowcut prüfen, Pegel angleichen, als A/B | ○ für später | 0027 |
+| P13 | Plattform/Leistung | Bausteine (Wunsch 28.11.): jeder Klangerzeuger als eigener Baustein in `bausteine/` (reines C, volle Genauigkeit, Teile abschaltbar), frei kombinierbar zu Firmwares (808+101, 808+101+JX, Alpha Juno solo …) oder einzeln mit vollem Klang; Arbeitstafel für parallele Chats | ◔ Gerüst angelegt (`bausteine/ARBEITSTAFEL.md`) | 0040 |
+| B19 | Beat/Drums | 808 aus dem DrumKern (Swift-Nachbau, „808 Projekt“) als Baustein `bausteine/dk808`: alle 17 Instrumente in `double`, geprüft gegen die Referenz-Renders; Toms, Congas, Claves, Maracas, Laser abschaltbar und nicht in der Firmware des Nutzers; Effekte weg | ◔ in Arbeit (Arbeitstafel) | 0040, 0041 |
+| Y10 | Synths | SH-101 aus MonoBass (Swift, REA/SH101) als Baustein `bausteine/sh101` | ○ offen (Arbeitstafel) | 0040, 0042 |
+| Y11 | Synths | Alpha Juno / MKS-50 „Ultra“ aus dem TAL-Pha-Nachbau (Rust) als Baustein `bausteine/mksultra`; fürs FM-1 erst an Stimmen sparen, nicht am Filter | ○ offen (Arbeitstafel) | 0040, 0043 |
 | Y9 | Synths | MKS-50 durch den JX-8P aus fm1-synths ersetzen (Wunsch 21.11.): zwei DCOs, zwei ADSR, X-MOD/Sync, Chorus; 64 Werkstöne nach Bereichen, INIT je Bereich; Seiten und Editor nach dem JX-8P-Panel; MKS-Zusatzsounds (und INIT+, N29) entfallen. Erst als Schalter `EL_SYNTH_JX` (Standard aus), `make jx-ab` zum Hören, Gerätebuild mit `EL_EXTRA_CFLAGS=-DEL_SYNTH_JX=1` | ◐ umgesetzt, Standard ab 0.5.6-alpha (Wahl des Nutzers 21.11.) | 0039 |
 | N14 | Neu | Projekt-Liste: ganze Projekte (alle Plätze A–D aller Bereiche, Sounds, Kit, Tempo, Effekte) unter einem Namen speichern und aus einer scrollbaren Liste laden (Nutzerwunsch 07.11.); ebenso eine scrollbare Liste für Sound-Presets (eigene Sounds speichern, benennen, laden) | ○ | – |
 | N15 | Neu | Live-Effekt „MONO DELAY“ nach `mdtest.c` des Nutzers und dem Korg Monotron Delay: Delay 34 ms (kürzeste Zeit des Monotron, PT2399 bei 20 MHz), Feedback 1, Hochpass 100 Hz, Softclip, Korg-35-Tiefpass; Regler GLO + ALGORITHM überall (unteres Fünftel blendet aus, darüber Cutoff 100 Hz – 10 kHz); nicht gespeichert; Pattern-Länge → EDIT + SELECT, Feintempo → EDIT + ALGORITHM | ○ geplant, wartet auf „los“ (Zweig `claude/n15-mono-delay`) | 0033 |

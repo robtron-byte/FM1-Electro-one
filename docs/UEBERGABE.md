@@ -1,5 +1,7 @@
 # Übergabe: Stand 2026-11-06
 
+> **Neuere Arbeit:** Für die Bausteine (808 aus dem DrumKern, SH-101, MKS Ultra) gilt `bausteine/ARBEITSTAFEL.md`: dort steht, wer woran arbeitet und was frei ist. Diese Datei beschreibt den Stand vom 06.11.
+
 Für eine neue Claude-Sitzung (anderer Account). Zuerst `CLAUDE.md` lesen, dann diese Datei, dann `docs/adr/0019`, `0021`, `0022`.
 
 ## Ziel

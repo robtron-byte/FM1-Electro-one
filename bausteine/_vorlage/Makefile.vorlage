@@ -1,0 +1,13 @@
+# Vorlage: nach bausteine/<name>/Makefile kopieren und NAME setzen. Ziel `test` baut den Host-Test und lässt ihn laufen.
+NAME := name
+CC ?= cc
+CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Werror -I.. -I.
+BUILD := ../build/$(NAME)
+
+.PHONY: test
+test: $(BUILD)/test
+	$(BUILD)/test ref $(BUILD)
+
+$(BUILD)/test: $(NAME).c $(NAME).h test/test.c ../baustein.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ $(NAME).c test/test.c -lm

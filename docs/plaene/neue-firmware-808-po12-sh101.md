@@ -1,5 +1,7 @@
 # Plan: neue Firmware „808 + PO-12 + SH-101“
 
+> **28.11.2026:** Aufgegangen in den Bausteinen (`bausteine/`, ADR 0040): 808 und SH-101 werden dort als eigene Bausteine gebaut, die Firmware „808 + 101“ ist eine Variante (`bausteine/varianten/`).
+
 Stand: 08.11.2026 · Status: **Plan, nicht begonnen** – Start erst, wenn der Nutzer „los“ sagt.
 
 ## Ziel

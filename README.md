@@ -4,6 +4,27 @@ Eigene Firmware für den **M-VAVE FM-1**, aufgebaut auf dem offiziellen SDK [FM1
 
 > Unabhängiges Projekt, nicht mit M-VAVE oder Roland verbunden. „MKS-50“, „Jupiter-6“ und „TR-808“ beschreiben nur die nachgebildete Architektur.
 
+## Wegweiser: was liegt wo?
+
+| Ordner / Datei | Inhalt | Für wen |
+|---|---|---|
+| `firmware/` | **Fertige Firmware zum Aufspielen** (`FM1_ELECTRO-<Version>.fwsc`) | alle |
+| `docs/FM1-Electro-Anleitung.pdf`, `docs/manual/` | Bedienungsanleitung | alle |
+| `docs/FEATURES.md` | Feature-Liste mit Nummern zum Bestellen und Streichen | alle |
+| `bausteine/` | Neue Klangerzeuger als austauschbare Bausteine (808 DrumKern, SH-101, MKS Ultra); [Arbeitstafel](bausteine/ARBEITSTAFEL.md): wer arbeitet woran | alle / Chats |
+| `docs/adr/` | Entscheidungen (warum etwas so ist), eine Datei je Entscheidung | Nachlesen |
+| `docs/plaene/`, `docs/UEBERGABE.md`, `docs/TR808.md` | Pläne, alte Übergabe, 808-Quellen | Nachlesen |
+| `engine/` | Klangerzeugung im Gerät (Drums, JX-8P, MKS-50, JP-6, Effekte, Sequencer) | Programmierer |
+| `ui/` | Display und Bedienung | Programmierer |
+| `fm1/`, `platform/`, `sdk_include/` | Anbindung ans FM-1, eigene Plattform | Programmierer |
+| `host/` | Tests und Demos am PC (`make test`, `make demo`) | Programmierer |
+| `tools/` | Bau- und Hilfsprogramme, Emulator-Prüfung | Programmierer |
+| `third_party/`, `THIRD_PARTY.md` | Übernommener fremder Code mit Herkunft | Programmierer |
+| `hardware/` | Unterlagen zur FM-1-Hardware | Programmierer |
+| `build/` | Zwischenergebnisse, wird beim Bauen neu erzeugt | – |
+
+Heute läuft im Gerät: 808-Drums, JX-8P (Standard seit 0.5.6-alpha, MKS-50 per Schalter) und JP-6.
+
 ## Branch `sound-808`: authentische 808 und fertiger Mix
 
 Auf diesem Branch steckt die Arbeit am Sound:
