@@ -5,6 +5,7 @@ import { loadPackage, productOf } from "./fm1pkg.js";
 // Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
 const REPO = "robtron-byte/FM1-Electro-one";
 const RAW = `https://raw.githubusercontent.com/${REPO}/main/`;
+const BILD_V = "";   // make_site.py setzt hier die Fassung ein (Cache)
 const NAME_RE = /^(.+?)-(\d+\.\d+\.\d+[^/]*)\.fwsc$/;
 
 const $ = (id) => document.getElementById(id);
@@ -142,8 +143,8 @@ function renderList() {
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
     lab.innerHTML = `<input type="radio" name="fw"><img class="pic" alt="" width="120" height="80"><span><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
     const pic = lab.querySelector(".pic");
-    pic.onerror = () => { pic.onerror = null; pic.src = "bilder/allgemein.svg"; };
-    pic.src = `bilder/${encodeURIComponent(e.name)}.svg`;
+    pic.onerror = () => { pic.onerror = null; pic.src = `bilder/allgemein.svg${BILD_V}`; };
+    pic.src = `bilder/${encodeURIComponent(e.name)}.svg${BILD_V}`;
     lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
     lab.querySelector(".d").textContent = desc;
     lab.querySelector(".meta").textContent = [voices, `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
