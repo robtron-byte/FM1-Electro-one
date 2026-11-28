@@ -839,6 +839,7 @@ void dk808_init(dk808_t *d, double rate)
     for (unsigned i = 0; i < DK_COUNT; ++i) {
         d->gate[i].limit = (int)(rate * 0.05);
         for (unsigned k = 0; k < DK808_KNOBS; ++k) d->knob[i][k] = knob_default[i][k] / 100.0;
+        d->level[i] = 1;
     }
 #if DK808_NEEDS_NOISE
     noise_init(&d->noise, rate);
@@ -884,6 +885,10 @@ void dk808_init(dk808_t *d, double rate)
         if (DK808_INSTRUMENTS >> i & 1u) update(d, i);
 }
 
+void dk808_set_level(dk808_t *d, unsigned i, double level)
+{
+    if (i < DK_COUNT) d->level[i] = (dk_real)(level < 0 ? 0 : level > 1 ? 1 : level);
+}
 void dk808_set_knob(dk808_t *d, unsigned i, unsigned k, double value)
 {
     if (i >= DK_COUNT || k >= DK808_KNOBS) return;
@@ -981,43 +986,43 @@ dk_real dk808_tick(dk808_t *d)
 #endif
     dk_real out = 0.0;
 #if DK808_HAS(DK_BD)
-    if (d->active[DK_BD]) out += bd_render(d);
+    if (d->active[DK_BD]) out += d->level[DK_BD] * bd_render(d);
 #endif
 #if DK808_HAS(DK_LG)
-    if (d->active[DK_LG]) out += lg_render(d);
+    if (d->active[DK_LG]) out += d->level[DK_LG] * lg_render(d);
 #endif
 #if DK808_HAS(DK_SD)
-    if (d->active[DK_SD]) out += sd_render(d);
+    if (d->active[DK_SD]) out += d->level[DK_SD] * sd_render(d);
 #endif
 #if DK808_HAS(DK_RS)
-    if (d->active[DK_RS]) out += rs_render(d);
+    if (d->active[DK_RS]) out += d->level[DK_RS] * rs_render(d);
 #endif
 #if DK808_HAS(DK_CP)
-    if (d->active[DK_CP]) out += cp_render(d);
+    if (d->active[DK_CP]) out += d->level[DK_CP] * cp_render(d);
 #endif
 #if DK808_HAS_CONGA
     for (unsigned i = DK_LC; i <= DK_HC; ++i)
-        if (DK808_HAS(i) && d->active[i]) out += conga_render(d, &d->conga[i - DK_LC], i);
+        if (DK808_HAS(i) && d->active[i]) out += d->level[i] * conga_render(d, &d->conga[i - DK_LC], i);
 #endif
 #if DK808_HAS_TOM
     for (unsigned i = DK_LT; i <= DK_HT; ++i)
-        if (DK808_HAS(i) && d->active[i]) out += tom_render(d, &d->tom[i - DK_LT], i);
+        if (DK808_HAS(i) && d->active[i]) out += d->level[i] * tom_render(d, &d->tom[i - DK_LT], i);
 #endif
 #if DK808_HAS_HAT
     for (unsigned i = DK_CH; i <= DK_OH; ++i)
-        if (DK808_HAS(i) && d->active[i]) out += hat_render(d, &d->hat[i - DK_CH], i);
+        if (DK808_HAS(i) && d->active[i]) out += d->level[i] * hat_render(d, &d->hat[i - DK_CH], i);
 #endif
 #if DK808_HAS(DK_CY)
-    if (d->active[DK_CY]) out += cy_render(d);
+    if (d->active[DK_CY]) out += d->level[DK_CY] * cy_render(d);
 #endif
 #if DK808_HAS(DK_CL)
-    if (d->active[DK_CL]) out += cl_render(d);
+    if (d->active[DK_CL]) out += d->level[DK_CL] * cl_render(d);
 #endif
 #if DK808_HAS(DK_MA)
-    if (d->active[DK_MA]) out += ma_render(d);
+    if (d->active[DK_MA]) out += d->level[DK_MA] * ma_render(d);
 #endif
 #if DK808_HAS(DK_CB)
-    if (d->active[DK_CB]) out += cb_render(d);
+    if (d->active[DK_CB]) out += d->level[DK_CB] * cb_render(d);
 #endif
     return out;
 }

@@ -160,6 +160,7 @@ enum { DK808_QUEUE = 32 };
 typedef struct {
     dk_real R, H, S40, R2, S40_2;   /* RateInfo bei R und bei 2·R */
     dk_real knob[DK_COUNT][DK808_KNOBS];
+    dk_real level[DK_COUNT];        /* Pegel je Instrument (Kit im Gerät), Standard 1 = wie der DrumKern */
     int hat_choke, conga_choke, tom_choke;
     uint8_t active[DK_COUNT];
     dk_gate_t gate[DK_COUNT];
@@ -215,6 +216,7 @@ extern const baustein_t dk808_baustein;
 void dk808_init(dk808_t *d, double sample_rate);
 void dk808_trigger(dk808_t *d, unsigned instrument, int velocity);   /* gilt ab dem nächsten render */
 void dk808_set_knob(dk808_t *d, unsigned instrument, unsigned knob, double value);
+void dk808_set_level(dk808_t *d, unsigned instrument, double level);   /* 0..1 (Standard 1) */
 void dk808_render(dk808_t *d, float *left, float *right, int n);    /* addiert, mono auf beide Seiten */
 dk_real dk808_tick(dk808_t *d);                                       /* ein Sample, löst wartende Trigger aus */
 int dk808_note_instrument(int note);   /* MIDI-Note -> Instrument (Drum-Map des DrumKern), -1 = keins */

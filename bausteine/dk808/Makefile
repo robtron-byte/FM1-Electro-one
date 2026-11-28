@@ -10,9 +10,11 @@ BUILD := ../build/dk808
 WAV ?= $(wildcard ref/wav)
 
 .PHONY: test float
-test: $(BUILD)/test $(BUILD)/test_fm1 float
+test: $(BUILD)/test $(BUILD)/test_fm1 $(BUILD)/test_bs $(BUILD)/test_bs_f float
 	$(BUILD)/test ref $(BUILD) $(WAV)
 	$(BUILD)/test_fm1 ref $(BUILD)/fm1 $(WAV)
+	$(BUILD)/test_bs
+	$(BUILD)/test_bs_f
 
 $(BUILD)/test: dk808.c dk808.h test/test.c ../baustein.h
 	@mkdir -p $(BUILD)
@@ -35,3 +37,12 @@ $(BUILD)/render_d: dk808.c dk808.h test/render_all.c ../baustein.h
 $(BUILD)/render_f: dk808.c dk808.h test/render_all.c ../baustein.h
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -DDK808_FLOAT=1 -o $@ test/render_all.c dk808.c -lm
+
+# Gerüst-Adapter (dk808_bs.h), double und float
+$(BUILD)/test_bs: dk808.c dk808.h dk808_bs.c dk808_bs.h test/bs.c ../baustein.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $@ test/bs.c dk808_bs.c dk808.c -lm
+
+$(BUILD)/test_bs_f: dk808.c dk808.h dk808_bs.c dk808_bs.h test/bs.c ../baustein.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DDK808_FLOAT=1 -o $@ test/bs.c dk808_bs.c dk808.c -lm
