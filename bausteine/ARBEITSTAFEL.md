@@ -15,6 +15,12 @@ Jeder Baustein hat in seinem `README.md` einen vollständigen Auftrag (Ziel, Que
 wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_vorlage/`; die Schnittstelle steht in
 `baustein.h`; `bausteine/Makefile` findet jeden Baustein-Ordner selbst.
 
+## Reihenfolge (Wunsch des Nutzers 28.11.)
+
+1. **sh101** (SH-101) zuerst.
+2. Dann die anderen Synths: **mksultra**, danach das Herauslösen von jx8p, mks50 und jp6.
+3. **dk808**: die Folgeaufgaben (float-Fassung, Adapter fürs Gerät) erst zum Schluss.
+
 ## Regeln für parallele Arbeit
 
 1. **Vor dem Anfangen eintragen:** `git pull --rebase origin main`, beim Baustein „In Arbeit“ auf deinen Chat setzen
