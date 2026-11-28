@@ -200,7 +200,8 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **Ziel:** spontan kurze Sequenzen aufnehmen, standardmäßig in jeder Firmware (Gerüst `varianten/gemeinsam/`, die
   fm1-synths-abgeleiteten Solo-Firmwares jx8p/mks50/jp6 und FM1-Electro; dort als Schalter nach ADR 0006 über den Bau-Chat).
 - **Verhalten (Logik des Retrokits RK-008, Handbuch; Code ist nicht öffentlich):**
-  1. REC macht scharf, PLAY/Note startet mit 1 Takt Einzähler; REC doppelt = ohne Einzähler.
+  1. REC einmal drücken: Aufnahme startet sofort, ohne Einzähler. REC doppelt drücken: mit 1 Takt Einzähler
+     (Entscheidung des Nutzers, umgekehrt zum RK-008).
   2. Ist das Pattern leer, legt die erste Aufnahme die Länge fest, **gerundet auf ganze Takte** (Entscheidung des Nutzers).
   3. Danach läuft die Schleife; weitere Durchgänge nehmen dazu auf (Overdub). REC übernimmt, STOP verwirft den letzten Durchgang.
   4. **Quantisierung immer fest auf 1/16** beim Aufnehmen (Entscheidung des Nutzers), Notenlänge wie gehalten.
