@@ -8,7 +8,7 @@ Wer daran arbeitet: [../ARBEITSTAFEL.md](../ARBEITSTAFEL.md). Wer übernimmt, li
 Ein monophoner Synth nach Roland SH-101, als Baustein. Der Klang soll dem Swift-Nachbau „MonoBass“ des Nutzers entsprechen.
 Das ist zugleich die Grundlage für die Firmware „808 + 101“ und für „101 solo“ (`../varianten/`).
 
-## Vorlage (Dropbox des Nutzers, `Programmieren/REA/SH101/app/`)
+## Vorlage (Dropbox des Nutzers, `Programmieren/Musik/REA/SH101/app/`)
 
 | Datei | Inhalt |
 |---|---|
@@ -16,7 +16,7 @@ Das ist zugleich die Grundlage für die Firmware „808 + 101“ und für „101
 | `Sources/MonoBassCore/Oscillator.swift`, `Voice.swift`, `Engine.swift`, `Halfband.swift`, `Params.swift`, `Preset.swift` | Code |
 | `docs/test-vectors/vectors.json`, `01-init.wav` … `07-poly-chord.wav` | Referenzen |
 
-Finden: Dropbox-Suche nach dem Dateinamen im Pfad `/Ron Zöllner/Privat/PP/Programmieren/REA/SH101`.
+Finden: Dropbox-Suche nach dem Dateinamen im Pfad `/Ron Zöllner/Privat/PP/Programmieren/Musik/REA/SH101`.
 
 ## Vorgehen
 

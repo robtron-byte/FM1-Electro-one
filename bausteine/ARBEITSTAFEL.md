@@ -47,20 +47,21 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** Feature-Chat (session_01WM34DFe7NZGLWrVtNzsA4L), 28.11.2026
-- **Vorlage:** Dropbox `Programmieren/808 Projekt/app/Sources/DrumKernDSP/` (`Voices.swift`, `DSPMath.swift`,
-  `Engine.swift`, `Mixer.swift`, `Model.swift`), Beschreibung `app/SOUND-ENGINE.md`, Referenzen `app/reference-renders/`
-  (Kopie von `manifest.json` und `SHA256SUMS.txt` in `dk808/ref/`)
-- **Stand:** Gerüst angelegt, Port in Arbeit.
-- **Nächster Schritt:** C-Port aller 17 Stimmen in `double`, Test gegen `ref/manifest.json` (erste 16 Samples, Spitze, RMS,
-  Summe je Schlag).
-- **Danach frei für andere:** float-Fassung und Lastmessung; Adapter für FM1-Electro (ersetzt `engine/tr808*` als Schalter,
-  ADR 0041); Effekte des DrumKern bleiben vorerst weg (Wunsch des Nutzers).
+- **In Arbeit:** frei (Port fertig, Feature-Chat session_01WM34DFe7NZGLWrVtNzsA4L, 28.11.2026)
+- **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
+- **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
+  und 127) mit den Referenz-Renders des Swift-Kerns. Abweichung ≤ 2e-24, also Sample für Sample gleich. Mit der Maske
+  `DK808_MASK_FM1_ELECTRO` ohne Laser, Congas, Toms, Claves und Maracas gebaut und geprüft.
+- **Frei für andere (je ein eigener Auftrag):**
+  1. float-Fassung als Schalter (`DK808_FLOAT`) und Abweichung gegen `double` messen.
+  2. Adapter für FM1-Electro (ADR 0041): die 808 von FM1-Electro (`engine/tr808*`) als Schalter ersetzen. Last im
+     Emulator und auf dem Gerät messen, mit dem Bau-Chat abstimmen.
+  3. Pattern-Vergleich mit `reference-renders/pattern-demo.wav` (braucht den Sequencer-Ablauf aus `Engine.swift`).
 
 ### sh101: SH-101 (MonoBass)
 
 - **In Arbeit:** frei
-- **Vorlage:** Dropbox `Programmieren/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
+- **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
   `Voice`, `Engine`, `Halfband`, `Params`, `Preset`), Testvektoren `docs/test-vectors/` (`vectors.json`, WAVs)
 - **Stand:** nicht begonnen.
 - **Nächster Schritt:** wie dk808: C-Port in voller Genauigkeit (4× überabgetastete Ladder, 8× Clipper, BLEP), Test gegen
@@ -69,7 +70,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
 - **In Arbeit:** frei
-- **Vorlage:** Dropbox `Programmieren/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/*.rs`,
+- **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/*.rs`,
   `spec/*.md`, `MECHANICS.md`, 520 Presets `presets/**/*.mks`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
 - **Stand:** nicht begonnen.
 - **Nächster Schritt:** C-Port in voller Genauigkeit (12 Stimmen, DCO 2× Fs, VCF 4× mit zwei nichtlinearen SVFs), Test gegen
@@ -91,5 +92,6 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 
 ## Weitere offene Punkte
 
-- **Dropbox-Ordner `Programmieren` aufräumen:** Vorschlag liegt beim Nutzer, nichts wird verschoben, bevor er zustimmt
-  (Feature-Chat, 28.11.).
+- **Dropbox-Ordner `Programmieren` aufgeräumt (28.11., Wahl des Nutzers):** `Musik/` (M-Vave FM1, 808 Projekt, MKS50 App,
+  REA, Rea-Repo), `Apps/` (Timing App, Nebel App, Seed3 Desktop), `Spiele/` (Mc Spiel), `Processing/`. Übersicht in
+  `Programmieren/LIES-MICH.md`. Die Pfade in diesem Repository sind nachgeführt. Dropbox-IDs (`id:…`) bleiben beim Verschieben gleich.

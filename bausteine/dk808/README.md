@@ -1,5 +1,8 @@
 # dk808: TR-808 (DrumKern) – Auftrag und Stand
 
+**Stand 28.11.2026: fertig.** Alle 17 Instrumente stimmen Sample für Sample mit den Referenz-Renders des Swift-Kerns
+(`make -C bausteine dk808`). Zum Anhören: `bausteine/build/dk808/hit-XX-v127.wav`.
+
 Wer daran arbeitet: [../ARBEITSTAFEL.md](../ARBEITSTAFEL.md). Wer übernimmt, liest nur diese Datei, `../README.md` und
 `../baustein.h`.
 
@@ -10,7 +13,7 @@ unsere jetzige). Instrumente: BD, Laser Gun, SD, RS, Clap, Low/Mid/Hi Conga, Low
 Maracas, Cowbell. Dazu gehören der gemeinsame Rauschgenerator und die Bank aus sechs Pulsoszillatoren für Hi-Hats und
 Becken. **Ohne** Effekte, Kanalzug, Busse und Master des DrumKern (Wunsch des Nutzers).
 
-## Vorlage (Dropbox des Nutzers, `Programmieren/808 Projekt/app/`)
+## Vorlage (Dropbox des Nutzers, `Programmieren/Musik/808 Projekt/app/`)
 
 | Datei | Dropbox-ID | Inhalt |
 |---|---|---|

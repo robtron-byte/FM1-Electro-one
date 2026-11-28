@@ -8,7 +8,7 @@ Wer daran arbeitet: [../ARBEITSTAFEL.md](../ARBEITSTAFEL.md). Wer übernimmt, li
 Der Alpha-Juno/MKS-50-Klang des Rust-Nachbaus „MKS Ultra“ (TAL-Pha-Nachbau) als Baustein. Er soll klingen wie die Vorlage.
 Vorgesehen sind die Firmware „Alpha Juno solo“ und später Kombinationen (`../varianten/`).
 
-## Vorlage (Dropbox des Nutzers, `Programmieren/MKS50 App/TAL Pha Nachbau/app/`)
+## Vorlage (Dropbox des Nutzers, `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/`)
 
 | Datei | Inhalt |
 |---|---|

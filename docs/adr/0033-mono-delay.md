@@ -5,7 +5,7 @@
 
 ## Kontext
 
-Nutzerwunsch (N15): ein neuer Live-Effekt, mit einem Drehregler steuerbar und überall nutzbar: ein Delay mit Filter-Cutoff wie in `mdtest.c` des Nutzers (Dropbox: `/Ron Zöllner/Privat/PP/Programmieren/M-Vave FM1/Notizen/mdtest.c`, Stand 08.11.2026) und wie im Korg Monotron Delay.
+Nutzerwunsch (N15): ein neuer Live-Effekt, mit einem Drehregler steuerbar und überall nutzbar: ein Delay mit Filter-Cutoff wie in `mdtest.c` des Nutzers (Dropbox: `/Ron Zöllner/Privat/PP/Programmieren/Musik/M-Vave FM1/Notizen/mdtest.c`, Stand 08.11.2026) und wie im Korg Monotron Delay.
 
 `mdtest.c` beschreibt: in → (+ Feedback) → Hochpass 100 Hz → Softclip (Padé-tanh) → Korg-35-Tiefpass (ZDF/TPT) → Delay (N Samples) → Feedback. Feedback 1,0, Nass 0,7, kein Rauschen. Ein Regler p 0..1: unteres Fünftel = Kill-Zone (Cutoff bleibt 100 Hz, Pegel und Feedback blenden mit Smoothstep auf 0), darüber Cutoff 100 Hz … 10 kHz exponentiell. Im Test N = 96 Samples bei 48 kHz (2 ms).
 
