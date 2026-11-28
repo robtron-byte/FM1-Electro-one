@@ -1,4 +1,4 @@
-# 0050: dk808 im Gerät: float-Fassung, Gerüst-Adapter, Last
+# 0050: dk808 im Gerät: float-Fassung, Gerüst-Adapter, Last, 808 solo
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
@@ -54,6 +54,38 @@ TUBE zuerst. Der Ersatz der 808 in FM1-Electro (`engine/`, ADR 0041) bleibt beim
    Kern 1 (Delay, Hall und Distortion-Send TUBE mit Send 40) braucht 7,5 %. Der ganze Block kostet höchstens 87 % (bei
    allen 17 zugleich), und es gab keinen verspäteten Block.
 
+6. **Firmware 808 solo** (`bausteine/varianten/dk808`, Paket `firmware/DK808-<Version>.fwsc`, B20):
+   - **Zwei Kerne statt Klang sparen:** zwei Zustände des Kerns mit Laufzeitmaske (`dk808_set_run`). Kern 0 rechnet
+     alles außer CH/OH/CY, Kern 1 CH/OH/CY mit der Metallbank neben Delay, Hall und Distortion. Zusammen klingen sie
+     wie einer (Test: Abweichung ≤ 2e-7 der Spitze). Choke wirkt je Zustand; Hats, Congas und Toms bleiben je
+     zusammen.
+   - **Gerüst-Haken** (abwärtskompatibel): `GM_FX_PRE` (Sends von Kern 1 in den nächsten Block), `GM_KEY` und
+     `GM_LIGHTS` (Tasten und LEDs für die Variante).
+   - **Gleichzeitige Anschläge:** Tasten und MIDI kommen vor dem Start von Kern 1 in beide Zustände. Die Steps des
+     Sequencers legt Kern 0 in einen Puffer je Block, beide Kerne schlagen sie im nächsten Block an (1,45 ms später).
+     So greift Kern 0 nie in den Zustand, den Kern 1 gerade rechnet.
+   - **Last** (Emulator, Messfassung `DK_LAST=1`):
+     - volles Pattern: Kern 0 Spitze 26 %, Kern 1 50 % (mit Delay, Hall, TUBE)
+     - alle 17 zugleich: 43 % / 51 %
+     - Ziel < 70 % je Kern erreicht; eine billigere Metallquelle ist nicht nötig
+   - **Für die Kombis vorbereitet:** `DK_K1_MASK=DK808_MASK_ALL` legt die ganze 808 auf Kern 1.
+   - **Sequencer wie BEAT:** 16 Steps je Instrument und eine Akzent-Zeile (127 statt 100), Länge 1–16. Gespeichert im
+     Set des Gerüsts (`GM_SET_EXTRA`, Journal), nicht im Kit: PRESETS wechselt den Klang, das Pattern bleibt.
+     Bedienung:
+     - Seite STEPS: weiße Tasten = Steps, schwarze = Instrument
+     - EDIT + weiß = Akzent, EDIT + schwarz = Zeile löschen
+     - auf den anderen Seiten spielen die Tasten die Instrumente
+     - Live-Aufnahme LOOP aus dem Gerüst mit 512 Ereignissen
+   - **Pegel:** `DK_GAIN` 1,6 (BD etwa −13 dBFS bei Velocity 100). Der Nutzer entscheidet nach Gehör.
+   - **Kennung:** FM-1_91, geteilt mit 808 + 101 (keine 9x mehr frei). Getrennt durch `STORE_MAGIC` „DK01“ und das
+     Journal „DKST“. Geprüft:
+     - `fm1pkg_make.py` schreibt nur den Namen.
+     - Der Lader und der Web-Installer (`fm1ota.js` `sameKeyboard`, `OWN_LOADER_RE`, Liste `FM-1_9xx`) vergleichen
+       nur das Modell FM-1.
+     - Die Liste des Installers geht nach dem Dateinamen; also erscheinen beide Pakete.
+     - Eine Firmware mit fremder `STORE_MAGIC` lädt den Speicher nicht (`area_load`) und beginnt mit ihren
+       Werkseinstellungen.
+
 ## Alternativen
 
 - **double im Gerät:** in Software viel zu langsam.
@@ -65,17 +97,16 @@ TUBE zuerst. Der Ersatz der 808 in FM1-Electro (`engine/`, ADR 0041) bleibt beim
 
 ## Folgen
 
-- 808 solo passt auf Kern 0, Delay, Hall und Distortion laufen auf Kern 1. Ein volles Pattern kostet in der Spitze
-  70 %.
+- Auf einem Kern kostete ein volles Pattern in der Spitze 70 %. Verteilt auf zwei Kerne sind es 26 % und 50 %.
 - Für die Kombis (808 + 101, 808 + 101 + JX) reicht Kern 0 nicht für 808 und Synth zusammen. Mögliche Wege:
   - die 808 auf Kern 1 neben die Effekte legen,
   - die Becken-/Hat-Pfade sparsamer machen (eigener Schalter, nach Gehör, ADR 0006),
   - die Instrumente abwählen (`DK808_INSTRUMENTS`).
 
   Das entscheidet der Kombi-Chat mit dem sh101-Chat.
-- Die Bedienung der Messvariante ist vorläufig: eine Seite je Instrument (Pegel und drei Regler), Kits „808 KIT“ und
-  „808 TUBE“. Die eigentliche Firmware 808 solo (B20) folgt als eigener Auftrag.
+- 808 solo hat noch keine Pattern-Plätze A–D, kein Swing und keine Fills wie BEAT; das wären eigene Aufträge.
 
 ## Verlauf
 
 - 2026-11-28: angelegt (float-Schalter, Adapter, Messvariante, Last im Emulator)
+- 2026-11-28: Firmware 808 solo 0.1.0 (zwei Kerne, Sequencer, Kennung FM-1_91 geteilt)

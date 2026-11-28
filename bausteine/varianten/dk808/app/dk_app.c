@@ -382,13 +382,13 @@ static DSPF void kern_render(unsigned p, float *l, float *r, unsigned n)
 static const uint8_t dk_black[11] = {DK_BD, DK_SD, DK_RS, DK_CP, DK_CB, DK_CY, DK_OH, DK_CH, DK_LT, DK_MT, DK_HT};
 static int key_black(uint32_t k) { uint32_t n = (53u + k) % 12u; return n == 1 || n == 3 || n == 6 || n == 8 || n == 10; }
 static unsigned key_index(uint32_t k) { unsigned n = 0; for (uint32_t j = 0; j < k; j++) n += key_black(j) == key_black(k); return n; }
-static int on_steps(void) { return pages[page].stage == ST_STEPS && !layer_shown(); }
+static int on_steps(void) { return pages[page].stage == ST_STEPS && (layer == 0 || layer == G_EDIT); }   /* (EDIT gehalten: Akzent) */
 static void x_put(unsigned i, unsigned v) { extrav[i] = (uint8_t)v; ev_put(EV_EXTRA, 0, i, v); }
 static int dk_key(uint32_t k, int down, uint32_t keys)
 {
     (void)keys;
     unsigned idx = key_index(k), edit = (fm1_in.buttons >> BTN_EDIT) & 1u;
-    if (!on_steps() || (layer && !edit)) {  /* spielen */
+    if (!on_steps()) {                      /* spielen */
         int inst = key_black(k) ? (idx < 11u ? dk_black[idx] : -1) : (idx < 16u ? (int)idx : -1);
         if (inst < 0) return 1;
         if (down) ev_put(EV_ON, 0, dk_note[inst], 100); else ev_put(EV_OFF, 0, dk_note[inst], 0);

@@ -55,5 +55,13 @@
     "stimmen_de": "4 Stimmen JX-8P + 1 Stimme SH-101",
     "stimmen_en": "4 JX-8P voices + 1 SH-101 voice",
     "reihe": 20
+  },
+  "DK808": {
+    "titel": "TR-808",
+    "de": "808-Drum-Machine mit allen 17 Instrumenten, 16 Steps je Instrument, Distortion als Send.",
+    "en": "808 drum machine with all 17 instruments, 16 steps per instrument, distortion as a send.",
+    "stimmen_de": "17 Instrumente",
+    "stimmen_en": "17 instruments",
+    "reihe": 95
   }
 }

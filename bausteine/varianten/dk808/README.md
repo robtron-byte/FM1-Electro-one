@@ -1,38 +1,42 @@
-# 808 solo (Messfassung)
+# 808 solo
 
-Der Baustein [`../../dk808`](../../dk808/) (DrumKern, 17 Instrumente) in float (`DK808_FLOAT=1`) über den
+Der Baustein [`../../dk808`](../../dk808/) (DrumKern, alle 17 Instrumente) in float (`DK808_FLOAT=1`) über den
 Gerüst-Adapter `dk808_bs` auf dem Gerüst [`../gemeinsam`](../gemeinsam/). Entscheidung:
-[ADR 0050](../../../docs/adr/0050-dk808-float-adapter.md), Feature B20. **Noch keine Firmware des Nutzers:** Diese
-Fassung ist zum Messen im Emulator da. Sie kommt nicht nach `firmware/`. Kennung vorerst FM-1_91 (geteilt mit
-808 + 101), `STORE_MAGIC` „DK01“, Journal „DKST“.
+[ADR 0050](../../../docs/adr/0050-dk808-float-adapter.md), Feature B20. Paket `firmware/DK808-<Version>.fwsc`,
+Kennung FM-1_91 (geteilt mit 808 + 101), `STORE_MAGIC` „DK01“, Journal „DKST“. Bedienung: [ANLEITUNG.md](ANLEITUNG.md).
 
-- **Ein Drum-Part.** Sein Sound ist ein Kit: Pegel und drei Regler je Instrument, Choke, DIST SEND, dazu Modus, Drive,
-  Tone und Level der Distortion. Werkskits: „808 KIT“ (Standard des DrumKern) und „808 TUBE“ (Send 40).
-- **Seiten:** eine je Instrument, mit KNOB 1–4 = Pegel und drei Regler.
-  - EDIT: BD, LG, SD, RS, CP
-  - ENV: Congas, Toms
-  - LFO: CH, OH, CY
-  - ARP: CL, MA, CB
-  - HOME: Pegel der wichtigsten Instrumente
-  - FX: SENDS, DIST, DELAY, REVERB, CHOKE
-- **Tasten:** die Drum-Map des DrumKern (MIDI 35..75). Andere Noten spielen nach dem Ton in der Oktave
-  (C BD, C# RS, D SD, D# CP, E LT, F MT, F# CH, G HT, G# OH, A CY, A# CB, H CL).
-- **Distortion als Send** wie beim SH-101 (`gemeinsam/fx/gm_dist.c`): Kern 0 schreibt den Send, Kern 1 rechnet ihn
-  neben Delay und Hall.
+## Stand (28.11.2026)
 
-## Bauen und messen
+| | |
+|---|---|
+| Klang | dk808 in float (schlechtestes Instrument −62 dB gegen double), alle 17 Instrumente, Pegel je Instrument, `DK_GAIN` 1,6 |
+| Kerne | zwei Zustände des Kerns (`dk808_set_run`): Kern 0 alles außer CH/OH/CY, Kern 1 CH/OH/CY neben Delay, Hall und Distortion (`DK_K1_MASK`; `DK808_MASK_ALL` = ganze 808 auf Kern 1, für die Kombis) |
+| Last (Emulator, `DK_LAST=1`) | volles Pattern: Kern 0 Spitze 26 %, Kern 1 50 % (mit Delay, Hall, TUBE); alle 17 zugleich 43 % / 51 % |
+| Sequencer | 16 Steps je Instrument + Akzent, Länge 1–16, im Set des Gerüsts (Journal); Seite STEPS; Live-Aufnahme LOOP (512 Ereignisse) |
+| Effekte | Distortion als Send (TUBE/OD/DIST/RAT), Delay ≤ 0,6 s, Hall |
+| Am Gerät | nicht geprüft |
+
+## Aufbau
+
+- `app/dk_app.c`: Kit (72 Werte des Adapters + 4 Distortion), Seiten, zwei Zustände `engA`/`engB` im Pool.
+  - Tasten und MIDI schlagen in beiden Zuständen an (vor dem Start von Kern 1; jeder spielt nur seine Maske).
+  - Die Steps des Sequencers rechnet Kern 0 und legt sie in `pend[]`; beide Kerne schlagen sie im nächsten Block an.
+  - Kern 1 rechnet in `GM_FX_EXTRA` die Distortion des Blocks davor und dann `engB`. Dessen Delay-/Hall-Sends
+    gehen über `GM_FX_PRE` in den nächsten Block.
+- Gerüst-Haken (abwärtskompatibel): `GM_FX_PRE`, `GM_KEY`, `GM_LIGHTS`.
+
+## Bauen
 
 ```sh
 JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 bausteine/varianten/dk808/tools/build.py
-# Messmuster (je 1 s: nichts, jedes Instrument einzeln, alle 17, volles Pattern; Distortion-Send an):
-DK_LAST=1 JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 bausteine/varianten/dk808/tools/build.py
+tools/fm1-emu/check.sh ~/fm1-emu $PWD/bausteine/varianten/dk808/build/dk808.fwsc $PWD/bausteine/varianten/dk808/build/dinghy.elf
 ```
 
-Mit `DK_LAST=1` stehen die Takte je Block für jede Phase in `dk_last_peak[]`, `dk_last_sum[]` und `dk_last_n[]` (20
-Phasen, 34829 Takte = ein Block). Im Emulator 22 s laufen lassen und die Felder auslesen (`fm1-emu --dump`). Die
-Ergebnisse stehen in ADR 0050.
+`DK_LAST=1` in der Umgebung baut die Messfassung (je 1 s: nichts, jedes Instrument einzeln, alle 17, volles Pattern;
+Distortion-Send an). Die Takte je Block stehen in `dk_last_peak[]`/`dk_last_sum[]` (Kern 0) und
+`dk_last_peak1[]`/`dk_last_sum1[]` (Kern 1: Delay, Hall, Distortion, engB), 34829 Takte = ein Block.
 
 ## Offen
 
-- Die Firmware 808 solo: Bedienung (Pads, Step-Sequencer für Drums), Kits, eigene Kits, Paket.
-- Kombis 808 + 101 und 808 + 101 + JX: für 808 und Synth zusammen reicht Kern 0 nicht (ADR 0050, Folgen).
+- Am Gerät: Last, Pegel (`DK_GAIN`), Bedienung.
+- Mehrere Pattern-Plätze (A–D), Swing, Fills wie BEAT: noch nicht.

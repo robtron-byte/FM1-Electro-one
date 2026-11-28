@@ -121,16 +121,15 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### dk808: TR-808 (DrumKern)
 
-- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Firmware 808 solo (B20, ADR 0050; Punkte 1–2 fertig)
-- **Stand Gerät (ADR 0050):**
-  - `DK808_FLOAT=1`: schlechtestes Instrument das Becken mit −62 dB gegen double (`make float`).
-  - Pegel je Instrument im Kern (bitgleich bei 1).
-  - Gerüst-Adapter `dk808/dk808_bs.c` (Kit aus 72 Werten, DIST SEND).
-  - Messvariante `varianten/dk808` (FM-1_91, kein Paket).
-  - Last Kern 0 im Emulator: Leerlauf 12 %, CY +20 %, CH/OH je +8 %, volles Pattern 70 % (Spitze), alle 17
-    zugleich 85 %. Delay, Hall und Distortion-Send TUBE laufen auf Kern 1.
-- **Nächster Schritt:** Firmware 808 solo (B20: Bedienung, Kits, Paket). Für die Kombis die 808 auf Kern 1 legen oder
-  Becken/Hats sparsamer machen (Schalter, nach Gehör); das entscheidet der Kombi-Chat.
+- **In Arbeit:** frei (jx8p-Chat: 808 solo 0.1.0 fertig, 28.11.2026, ADR 0050, B20)
+- **Stand 808 solo:** `firmware/DK808-0.1.0-alpha.fwsc` (FM-1_91 geteilt mit 808 + 101, STORE_MAGIC „DK01“).
+  - Alle 17 Instrumente in float auf zwei Kernen: Kern 0 alles außer CH/OH/CY, Kern 1 CH/OH/CY und die Effekte.
+  - Volles Pattern: Kern 0 Spitze 26 %, Kern 1 50 %.
+  - Sequencer mit 16 Steps je Instrument und Akzent, LOOP, Distortion-Send TUBE.
+  - Gerüst-Haken `GM_FX_PRE`, `GM_KEY`, `GM_LIGHTS`.
+- **Nächster Schritt:** Kombis 808 + 101 und 808 + 101 + JX. Dort die ganze 808 auf Kern 1 legen
+  (`DK_K1_MASK=DK808_MASK_ALL`, `dk808_set_run`) und den Synth auf Kern 0. Später für 808 solo: Plätze A–D,
+  Swing, Fills.
 - **Vorlage:** Dropbox `Programmieren/Musik/808 Projekt/app/Sources/DrumKernDSP/`, Referenzen `app/reference-renders/`
 - **Stand:** Alle 17 Instrumente in `double` portiert (`dk808/dk808.c`). Der Test vergleicht jeden Schlag (Velocity 64
   und 127) mit den Referenz-Renders des Swift-Kerns. Bei Velocity 127 Sample für Sample gegen die Referenz-WAVs geprüft (Abweichung ≤ 2e-24). Bei Velocity 64 lagen die
