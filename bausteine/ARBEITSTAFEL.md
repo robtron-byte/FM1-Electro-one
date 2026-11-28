@@ -57,7 +57,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | frei (reserviert) |
-| ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | frei (reserviert) |
+| ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
 | ADR | 0054–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
@@ -68,7 +68,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
 | FEATURES | P16 | Kombi JX-8P + SH-101 | frei (reserviert) |
-| FEATURES | S20 | Live-Aufnahme nach RK-008 | frei (reserviert) |
+| FEATURES | S20 | Live-Aufnahme nach RK-008 | vergeben (jx8p-Chat) |
 
 ## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
 
@@ -206,7 +206,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### Live-Aufnahme nach RK-008 in jeder Firmware (Wunsch des Nutzers 28.11.)
 
-- **In Arbeit:** frei (wird nach den Solo-Firmwares vergeben, vor den Kombis, damit die Kombis es gleich haben)
+- **In Arbeit:** jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Gerüst, JX-8P/MKS-50 0.2.7, JP-6 0.1.1
 - **Ziel:** spontan kurze Sequenzen aufnehmen, standardmäßig in jeder Firmware (Gerüst `varianten/gemeinsam/`, die
   fm1-synths-abgeleiteten Solo-Firmwares jx8p/mks50/jp6 und FM1-Electro; dort als Schalter nach ADR 0006 über den Bau-Chat).
 - **Verhalten (Logik des Retrokits RK-008, Handbuch; Code ist nicht öffentlich):**
