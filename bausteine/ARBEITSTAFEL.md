@@ -57,7 +57,8 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | frei (reserviert) |
-| ADR | 0053–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
+| ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | frei (reserviert) |
+| ADR | 0054–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
@@ -67,6 +68,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
 | FEATURES | P16 | Kombi JX-8P + SH-101 | frei (reserviert) |
+| FEATURES | S20 | Live-Aufnahme nach RK-008 | frei (reserviert) |
 
 ## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
 
@@ -191,6 +193,21 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   auf das Gerüst `varianten/gemeinsam/` (dessen Sequencer erweitern, abwärtskompatibel). Eigene Patterns des Nutzers aus den
   Apps (falls in den App-Daten auf dem iPhone, siehe `tools/iphone_presets_pull.sh`) wie die eigenen Presets mitnehmen.
 - **Nummern/Kennung:** ADR 0052, FEATURES P16, FM-1_99, Paket `firmware/JXSH-<Version>.fwsc`, Code in `bausteine/varianten/jxsh/`.
+
+### Live-Aufnahme nach RK-008 in jeder Firmware (Wunsch des Nutzers 28.11.)
+
+- **In Arbeit:** frei (wird nach den Solo-Firmwares vergeben, vor den Kombis, damit die Kombis es gleich haben)
+- **Ziel:** spontan kurze Sequenzen aufnehmen, standardmäßig in jeder Firmware (Gerüst `varianten/gemeinsam/`, die
+  fm1-synths-abgeleiteten Solo-Firmwares jx8p/mks50/jp6 und FM1-Electro; dort als Schalter nach ADR 0006 über den Bau-Chat).
+- **Verhalten (Logik des Retrokits RK-008, Handbuch; Code ist nicht öffentlich):**
+  1. REC macht scharf, PLAY/Note startet mit 1 Takt Einzähler; REC doppelt = ohne Einzähler.
+  2. Ist das Pattern leer, legt die erste Aufnahme die Länge fest, **gerundet auf ganze Takte** (Entscheidung des Nutzers).
+  3. Danach läuft die Schleife; weitere Durchgänge nehmen dazu auf (Overdub). REC übernimmt, STOP verwirft den letzten Durchgang.
+  4. **Quantisierung immer fest auf 1/16** beim Aufnehmen (Entscheidung des Nutzers), Notenlänge wie gehalten.
+  5. Länge nachträglich: verlängern (Inhalt wiederholen oder leer), kürzen (Anfang oder Ende behalten), in ganzen Takten.
+  6. Höchstlänge nach Speicher des FM-1 festlegen (Ziel 8–16 Takte), Display zeigt Takt und Länge groß.
+- Bestehende STRINGS-Live-Aufnahme in FM1-Electro (N6) geht in diesem Verhalten auf, kein zweiter Weg.
+- **Nummern:** ADR 0053, FEATURES S20 (Quelle: RK-008-Handbuch, Retrokits).
 
 ### Firmware-Varianten
 
