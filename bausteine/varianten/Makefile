@@ -1,0 +1,12 @@
+# Prüfungen der Firmware-Varianten auf dem PC (make -C bausteine test findet dieses Makefile):
+#   Live-Aufnahme nach RK-008 (gemeinsam/shared/seq/syn_live.h, docs/adr/0053)
+CC ?= cc
+CFLAGS ?= -O2 -std=c11 -Wall -Wextra -Werror -Wno-unused-function
+BUILD := ../build/varianten
+.PHONY: test
+test: $(BUILD)/test_live
+	$(BUILD)/test_live
+
+$(BUILD)/test_live: gemeinsam/shared/seq/test_live.c gemeinsam/shared/seq/syn_live.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -Igemeinsam/shared/seq -o $@ gemeinsam/shared/seq/test_live.c
