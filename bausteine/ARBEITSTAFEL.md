@@ -108,12 +108,20 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### sh101: SH-101 (MonoBass)
 
-- **In Arbeit:** sh101-Chat (Unterchat des Koordinators, Worktree heuristic-easley-bfab0d), seit 28.11.2026: Kern, dann Solo-Firmware + Gerüst `varianten/gemeinsam/`
-- **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/` (`Oscillator`,
-  `Voice`, `Engine`, `Halfband`, `Params`, `Preset`), Testvektoren `docs/test-vectors/` (`vectors.json`, WAVs)
-- **Stand:** Kern fertig (`bausteine/sh101/`): C-Port der Swift-Vorlage, alle 7 Testvektoren bitgleich mit den
-  Referenz-WAVs; Poly und Arp/Seq abschaltbar (`SH101_WITH_*`). Solo-Firmware und Gerüst `varianten/gemeinsam/` in Arbeit.
-- **Nächster Schritt:** Solo-Firmware `varianten/sh101/` aus fm1-synths ableiten (ADR 0042, 0044).
+- **In Arbeit:** frei (sh101-Chat fertig, 28.11.2026)
+- **Vorlage:** Dropbox `Programmieren/Musik/REA/SH101/app/` — `docs/SOUND-ENGINE.md`, `Sources/MonoBassCore/`, Testvektoren `docs/test-vectors/`
+- **Stand Baustein** (`bausteine/sh101/`, Y10): C-Port, alle 7 Testvektoren bitgleich mit den Referenz-WAVs. Schalter
+  `SH101_WITH_POLY`, `SH101_WITH_ARPSEQ`, dazu die Gerätefassung `SH101_FLOAT` + `SH101_FASTMATH` (RMS ≤ 6e-5 neben der
+  Vorlage, eigener Testlauf).
+- **Stand Solo-Firmware** (`varianten/sh101/`, Y12, ADR 0042): `firmware/SH101-0.1.0-alpha.fwsc`, Kennung FM-1_94, eine
+  Stimme, 46 Parameter, 14 Werkssounds, Arp, SH-101-Sequencer, Delay/Hall auf Kern 1. `check.sh` ok. Last im Emulator:
+  eine Note 44 %, mit Drive 58,5 % Spitze (Kern 0), Effekte 6,6 % (Kern 1). Am Gerät nicht gemessen.
+- **Stand Gerüst** (`varianten/gemeinsam/`, P14, ADR 0044): Plattform, shared und App-Rahmen aus fm1-synths (2a7b4fa),
+  Variante = Tabellen + `kern_*`-Haken, `tools/build.py` (Mac: Docker über `mac_docker.py`). Anleitung und Kennungen in
+  `varianten/gemeinsam/README.md`.
+- **Offen:** Gerätetest (Last mit Drive, Pegel `SH_GAIN`, Bedienung); Poly 2 Stimmen über Kern 1 (Block-Schnittstelle im
+  Baustein); Bilder VCO/VCF; `GM_PARTS` > 1 für Kombis ist vorgesehen, aber ungebaut; nur noch Kennungen FM-1_90–93 frei;
+  `release.yml` legt für `firmware/SH101-*` keinen Release an (Bau-Chat).
 
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
@@ -163,10 +171,10 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   muss bitgleich bleiben (`make test` im Hauptordner). Erster Schritt ohne Risiko: ein Baustein-Ordner, der die Dateien aus
   `engine/` nur einbindet (keine Kopie) und einen Host-Test über `baustein.h` hat.
 
-### Firmware-Varianten (später)
+### Firmware-Varianten
 
 - **In Arbeit:** frei
-- Je Variante eine Datei in `varianten/`; Bauen über Schalter. Braucht zuerst die Adapter (ADR 0041–0043).
+- Gerüst `varianten/gemeinsam/` steht (ADR 0044); erste Variante `varianten/sh101/`. Neue Variante: App-Datei mit Tabellen und `kern_*`-Haken plus `tools/build.py` (siehe `varianten/gemeinsam/README.md`).
 
 ## Weitere offene Punkte
 

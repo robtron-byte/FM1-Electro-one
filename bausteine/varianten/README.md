@@ -1,7 +1,7 @@
 # Firmware-Varianten
 
-Eine Variante = welche Bausteine in einer Firmware stecken, auf welchen Bereichen, mit welchen Schaltern. Noch keine ist
-baubar; dafür fehlen die Adapter (Arbeitstafel, ADR 0041–0043).
+Eine Variante = welche Bausteine in einer Firmware stecken, auf welchen Bereichen, mit welchen Schaltern. Alle bauen auf
+dem Gerüst [`gemeinsam/`](gemeinsam/) auf (ADR 0044); eine Variante ist ein Ordner mit App-Datei und `tools/build.py`.
 
 | Variante | Bausteine | Gedacht für | Stand |
 |---|---|---|---|
@@ -10,7 +10,7 @@ baubar; dafür fehlen die Adapter (Arbeitstafel, ADR 0041–0043).
 | 808 + 101 + JX | dk808, sh101, JX-8P | Drums, Bass, Flächen | geplant |
 | Alpha Juno solo | mksultra (mehr Stimmen) | voller Synth-Klang | geplant |
 | 808 solo | dk808 mit allen 17 Instrumenten | volle Drum-Machine | geplant |
-| 101 solo | sh101 | voller Bass/Lead | geplant |
+| 101 solo | sh101 | voller Bass/Lead | gebaut: [`sh101/`](sh101/), `firmware/SH101-0.1.0-alpha.fwsc` (Emulator ok, Gerät ungeprüft) |
 | JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | geplant |
 | MKS-50 solo | mks50 (alle Stimmen) | voller MKS-50 | geplant |
 | JP-6 solo | jp6 (alle Stimmen) | voller JP-6 | geplant |

@@ -46,7 +46,9 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0038](0038-stand-beim-update.md) | Stand bleibt beim Firmware-Update: vor dem Update automatisch speichern (Hook APP_BEFORE_UPDATE), Speicher außerhalb der Update-Bereiche | vorgeschlagen | 2026-11-20 |
 | [0039](0039-jx8p-statt-mks50.md) | JX-8P (aus fm1-synths) statt MKS-50, Schalter `EL_SYNTH_JX` (Standard 1 ab 0.5.6-alpha), `make jx-ab` / `make test-jx` | angenommen | 2026-11-21 |
 | [0040](0040-bausteine.md) | Bausteine: Klangerzeuger als austauschbare Teile in `bausteine/`, volle Genauigkeit zuerst, Arbeitstafel für parallele Chats | angenommen | 2026-11-28 |
+| [0042](0042-sh101-im-geraet.md) | SH-101 im FM-1: Gerätefassung (`SH101_FLOAT`, `SH101_FASTMATH`), eine Stimme 39 % statt 143 % im Emulator, Arp/Seq aus dem Gerüst | vorgeschlagen | 2026-11-28 |
 | [0043](0043-mksultra-baustein.md) | mksultra: Alpha Juno des TAL-Pha-Nachbaus als bitgenauer C-Baustein (7/7 Golden), Sparen zuerst an den Stimmen (`MKSULTRA_VOICES`), Filter unverändert | vorgeschlagen | 2026-11-28 |
+| [0044](0044-solo-firmware-geruest.md) | Gemeinsames Gerüst der Solo-/Kombi-Firmwares aus fm1-synths (`bausteine/varianten/gemeinsam`), Kennung FM-1_94 für SH-101 solo | vorgeschlagen | 2026-11-28 |
 | [0046](0046-jx8p-baustein.md) | jx8p: JX-8P aus `engine/` als Baustein eingebunden (keine Kopie), Adapter auf `baustein.h`, bitgleich (74 Presets), später solo | vorgeschlagen | 2026-11-28 |
 | [0047](0047-mks50-baustein.md) | mks50: MKS-50 aus `engine/mks.c` als Baustein eingebunden (keine Kopie), Adapter wie jx8p, bitgleich (79 Presets, 23 eigene), später solo | vorgeschlagen | 2026-11-28 |
 | [0048](0048-jp6-baustein.md) | jp6: Jupiter-6 aus `engine/jp6.c` (mit `dist.c`) als Baustein eingebunden (keine Kopie), Adapter wie jx8p, bitgleich (79 Presets, 5 eigene), später solo | vorgeschlagen | 2026-11-28 |

@@ -344,12 +344,17 @@ static void stage_seq(void)
     char b[24], *p;
     p = put(b, rec_on ? "REC STEP " : "STEPS "); fmt_int(p, (int32_t)(rec_on ? rec_cur + 1u : n));
     Q(4, 32, 2, b, rec_on ? T_WARN : T_DIM);
+    int32_t lo = 127, hi = 0;                   /* Höhe der Balken: die Tonhöhe innerhalb des Umfangs der Folge */
+    for (unsigned i = 0; i < n && i < SEQ_STEPS; i++) if (!(sq.flag[sel][i] & SQ_REST)) {
+        if (sq.note[sel][i] < lo) lo = sq.note[sel][i];
+        if (sq.note[sel][i] > hi) hi = sq.note[sel][i];
+    }
     for (unsigned i = 0; i < n && i < SEQ_STEPS; i++) {
         int32_t x = 4 + (int32_t)(i % 16u) * 15, y = 50 + (int32_t)(i / 16u) * 24;
         uint8_t f = sq.flag[sel][i];
         uint16_t c = (sq.cfg[sel][SQ_ON] && i == at) ? T_SEL : (f & SQ_REST) ? T_LINE : T_VIOLET;
         if (f & SQ_REST) R(x, y + 16, 12, 2, c);
-        else { int32_t h = 4 + (sq.note[sel][i] % 24); R(x, y + 20 - h, 12, h, c); if (f & SQ_TIE) R(x + 12, y + 14, 3, 2, c); }
+        else { int32_t h = 4 + (hi > lo ? (sq.note[sel][i] - lo) * 16 / (hi - lo) : 8); R(x, y + 20 - h, 12, h, c); if (f & SQ_TIE) R(x + 12, y + 14, 3, 2, c); }
     }
 }
 static void stage_tempo(void)
