@@ -1,0 +1,6 @@
+c71668cf5f26cfb2 0.025981 0.220906 Ron/041 Lead 6 short ron.mks
+7c69544bcb3d9c19 0.099069 1.204529 Ron/Bass Hit 01.mks
+065d6e5ae4cf266d 0.008247 0.413111 Ron/Micro Ticks.mks
+df2c7bb1f0865ffa 0.049945 0.225594 Ron/R2 Random.mks
+f2a7cfd4dcac8251 0.034142 0.464356 Ron/Short Hit.mks
+d2e4ab8e9d754b2f 0.140176 0.792977 Ron/Stringer.mks

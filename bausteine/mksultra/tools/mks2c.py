@@ -197,7 +197,7 @@ def main():
         for n in names:
             if n.endswith('.mks'):
                 files.append(os.path.relpath(os.path.join(root, n), src))
-    files.sort()
+    files.sort(key=lambda r: (not r.replace(os.sep, "/").startswith("Ron/"), r))  # Presets des Nutzers (Ron/) zuerst, ADR 0051
     lines = ['/* SPDX-License-Identifier: GPL-3.0-only',
              ' * Erzeugt von tools/mks2c.py aus den %d Presets der Vorlage (presets/, alle .mks). Nicht von Hand ändern. */' % len(files),
              '#include "mksultra.h"', '#include <math.h>', '']
