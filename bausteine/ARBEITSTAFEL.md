@@ -129,7 +129,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
-- **In Arbeit:** frei (Baustein fertig, mksultra-Chat, 28.11.2026)
+- **In Arbeit:** Solo-Firmware (ADR 0045, Y13, FM-1_93): sh101-Chat (Worktree heuristic-easley-bfab0d), seit 28.11.2026. Baustein selbst fertig.
 - **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/` (Rust),
   `spec/`, `MECHANICS.md`, 520 Presets in `presets/`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
 - **Stand:** C-Kern fertig, alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). 520 Presets als C-Tabelle,
