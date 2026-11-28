@@ -257,7 +257,12 @@ async function json(url) { const r = await fetch(url, { cache: "no-cache" }); if
 // live: firmware/ und beschreibungen.json aus main; je Name nur die neueste Version; Kennung aus den ersten 1 KB
 async function liveList() {
   const files = await json(`https://api.github.com/repos/${REPO}/contents/firmware?ref=main`);
-  try { meta = await json(RAW + "web/installer/beschreibungen.json"); } catch (_) { meta = await json("beschreibungen.json"); }
+  // Beschreibungen live aus main, Felder der mitgelieferten Datei als Rückfall (raw.githubusercontent.com cacht 5 Minuten)
+  let local = {}, live = {};
+  try { local = await json("beschreibungen.json"); } catch (_) { /* ohne */ }
+  try { live = await json(RAW + "web/installer/beschreibungen.json"); } catch (_) { /* ohne */ }
+  meta = {};
+  for (const k of new Set([...Object.keys(local), ...Object.keys(live)])) meta[k] = k.startsWith("_") ? live[k] || local[k] : { ...local[k], ...live[k] };
   let dates = {};
   try { dates = await json("daten.json"); } catch (_) { /* ohne */ }
   const best = {};
