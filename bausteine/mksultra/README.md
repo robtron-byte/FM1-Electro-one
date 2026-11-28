@@ -49,6 +49,19 @@ Koeffizienten abweichen; dann gilt die Toleranzprüfung aus §8 der Anleitung.
 | `MKSULTRA_VOICES` | 12 | Stimmenzahl. **Sparfassung fürs FM-1: weniger Stimmen, das Filter bleibt unverändert** (Wunsch des Nutzers). Die Zufallswerte der weggelassenen Stimmen werden trotzdem gezogen. So klingen die übrigen Stimmen bitgleich. |
 | `MKSULTRA_MAX_SR` | 48000 | Größte Abtastrate. Sie bestimmt die Puffer im Zustand (Delay 2 × 4 s, Reverb, Chorus): bei 48 kHz rund 2 MB, fast alles Delay. |
 
+| `MKSULTRA_FM1` | 0 | Rechenwege fürs FM-1, gleich klingend, nicht bitgleich: LFO-Phase in Festkomma statt double |
+| `MKSULTRA_DELAY_TENTHS` | 40 | Delay-Puffer in Zehntelsekunden; die Zeiten rechnen weiter mit 4 s, Längeres endet am Puffer |
+| `MKSULTRA_PREDELAY_TENTHS` | 10 | Vorverzögerung des Halls, ebenso |
+| `MKSULTRA_FX_INT16` | 0 | Delay- und Hall-Leitungen als 16 Bit (Delay ±1, Hall ±8 voll) |
+
+Bitgleich schneller (ohne Schalter, alle Golden- und Ron-Prüfsummen unverändert, 28.11.2026, sh101-Chat für ADR 0045):
+`fabsf/fminf/fmaxf/floorf` inline, `f2l` ohne 64-Bit-Wandlung, Hall-Indizes in 32 Bit, Hüllkurve zählt zwischen ihren
+Rechenschritten (Steuerrate sr/243) mit einer ganzen Zahl statt double. Gerät (fm1-emu, Preset Stringer): Master-Kette
+ohne Note 295 % → 63 % eines Blocks (mit `MKSULTRA_FM1`), je Stimme 75 % → 39 %.
+
+`make test` prüft zusätzlich die Gerätefassung (`test_fm1`: 6 Stimmen, `MKSULTRA_FM1`, 16 Bit, Delay 0,4 s, Vorverzögerung
+0,2 s): Ron-Presets vorn und im Pegel wie der Rust-Kern (RMS 1 %, Spitze 5 %), dazu die Abweichung je Fall.
+
 Der Zustand kommt vom Aufrufer (`mksultra_baustein.state_size`). Er enthält Zeiger auf seine eigenen Puffer und darf nach
 `init` nicht verschoben werden.
 

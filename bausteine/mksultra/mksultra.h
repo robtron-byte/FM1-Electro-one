@@ -21,6 +21,24 @@
 #define MKSULTRA_MAX_SR 48000
 #endif
 
+/* MKSULTRA_FM1 1: Rechenwege fürs FM-1, die nicht bitgleich, aber gleich klingend sind (LFO-Phase in Festkomma statt
+ * double). Standard 0 = wie die Vorlage. */
+#ifndef MKSULTRA_FM1
+#define MKSULTRA_FM1 0
+#endif
+
+/* Speicher der Effekte (fürs FM-1; Standard wie die Vorlage), Einzelheiten in mksultra_fx.h:
+ *   MKSULTRA_DELAY_TENTHS 40, MKSULTRA_PREDELAY_TENTHS 10, MKSULTRA_FX_INT16 0 */
+#ifndef MKSULTRA_DELAY_TENTHS
+#define MKSULTRA_DELAY_TENTHS 40
+#endif
+#ifndef MKSULTRA_PREDELAY_TENTHS
+#define MKSULTRA_PREDELAY_TENTHS 10
+#endif
+#ifndef MKSULTRA_FX_INT16
+#define MKSULTRA_FX_INT16 0
+#endif
+
 #define MKSULTRA_PARAMS 85
 
 extern const baustein_t mksultra_baustein;

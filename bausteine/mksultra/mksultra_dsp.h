@@ -10,6 +10,22 @@
 #include <stdint.h>
 #include <string.h>
 
+/* fabsf, fminf, fmaxf, floorf als Inline mit denselben Ergebnissen (auch NaN, ±0): ein Gerätebuild mit -fno-builtin
+ * riefe sonst je Sample viele Male die Bibliothek im Flash (FM-1, ADR 0045). */
+static inline float mk_fabsf(float x) { return __builtin_fabsf(x); }
+static inline float mk_fminf(float a, float b) { return a != a ? b : b != b ? a : (b < a ? b : (a < b ? a : (__builtin_signbitf(a) ? a : b))); }
+static inline float mk_fmaxf(float a, float b) { return a != a ? b : b != b ? a : (b > a ? b : (a > b ? a : (__builtin_signbitf(a) ? b : a))); }
+static inline float mk_floorf(float x)
+{
+    if (!(__builtin_fabsf(x) < 8388608.0f) || x == 0.0f) return x;   /* schon ganz, NaN, ±0 */
+    float t = (float)(int32_t)x;
+    return t > x ? t - 1.0f : t;
+}
+#define fabsf mk_fabsf
+#define fminf mk_fminf
+#define fmaxf mk_fmaxf
+#define floorf mk_floorf
+
 #define PI_F 3.14159265358979323846f
 
 /* ---------- Hilfen für Rust-Semantik ---------- */
@@ -24,13 +40,16 @@ static inline int32_t f2i(float x)
 static inline int32_t d2i(double x)
 {
     if (x != x) return 0;
-    if (x >= 2147483647.0) return INT32_MAX;
+    /* = x >= 2147483647.0 (nächstkleinere double); die Konstante selbst hielte die Gerätebuild-Prüfung für eine
+     * ROM-Adresse (unteres Wort 0xFFC00000) */
+    if (x > 0x1.fffffffbfffffp+30) return INT32_MAX;
     if (x <= -2147483648.0) return INT32_MIN;
     return (int32_t)x;
 }
 static inline int64_t f2l(float x)
 {
     if (x != x) return 0;
+    if (__builtin_fabsf(x) < 2147483648.0f) return (int64_t)(int32_t)x;   /* (gleich, ohne 64-Bit-Wandlung) */
     if (x >= 9.2233720368547758e18f) return INT64_MAX;
     if (x <= -9.2233720368547758e18f) return INT64_MIN;
     return (int64_t)x;
@@ -41,8 +60,8 @@ static inline uint32_t f2u(float x)
     if (x >= 4294967295.0f) return UINT32_MAX;
     return (uint32_t)x;
 }
-static inline float bits2f(uint32_t u) { float f; memcpy(&f, &u, 4); return f; }
-static inline uint32_t f2bits(float f) { uint32_t u; memcpy(&u, &f, 4); return u; }
+static inline float bits2f(uint32_t u) { float f; __builtin_memcpy(&f, &u, 4); return f; }
+static inline uint32_t f2bits(float f) { uint32_t u; __builtin_memcpy(&u, &f, 4); return u; }
 static inline float fmaxr(float a, float b) { return fmaxf(a, b); } /* Rust f32::max */
 static inline float fminr(float a, float b) { return fminf(a, b); }
 static inline int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -552,40 +571,62 @@ static double calc_coef(float v)
 #define ENV_R 26460.002f
 #define ENV_EPS 1e-05
 
+/* Die Hüllkurve rechnet nur alle n = sr/243 Samples (Steuerrate). Dazwischen zählt die Vorlage einen double-Zähler
+ * herunter; hier zählt eine ganze Zahl dieselben Samples (left), der Zähler wird beim nächsten Rechenschritt exakt
+ * nachgeführt (C − k ist in double exakt, wie k-mal −1). Ebenso env_finished über eine ganze Grenze. Bitgleich mit
+ * der Vorlage, aber ohne double-Rechnung je Sample (FM-1: double ist dort Software). */
 typedef struct {
     int32_t stage;
     double x, m, n, counter;
     int32_t idle;
     smoother_t out;
+    int32_t left, taken, idle_lim;              /* Samples bis zum nächsten Rechenschritt, davon schon gezählt */
+    float xf;                                   /* (float)x */
 } env_t;
+static void env_limits(env_t *e)
+{
+    double n2 = e->n + e->n;                    /* (double)idle > n2  ⇔  idle > floor(n2) */
+    e->idle_lim = n2 > 0x1.fffffffbfffffp+30 ? INT32_MAX : (int32_t)floor(n2);
+}
 static void env_set_sr(env_t *e, float sr)
 {
     e->m = (double)(44100.0f / sr);
     e->n = (double)sr / 243.0;
+    env_limits(e);
     sm_set_sr(&e->out, sr);
 }
 static void env_new(env_t *e)
 {
     e->stage = 5; e->x = 0.0; e->m = 0.0; e->n = 1.0; e->counter = 0.0; e->idle = 10000000;
+    e->left = 0; e->taken = 0; e->xf = 0.0f;
     sm_new(&e->out, 22.0f);
     env_set_sr(e, 44100.0f);
 }
-static inline int env_finished(const env_t *e) { return e->stage == 5 && (double)e->idle > e->n + e->n; }
-static void env_reset(env_t *e) { e->counter = 0.0; e->stage = 0; e->out.y = 0.0f; }
-static inline float env_tick(env_t *e, double t1, double l1, double t2, double l2, double t3, double l3, double t4, int gate, double kf)
+static inline int env_finished(const env_t *e) { return e->stage == 5 && e->idle > e->idle_lim; }
+static void env_reset(env_t *e) { e->counter = 0.0; e->left = 0; e->taken = 0; e->stage = 0; e->out.y = 0.0f; }
+/* Torlogik und Zählen für ein Sample; 1 = jetzt rechnen (env_tick), 0 = Wert halten (env_hold) */
+static inline int env_due(env_t *e, int gate)
 {
     int32_t st = e->stage;
     if (!gate) {
         if (st == 5) e->idle = (int32_t)((uint32_t)e->idle + 1u);
-        else { e->stage = 4; st = 4; }
+        else e->stage = 4;
     } else if (st == 5) {
         e->idle = (int32_t)((uint32_t)e->idle + 1u);
     }
+    if (e->left > 0) { e->left--; e->taken++; return 0; }
+    return 1;
+}
+static inline float env_hold(env_t *e) { return sm_tick(&e->out, e->xf); }
+static float env_tick(env_t *e, double t1, double l1, double t2, double l2, double t3, double l3, double t4, double kf)
+{
+    int32_t st = e->stage;
+    if (e->taken) { e->counter = e->counter - (double)e->taken; e->taken = 0; }
     double cnt = e->counter + (-1.0);
     e->counter = cnt;
     float out_in;
     if (cnt > 0.0) {
-        out_in = (float)e->x;
+        out_in = (float)e->x;                   /* (nur nach env_reset mit positivem Zähler; sonst zählt env_due) */
     } else {
         if (cnt < 0.0) e->counter = cnt + e->n;
         double c48 = e->m, c50 = e->n;
@@ -623,6 +664,13 @@ static inline float env_tick(env_t *e, double t1, double l1, double t2, double l
         default: break;
         }
         out_in = (float)e->x;
+    }
+    e->xf = (float)e->x;
+    {   /* wie viele der nächsten Samples zählen nur (C − k > 0 für k = 1 … left) */
+        double c = e->counter;
+        int32_t k = c > 0.0 ? (c > 0x1.fffffffbfffffp+30 ? INT32_MAX : (int32_t)c) : 0;   /* floor(c) für c > 0 */
+        if (k > 0 && (double)k == c) k--;       /* c ganz: C − C = 0 ist nicht > 0 */
+        e->left = k;
     }
     return sm_tick(&e->out, out_in);
 }

@@ -383,12 +383,15 @@ static int voice_process(voice_t *v, const prm_t *p, float lfo_value, const vtd_
     if (env_finished(&v->env_m)) return 0;
     int alive = (p->vca_env_mode == 1 || p->vca_env_mode == 3) ? !env_finished(&v->env_g) : 1;
     int gate = v->gate || v->hold;
-    double kf = (double)v->ekf;
-    float env_f = env_tick(&v->env_f, (double)vt->attack * p->env_t1f, p->env_l1, p->env_t2, p->env_l2,
-                           (double)vt->decay * p->env_t3, p->env_l3, (double)vt->release * p->env_t4f, gate, kf);
-    float env_m = env_tick(&v->env_m, p->env_t1 * (double)vt->attack, p->env_l1, p->env_t2, p->env_l2,
-                           p->env_t3 * (double)vt->decay, p->env_l3, p->env_t4 * (double)vt->release, gate, kf);
-    float env_g = env_tick(&v->env_g, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 4.0, gate, 1.0);
+    float env_f = env_due(&v->env_f, gate)
+        ? env_tick(&v->env_f, (double)vt->attack * p->env_t1f, p->env_l1, p->env_t2, p->env_l2,
+                   (double)vt->decay * p->env_t3, p->env_l3, (double)vt->release * p->env_t4f, (double)v->ekf)
+        : env_hold(&v->env_f);
+    float env_m = env_due(&v->env_m, gate)
+        ? env_tick(&v->env_m, p->env_t1 * (double)vt->attack, p->env_l1, p->env_t2, p->env_l2,
+                   p->env_t3 * (double)vt->decay, p->env_l3, p->env_t4 * (double)vt->release, (double)v->ekf)
+        : env_hold(&v->env_m);
+    float env_g = env_due(&v->env_g, gate) ? env_tick(&v->env_g, 4.0, 1.0, 1.0, 1.0, 1.0, 1.0, 4.0, 1.0) : env_hold(&v->env_g);
 
     /* Tonhöhe */
     float target = v->key;
@@ -621,8 +624,8 @@ typedef struct {
     float bpm;
     int32_t quiet; /* Samples seit dem letzten hörbaren Ausgang (nur für active, nicht Teil der Vorlage) */
     float chorus_mem[2][CHORUS_CAP];
-    float delay_mem[2][DELAY_CAP];
-    float reverb_mem[REVERB_CAP];
+    fxs_t delay_mem[2][DELAY_CAP];
+    fxs_t reverb_mem[REVERB_CAP];
 } synth_t;
 
 static void synth_set_sr(synth_t *s, float sr);

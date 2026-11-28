@@ -285,6 +285,38 @@ static int ron_check(const char *ref, const char *out)
     return fails;
 }
 
+/* Gerätefassung (MKSULTRA_FM1, 16-Bit-Effektleitungen, kürzere Puffer, 6 Stimmen): nicht bitgleich. Die Ron-Presets
+ * müssen vorn stehen und im Pegel wie der Rust-Kern klingen: RMS auf 1 %, Spitze auf 5 % (ref/ron.txt). */
+static int ron_check_fm1(const char *ref, const char *out)
+{
+    int fails = 0, n = 0, front = 1;
+    printf("mksultra Gerätefassung (%d Stimmen, FM1 %d, 16 Bit %d): Ron-Presets gegen den Rust-Kern (Pegel)\n",
+           MKSULTRA_VOICES, MKSULTRA_FM1, MKSULTRA_FX_INT16);
+    for (int i = 0; i < mksultra_preset_count; i++) {
+        if (!is_ron(i)) continue;
+        if (i != n) front = 0;
+        n++;
+        float *d = render_ron(i);
+        size_t m = 2 * RON_LEN;
+        uint64_t want = 0;
+        double sq = 0.0, pk = 0.0, wr = 0.0, wp = 0.0;
+        for (size_t k = 0; k < m; k++) { sq += (double)d[k] * (double)d[k]; if (fabs((double)d[k]) > pk) pk = fabs((double)d[k]); }
+        double rms = sqrt(sq / (double)m);
+        int have = ron_ref(ref, mksultra_presets[i].path, &want, &wr, &wp);
+        int ok = have && fabs(rms - wr) <= 0.01 * wr + 1e-5 && fabs(pk - wp) <= 0.05 * wp + 1e-4;
+        printf("  Ron %-24s RMS %.6f (Soll %.6f, %+.2f %%) Spitze %.6f (Soll %.6f) %s\n", mksultra_presets[i].name, rms, wr,
+               wr > 0 ? 100.0 * (rms - wr) / wr : 0.0, pk, wp, ok ? "ok" : "FEHLER");
+        if (!ok) fails++;
+        char path[1024];
+        ron_wavname(path, sizeof path, out, i, "");
+        write_wav(path, 48000, d, m);
+        free(d);
+    }
+    if (n == 0 || !front) { printf("  Ron: fehlen oder stehen nicht vorn\n"); fails++; }
+    printf("mksultra Gerätefassung: %s\n", fails ? "FEHLER" : "bestanden");
+    return fails ? 1 : 0;
+}
+
 static void ron_versus(const char *out, const char *fulldir)
 {
     for (int i = 0; i < mksultra_preset_count; i++) {
@@ -481,6 +513,7 @@ int main(int argc, char **argv)
     if (argc >= 2 && strcmp(argv[1], "--sweep") == 0) return sweep();
     if (argc >= 2 && strcmp(argv[1], "--bench") == 0) return bench();
     if (argc >= 5 && strcmp(argv[1], "--vs") == 0) return versus(argv[3], argv[4]);
+    if (argc >= 4 && strcmp(argv[1], "--fm1") == 0) return ron_check_fm1(argv[2], argv[3]);
     if (argc < 3) { fprintf(stderr, "Aufruf: test <ref> <out> [<wav>]\n"); return 2; }
     return golden(argv[1], argv[2], argc > 3 && argv[3][0] ? argv[3] : NULL);
 }

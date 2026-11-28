@@ -331,7 +331,11 @@ typedef struct {
     float delay_v, dly;
     int sync;
     float bpm;
-    double phase, y_out, inc;
+    double phase, inc;
+    float y_out;                                /* (float über double zurück zu float ist dasselbe) */
+#if MKSULTRA_FM1
+    uint64_t phf, incf;                         /* Phase und Schritt in Festkomma Q12.52 statt double (FM-1) */
+#endif
     float osc_sr, sh;
     int32_t rng;
     smoother_t sm_a, sm_b;
@@ -358,6 +362,9 @@ static void lfo_set_rate(lfo_t *l, float v)
         }
     }
     l->inc = (r * 255.0) / (double)l->osc_sr;
+#if MKSULTRA_FM1
+    l->incf = (uint64_t)(l->inc * 4503599627370496.0);
+#endif
 }
 static void lfo_new(lfo_t *l, int32_t seed)
 {
@@ -376,6 +383,9 @@ static void lfo_new(lfo_t *l, int32_t seed)
     l->tab[3][256] = 1.0f;
     l->rate_hz = 1.0f; l->fade_inc = 1.02f / 44100.0f; l->sr = 44100.0f; l->inv = 1.0f; l->bpm = 120.0f;
     l->inc = 0.0057954545; l->osc_sr = 44000.0f; l->rng = seed;
+#if MKSULTRA_FM1
+    l->phf = 0; l->incf = (uint64_t)(l->inc * 4503599627370496.0);
+#endif
     sm_new(&l->sm_a, 20.0f);
     sm_new(&l->sm_b, 4.0f);
     lfo_set_rate(l, 0.0f);
@@ -398,6 +408,9 @@ static void lfo_note_on(lfo_t *l, int any_held)
 {
     if (l->trigger) {
         l->phase = 0.0;
+#if MKSULTRA_FM1
+        l->phf = 0;
+#endif
         l->rng = wmul(l->rng, 16807);
         l->sh = (float)l->rng * 9.3132257e-10f;
     }
@@ -414,6 +427,17 @@ static void lfo_tick(lfo_t *l)
         l->cnt = (int32_t)((uint32_t)c + 1u);
         if (c >= thr) l->fade = (3.0f - l->delay_v) * l->fade_inc + l->fade;
     }
+#if MKSULTRA_FM1
+    /* Phase in Festkomma (Q12.52): dieselbe Rechnung wie unten, Interpolation in float; Abweichung ~1e-7 */
+    const uint64_t P255 = (uint64_t)255 << 52;
+    uint64_t pf0 = l->phf, pf = pf0;
+    while (pf > P255) pf -= P255;
+    int32_t idx = (int32_t)(pf >> 52);
+    float frac = (float)(uint32_t)((pf >> 29) & 0x7FFFFFu) * (1.0f / 8388608.0f);
+    l->phf = pf + l->incf;
+    idx = clampi(idx, 0, 255);
+    int wrapped = pf0 > P255;
+#else
     double ph0 = l->phase, ph = ph0;
     if (ph > 255.0) {
         for (;;) { ph += -255.0; if (!(ph > 255.0)) break; }
@@ -422,26 +446,32 @@ static void lfo_tick(lfo_t *l)
     double frac = ph - (double)idx;
     l->phase = ph + l->inc;
     idx = clampi(idx, 0, 255);
+    int wrapped = ph0 > 255.0;
+#endif
     switch (l->wave) {
     case 0: case 1: case 2: case 3: {
         const float *t = l->tab[l->wave];
+#if MKSULTRA_FM1
+        float raw = (t[idx + 1] - t[idx]) * frac + t[idx];
+#else
         double raw = ((double)t[idx + 1] - (double)t[idx]) * frac + (double)t[idx];
-        l->y_out = (double)sm_tick(&l->sm_a, (float)raw);
+#endif
+        l->y_out = sm_tick(&l->sm_a, (float)raw);
         break;
     }
     case 4:
-        if (ph0 > 255.0) { l->rng = wmul(l->rng, 16807); l->sh = (float)l->rng * 9.3132257e-10f; }
-        l->y_out = (double)sm_tick(&l->sm_a, l->sh);
+        if (wrapped) { l->rng = wmul(l->rng, 16807); l->sh = (float)l->rng * 9.3132257e-10f; }
+        l->y_out = sm_tick(&l->sm_a, l->sh);
         break;
     case 5: {
         l->rng = wmul(l->rng, 16807);
         float v = (float)l->rng * 4.6566129e-10f;
-        l->y_out = (double)sm_tick(&l->sm_b, v);
+        l->y_out = sm_tick(&l->sm_b, v);
         break;
     }
     default: break;
     }
-    l->out = (float)l->y_out * l->inv;
+    l->out = l->y_out * l->inv;
 }
 
 /* ---------- chorus.rs ---------- */
@@ -494,26 +524,62 @@ static inline float chorus_process(chorus_t *c, float x)
     return out;
 }
 
+/* ---------- Speicher der Effekte (Schalter fürs FM-1; Standard = wie die Vorlage) ----------
+ * MKSULTRA_DELAY_TENTHS     Delay-Puffer in Zehntelsekunden (Standard 40 = 4 s). Die Zeiten rechnen weiter mit den
+ *                           4 s der Vorlage; was länger wäre als der Puffer, endet am Puffer.
+ * MKSULTRA_PREDELAY_TENTHS  Vorverzögerung des Halls (Standard 10 = 1 s), ebenso begrenzt.
+ * MKSULTRA_FX_INT16         Delay- und Hall-Leitungen als 16 Bit statt float (halber Speicher; Delay ±1 voll,
+ *                           Hall ±8). */
+#ifndef MKSULTRA_DELAY_TENTHS
+#define MKSULTRA_DELAY_TENTHS 40
+#endif
+#ifndef MKSULTRA_PREDELAY_TENTHS
+#define MKSULTRA_PREDELAY_TENTHS 10
+#endif
+#ifndef MKSULTRA_FX_INT16
+#define MKSULTRA_FX_INT16 0
+#endif
+#if MKSULTRA_FX_INT16
+typedef int16_t fxs_t;
+static inline fxs_t fxs_put(float x, float sc)
+{
+    float y = x * sc;
+    y = y > 32767.0f ? 32767.0f : y < -32767.0f ? -32767.0f : y;
+    return (fxs_t)(y + (y >= 0.0f ? 0.5f : -0.5f));
+}
+#define FXS_GET(v, isc) ((float)(v) * (isc))
+#define FXS_PUT(x, sc) fxs_put((x), (sc))
+#else
+typedef float fxs_t;
+#define FXS_GET(v, isc) (v)
+#define FXS_PUT(x, sc) (x)
+#endif
+#define DLY_SC 32767.0f
+#define DLY_ISC (1.0f / 32767.0f)
+#define RV_SC 4096.0f
+#define RV_ISC (1.0f / 4096.0f)
+
 /* ---------- delay.rs ---------- */
-#define DELAY_CAP (MKSULTRA_MAX_SR * 4 + 2)
+#define DELAY_CAP (MKSULTRA_MAX_SR * MKSULTRA_DELAY_TENTHS / 10 + 2)
 static const uint32_t DELAY_SYNC_X[21] = {
     0x40700000, 0x401fffff, 0x40b40000, 0x40f00000, 0x409fffff, 0x41340000, 0x41700000, 0x411fffff, 0x41b40000,
     0x41f00000, 0x419fffff, 0x42340000, 0x42700000, 0x421fffff, 0x42b40000, 0x42f00000, 0x429fffff, 0x43340000,
     0x43700000, 0x431fffff, 0x43b40000};
 
 typedef struct {
-    float *buf;
-    int n, w;
+    fxs_t *buf;
+    int n, w, nn;                               /* nn: Länge der Vorlage (für die Zeit), n: Puffer (<= nn) */
     float sm_a, sm_inv, sm_s, time, fb;
     float a[14], b[8];
 } delayfx_t;
-static void delayfx_new(delayfx_t *d, float *mem, float sr)
+static void delayfx_new(delayfx_t *d, fxs_t *mem, float sr)
 {
     sr = sr > 0.0f ? sr : 41000.0f;
     int64_t n = f2l(floorf(sr * 4.0f + 1.0f));
+    int64_t nn = n > MKSULTRA_MAX_SR * 4 + 2 ? MKSULTRA_MAX_SR * 4 + 2 : n;
     if (n > DELAY_CAP) n = DELAY_CAP;
-    d->buf = mem; d->n = (int)n; d->w = (int)n - 1;
-    memset(mem, 0, sizeof(float) * (size_t)n);
+    d->buf = mem; d->n = (int)n; d->w = (int)n - 1; d->nn = (int)nn;
+    memset(mem, 0, sizeof(fxs_t) * (size_t)n);
     d->sm_a = 0.045351472f * sr;
     float fcs = fminr(44100.0f / sr, 1.0f);
     memset(d->a, 0, sizeof d->a);
@@ -524,7 +590,7 @@ static void delayfx_new(delayfx_t *d, float *mem, float sr)
 }
 static void delayfx_reset(delayfx_t *d)
 {
-    memset(d->buf, 0, sizeof(float) * (size_t)d->n);
+    memset(d->buf, 0, sizeof(fxs_t) * (size_t)d->n);
     d->w = d->n - 1;
     for (int k = 3; k <= 7; k++) d->a[k] = 0.0f;
     d->b[0] = d->b[1] = d->b[2] = d->b[4] = d->b[5] = d->b[6] = 0.0f;
@@ -547,10 +613,11 @@ static inline float delayfx_tick(delayfx_t *d, float input)
 {
     d->sm_s = (d->sm_s * d->sm_a + d->time) * d->sm_inv;
     int n = d->n;
-    int64_t idx = f2l(floorf(((float)n + (-1.0f)) * d->sm_s));
+    int64_t idx = f2l(floorf(((float)d->nn + (-1.0f)) * d->sm_s));
+    if (idx > n - 1) idx = n - 1;               /* (nur mit kürzerem Puffer) */
     int64_t rp = (int64_t)d->w - idx;
     while (rp < 0) rp += n;
-    float y = d->buf[rp];
+    float y = FXS_GET(d->buf[rp], DLY_ISC);
     float u = d->fb * y + input;
     float v = (u * d->a[2] - d->a[7]) * d->a[11] + d->a[5];
     d->a[7] = d->a[2] * v;
@@ -561,7 +628,7 @@ static inline float delayfx_tick(delayfx_t *d, float input)
     float x2 = h + h;
     float a = fabsf(x2);
     float pq = (3.0f + a) * a + 6.0f;
-    d->buf[d->w] = (x2 * pq) / (pq * a + 12.0f);
+    d->buf[d->w] = FXS_PUT((x2 * pq) / (pq * a + 12.0f), DLY_SC);
     d->w = d->w + 1 < n ? d->w + 1 : 0;
     return y;
 }
@@ -634,7 +701,7 @@ static void delay_init_params(delay_t *d)
     delay_set_tone(d, tn);
     delay_set_feedback(d, fb);
 }
-static void delay_new(delay_t *d, float *ml, float *mr, float sr)
+static void delay_new(delay_t *d, fxs_t *ml, fxs_t *mr, float sr)
 {
     delayfx_new(&d->l, ml, sr);
     delayfx_new(&d->r, mr, sr);
@@ -661,7 +728,8 @@ static inline void delay_process(delay_t *d, float *l, float *r)
 }
 
 /* ---------- reverb.rs ---------- */
-#define REVERB_CAP (MKSULTRA_MAX_SR * 24 / 10 + 12000)
+#define REVERB_CAP (MKSULTRA_MAX_SR * (14 + MKSULTRA_PREDELAY_TENTHS) / 10 + 12000)
+#define PRE_CAP (MKSULTRA_MAX_SR * MKSULTRA_PREDELAY_TENTHS / 10 + 2)
 static const float RV_LEN[17] = {42.706253f, 44.483521f, 46.334747f, 48.263012f, 50.271526f, 52.363632f,
                                  54.542793f, 56.812649f, 59.176964f, 61.639671f, 64.204872f, 66.876816f,
                                  69.659966f, 72.558937f, 75.578552f, 78.723831f, 82.0f};
@@ -686,13 +754,13 @@ static uint32_t next_prime(uint32_t n)
     }
 }
 
-typedef struct { float *buf; int n, w; } line_t;
+typedef struct { fxs_t *buf; int n, w, nn; } line_t;
 typedef struct { float gain; line_t line; float lp; } comb_t;
 typedef struct { int32_t seed; float v, inc; int32_t period; float sr; } comblfo_t;
-typedef struct { float *buf; int n, i; } allpass_t;
+typedef struct { fxs_t *buf; int n, i; } allpass_t;
 
 typedef struct {
-    float *pool;
+    fxs_t *pool;
     int pool_used, failed;
     line_t pre;
     comb_t combs[2][6];
@@ -703,12 +771,12 @@ typedef struct {
     int clear;
 } reverb_t;
 
-static float *rv_alloc(reverb_t *r, uint32_t n)
+static fxs_t *rv_alloc(reverb_t *r, uint32_t n)
 {
     if (r->pool_used + (int)n > REVERB_CAP) { r->failed = 1; return r->pool; }
-    float *p = r->pool + r->pool_used;
+    fxs_t *p = r->pool + r->pool_used;
     r->pool_used += (int)n;
-    memset(p, 0, sizeof(float) * n);
+    memset(p, 0, sizeof(fxs_t) * n);
     return p;
 }
 static inline float clfo_r(const comblfo_t *m) { return (float)((uint32_t)m->seed & 0x7fffffffu); }
@@ -719,8 +787,8 @@ static void reverb_initialize(reverb_t *r, float sr, seeds_t *seeds)
     float sri = (float)f2l(sr);
     r->pool_used = 0;
     r->failed = 0;
-    uint32_t sp = next_prime((uint32_t)f2i(sr));
-    r->pre.buf = rv_alloc(r, sp); r->pre.n = (int)sp; r->pre.w = 0;
+    uint32_t sp = next_prime((uint32_t)f2i(sr)), spb = sp > PRE_CAP ? PRE_CAP : sp;
+    r->pre.buf = rv_alloc(r, spb); r->pre.n = (int)spb; r->pre.w = 0; r->pre.nn = (int)sp;
     for (int i = 0; i < 6; i++) {
         float fl, fr;
         if (i % 2 == 0) { fl = 0.002016f * sri; fr = 0.002f * sri; }
@@ -750,7 +818,7 @@ static void reverb_initialize(reverb_t *r, float sr, seeds_t *seeds)
     bq_new(&r->lp, 0, sr);
     r->cached_room = -1.0f;
 }
-static void reverb_new(reverb_t *r, float *pool, float sr, seeds_t *seeds)
+static void reverb_new(reverb_t *r, fxs_t *pool, float sr, seeds_t *seeds)
 {
     r->pool = pool;
     r->predelay = 0.0f; r->size = 0.0f; r->lp_amt = 0.0f; r->hp_amt = 0.0f; r->mod_room = 0.6f; r->mod_depth = 0.1f;
@@ -774,8 +842,8 @@ static void reverb_process(reverb_t *r, float *l, float *rr_)
 {
     if (r->clear) {
         for (int s = 0; s < 2; s++) {
-            for (int i = 0; i < 11; i++) memset(r->ap[s][i].buf, 0, sizeof(float) * (size_t)r->ap[s][i].n);
-            for (int i = 0; i < 6; i++) memset(r->combs[s][i].line.buf, 0, sizeof(float) * (size_t)r->combs[s][i].line.n);
+            for (int i = 0; i < 11; i++) memset(r->ap[s][i].buf, 0, sizeof(fxs_t) * (size_t)r->ap[s][i].n);
+            for (int i = 0; i < 6; i++) memset(r->combs[s][i].line.buf, 0, sizeof(fxs_t) * (size_t)r->combs[s][i].line.n);
         }
         r->clear = 0;
     }
@@ -793,12 +861,15 @@ static void reverb_process(reverb_t *r, float *l, float *rr_)
             }
     }
     float input = (*rr_ + *l) * 0.25f;
-    int64_t sp = r->pre.n;
-    int64_t rp = (int64_t)r->pre.w - f2l(r->predelay * (float)(sp - 2) + 1.0f);
+    /* Indizes in 32 Bit (die Puffer sind kürzer als 2^31: gleiche Werte wie mit 64 Bit, ohne Software-Rechnung) */
+    int32_t sp = r->pre.n;
+    int32_t off = f2i(r->predelay * (float)(r->pre.nn - 2) + 1.0f);
+    if (off > sp - 1) off = sp - 1;             /* (nur mit kürzerem Puffer) */
+    int32_t rp = r->pre.w - off;
     if (rp < 0) rp += sp;
-    float x = r->pre.buf[rp];
-    r->pre.buf[r->pre.w] = input;
-    r->pre.w = (int64_t)r->pre.w + 1 < sp ? r->pre.w + 1 : 0;
+    float x = FXS_GET(r->pre.buf[rp], RV_ISC);
+    r->pre.buf[r->pre.w] = FXS_PUT(input, RV_SC);
+    r->pre.w = r->pre.w + 1 < sp ? r->pre.w + 1 : 0;
     float fch = r->hp_amt * 20000.0f + 10.0f;
     float fcl = r->lp_amt * 20000.0f + 10.0f;
     bq_set(&r->hp, fch, 0.68f, 1.0f);
@@ -826,17 +897,18 @@ static void reverb_process(reverb_t *r, float *l, float *rr_)
                 inc = m->inc;
             }
             m->v = inc + m->v;
-            int64_t s = c->line.n;
+            int32_t s = c->line.n;
             float d = ((float)(s - 2)) * ((m->v * 0.5f + 0.5f) * (dep * sign) + base) + 1.0f;
             if (d < 1.0f) d = 1.0f;
-            int64_t rr = (int64_t)c->line.w - f2l(d);
+            int32_t di = f2i(d);
+            int32_t rr = c->line.w - di;
             if (rr < 0) rr += s;
-            int64_t r2 = (rr > 0 ? 0 : s) + rr - 1;
-            float a = c->line.buf[rr];
-            float o = (c->line.buf[r2] - a) * (d - (float)f2l(d)) + a;
+            int32_t r2 = (rr > 0 ? 0 : s) + rr - 1;
+            float a = FXS_GET(c->line.buf[rr], RV_ISC);
+            float o = (FXS_GET(c->line.buf[r2], RV_ISC) - a) * (d - (float)di) + a;
             c->lp = (c->lp - o) * (c->gain * 0.01f) + o;
-            c->line.buf[c->line.w] = c->lp * fb + t;
-            c->line.w = (int64_t)c->line.w + 1 >= s ? 0 : c->line.w + 1;
+            c->line.buf[c->line.w] = FXS_PUT(c->lp * fb + t, RV_SC);
+            c->line.w = c->line.w + 1 >= s ? 0 : c->line.w + 1;
             acc[side] += sign * o;
         }
         sign = -sign;
@@ -845,9 +917,9 @@ static void reverb_process(reverb_t *r, float *l, float *rr_)
     for (int i = 0; i < 11; i++)
         for (int side = 0; side < 2; side++) {
             allpass_t *a = &r->ap[side][i];
-            float z = a->buf[a->i];
+            float z = FXS_GET(a->buf[a->i], RV_ISC);
             float vv = 0.68f * z + y[side];
-            a->buf[a->i] = vv;
+            a->buf[a->i] = FXS_PUT(vv, RV_SC);
             a->i = a->i + 1 >= a->n ? 0 : a->i + 1;
             y[side] = z - vv * 0.68f;
         }

@@ -16,10 +16,12 @@ SRC := mksultra.c mksultra_presets.c
 DEP := $(SRC) mksultra.h mksultra_dsp.h mksultra_fx.h test/test.c ../baustein.h
 
 .PHONY: test bench presets sweep
-test: $(BUILD)/test $(BUILD)/test_spar$(SPAR)
+test: $(BUILD)/test $(BUILD)/test_spar$(SPAR) $(BUILD)/test_fm1
 	$(BUILD)/test ref $(BUILD) $(WAV)
-	@mkdir -p $(BUILD)/spar
+	@mkdir -p $(BUILD)/spar $(BUILD)/fm1
 	$(BUILD)/test_spar$(SPAR) --vs ref $(BUILD)/spar $(BUILD)
+	$(BUILD)/test_fm1 --fm1 ref $(BUILD)/fm1
+	$(BUILD)/test_fm1 --vs ref $(BUILD)/fm1 $(BUILD)
 
 bench: $(BUILD)/test $(BUILD)/test_spar$(SPAR)
 	$(BUILD)/test --bench
@@ -39,3 +41,10 @@ sweep: $(BUILD)/test
 
 presets:
 	python3 tools/mks2c.py "$(PRESETS)" mksultra_presets.c
+
+# wie in der Firmware bausteine/varianten/mksultra (ADR 0045): 6 Stimmen, FM-1-Rechenwege, 16-Bit-Effektleitungen,
+# kürzere Puffer. Die Abtastrate des Tests (48 kHz) bleibt; MAX_SR deshalb 48000.
+FM1 := -DMKSULTRA_VOICES=6 -DMKSULTRA_FM1=1 -DMKSULTRA_FX_INT16=1 -DMKSULTRA_DELAY_TENTHS=4 -DMKSULTRA_PREDELAY_TENTHS=2
+$(BUILD)/test_fm1: $(DEP)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) $(FM1) -o $@ $(SRC) test/test.c -lm
