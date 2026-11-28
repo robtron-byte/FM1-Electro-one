@@ -485,6 +485,13 @@ static int voice_process(voice_t *v, const prm_t *p, float lfo_value, const vtd_
     default: rp = 0.0f; gain_in = 1.0f; drive = 1.0f; break;
     }
     dsvf_set_params(&v->fa, c, rp + 0.8f, p->res_boost == 0);
+#if MKSULTRA_VCF2X
+    {   /* Filter bei 2× statt 4×: g gilt bei 4× (Grenzfrequenz 4·sr/π·atan g); bei 2× dieselbe Frequenz:
+         * tan(2·atan g) = 2g/(1 − g²), begrenzt, wo sie über der halben 2×-Rate läge */
+        float g = v->fa.g;
+        v->fa.g = g < 0.99f ? (g + g) / (1.0f - g * g) : 99.0f;
+    }
+#endif
     v->fb.g = v->fa.g; v->fb.r = v->fa.r; v->fb.vintage = v->fa.vintage;
 
     /* Filter bei 4× */
@@ -492,18 +499,25 @@ static int voice_process(voice_t *v, const prm_t *p, float lfo_value, const vtd_
     float xl, xr;
     if (!stereo) {
         float d0 = l1 * gain_in, d1 = l2 * gain_in;
+#if MKSULTRA_VCF2X
+        float y0 = dsvf_step(&v->fb, 0, dsvf_step(&v->fa, 0, d0 * 0.1f));
+        float y1 = dsvf_step(&v->fb, 0, dsvf_step(&v->fa, 0, d1 * 0.1f));
+        float a, b;
+        chain_down4_paths(&v->down4_l, y0, y1, &a, &b);
+#else
         float o[4];
-        chain_up(&v->up_l, d0, &o[0], &o[1]);
-        chain_up(&v->up_l, d1, &o[2], &o[3]);
+        chain_up4(&v->up_l, d0, &o[0], &o[1]);
+        chain_up4(&v->up_l, d1, &o[2], &o[3]);
         for (int i = 0; i < 4; i++) {
             float x = o[i] * 0.1f;
             float a = dsvf_step(&v->fa, 0, x);
             o[i] = dsvf_step(&v->fb, 0, a);
         }
-        float h0 = chain_down(&v->down8_l, o[0], o[1]);
-        float h1 = chain_down(&v->down8_l, o[2], o[3]);
+        float h0 = chain_down8(&v->down8_l, o[0], o[1]);
+        float h1 = chain_down8(&v->down8_l, o[2], o[3]);
         float a, b;
-        chain_down_paths(&v->down4_l, h0, h1, &a, &b);
+        chain_down4_paths(&v->down4_l, h0, h1, &a, &b);
+#endif
         xl = ((a + b) * 0.5f) / post;
         xl = tpt_hp(&v->dcblock, 0, xl);
         xr = xl;
@@ -515,18 +529,26 @@ static int voice_process(voice_t *v, const prm_t *p, float lfo_value, const vtd_
             chain_t *d8 = ch == 0 ? &v->down8_l : &v->down8_r;
             chain_t *d4 = ch == 0 ? &v->down4_l : &v->down4_r;
             float sa = ch == 0 ? l1 : r1, sb = ch == 0 ? l2 : r2;
+#if MKSULTRA_VCF2X
+            (void)up; (void)d8;
+            float y0 = dsvf_step(&v->fb, 1 + ch, dsvf_step(&v->fa, 1 + ch, sa * gain_in * 0.1f));
+            float y1 = dsvf_step(&v->fb, 1 + ch, dsvf_step(&v->fa, 1 + ch, sb * gain_in * 0.1f));
+            float a, b;
+            chain_down4_paths(d4, y0, y1, &a, &b);
+#else
             float o[4];
-            chain_up(up, sa * gain_in, &o[0], &o[1]);
-            chain_up(up, sb * gain_in, &o[2], &o[3]);
+            chain_up4(up, sa * gain_in, &o[0], &o[1]);
+            chain_up4(up, sb * gain_in, &o[2], &o[3]);
             for (int i = 0; i < 4; i++) {
                 float x = o[i] * 0.1f;
                 float a = dsvf_step(&v->fa, 1 + ch, x);
                 o[i] = dsvf_step(&v->fb, 1 + ch, a);
             }
-            float h0 = chain_down(d8, o[0], o[1]);
-            float h1 = chain_down(d8, o[2], o[3]);
+            float h0 = chain_down8(d8, o[0], o[1]);
+            float h1 = chain_down8(d8, o[2], o[3]);
             float a, b;
-            chain_down_paths(d4, h0, h1, &a, &b);
+            chain_down4_paths(d4, h0, h1, &a, &b);
+#endif
             outv[ch] = ((a + b) * 0.5f) * inv;
         }
         xl = tpt_hp(&v->dcblock, 0, outv[0]);
@@ -917,7 +939,8 @@ static void vm_note_off(synth_t *s, int32_t note)
 
 static inline float flush_sub(float x) { return fpclassify(x) == FP_SUBNORMAL ? 0.0f : x; }
 
-static void synth_tick(synth_t *s, float *ol, float *or_)
+/* Stimmen eines Samples (Arpeggiator, LFO-Wert, alle Stimmen), danach LFO und PWM-LFO fürs nächste Sample. */
+static void synth_voices(synth_t *s, float *ol, float *or_)
 {
     arp_step(s);
     float l = 0.0f, r = 0.0f;
@@ -926,6 +949,20 @@ static void synth_tick(synth_t *s, float *ol, float *or_)
         voice_t *v = &s->voices[k];
         (void)voice_process(v, &s->prm, lfo_val, &s->vtunings[v->slot], s->blep, &l, &r);
     }
+    lfo_tick(&s->lfo);
+    float q = s->prm.pwm_rate * 20.0f;
+    if (q != s->prm.pwm_lfo_rate_cache) { s->prm.pwm_lfo_rate_cache = q; s->prm.pwm_lfo_inc = q / s->sr; }
+    float ph = s->prm.pwm_lfo_phase + s->prm.pwm_lfo_inc;
+    if (!(ph < 1.0f)) ph -= 1.0f;
+    s->prm.pwm_lfo_phase = ph;
+    s->prm.pwm_lfo_out = pwm_lfo_shape(ph);
+    *ol = l;
+    *or_ = r;
+}
+/* Master-Kette eines Samples (hängt nicht von LFO und Stimmenzustand ab, nur von der Summe der Stimmen). */
+static void synth_master(synth_t *s, float *ol, float *or_)
+{
+    float l = *ol, r = *or_;
     switch (s->prm.hpf_mode) {
     case 0:
         if (!s->prm.bass_boost_freq) { l = svf_tick(&s->shelf[0], l); r = svf_tick(&s->shelf[1], r); }
@@ -966,18 +1003,18 @@ static void synth_tick(synth_t *s, float *ol, float *or_)
     float gv = vs * fd;
     l *= gv;
     r *= gv;
-    lfo_tick(&s->lfo);
-    float q = s->prm.pwm_rate * 20.0f;
-    if (q != s->prm.pwm_lfo_rate_cache) { s->prm.pwm_lfo_rate_cache = q; s->prm.pwm_lfo_inc = q / s->sr; }
-    float ph = s->prm.pwm_lfo_phase + s->prm.pwm_lfo_inc;
-    if (!(ph < 1.0f)) ph -= 1.0f;
-    s->prm.pwm_lfo_phase = ph;
-    s->prm.pwm_lfo_out = pwm_lfo_shape(ph);
     *ol = flush_sub(l);
     *or_ = flush_sub(r);
     if (fabsf(l) + fabsf(r) > 1e-6f) s->quiet = 0;
     else if (s->quiet < INT32_MAX) s->quiet++;
 }
+#if !MKSULTRA_BLOCKWISE
+static void synth_tick(synth_t *s, float *ol, float *or_)
+{
+    synth_voices(s, ol, or_);
+    synth_master(s, ol, or_);
+}
+#endif
 
 /* ---------- öffentliche Schnittstelle ---------- */
 void mksultra_init(void *st, float sample_rate) { synth_new((synth_t *)st, sample_rate); }
@@ -1082,7 +1119,23 @@ void mksultra_set_tempo(void *st, float bpm)
 void mksultra_process(void *st, float *l, float *r, int n)
 {
     synth_t *s = (synth_t *)st;
+#if MKSULTRA_BLOCKWISE
+    mksultra_voices(st, l, r, n);               /* (in zwei Durchgängen: bitgleich, siehe mksultra.h) */
+    mksultra_master(st, l, r, n);
+    (void)s;
+#else
     for (int i = 0; i < n; i++) synth_tick(s, &l[i], &r[i]);
+#endif
+}
+void mksultra_voices(void *st, float *l, float *r, int n)
+{
+    synth_t *s = (synth_t *)st;
+    for (int i = 0; i < n; i++) synth_voices(s, &l[i], &r[i]);
+}
+void mksultra_master(void *st, float *l, float *r, int n)
+{
+    synth_t *s = (synth_t *)st;
+    for (int i = 0; i < n; i++) synth_master(s, &l[i], &r[i]);
 }
 int mksultra_active_voices(const void *st)
 {

@@ -39,6 +39,15 @@
 #define MKSULTRA_FX_INT16 0
 #endif
 
+/* MKSULTRA_VCF2X 1 (A/B nach ADR 0006, Standard aus): VCF bei 2× statt 4× Fs, gleiche Grenzfrequenz; spart je Stimme die
+ * Hälfte der Filterschritte und eine Halbband-Stufe. Klangänderung (mehr Aliasing, andere Sättigung), nur zum Anhören. */
+#ifndef MKSULTRA_VCF2X
+#define MKSULTRA_VCF2X 0
+#endif
+#ifndef MKSULTRA_BLOCKWISE
+#define MKSULTRA_BLOCKWISE 0
+#endif
+
 #define MKSULTRA_PARAMS 85
 
 extern const baustein_t mksultra_baustein;
@@ -61,6 +70,12 @@ void mksultra_param_range(int id, float *min, float *max, float *def, int *is_in
 int mksultra_param_find(const char *id);
 /* SCHREIBT n Stereo-Samples (die Baustein-Schnittstelle addiert dagegen). */
 void mksultra_process(void *s, float *left, float *right, int n);
+/* Dasselbe in zwei Durchgängen (Stimmen hängen nicht von der Master-Kette ab und umgekehrt): mksultra_voices schreibt die
+ * Summe der Stimmen, mksultra_master macht daraus den Ausgang. Nacheinander für denselben Block bitgleich mit
+ * mksultra_process; zwei Kerne können so Stimmen (Block N) und Master (Block N−1) gleichzeitig rechnen.
+ * MKSULTRA_BLOCKWISE 1: mksultra_process nimmt selbst diesen Weg (Test). */
+void mksultra_voices(void *s, float *left, float *right, int n);
+void mksultra_master(void *s, float *left, float *right, int n);
 int mksultra_active_voices(const void *s);
 
 /* Presets (520 aus der Vorlage, Tabelle in mksultra_presets.c, erzeugt von tools/mks2c.py). */

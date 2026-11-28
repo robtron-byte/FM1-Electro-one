@@ -16,12 +16,17 @@ SRC := mksultra.c mksultra_presets.c
 DEP := $(SRC) mksultra.h mksultra_dsp.h mksultra_fx.h test/test.c ../baustein.h
 
 .PHONY: test bench presets sweep
-test: $(BUILD)/test $(BUILD)/test_spar$(SPAR) $(BUILD)/test_fm1
+test: $(BUILD)/test $(BUILD)/test_spar$(SPAR) $(BUILD)/test_fm1 $(BUILD)/test_block $(BUILD)/test_vcf2x
+	@mkdir -p $(BUILD)/block
 	$(BUILD)/test ref $(BUILD) $(WAV)
 	@mkdir -p $(BUILD)/spar $(BUILD)/fm1
 	$(BUILD)/test_spar$(SPAR) --vs ref $(BUILD)/spar $(BUILD)
 	$(BUILD)/test_fm1 --fm1 ref $(BUILD)/fm1
 	$(BUILD)/test_fm1 --vs ref $(BUILD)/fm1 $(BUILD)
+	$(BUILD)/test_block ref $(BUILD)/block
+	@mkdir -p $(BUILD)/vcf2x
+	-$(BUILD)/test_vcf2x --fm1 ref $(BUILD)/vcf2x
+	$(BUILD)/test_vcf2x --vs ref $(BUILD)/vcf2x $(BUILD)
 
 bench: $(BUILD)/test $(BUILD)/test_spar$(SPAR)
 	$(BUILD)/test --bench
@@ -48,3 +53,13 @@ FM1 := -DMKSULTRA_VOICES=6 -DMKSULTRA_FM1=1 -DMKSULTRA_FX_INT16=1 -DMKSULTRA_DEL
 $(BUILD)/test_fm1: $(DEP)
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) $(FM1) -o $@ $(SRC) test/test.c -lm
+
+# zwei Durchgänge (Stimmen, dann Master) wie in der Firmware: muss bitgleich bestehen
+$(BUILD)/test_block: $(DEP)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DMKSULTRA_BLOCKWISE=1 -o $@ $(SRC) test/test.c -lm
+
+# Schalter B (ADR 0045): VCF 2×, nur zum Anhören; Abweichung wird gemeldet, nicht geprüft
+$(BUILD)/test_vcf2x: $(DEP)
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) $(FM1) -DMKSULTRA_VCF2X=1 -o $@ $(SRC) test/test.c -lm

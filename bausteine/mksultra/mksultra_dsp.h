@@ -459,6 +459,29 @@ static inline void chain_run(chain_t *ch, float a, float b, float *oa, float *ob
     }
     *oa = a; *ob = b;
 }
+/* Dieselbe Rechnung mit fester Länge (4 oder 8), damit der Compiler ausrollt (FM-1); bitgleich mit chain_run */
+#define CHAIN_RUN_N(NAME, N)                                                                                         \
+    static inline void NAME(chain_t *ch, float a, float b, float *oa, float *ob)                                    \
+    {                                                                                                               \
+        for (int j = 0; j < (N); j += 2) {                                                                          \
+            float ta = (a - ch->y[j]) * ch->c[j] + ch->x[j];                                                        \
+            float tb = (b - ch->y[j + 1]) * ch->c[j + 1] + ch->x[j + 1];                                            \
+            ch->x[j] = a; ch->x[j + 1] = b;                                                                         \
+            ch->y[j] = ta; ch->y[j + 1] = tb;                                                                       \
+            a = ta; b = tb;                                                                                         \
+        }                                                                                                           \
+        *oa = a; *ob = b;                                                                                           \
+    }
+CHAIN_RUN_N(chain_run4, 4)
+CHAIN_RUN_N(chain_run8, 8)
+static inline void chain_up4(chain_t *ch, float v, float *o0, float *o1) { chain_run4(ch, v, v, o0, o1); }
+static inline void chain_down4_paths(chain_t *ch, float e0, float e1, float *a, float *b) { chain_run4(ch, e1, e0, a, b); }
+static inline float chain_down8(chain_t *ch, float e0, float e1)
+{
+    float a, b;
+    chain_run8(ch, e1, e0, &a, &b);
+    return (b + a) * 0.5f;
+}
 static inline void chain_up(chain_t *ch, float v, float *o0, float *o1) { chain_run(ch, v, v, o0, o1); }
 static inline void chain_down_paths(chain_t *ch, float e0, float e1, float *a, float *b) { chain_run(ch, e1, e0, a, b); }
 static inline float chain_down(chain_t *ch, float e0, float e1)
