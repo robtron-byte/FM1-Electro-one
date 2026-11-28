@@ -18,7 +18,8 @@ MEMORY
 }
 SECTIONS
 {
-    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*dsp_*.o) .text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
+    /* bausteine (ADR 0046): .ctrl_text = Steuercode der Kerne aus engine/ (el_config.h EL_CTRL_CODE), aus dem Flash */
+    .text : { KEEP(*(.text.crt0)) *(EXCLUDE_FILE(*dsp_*.o) .text*) *(.ctrl_text*) *(.rodata*) . = ALIGN(4); _etext = .; } > XIP
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4); } > RAMTEXT AT > XIP
     _rt_load = LOADADDR(.ram_text);
     /* FM1-Electro (from SLOOP 2.8.5 app.ld): the second core's waiting loop (hal/fm1_cpu1.h) right after the
