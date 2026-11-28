@@ -1,4 +1,4 @@
-# 0046: jx8p als Baustein (Einbinden statt Kopieren) und JX-8P solo
+# 0046: jx8p als Baustein (Einbinden statt Kopieren) und JX-8P solo (fm1-synths fortgeführt)
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
@@ -20,20 +20,28 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 - Stimmen voll wie der JX-8P (6), Sparschalter `JX8P_BS_VOICES` (getestet mit 4).
 - Host-Test: jedes Preset über den Baustein und direkt über den Kern, Sample für Sample gleich, dazu Prüfsummen je
   Preset (`ref/sums.txt`, `ref/sums4.txt`).
-- **Solo-Firmware „JX-8P solo“** (FEATURES Y14) in `bausteine/varianten/jx8p/` auf dem Gerüst `varianten/gemeinsam/`
-  (ADR 0044), Kennung FM-1_97 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „JX01“ (den Speicher der fm1-synths-Fassung,
-  „JX8P“, liest sie nicht: Neustart leer, überschrieben beim ersten Speichern), Journal „JXST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns (68),
-  Seiten nach der fm1-synths-Fassung. Alle 74 Sounds des Bausteins, eigene vorn (Gruppe EIGENE). Delay-/Hall-Anteil
-  bleibt im Sound und geht direkt in die Effekte des Gerüsts (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0:
-  im Emulator höchstens ≈ 48 % (Ziel < 70 %).
+- **Solo-Firmware „JX-8P solo“** (FEATURES Y14, `bausteine/varianten/jx8p/`): die JX-8P-Firmware aus fm1-synths
+  (Commit 2a7b4fa, `jx8p/`: App, Pool-Kern `engine/jx.c`), fortgeführt ab 0.2.5-alpha, mit Kennung FM-1_97 und
+  `STORE_MAGIC` „JX8P“ wie dort. Plattform und `shared/` aus dem Gerüst (dieselben Dateien). Keine Rückschritte gegenüber
+  fm1-synths 0.2.4: 4 Parts, Stimmen-Pool (6) auf beiden Kernen, MIX, MIDI-Kanal je Part, 8 SETS, Arp, Akkord,
+  Sequencer, Journal; gespeicherte Sounds und Sets bleiben beim Update gültig. Neu: die eigenen iPhone-Presets
+  (`engine/jx_eigene.c`) hinter INIT TONE angehängt (Werksnummern bleiben), beim Blättern in der Gruppe EIGENE gleich
+  nach INIT.
+- **Warum im Gerät `jx.c` statt des Bausteins läuft:** Pool und Kernverteilung stecken in `jx.c` (`jx_plan`,
+  `jx_voices(core)`), `engine/jx8p.c` hat Stimmen je Part und einen Kern. Beide stammen aus derselben Portierung; mit
+  einem Part rechnen sie **bitgleich**: alle 64 Werks-Töne und die 7 eigenen Presets, Akkord C-E-G, 1,6 s (Host-Test
+  `make -C bausteine jx8p`, Ziel `pool`, Teil von `test`). Zwei Kerne ändern nur die Reihenfolge der Summen (Rundung).
+  So bleibt der Baustein die Referenz, und die Firmware fällt nicht hinter fm1-synths zurück.
 
 ## Alternativen
 
 - **Kern nach `bausteine/jx8p/` verschieben** und `engine/` darauf zeigen lassen: sauberer, ändert aber Gerätebuild
   und Pfade des Bau-Chats. Später möglich, wenn der Bau-Chat zustimmt; der Adapter bleibt dann gleich.
 - **Kopie in den Baustein:** zwei Stände, die auseinanderlaufen. Verworfen.
-- **Die fm1-synths-Firmware weiterführen** (Stimmen-Pool über vier Parts auf beiden Kernen): eigener App-Rahmen neben dem
-  Gerüst; das Gerüst bringt Sequencer, Speichern und MIDI für alle Solo-Firmwares einheitlich.
+- **Die Firmware auf dem Gerüst mit einem Part** (0.1.0-alpha, 28.11.): vom Koordinator nicht abgenommen, weil sie
+  hinter fm1-synths zurückfiel (Parts, SETS) und deren Speicher nicht las.
+- **Mehrere Parts und Pool im Gerüst** (Wahl B): deutlich mehr Arbeit, Speicherumwandlung nötig; bleibt ein eigener
+  Schritt für die Kombi-Firmwares (ADR 0049).
 - **Freie Abtastrate** (Koeffizienten zur Laufzeit): Eingriff in `engine/`, nicht bitgleich. Erst wenn ein Gerät mit
   anderer Rate kommt.
 
@@ -50,3 +58,5 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 - 2026-11-28: Solo-Firmware JX-8P 0.1.0-alpha gebaut, Emulator-Prüfung ok; vom Koordinator nicht abgenommen (hinter fm1-synths
   JX8P-0.2.0: Parts, SETS, Speicher), Paket wieder aus `firmware/` entfernt. Nächste Fassung mit Gleichstand.
   Gerüst dafür abwärtskompatibel ergänzt: `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`/`GM_FX_FIRST_ON`.
+- 2026-11-28: Wahl A des Koordinators: JX-8P solo = fm1-synths-Fassung fortgeführt (0.2.5-alpha, FM-1_97, „JX8P“), eigene
+  Presets angehängt; Bitgleichheit Pool-Kern ↔ Baustein als Prüfung in `make -C bausteine jx8p`.

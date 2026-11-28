@@ -1,56 +1,56 @@
 # JX-8P solo
 
-Der Baustein [`../../jx8p`](../../jx8p/) (der JX-8P von FM1-Electro, `engine/jx8p.c`, aus fm1-synths, dort aus der
-JX-8P-iOS-App des Nutzers) als eigene Firmware für das M-VAVE FM-1, auf dem Gerüst [`../gemeinsam`](../gemeinsam/).
-Löst die JX-8P-Firmware aus fm1-synths ab (gleiche Kennung FM-1_97, eigene Speicherkennung). Entscheidungen:
-[ADR 0046](../../../docs/adr/0046-jx8p-baustein.md), [ADR 0044](../../../docs/adr/0044-solo-firmware-geruest.md),
-eigene Presets [ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y14.
+Die JX-8P-Firmware für das M-VAVE FM-1, fortgeführt aus fm1-synths (github.com/robtron-byte/fm1-synths, Commit 2a7b4fa,
+`jx8p/`, dort zuletzt JX8P-0.2.4-alpha), mit den eigenen Presets des Nutzers. Kennung FM-1_97 und Speicherformat wie
+dort: wer von der fm1-synths-Fassung aktualisiert, behält eigene Sounds, Sets, Sequenzen und den letzten Stand.
+Entscheidung: [ADR 0046](../../../docs/adr/0046-jx8p-baustein.md) (Wahl A des Koordinators, 28.11.2026), eigene Presets
+[ADR 0051](../../../docs/adr/0051-eigene-presets.md). Feature Y14.
 
-Die Kennung FM-1_97 ersetzt die fm1-synths-Fassung. Deren Speicher (`STORE_MAGIC` „JX8P“, eigene Sounds, Sets) liest diese Firmware nicht: sie beginnt leer und überschreibt den Bereich beim ersten Speichern (`platform/firmware/src/store.h`). Die fm1-synths-Fassung hatte 4 Parts mit Stimmen-Pool, MIX und SETS; diese hat einen Part mit allen 6 Stimmen.
+## Warum der Kern aus fm1-synths
+
+Der Baustein [`../../jx8p`](../../jx8p/) ist `engine/jx8p.c` von FM1-Electro: ein Part, Stimmen je Part, ein Kern. Die
+fm1-synths-Fassung hat einen Stimmen-Pool über vier Parts, den sich beide Kerne teilen (`engine/jx.c`). Beide stammen
+aus derselben Portierung der iOS-App; mit einem Part klingen sie **Sample für Sample gleich**: alle 64 Werks-Töne und die
+7 eigenen Presets, geprüft mit `make -C bausteine jx8p` (Ziel `pool`, gehört zu `test`). Mit Stimmen auf zwei Kernen
+ändert sich nur die Reihenfolge der Summen (Rundung, fm1-synths `make cores`: unter −120 dB).
 
 ## Stand (28.11.2026)
 
 | | |
 |---|---|
-| Firmware | 0.1.0-alpha gebaut (Kennung FM-1_97, `STORE_MAGIC` „JX01“, Journal „JXST“), `tools/fm1-emu/check.sh` ok; **nicht abgenommen (Koordinator 28.11.): bleibt hinter der fm1-synths-Fassung zurück (Parts, SETS, Speicher); kein Paket**. Nächste Fassung: Gleichstand mit fm1-synths JX8P-0.2.0 (siehe unten „Offen“) |
-| Klang | der Kern von FM1-Electro unverändert, 6 Stimmen (alle, die der Kern hat), Chorus je Sound, Delay und Hall des Gerüsts |
-| Last (Emulator) | 6 gehaltene Noten, verschiedene Sounds: Kern 0 ≈ 37–41 % im Mittel, höchstens 47,6 % (HI STRI 01, Akkord-Modus); Delay + Hall 12 % (Kern 1); keine verspäteten Blöcke. Ziel < 70 % erfüllt; am Gerät nach FM1-Electro etwa 10 % mehr |
-| Am Gerät | nicht geprüft |
+| Firmware | `firmware/JX8P-0.2.5-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX8P“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
+| Last (Emulator) | LAST_ZEILE |
+| Am Gerät | 0.2.5 nicht geprüft; die fm1-synths-Fassung 0.2.0 am Gerät: 55 % Spitze (dort ADR 0002) |
 
-## Bedienung
+## Gleichstand mit fm1-synths JX8P-0.2.4 (keine Rückschritte)
 
-Raster wie in allen Firmwares aus fm1-synths (ADR 0008 dort): KNOB 1–4 = die vier Felder unten, SELECT = Seite,
-PRESETS = Sound, Taste tippen = ihre Seiten, halten = ihre vier wichtigsten Werte. Werte wie der JX-8P: 0–127,
-Schalter mit ihren Namen. Seitenaufteilung nach der fm1-synths-Fassung (`jx8p/app/jx_ui.c`).
-
-| Taste | Seiten (KNOB 1–4) | gehalten |
+| Funktion | fm1-synths 0.2.4 | JX-8P solo 0.2.5 |
 |---|---|---|
-| HOME | PLAY (CUTOFF RESO ENV RELEASE, Name, Oszilloskop), PERFORM (CHORUS DELAY REVERB VOLUME) | |
-| EDIT | DCO-1 (RANGE WAVE TUNE LFO), DCO-2 (RANGE WAVE X-MOD TUNE), DCO-2 FINE (FINE LFO DRIFT), DCO ENV (DCO-1 DCO-2 ENV-MODUS DYNA), MIXER (DCO-1 DCO-2 ENV ENV-MODUS), MIXER DYN, VCF (CUTOFF RESO ENV HPF), VCF MOD (LFO KEY ENV-MODUS DYNA), VCA (LEVEL MODE DYNA VOLUME) | X-MOD, 2 TUNE, MIX 1, MIX 2 |
-| ENV | ENV-1 und ENV-2 mit Bild (A D S R), ENV KEY (1 KEY, 2 KEY, SNAP, RETRIG) | 1 ATT, 1 DEC, 2 ATT, 2 REL |
-| LFO | LFO (RATE DELAY WAVE SYNC), LFO 2 (SHAPE NOTE KEYSYNC), VOICE (MODE PORTA GLIDE SHIFT), VOICE 2 (UNI DET CHORD DRIFT) | RATE, DELAY, PITCH, FILTER |
-| FX | CHORUS (an/I/II, MODE, RATE), SENDS (Delay- und Hall-Anteil des Sounds, Pegel von Delay und Hall), DELAY, DELAY 2, REVERB | DELAY, REVERB, TIME, CHORUS |
-| ARP | ARP (an, Modus, Rate, Oktaven), ARP 2 (Gate, Hold) | |
-| SEQ | SEQUENCER (an, Rate, Gate, Transponieren); tippen auf der Seite: an/aus | |
-| GLO | TEMPO (Tempo, Clock-Quelle, Clock senden, MIDI-Kanal), PATCH (BEND, BEND LFO, MOD SENS: im Sound gespeichert, der Kern nutzt sie nicht), SYSTEM (Pegel, Last) | MODE, GLIDE, SHIFT, VOLUME |
-| SEL | Soundliste nach Gruppen | |
-| REC / PLAY / SAVE | wie im Gerüst: Schritte aufnehmen, Arp-HOLD bzw. Start/Stop, speichern | |
+| Klangerzeugung | `jx.c`, Pool 6 Stimmen, 4 Parts, 2 Kerne | gleich (dieselbe Datei) |
+| Parts | A–D, ALGORITHM wählt, MIX (Pegel je Part), MIDI-Kanal je Part | gleich |
+| SETS | 8 Performances (Blob 1) | gleich, gespeicherte bleiben gültig |
+| Sounds | 64 Werks-Töne, PG8X INIT, INIT TONE, 40 eigene (Blob 0) | gleich, dazu die 7 eigenen iPhone-Presets (s. u.) |
+| Arp, Akkord (CHORD-Taste), Step-Sequencer (Blob 3) | ja | gleich |
+| MIDI-Clock, Start/Stop, Clock senden | ja | gleich |
+| Delay, Hall, Chorus je Part | ja | gleich |
+| Journal (letzter Stand beim Ausschalten) | ja | gleich, Werksnummern unverändert |
+| SYSTEM: Last, Test, CORES (1 gegen 2 Kerne) | ja | gleich |
+| Pitch Bend, Modulationsrad | nein (`jx.h`: „not taken“, die App liest weder 0xE0 noch CC 1) | nein, wie dort |
 
-KEY MODE: POLY, CHORD (eine Taste spielt den Akkord aus CHORD, die acht Akkorde von FM1-Electro), MONO, UNISON
-(alle 6 Stimmen, UNI DET). Gebundene Sequencer-Schritte spielen legato (Portamento AUTO gleitet).
+Geändert ist nur die Soundliste (`app/jx_app.c`, Abschnitt „the factory list“): die eigenen Presets hängen hinter
+INIT TONE (die Nummern der bisherigen Sounds in Sets und Journal bleiben), und die Gruppe EIGENE steht beim Blättern
+gleich nach INIT. Sie zeigt zuerst die iPhone-Presets, dann die am Gerät gespeicherten eigenen Sounds.
 
-## Sounds
+## Eigene Presets
 
-74, in dieser Reihenfolge und nach Gruppen (`app/jx_sounds.h`, erzeugt von `tools/sounds.py`):
+STRINGS 01, HI STRI 01, SYNTH B 01, PG8X IN 01–03, SPRUNG ODE aus der JX-8P-iOS-App (`engine/jx_eigene.c`, erzeugt von
+`tools/eigene83.py` aus `bausteine/jx8p/jx8p_eigene.c`). Neue Presets vom iPhone:
 
-| Gruppe | Sounds |
-|---|---|
-| EIGENE | die 7 eigenen Presets des Nutzers aus der iOS-App (STRINGS 01, HI STRI 01, SYNTH B 01, PG8X IN 01–03, SPRUNG ODE), vorn |
-| BASS, LEAD, STAB, KEYS, BELLS, STR+BRASS, PAD, FX+PERC | die 64 Werks-Töne der JX-8P-ROM, Gruppen wie in der App (fm1-synths) |
-| INIT AREA | INIT RHY, INIT STR, INIT BASS (mono) aus FM1-Electro |
-
-Dazu INIT (PG8X INIT) und 40 Plätze für eigene Sounds (Formatversion 1: 68 Rohwerte). Neue Presets vom iPhone:
-`tools/iphone_presets_pull.sh jx8p`, dann `python3 bausteine/varianten/jx8p/tools/sounds.py` und neu bauen.
+```sh
+tools/iphone_presets_pull.sh jx8p                      # holt sie und erzeugt bausteine/jx8p/jx8p_eigene.c
+python3 bausteine/varianten/jx8p/tools/eigene83.py     # engine/jx_eigene.c
+make -C bausteine jx8p                                 # bitgleich mit dem Baustein?
+```
 
 ## Bauen
 
@@ -59,18 +59,14 @@ JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 bausteine
 tools/fm1-emu/check.sh ~/fm1-emu $PWD/bausteine/varianten/jx8p/build/jx8p.fwsc $PWD/bausteine/varianten/jx8p/build/dinghy.elf
 ```
 
-Stimmen: `JX_VOICES=<n>` vor dem Build (Standard 6 = alle des Kerns). Neue Fassung: `VERSION` erhöhen (Z), bauen,
-prüfen, `firmware/JX8P-<Version>.fwsc` ersetzen (die alte entfernen).
+Plattform und `shared/` kommen aus dem Gerüst [`../gemeinsam`](../gemeinsam/) (dieselben Dateien wie in fm1-synths;
+`shared/dsp/` von dort dazugelegt). Neue Fassung: `VERSION` erhöhen (Z), bauen, prüfen, `firmware/JX8P-<Version>.fwsc`
+ersetzen (die alte entfernen). Die Doku der fm1-synths-Fassung liegt unter `docs/` (ADR 0001–0003 dort, `KLANG.md`),
+Herkunft der Dateien: `LICENSES.md`.
 
 ## Offen
 
-- **Gleichstand mit fm1-synths JX8P-0.2.0 (Bedingung der Abnahme):** 4 Parts mit gemeinsamem Stimmen-Pool auf beiden
-  Kernen, MIX, MIDI-Kanal je Part, 8 SETS, Akkord-Taste, CORES-Test; eigene Sounds und Sets der fm1-synths-Fassung beim
-  ersten Start übernehmen.
-
-- Am Gerät: Last (Seite SYSTEM), Pegel, Bedienung.
-- Pitch Bend und Modulationsrad per MIDI werden nicht ausgewertet: der Kern hat keine Eingänge dafür (wie in FM1-Electro);
-  BEND, BEND LFO und MOD SENS (Seite PATCH) stehen nur im Sound und wirken nicht. Nächste Fassung: Seite PATCH weglassen
-  oder Bender im Kern nachrüsten (Schalter, ADR 0006).
-- Mehr als 6 Stimmen oder Stimmen auf Kern 1: braucht eine Änderung am Kern (`JX8P_MAX_VOICES`) bzw. am Gerüst.
-- Speichern (eigene Sounds, Journal, Sequenzen): gebaut wie im Gerüst, im Emulator nicht über einen Neustart geprüft.
+- Am Gerät: 0.2.5 aufspielen über 0.2.4, prüfen, dass eigene Sounds und Sets bleiben; Last.
+- Live-Aufnahme nach Art des RK-008 (ADR 0053, noch nicht freigegeben): der Sequencer (`jx_app.c`, Blob 3) bleibt dafür
+  unverändert und erweiterbar.
+- Mehrere Parts im Gerüst `gemeinsam/` für die Kombis: eigener Schritt.

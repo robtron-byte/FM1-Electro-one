@@ -1,0 +1,745 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * JX-8P voice engine for the M-VAVE FM-1 (see jx.h for what it is and where it comes from).
+ *
+ * The voice (jx_osc, render_step, control) is a port of the user's JX-8P iOS app
+ * (github.com/robtron-byte/JX8P, branch cursor/ios-jx8p-grundlage-76ee, commit 9687574):
+ * ios/Shared/DSP/DCO.swift (JXOscillators, JXOscSettings), HardwareCurves.swift, SynthEngine.swift
+ * (adsr, envelopeSettings, envAmount, dynamicsFactor, renderControlBlock, renderVoice, updateLFO).
+ * The pool, the parts and the block in phases are the MKS-50 firmware's (mks50/engine/mks.c, 14.11.2026),
+ * line for line; the DSP blocks are ../../shared/dsp/. The audio path uses no libc math: approximations
+ * from dsp_math.h. */
+#if defined(EL_PLATFORM)
+#pragma const_seg(".dsp_rodata")
+#endif
+#include "jx.h"
+#include "dsp_math.h"
+#include "syn_dsp_inline.h"
+#include "syn_chop_inline.h"
+#include <string.h>
+
+enum { CONTROL = JX_CONTROL };
+
+/* ---- curves (HardwareCurves.swift) ------------------------------------------------- */
+
+static const float dynamics_amount[4] EL_DSP_DATA = {0, 0.35f, 0.65f, 1};
+static const float env_key_amount[4] EL_DSP_DATA = {0, 0.25f, 0.5f, 1};
+
+static inline float unit(float raw) { return dsp_clamp(raw, 0.0f, 127.0f) * (1.0f / 127.0f); }
+static inline float snap_scale(float raw) { return 0.25f + 0.75f * dsp_clamp(raw, 0.0f, 24.0f) / 24.0f; }
+/* ATTACK: about 1 ms ... 3 s; DECAY / RELEASE: about 3 ms ... 12 s; both exponential. */
+static inline float attack_seconds(float raw, int snap) { float s = 0.001f * dsp_exp2(unit(raw) * 11.5f); return snap ? s * snap_scale(raw) : s; }
+static inline float decay_seconds(float raw, int snap) { float s = 0.003f * dsp_exp2(unit(raw) * 12.0f); return snap ? s * snap_scale(raw) : s; }
+static inline int sw4(int v) { return v < 0 ? 0 : v > 3 ? 3 : v; }
+
+/* SynthEngine.adsr: the JX-8P ADSR on the 4-segment envelope (T1 attack to 1, T2 decay to S, T3 holds S,
+ * T4 release). */
+static void adsr(syn_env_settings_t *e, int attack, int decay, int sustain, int release, int snap)
+{
+    float s = dsp_clamp((float)sustain, 0.0f, 127.0f) / 127.0f;
+    e->t1 = attack_seconds((float)attack, snap); e->l1 = 1;
+    e->t2 = decay_seconds((float)decay, snap); e->l2 = s;
+    e->t3 = 0.001f; e->l3 = s;
+    e->t4 = decay_seconds((float)release, snap);
+}
+
+/* ---- the two DCOs (JXOscSettings, JXOscillators) ------------------------------------ */
+
+
+/* JX-8P waveform switch: 0 NOISE, 1 SQUARE, 2 PULSE (about 22 %), 3 SAW. */
+static void osc_shape(syn_chop_t *c, int wave)
+{
+    switch (wave) {
+    case 1: syn_chop_set(c, 0, 1, 0.5f, 0, 0.5f); break;
+    case 2: syn_chop_set(c, 0, 1, 0.78f, 0, 0.5f); break;
+    default: syn_chop_set(c, 1, 0, 0.5f, 0, 0.5f); break;   /* saw (noise uses the generator) */
+    }
+}
+
+/* A slave reset at its master's wrap: the jump band-limited on the master's phase (JXOscillators.synced). */
+static inline EL_DSP_HELPER float osc_synced(const syn_chop_t *shape, float *slave, float slave_dt, float master_phase, float master_dt)
+{
+    float since = master_phase / (master_dt > 1e-9f ? master_dt : 1e-9f);
+    float before = syn_wrap01(*slave - slave_dt * since);
+    *slave = syn_wrap01(slave_dt * since);
+    float h = syn_chop_naive(shape, 0) - syn_chop_naive(shape, before);
+    return 2.0f * syn_chop_naive(shape, *slave) - 1.0f + h * syn_polyblep(master_phase, master_dt);
+}
+
+#define XMOD_DEPTH 1.5f   /* XMOD: DCO-2 frequency deviation per unit of DCO-1 output */
+
+static inline __attribute__((always_inline)) float osc_tick(const jx_slice_t *b, jx_voice_t *v, float raw_dt1, float raw_dt2,
+                                                           float gain1, float gain2)
+{
+    float dt1 = raw_dt1 < 0.45f ? raw_dt1 : 0.45f;
+    float dt2 = raw_dt2 < 0.45f ? raw_dt2 : 0.45f;
+    if (b->xmod == 3) dt2 = dsp_clamp(dt2 * (1.0f + XMOD_DEPTH * v->last1), 0.0f, 0.45f);
+    v->phase1 += dt1;
+    int wrapped1 = v->phase1 >= 1.0f;
+    if (wrapped1) v->phase1 -= 1.0f;
+    v->phase2 += dt2;
+    int wrapped2 = v->phase2 >= 1.0f;
+    if (wrapped2) v->phase2 = syn_wrap01(v->phase2);
+    float o1, o2;
+    if (b->xmod == 2 && wrapped2 && !b->noise1) o1 = osc_synced(&b->wave1, &v->phase1, dt1, v->phase2, dt2);
+    else o1 = b->noise1 ? syn_xorshift(&v->noise) : syn_chop_render(&b->wave1, v->phase1, dt1);
+    if (b->xmod == 1 && wrapped1 && !b->noise2) o2 = osc_synced(&b->wave2, &v->phase2, dt2, v->phase1, dt1);
+    else o2 = b->noise2 ? syn_xorshift(&v->noise) : syn_chop_render(&b->wave2, v->phase2, dt2);
+    v->last1 = o1;
+    if (b->noise1) o1 *= 0.7f;
+    if (b->noise2) o2 *= 0.7f;
+    return o1 * gain1 + o2 * gain2;
+}
+
+/* ---- HPF: flat, then 1-pole high-passes at about 150 / 330 / 700 Hz ---------------- */
+
+static void hpf_configure(jx_part_t *p, int mode)
+{
+    static const float hz[4] = {0, 150.0f, 330.0f, 700.0f};
+    syn_biquad_t *c = &p->hpf;
+    p->hpf_mode = (uint8_t)mode;
+    if (mode > 0) {
+        float k = dsp_tan(DSP_PI * hz[mode & 3] / EL_SAMPLE_RATE), a0 = 1 + k;
+        c->b0 = 1 / a0; c->b1 = -1 / a0; c->b2 = 0; c->a1 = (k - 1) / a0; c->a2 = 0;
+    }
+}
+
+/* ---- parts and the pool (mks.c) ------------------------------------------------------ */
+
+static void base_envs(jx_part_t *p)
+{
+    const uint8_t *v = p->v;
+    int snap = v[JP_ENV_SNAP] == 1;
+    adsr(&p->base1, v[JP_E1_ATTACK], v[JP_E1_DECAY], v[JP_E1_SUSTAIN], v[JP_E1_RELEASE], snap);
+    adsr(&p->base2, v[JP_E2_ATTACK], v[JP_E2_DECAY], v[JP_E2_SUSTAIN], v[JP_E2_RELEASE], snap);
+    p->env_gen++;
+}
+
+void jx_init(jx_t *s, unsigned pool, uint32_t seed)
+{
+    memset(s, 0, sizeof *s);
+    s->pool = (uint8_t)(pool < 1 ? 1 : pool > JX_POOL_MAX ? JX_POOL_MAX : pool);
+    s->cores = 1;
+    for (unsigned i = 0; i < JX_POOL_MAX; ++i) {
+        jx_voice_t *v = &s->voice[i];
+        v->key = -1;
+        v->noise = seed + i * 0x9e3779b9u;
+        if (!v->noise) v->noise = 0x9e3779b9u;
+        v->rng = (seed + i) * 2654435761u;
+        if (!v->rng) v->rng = 1;
+        v->drift_pitch = syn_xorshift(&v->rng);
+        v->drift_cutoff = syn_xorshift(&v->rng);
+        v->drift_env = syn_xorshift(&v->rng);
+        v->lfo_fade = 1;
+    }
+    for (unsigned i = 0; i < JX_PARTS; ++i) {
+        jx_part_t *p = &s->part[i];
+        uint32_t ps = seed + i * 0x632be5abu;
+        p->lfo_rng = ps ^ 0xa5a5a5a5u;
+        p->chorus.hiss = 0xb0b0cafeu ^ ps;
+        p->chorus.depth = 80;
+        p->level = 1;
+        jx_part_load(s, i, jx_presets[0].v);
+    }
+}
+
+#define PART_VOICES(s, pi, v) \
+    for (jx_voice_t *v = (s)->voice, *v##_end = (s)->voice + (s)->pool; v < v##_end; ++v) if (v->part == (pi))
+
+EL_DSP_CODE unsigned jx_part_voices(const jx_t *s, unsigned pi)
+{
+    unsigned n = 0;
+    for (unsigned i = 0; i < s->pool; ++i) n += s->voice[i].active && s->voice[i].part == pi;
+    return n;
+}
+
+EL_DSP_CODE int jx_active(const jx_t *s, unsigned pi)
+{
+    if (pi >= JX_PARTS) return 0;
+    if (jx_part_voices(s, pi)) return 1;
+    return s->part[pi].chorus.mix > 0.0001f && s->part[pi].silent_blocks < 40;
+}
+
+/* Both envelopes' settings for a voice at a pitch (SynthEngine.envelopeSettings): key follow in 4 steps
+ * (higher notes faster: 2^(-amount) per octave), drift; T3 stays. Worked out again only when the sound's
+ * envelope knobs, the pitch or the drift changed. */
+static EL_DSP_HELPER void env_settings(const jx_part_t *p, jx_voice_t *v, float pitch)
+{
+    if (v->es_ok && v->es_gen == p->env_gen && v->es_pitch == pitch && v->es_drift == v->drift_env) return;
+    v->es_ok = 1;
+    v->es_gen = p->env_gen;
+    v->es_pitch = pitch;
+    v->es_drift = v->drift_env;
+    float drift = 1.0f + p->v[JP_DRIFT] / 127.0f * v->drift_env * 0.08f;
+    for (int which = 1; which <= 2; ++which) {
+        float follow = env_key_amount[sw4(p->v[which == 1 ? JP_E1_KEY : JP_E2_KEY])], scale = drift;
+        if (follow > 0) scale *= dsp_exp2(-follow * (pitch - 60.0f) / 12.0f);
+        syn_env_settings_t *e = which == 1 ? &v->es1 : &v->es2;
+        *e = which == 1 ? p->base1 : p->base2;
+        e->t1 *= scale; e->t2 *= scale; e->t4 *= scale;
+    }
+}
+
+static EL_DSP_HELPER void release(const jx_part_t *p, jx_voice_t *v)
+{
+    v->gate = 0;
+    env_settings(p, v, v->pitch);
+    syn_env_begin(&v->env1, SYN_ENV_RELEASE, 0, v->es1.t4);
+    syn_env_begin(&v->env2, SYN_ENV_RELEASE, 0, v->es2.t4);
+}
+
+EL_DSP_CODE void jx_all_off(jx_t *s, unsigned pi)
+{
+    if (pi >= JX_PARTS) return;
+    jx_part_t *p = &s->part[pi];
+    PART_VOICES(s, pi, v) if (v->gate) release(p, v);
+    p->held_count = 0;
+}
+
+EL_DSP_CODE void jx_part_load(jx_t *s, unsigned pi, const uint8_t v[JP_COUNT])
+{
+    if (pi >= JX_PARTS) return;
+    jx_part_t *p = &s->part[pi];
+    int mode_changed = p->v[JP_KEY_MODE] != v[JP_KEY_MODE];
+    for (unsigned i = 0; i < JP_COUNT; ++i) p->v[i] = v[i];
+    if (mode_changed) jx_all_off(s, pi);
+    hpf_configure(p, sw4(p->v[JP_HPF]));
+    base_envs(p);
+    p->cutoff_smoothed = p->v[JP_CUTOFF];
+}
+
+EL_DSP_CODE void jx_part_set(jx_t *s, unsigned pi, unsigned param, int value)
+{
+    if (pi >= JX_PARTS || param >= JP_COUNT) return;
+    jx_part_t *p = &s->part[pi];
+    int mode_changed = param == JP_KEY_MODE && p->v[param] != value;
+    p->v[param] = (uint8_t)el_clampi(value, 0, jx_param_max(param));
+    if (mode_changed) jx_all_off(s, pi);
+    if (param == JP_HPF) hpf_configure(p, sw4(p->v[JP_HPF]));
+    if ((param >= JP_E1_ATTACK && param <= JP_E2_RELEASE) || param == JP_ENV_SNAP) base_envs(p);
+}
+
+static float last_pitch_of(const jx_t *s, unsigned pi)
+{
+    uint32_t best = 0; float pitch = -1;
+    for (unsigned i = 0; i < s->pool; ++i) {
+        const jx_voice_t *v = &s->voice[i];
+        if (v->part == pi && v->active && v->age >= best) { best = v->age; pitch = v->pitch; }
+    }
+    return pitch;
+}
+
+static EL_DSP_HELPER void start_voice(jx_t *s, unsigned pi, jx_voice_t *v, int note, float velocity, int glide, float from, int retrigger)
+{
+    jx_part_t *p = &s->part[pi];
+    int was_active = v->active;
+    v->part = (uint8_t)pi;
+    v->key = (int16_t)note;
+    v->velocity = velocity;
+    v->gate = 1;
+    v->age = ++s->age;
+    v->target_pitch = (float)note + (float)((int)p->v[JP_KEY_SHIFT] - 12);
+    v->pitch = glide && from >= 0 ? from : v->target_pitch;
+    if (!retrigger && was_active) return;
+    v->lfo_fade = p->v[JP_LFO_DELAY] > 0 ? 0.0f : 1.0f;
+    if (!was_active) {
+        syn_ladder_reset(&v->ld);
+        v->hz1 = v->hz2 = 0;
+        v->env1.stage = v->env2.stage = SYN_ENV_IDLE;
+        v->env1.value = v->env2.value = 0;
+        v->phase1 = v->phase2 = v->last1 = 0;
+        v->gate_amp = 0;
+    }
+    v->active = 1;
+    env_settings(p, v, v->target_pitch);
+    syn_env_begin(&v->env1, SYN_ENV_T1, v->es1.l1, v->es1.t1);
+    syn_env_begin(&v->env2, SYN_ENV_T1, v->es2.l1, v->es2.t1);
+}
+
+/* A voice for part pi from the pool: mks.c's pool_take (mks50/docs/adr/0002). */
+static jx_voice_t *pool_take(jx_t *s, unsigned pi)
+{
+    jx_voice_t *best = 0;
+    unsigned count[JX_PARTS] = {0}, victim = pi;
+    for (unsigned i = 0; i < s->pool; ++i) if (!s->voice[i].active) return &s->voice[i];
+    for (unsigned i = 0; i < s->pool; ++i)
+        if (!s->voice[i].gate && (!best || s->voice[i].age < best->age)) best = &s->voice[i];
+    if (best) return best;
+    for (unsigned i = 0; i < s->pool; ++i) count[s->voice[i].part < JX_PARTS ? s->voice[i].part : 0]++;
+    if (count[pi] < JX_GUARANTEE) {
+        unsigned most = 0;
+        for (unsigned q = 0; q < JX_PARTS; ++q)
+            if (q != pi && count[q] > most) { most = count[q]; victim = q; }
+    } else {
+        for (unsigned q = 0; q < JX_PARTS; ++q)
+            if (count[q] > JX_GUARANTEE && count[q] > count[victim]) victim = q;
+    }
+    for (unsigned i = 0; i < s->pool; ++i)
+        if (s->voice[i].part == victim && (!best || s->voice[i].age < best->age)) best = &s->voice[i];
+    if (!best) best = &s->voice[0];
+    return best;
+}
+
+static int any_gate(const jx_t *s, unsigned pi)
+{
+    for (unsigned i = 0; i < s->pool; ++i) if (s->voice[i].part == pi && s->voice[i].gate) return 1;
+    return 0;
+}
+
+static unsigned note_voices(jx_t *s, unsigned pi, unsigned want, jx_voice_t **list)
+{
+    unsigned n = 0;
+    if (want == 1) {
+        jx_voice_t *best = 0;
+        PART_VOICES(s, pi, v) if (v->active && v->gate) { list[0] = v; return 1; }
+        PART_VOICES(s, pi, v) if (v->active && (!best || v->age >= best->age)) best = v;
+        list[0] = best ? best : pool_take(s, pi);
+        return 1;
+    }
+    PART_VOICES(s, pi, v) if (v->active && n < want) list[n++] = v;
+    for (unsigned i = 0; i < s->pool && n < want; ++i) if (!s->voice[i].active) list[n++] = &s->voice[i];
+    if (n > 1) {
+        for (unsigned i = 1; i < n; ++i)
+            for (unsigned j = i; j > 0 && list[j] < list[j - 1]; --j) { jx_voice_t *t = list[j]; list[j] = list[j - 1]; list[j - 1] = t; }
+    }
+    if (!n) list[n++] = pool_take(s, pi);
+    return n;
+}
+
+EL_DSP_CODE void jx_note_on(jx_t *s, unsigned pi, int note, float velocity, int legato)
+{
+    if (pi >= JX_PARTS) return;
+    jx_part_t *p = &s->part[pi];
+    int mode = p->v[JP_KEY_MODE], porta = p->v[JP_PORTA];
+    int held = any_gate(s, pi) || legato;
+    int glide = porta == 1 || (porta == 2 && held);
+    float from = last_pitch_of(s, pi);
+    if (p->v[JP_LFO_KEYSYNC] && !held) {
+        p->lfo_phase = 0;
+        p->lfo_held = syn_xorshift(&p->lfo_rng);
+        p->lfo_from = p->lfo_to;
+    }
+    if (mode == 2 || mode == 3) {
+        jx_voice_t *list[JX_UNISON_MAX];
+        if (p->held_count < 8) p->held[p->held_count++] = (int16_t)note;
+        int retrigger = !(held && (p->v[JP_ENV_RETRIG] == 1 || legato));
+        unsigned count = note_voices(s, pi, mode == 3 ? JX_UNISON_MAX : 1u, list);
+        for (unsigned i = 0; i < count; ++i) {
+            jx_voice_t *v = list[i];
+            int mine = v->active && v->part == pi;
+            v->unison_spread = count > 1 ? -1.0f + 2.0f * (float)i / (float)(count - 1) : 0.0f;
+            start_voice(s, pi, v, note, velocity, glide, from, retrigger || !mine);
+        }
+        return;
+    }
+    jx_voice_t *v = 0;
+    for (unsigned i = 0; i < s->pool; ++i)
+        if (s->voice[i].part == pi && s->voice[i].active && s->voice[i].key == note) { v = &s->voice[i]; break; }
+    if (!v) v = pool_take(s, pi);
+    v->unison_spread = 0;
+    start_voice(s, pi, v, note, velocity, glide, from, 1);
+}
+
+EL_DSP_CODE void jx_note_off(jx_t *s, unsigned pi, int note)
+{
+    if (pi >= JX_PARTS) return;
+    jx_part_t *p = &s->part[pi];
+    int mode = p->v[JP_KEY_MODE];
+    if (mode == 2 || mode == 3) {
+        unsigned n = 0;
+        for (unsigned i = 0; i < p->held_count; ++i) if (p->held[i] != note) p->held[n++] = p->held[i];
+        p->held_count = (uint8_t)n;
+        if (n) {
+            PART_VOICES(s, pi, v) {
+                if (!v->gate) continue;
+                v->key = p->held[n - 1];
+                v->target_pitch = (float)p->held[n - 1] + (float)((int)p->v[JP_KEY_SHIFT] - 12);
+                if (!p->v[JP_PORTA]) v->pitch = v->target_pitch;
+            }
+            return;
+        }
+        PART_VOICES(s, pi, v) if (v->gate) release(p, v);
+        return;
+    }
+    PART_VOICES(s, pi, v)
+        if (v->active && v->gate && v->key == note) release(p, v);
+}
+
+/* ---- per control step (SynthEngine.renderControlBlock, updateLFO) ------------------- */
+
+static EL_DSP_CODE void control(jx_part_t *p, jx_slice_t *b, float bpm)
+{
+    const uint8_t *v = p->v;
+    const float n = CONTROL;
+    int wrapped = 0;
+    /* LFO */
+    if (v[JP_LFO_SYNC]) {
+        float quarters = syn_divisions[v[JP_LFO_DIV] < 14 ? v[JP_LFO_DIV] : 13];
+        p->lfo_phase += (bpm < 20 ? 20 : bpm) / 60.0f / quarters * n / EL_SAMPLE_RATE;
+    } else {
+        p->lfo_phase += syn_curve_exp(syn_curve_lfo, v[JP_LFO_RATE]) * n / EL_SAMPLE_RATE;
+    }
+    if (p->lfo_phase >= 1.0f) { p->lfo_phase = syn_wrap01(p->lfo_phase); wrapped = 1; }
+    float ph = p->lfo_phase;
+    /* SHAPE 0 follows the JX-8P switch: RANDOM (sample & hold), SQUARE, SINE */
+    int shape = v[JP_LFO_SHAPE] > 0 ? v[JP_LFO_SHAPE] - 1 : v[JP_LFO_WAVE] == 0 ? 5 : v[JP_LFO_WAVE] == 1 ? 4 : 1;
+    switch (shape) {
+    case 1: p->lfo_value = dsp_sin(2 * DSP_PI * ph); break;
+    case 2: p->lfo_value = 2 * ph - 1; break;
+    case 3: p->lfo_value = 1 - 2 * ph; break;
+    case 4: p->lfo_value = ph < 0.5f ? 1.0f : -1.0f; break;
+    case 5:
+        if (wrapped) p->lfo_held = syn_xorshift(&p->lfo_rng);
+        p->lfo_value = p->lfo_held;
+        break;
+    case 6:
+        if (wrapped) { p->lfo_from = p->lfo_to; p->lfo_to = syn_xorshift(&p->lfo_rng); }
+        p->lfo_value = p->lfo_from + (p->lfo_to - p->lfo_from) * (0.5f - 0.5f * dsp_cos(DSP_PI * ph));
+        break;
+    default: p->lfo_value = 1 - 4 * dsp_abs(ph - 0.5f); break;
+    }
+    /* the DCOs' shapes */
+    osc_shape(&b->wave1, v[JP_DCO1_WAVE]);
+    osc_shape(&b->wave2, v[JP_DCO2_WAVE]);
+    b->noise1 = v[JP_DCO1_WAVE] == 0;
+    b->noise2 = v[JP_DCO2_WAVE] == 0;
+    b->xmod = sw4(v[JP_DCO2_XMOD]);
+    p->cutoff_smoothed += (v[JP_CUTOFF] - p->cutoff_smoothed) * dsp_min(1, n / (0.01f * EL_SAMPLE_RATE));
+    float volume = (v[JP_VOLUME] / 127.0f) * (v[JP_VOLUME] / 127.0f);
+    p->volume_smoothed += (volume - p->volume_smoothed) * dsp_min(1, n / (0.02f * EL_SAMPLE_RATE));
+    if (p->hpf_mode != v[JP_HPF]) hpf_configure(p, sw4(v[JP_HPF]));
+
+    b->dco_env_mode = sw4(v[JP_DCO_ENV_MODE]);
+    b->mix_env_mode = sw4(v[JP_MIX_ENV_MODE]);
+    b->vcf_env_mode = sw4(v[JP_VCF_ENV_MODE]);
+    b->gate_mode = v[JP_VCA_ENV_MODE] == 0;
+    b->dco_dyn = dynamics_amount[sw4(v[JP_DCO_DYNA])];
+    b->mix_dyn = dynamics_amount[sw4(v[JP_MIX_DYNA])];
+    b->vcf_dyn = dynamics_amount[sw4(v[JP_VCF_DYNA])];
+    b->vca_dyn = dynamics_amount[sw4(v[JP_VCA_DYNA])];
+    /* vibrato: the DCO LFO depths (mod wheel, bender LFO and aftertouch: none on the FM-1) */
+    float u1 = unit(v[JP_DCO1_LFO]), u2 = unit(v[JP_DCO2_LFO]);
+    b->vibrato1 = u1 * u1 * 12.0f;
+    b->vibrato2 = u2 * u2 * 12.0f;
+    float e1 = unit(v[JP_DCO1_ENV]), e2 = unit(v[JP_DCO2_ENV]);
+    b->dco1_env = e1 * e1 * 36.0f;
+    b->dco2_env = e2 * e2 * 36.0f;
+    /* RANGE 0 = 16', 1 = 8', 2 = 4', 3 = 2'; TUNE 0..24 = -12..+12; FINE ±50 cents around 64 */
+    b->pitch1 = (float)((sw4(v[JP_DCO1_RANGE]) - 1) * 12 + (int)v[JP_DCO1_TUNE] - 12);
+    b->pitch2 = (float)((sw4(v[JP_DCO2_RANGE]) - 1) * 12 + (int)v[JP_DCO2_TUNE] - 12) +
+                (dsp_clamp((float)v[JP_DCO2_FINE], 0.0f, 127.0f) - 64.0f) / 128.0f;
+    float m1 = unit(v[JP_MIX_DCO1]), m2 = unit(v[JP_MIX_DCO2]);
+    b->mix1 = m1 * m1;
+    b->mix2 = m2 * m2;
+    b->mix_env = v[JP_MIX_ENV] / 127.0f;
+    b->porta = v[JP_PORTA] != 0;
+    float porta_seconds = (v[JP_PORTA_TIME] / 127.0f) * (v[JP_PORTA_TIME] / 127.0f) * 3.0f;
+    b->porta_coef = porta_seconds < 0.001f ? 1.0f : 1.0f - dsp_exp(-n / (porta_seconds * EL_SAMPLE_RATE));
+    float delay = v[JP_LFO_DELAY] ? dsp_exp(v[JP_LFO_DELAY] / 14.2f - 3.0f) / 10.0f : 0.0f;
+    b->lfo_fade_inc = delay < 0.001f ? 1.0f : n / (delay * EL_SAMPLE_RATE);
+    b->drift = v[JP_DRIFT] / 127.0f;
+    b->unison = syn_powf(v[JP_UNISON_DETUNE] / 127.0f, 1.5f) * 0.5f;
+    b->cutoff_oct = unit(p->cutoff_smoothed) * 10.3f - 0.3f;
+    b->key_follow = v[JP_VCF_KEY] / 127.0f / 12.0f;
+    b->vcf_env = unit(v[JP_VCF_ENV]) * 9.0f;
+    float l = unit(v[JP_VCF_LFO]);
+    b->vcf_lfo = l * l * 4.0f;
+    b->resonance = v[JP_RESO] / 127.0f;
+    b->amp = v[JP_VCA_LEVEL] / 127.0f;
+    b->gate_coef = 0.0730f;    /* 1 - exp(-1 / (0.0003 * 44100)) */
+    b->gate_release = 0.00189f; /* 1 - exp(-1 / (0.012 * 44100)) */
+    b->lfo_value = p->lfo_value;
+}
+
+/* JX-8P ENV MODE: 0 ENV-2 inverted, 1 ENV-2, 2 ENV-1 inverted, 3 ENV-1; times the DYNAMICS factor. */
+static inline EL_DSP_HELPER float env_amount(float e1, float e2, int mode, float dyn, float velocity)
+{
+    float e = mode == 0 ? -e2 : mode == 1 ? e2 : mode == 2 ? -e1 : e1;
+    return e * (1.0f - dyn + dyn * velocity);
+}
+
+/* One voice, one control step (SynthEngine.renderVoice). */
+static inline __attribute__((always_inline)) void render_step(const jx_part_t *p, jx_voice_t *v, const jx_slice_t *b,
+                                                              float *left, float *right, int n, int unison)
+{
+    if (b->porta) v->pitch += (v->target_pitch - v->pitch) * b->porta_coef;
+    else v->pitch = v->target_pitch;
+    float pitch = v->pitch, drift_semis = 0, drift_oct = 0;
+    if (b->drift > 0) {
+        v->wander += syn_xorshift(&v->rng) * 0.02f * (float)n / 16.0f - v->wander * 0.0005f * (float)n;
+        v->wander = dsp_clamp(v->wander, -1, 1);
+        drift_semis = b->drift * (v->drift_pitch * 0.08f + v->wander * 0.04f);
+        drift_oct = b->drift * v->drift_cutoff * 0.15f;
+    }
+    if (v->lfo_fade < 1.0f) v->lfo_fade = dsp_min(1, v->lfo_fade + b->lfo_fade_inc);
+    float lfo = b->lfo_value * v->lfo_fade;
+    float e1 = v->env1.value, e2 = v->env2.value, vel = v->velocity;
+    float dco_env = env_amount(e1, e2, b->dco_env_mode, b->dco_dyn, vel);
+    float vcf_env = env_amount(e1, e2, b->vcf_env_mode, b->vcf_dyn, vel);
+    float mix_env = env_amount(e1, e2, b->mix_env_mode, b->mix_dyn, vel);
+    float common = pitch + drift_semis + v->unison_spread * b->unison;
+    float dt1 = syn_note_hz(common + b->pitch1 + lfo * b->vibrato1 + dco_env * b->dco1_env) / EL_SAMPLE_RATE;
+    float dt2 = syn_note_hz(common + b->pitch2 + lfo * b->vibrato2 + dco_env * b->dco2_env) / EL_SAMPLE_RATE;
+    float gain1 = b->mix1, gain2 = dsp_clamp(b->mix2 + mix_env * b->mix_env, 0.0f, 1.5f);
+    float octaves = b->cutoff_oct + b->key_follow * (pitch - 60.0f) + vcf_env * b->vcf_env + lfo * b->vcf_lfo + drift_oct;
+    syn_ladder_set(&v->ld, 20.0f * dsp_exp2(dsp_clamp(octaves, -2, 11)), b->resonance, 1);
+    float amp = b->amp * (1.0f - b->vca_dyn + b->vca_dyn * vel) * (unison ? 0.45f : 1.0f);
+    float pan = unison ? v->unison_spread * 0.85f : 0.0f;
+    float gl = amp * dsp_min(1, 1 - pan), gr = amp * dsp_min(1, 1 + pan);
+    float gate_target = v->gate ? 1.0f : 0.0f, gate_coef = v->gate ? b->gate_coef : b->gate_release;
+    int hpf_on = p->hpf_mode > 0;
+    env_settings(p, v, pitch);
+    for (int k = 0; k < n; ++k) {
+        (void)syn_env_next(&v->env1, &v->es1);
+        float e = syn_env_next(&v->env2, &v->es2);
+        v->gate_amp += (gate_target - v->gate_amp) * gate_coef;
+        float x = osc_tick(b, v, dt1, dt2, gain1, gain2) * 0.5f;
+        if (hpf_on) x = syn_biquad(&p->hpf, &v->hz1, &v->hz2, x);
+        x = syn_ladder(&v->ld, x) * (b->gate_mode ? v->gate_amp : e);
+        left[k] += x * gl;
+        right[k] += x * gr;
+    }
+    if (b->gate_mode) { if (!v->gate && v->gate_amp < 0.0001f) v->active = 0; }
+    else if (v->env2.stage == SYN_ENV_IDLE) v->active = 0;
+    if (!v->active) v->key = -1;
+}
+
+static EL_DSP_CODE void render_voice(const jx_part_t *p, jx_voice_t *v, float *left, float *right, int unison)
+{
+    for (int k = 0; k < JX_SLICES && v->active; ++k)
+        render_step(p, v, &p->slice[k], left + k * CONTROL, right + k * CONTROL, CONTROL, unison);
+}
+
+/* ---- a block (mks.c) ------------------------------------------------------------------- */
+
+EL_DSP_CODE void jx_plan(jx_t *s)
+{
+    unsigned cores = s->cores > 1 ? 2u : 1u;
+    s->voices_on[0] = s->voices_on[1] = 0;
+    s->parts_on[0] = s->parts_on[1] = 0;
+    s->ctl_on[0] = s->ctl_on[1] = 0;
+    for (unsigned pi = 0; pi < JX_PARTS; ++pi) s->part[pi].live = 0;
+    /* load units as mks.c: a voice 10, about 10-11 % of a block on the device for a JX voice too (docs/adr/0002) */
+    unsigned load[2] = {cores > 1 ? 9u : 0u, cores > 1 ? s->extra1 : 0u};
+    for (unsigned i = 0; i < s->pool; ++i) {
+        jx_voice_t *v = &s->voice[i];
+        if (!v->active) continue;
+        if (v->part >= JX_PARTS) { v->active = 0; continue; }
+        v->core = (uint8_t)(cores > 1 && load[1] <= load[0] ? 1u : 0u);
+        load[v->core] += 10u;
+        s->voices_on[v->core]++;
+        s->part[v->part].live = 1;
+    }
+    for (unsigned pi = 0; pi < JX_PARTS; ++pi) {
+        jx_part_t *p = &s->part[pi];
+        if (!p->live && p->chorus.mix < 0.0001f) { p->silent_blocks = 40; continue; }
+        if (!p->live) p->live = 2;
+        p->ctl_core = (uint8_t)(cores > 1 && load[1] <= load[0] ? 1u : 0u);
+        load[p->ctl_core] += 3u;
+        s->ctl_on[p->ctl_core]++;
+    }
+    for (unsigned pi = 0; pi < JX_PARTS; ++pi) {
+        jx_part_t *p = &s->part[pi];
+        if (!p->live) continue;
+        p->core = (uint8_t)(cores > 1 && load[1] <= load[0] ? 1u : 0u);
+        load[p->core] += 5u;
+        s->parts_on[p->core]++;
+        for (unsigned c = 0; c < cores; ++c)
+            for (unsigned i = 0; i < JX_BLOCK; ++i) s->acc[c][pi][0][i] = s->acc[c][pi][1][i] = 0;
+    }
+    for (unsigned c = 0; c < JX_CORES; ++c)
+        for (unsigned i = 0; i < JX_BLOCK; ++i) s->out[c][0][i] = s->out[c][1][i] = s->send[c][0][i] = s->send[c][1][i] = 0;
+}
+
+EL_DSP_CODE void jx_control(jx_t *s, unsigned core, float bpm)
+{
+    if (core >= JX_CORES || !s->ctl_on[core]) return;
+    for (unsigned pi = 0; pi < JX_PARTS; ++pi) {
+        jx_part_t *p = &s->part[pi];
+        if (!p->live || p->ctl_core != core) continue;
+        for (unsigned k = 0; k < JX_SLICES; ++k) control(p, &p->slice[k], bpm);
+    }
+}
+
+EL_DSP_CODE void jx_begin(jx_t *s, float bpm)
+{
+    jx_plan(s);
+    jx_control(s, 0, bpm);
+    jx_control(s, 1, bpm);
+}
+
+EL_DSP_CODE void jx_voices(jx_t *s, unsigned core)
+{
+    if (core >= JX_CORES || !s->voices_on[core]) return;
+    for (unsigned i = 0; i < s->pool; ++i) {
+        jx_voice_t *v = &s->voice[i];
+        if (!v->active || v->core != core) continue;
+        const jx_part_t *p = &s->part[v->part];
+        int unison = p->v[JP_KEY_MODE] == 3 && s->pool > 1;
+        render_voice(p, v, s->acc[core][v->part][0], s->acc[core][v->part][1], unison);
+    }
+}
+
+/* CHORUS switch OFF / I / II; CHORUS MODE: JX (the switch), I+II, FREE (own rate). */
+static inline int chorus_mode(const uint8_t *v)
+{
+    switch (v[JP_CHORUS_MODE]) {
+    case 1: return 3;
+    case 2: return 0;
+    default: return v[JP_CHORUS] == 2 ? 2 : 1;
+    }
+}
+
+EL_DSP_CODE void jx_finish(jx_t *s, unsigned core)
+{
+    if (core >= JX_CORES || !s->parts_on[core]) return;
+    for (unsigned pi = 0; pi < JX_PARTS; ++pi) {
+        jx_part_t *p = &s->part[pi];
+        if (!p->live || p->core != core) continue;
+        float *l = s->acc[0][pi][0], *r = s->acc[0][pi][1];
+        if (s->cores > 1) {
+            const float *l1 = s->acc[1][pi][0], *r1 = s->acc[1][pi][1];
+            for (int i = 0; i < JX_BLOCK; ++i) { l[i] += l1[i]; r[i] += r1[i]; }
+        }
+        float g = p->volume_smoothed * 0.5f * p->level;
+        for (int i = 0; i < JX_BLOCK; ++i) { l[i] *= g; r[i] *= g; }
+        syn_chorus(&p->chorus, l, r, JX_BLOCK, p->v[JP_CHORUS] > 0, chorus_mode(p->v),
+                   syn_curve_exp(syn_curve_chorus, p->v[JP_CHORUS_RATE]));
+        float *ol = s->out[core][0], *orr = s->out[core][1], *sd = s->send[core][0], *sr = s->send[core][1];
+        float peak = 0;
+        float ds = syn_powf(p->v[JP_DELAY_SEND] / 127.0f, 1.5f), rs = syn_powf(p->v[JP_REVERB_SEND] / 127.0f, 1.5f);
+        for (int i = 0; i < JX_BLOCK; ++i) {
+            float m = 0.5f * (l[i] + r[i]);
+            ol[i] += l[i];
+            orr[i] += r[i];
+            sd[i] += m * ds;
+            sr[i] += m * rs;
+            peak = dsp_max(peak, dsp_abs(m));
+        }
+        p->silent_blocks = p->live == 1 || peak > 1e-5f ? 0 : (uint8_t)(p->silent_blocks < 255 ? p->silent_blocks + 1 : 255);
+    }
+}
+
+EL_DSP_CODE void jx_mix(jx_t *s, float *left, float *right)
+{
+    for (int i = 0; i < JX_BLOCK; ++i) s->send_sum[0][i] = s->send_sum[1][i] = 0;
+    for (unsigned c = 0; c < (s->cores > 1 ? 2u : 1u); ++c) {
+        if (!s->parts_on[c]) continue;
+        for (int i = 0; i < JX_BLOCK; ++i) { s->send_sum[0][i] += s->send[c][0][i]; s->send_sum[1][i] += s->send[c][1][i]; }
+    }
+    for (unsigned c = 0; c < (s->cores > 1 ? 2u : 1u); ++c) {
+        if (!s->parts_on[c]) continue;
+        const float *l = s->out[c][0], *r = s->out[c][1];
+        for (int i = 0; i < JX_BLOCK; ++i) { left[i] += l[i]; right[i] += r[i]; }
+    }
+}
+
+EL_DSP_CODE void jx_render(jx_t *s, float *left, float *right, float bpm)
+{
+    jx_begin(s, bpm);
+    for (unsigned c = 0; c < JX_CORES; ++c) jx_voices(s, c);
+    for (unsigned c = 0; c < JX_CORES; ++c) jx_finish(s, c);
+    jx_mix(s, left, right);
+}
+
+/* ---- display helpers ------------------------------------------------------- */
+
+int jx_param_is_tone(unsigned p)
+{
+    return (p >= JP_DCO1_RANGE && p <= JP_DCO2_ENV) || (p >= JP_DCO_DYNA && p <= JP_E2_KEY) || p == JP_VCA_ENV_MODE;
+}
+
+int jx_param_max(unsigned p)
+{
+    if (p >= JP_COUNT) return 0;
+    switch (p) {
+    case JP_DCO1_RANGE: case JP_DCO1_WAVE: case JP_DCO2_RANGE: case JP_DCO2_WAVE: case JP_DCO2_XMOD:
+    case JP_DCO_DYNA: case JP_DCO_ENV_MODE: case JP_MIX_DYNA: case JP_MIX_ENV_MODE: case JP_HPF:
+    case JP_VCF_DYNA: case JP_VCF_ENV_MODE: case JP_VCA_DYNA: case JP_E1_KEY: case JP_E2_KEY: return 3;
+    case JP_CHORUS: case JP_LFO_WAVE: case JP_CHORUS_MODE: return 2;
+    case JP_VCA_ENV_MODE: return 1;
+    case JP_DCO1_TUNE: case JP_DCO2_TUNE: case JP_KEY_SHIFT: return 24;
+    case JP_BENDER: return 12;
+    case JP_KEY_MODE: return 3;
+    case JP_PORTA: return 2;
+    case JP_LFO_SHAPE: return 7;
+    case JP_LFO_DIV: return 13;
+    case JP_LFO_SYNC: case JP_LFO_KEYSYNC: case JP_ENV_RETRIG: case JP_ENV_SNAP: return 1;
+    case JP_CHORD: return JX_CHORDS - 1;
+    default: return jx_param_is_tone(p) || p >= JP_TONE_END ? 127 : 0;
+    }
+}
+
+const char *jx_param_name(unsigned p)
+{
+    switch (p) {
+    case JP_DCO1_RANGE: return "1 RANGE"; case JP_DCO1_WAVE: return "1 WAVE"; case JP_DCO1_TUNE: return "1 TUNE";
+    case JP_DCO1_LFO: return "1 LFO"; case JP_DCO1_ENV: return "1 ENV";
+    case JP_DCO2_RANGE: return "2 RANGE"; case JP_DCO2_WAVE: return "2 WAVE"; case JP_DCO2_XMOD: return "X-MOD";
+    case JP_DCO2_TUNE: return "2 TUNE"; case JP_DCO2_FINE: return "2 FINE"; case JP_DCO2_LFO: return "2 LFO";
+    case JP_DCO2_ENV: return "2 ENV"; case JP_DCO_DYNA: return "DCO DYN"; case JP_DCO_ENV_MODE: return "DCO EMD";
+    case JP_MIX_DCO1: return "DCO1"; case JP_MIX_DCO2: return "DCO2"; case JP_MIX_ENV: return "MIX ENV";
+    case JP_MIX_DYNA: return "MIX DYN"; case JP_MIX_ENV_MODE: return "MIX EMD"; case JP_HPF: return "HPF";
+    case JP_CUTOFF: return "CUTOFF"; case JP_RESO: return "RESO"; case JP_VCF_LFO: return "VCF LFO";
+    case JP_VCF_ENV: return "VCF ENV"; case JP_VCF_KEY: return "KEY FLW"; case JP_VCF_DYNA: return "VCF DYN";
+    case JP_VCF_ENV_MODE: return "VCF EMD"; case JP_VCA_LEVEL: return "LEVEL"; case JP_VCA_DYNA: return "VCA DYN";
+    case JP_CHORUS: return "CHORUS"; case JP_LFO_WAVE: return "LFO WAVE"; case JP_LFO_DELAY: return "LFO DLY";
+    case JP_LFO_RATE: return "LFO RATE";
+    case JP_E1_ATTACK: return "1 ATTACK"; case JP_E1_DECAY: return "1 DECAY"; case JP_E1_SUSTAIN: return "1 SUST";
+    case JP_E1_RELEASE: return "1 REL"; case JP_E1_KEY: return "1 KEY";
+    case JP_E2_ATTACK: return "2 ATTACK"; case JP_E2_DECAY: return "2 DECAY"; case JP_E2_SUSTAIN: return "2 SUST";
+    case JP_E2_RELEASE: return "2 REL"; case JP_E2_KEY: return "2 KEY"; case JP_VCA_ENV_MODE: return "VCA MODE";
+    case JP_BENDER: return "BEND"; case JP_BEND_LFO: return "BEND LFO"; case JP_AFTER_VIB: return "AT VIB";
+    case JP_AFTER_BRIL: return "AT BRIL"; case JP_AFTER_VOL: return "AT VOL"; case JP_CHORUS_RATE: return "CHO RATE";
+    case JP_CHORUS_MODE: return "CHO MODE"; case JP_KEY_MODE: return "KEY MODE"; case JP_PORTA_TIME: return "GLIDE";
+    case JP_PORTA: return "PORTA"; case JP_MOD_SENS: return "MOD SENS"; case JP_VOLUME: return "VOLUME";
+    case JP_KEY_SHIFT: return "SHIFT"; case JP_DRIFT: return "DRIFT"; case JP_UNISON_DETUNE: return "UNI DET";
+    case JP_LFO_SHAPE: return "LFO SHP"; case JP_LFO_SYNC: return "LFO SYNC"; case JP_LFO_DIV: return "LFO DIV";
+    case JP_LFO_KEYSYNC: return "LFO KEY"; case JP_ENV_RETRIG: return "RETRIG"; case JP_ENV_SNAP: return "ENV SNAP";
+    case JP_DELAY_SEND: return "DELAY"; case JP_REVERB_SEND: return "REVERB"; case JP_CHORD: return "CHORD";
+    default: return "";
+    }
+}
+
+const char *jx_param_value_name(unsigned p, int value)
+{
+    static const char *const ranges[] = {"16'", "8'", "4'", "2'"};
+    static const char *const waves[] = {"NOISE", "SQUARE", "PULSE", "SAW"};
+    static const char *const xmod[] = {"OFF", "SYNC1", "SYNC2", "XMOD"};
+    static const char *const env_modes[] = {"2 DOWN", "2 UP", "1 DOWN", "1 UP"};
+    static const char *const chorus[] = {"OFF", "I", "II"};
+    static const char *const lfo_waves[] = {"RANDOM", "SQUARE", "SINE"};
+    static const char *const vca[] = {"GATE", "ENV2"};
+    static const char *const off_on[] = {"OFF", "ON"};
+    static const char *const shapes[] = {"JX", "TRI", "SINE", "SAW UP", "SAW DN", "SQUARE", "S&H", "RANDOM"};
+    static const char *const divs[] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T",
+                                       "1/4", "1/4.", "1/2", "1 BAR", "2 BARS", "4 BARS"};
+    static const char *const key_modes[] = {"POLY", "CHORD", "MONO", "UNISON"};
+    static const char *const porta[] = {"OFF", "ON", "AUTO"};
+    static const char *const retrig[] = {"MULTI", "LEGATO"};
+    static const char *const snap[] = {"ORIG", "SNAP"};
+    static const char *const cho_modes[] = {"JX", "I+II", "FREE"};
+    static const char *const tunes[] = {"-12", "-11", "-10", "-9", "-8", "-7", "-6", "-5", "-4", "-3", "-2", "-1", "0",
+                                        "+1", "+2", "+3", "+4", "+5", "+6", "+7", "+8", "+9", "+10", "+11", "+12"};
+    value = el_clampi(value, 0, jx_param_max(p));
+    switch (p) {
+    case JP_DCO1_RANGE: case JP_DCO2_RANGE: return ranges[value];
+    case JP_DCO1_WAVE: case JP_DCO2_WAVE: return waves[value];
+    case JP_DCO2_XMOD: return xmod[value];
+    case JP_DCO_ENV_MODE: case JP_MIX_ENV_MODE: case JP_VCF_ENV_MODE: return env_modes[value];
+    case JP_CHORUS: return chorus[value];
+    case JP_LFO_WAVE: return lfo_waves[value];
+    case JP_VCA_ENV_MODE: return vca[value];
+    case JP_DCO1_TUNE: case JP_DCO2_TUNE: case JP_KEY_SHIFT: return tunes[value];
+    case JP_LFO_SYNC: case JP_LFO_KEYSYNC: return off_on[value];
+    case JP_LFO_SHAPE: return shapes[value];
+    case JP_LFO_DIV: return divs[value];
+    case JP_KEY_MODE: return key_modes[value];
+    case JP_PORTA: return porta[value];
+    case JP_ENV_RETRIG: return retrig[value];
+    case JP_ENV_SNAP: return snap[value];
+    case JP_CHORUS_MODE: return cho_modes[value];
+    default: return 0;
+    }
+}
+
+float jx_lfo_hz(int rate) { return syn_curve_exp(syn_curve_lfo, (float)el_clampi(rate, 0, 127)); }
