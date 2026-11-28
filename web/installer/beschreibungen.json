@@ -1,52 +1,59 @@
 {
-  "_hinweis": "Beschreibung und Stimmenzahl je Paketname (Dateiname vor der Version). Die Seite liest diese Datei und den Ordner firmware/ direkt aus dem Repository (Zweig main): neue Pakete und Texte erscheinen ohne neues Deploy, je Firmware nur die neueste Version. Ein Name ohne Eintrag hier erscheint trotzdem, nur ohne Beschreibung.",
+  "_hinweis": "Beschreibung und Stimmenzahl je Paketname (Dateiname vor der Version). Die Seite liest diese Datei und den Ordner firmware/ direkt aus dem Repository (Zweig main): neue Pakete und Texte erscheinen ohne neues Deploy, je Firmware nur die neueste Version. Ein Name ohne Eintrag hier erscheint trotzdem, nur ohne Beschreibung. Feld reihe: feste Reihenfolge der Liste (kleiner = weiter oben): FM1-Electro 10, Kombis 20–49 (JX-8P + SH-101 20, 808 + 101 und 808 + 101 + JX danach), Solos 50–99 (SH-101 50, JX-8P 60, MKS-50 70, JP-6 80, MKS Ultra 90, 808 95). Nach dem Verbinden steht die installierte Firmware oben.",
   "FM1_ELECTRO": {
     "titel": "FM1-Electro",
     "de": "808-Drums mit Groove-Generator, dazu RHYTHM, STRINGS und BASS mit JX-8P- und JP-6-Klängen, Sequencer und Effekte.",
     "en": "808 drums with a groove generator plus RHYTHM, STRINGS and BASS with JX-8P and JP-6 sounds, sequencer and effects.",
     "stimmen_de": "Drums + 3 Stimmen STRINGS",
-    "stimmen_en": "drums + 3 STRINGS voices"
+    "stimmen_en": "drums + 3 STRINGS voices",
+    "reihe": 10
   },
   "SH101": {
     "titel": "SH-101",
     "de": "Monophoner SH-101-Bass mit Arpeggiator, SH-101-Sequencer, Delay und Hall.",
     "en": "Monophonic SH-101 bass with arpeggiator, SH-101 sequencer, delay and reverb.",
     "stimmen_de": "1 Stimme (mono)",
-    "stimmen_en": "1 voice (mono)"
+    "stimmen_en": "1 voice (mono)",
+    "reihe": 50
   },
   "JX8P": {
     "titel": "JX-8P",
     "de": "JX-8P mit zwei DCOs, Chorus, 4 Parts und deinen eigenen Presets zuerst.",
     "en": "JX-8P with two DCOs, chorus, 4 parts and your own presets first.",
     "stimmen_de": "4 Stimmen",
-    "stimmen_en": "4 voices"
+    "stimmen_en": "4 voices",
+    "reihe": 60
   },
   "MKS50": {
     "titel": "MKS-50",
     "de": "MKS-50 / Alpha Juno mit 4 Parts und deinen eigenen Presets zuerst.",
     "en": "MKS-50 / Alpha Juno with 4 parts and your own presets first.",
     "stimmen_de": "4 Stimmen",
-    "stimmen_en": "4 voices"
+    "stimmen_en": "4 voices",
+    "reihe": 70
   },
   "JP6": {
     "titel": "JP-6",
     "de": "Jupiter-6 mit deinen eigenen Presets zuerst, ohne Distortion.",
     "en": "Jupiter-6 with your own presets first, without distortion.",
     "stimmen_de": "4 Stimmen",
-    "stimmen_en": "4 voices"
+    "stimmen_en": "4 voices",
+    "reihe": 80
   },
   "MKSULTRA": {
     "titel": "MKS Ultra",
     "de": "Alpha Juno „Ultra“ (Rust-Nachbau) mit vollem Filter, die Ron-Presets zuerst.",
     "en": "Alpha Juno “Ultra” (Rust recreation) with the full filter, Ron's presets first.",
     "stimmen_de": "1 Stimme",
-    "stimmen_en": "1 voice"
+    "stimmen_en": "1 voice",
+    "reihe": 90
   },
   "JXSH": {
     "titel": "JX-8P + SH-101",
     "de": "Kombi: JX-8P und SH-101 in Parts, Distortion als Send, eigene Presets zuerst, Sequencer und LOOP.",
     "en": "Combo: JX-8P and SH-101 in parts, distortion as a send, your own presets first, sequencer and LOOP.",
     "stimmen_de": "4 Stimmen JX-8P + 1 Stimme SH-101",
-    "stimmen_en": "4 JX-8P voices + 1 SH-101 voice"
+    "stimmen_en": "4 JX-8P voices + 1 SH-101 voice",
+    "reihe": 20
   }
 }

@@ -1,6 +1,7 @@
 // Bedienung des Web-Installers (ADR 0054). Logik: fm1ota.js (Update), fm1pkg.js (Paketprüfung).
 import { Updater, WebMidiBackend, InstallError } from "./fm1ota.js";
 import { loadPackage, productOf } from "./fm1pkg.js";
+import { newer, compare, sortList } from "./logik.js";
 
 // Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
 const REPO = "robtron-byte/FM1-Electro-one";
@@ -49,9 +50,9 @@ const MSG = {
     running: (n) => `Verbunden: ${n}`, loader: (n) => `Das FM-1 steht im Update-Modus (${n}). Firmware wählen und „Installieren“: das Schreiben wird beendet.`,
     foreign: (n) => `Das FM-1 steht im Update-Modus einer anderen Firmware (${n}). Dieses Update bitte mit dessen eigenem Installer beenden.`,
     other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung",
-    onDevice: "Auf dem FM-1", available: "Neueste hier", unknownVer: "Version unbekannt, ältere Firmware",
+    onDevice: "Auf dem FM-1", available: "Neueste hier", unknownVer: "Version nicht abfragbar",
     from: "vom", current: "aktuell", newer: "Update möglich", ahead: "neuer als die Liste hier",
-    updateTo: (v) => `Update auf ${v}`, installNewest: (v) => `${v} installieren`, installed: "auf dem FM-1",
+    updateTo: (v) => `Update auf ${v}`, installedBtn: "Installiert", installed: "auf dem FM-1",
     today: "heute", yesterday: "gestern", daysAgo: (n) => `vor ${n} Tagen`,
     voices: "Stimmen", chosen: (n) => `Gewählt: ${n}`, fetching: "Paket wird geladen …", fetchfail: "Paket konnte nicht geladen werden.",
     badpkg: "Diese Datei ist kein FM-1-Paket. Nichts wurde geschrieben.",
@@ -79,9 +80,9 @@ const MSG = {
     running: (n) => `Connected: ${n}`, loader: (n) => `The FM-1 is in update mode (${n}). Choose a firmware and “Install”: the write is finished.`,
     foreign: (n) => `The FM-1 is in the update mode of another firmware (${n}). Finish that update with its own installer.`,
     other: (k) => `other firmware (identity ${k})`, kennung: "identity",
-    onDevice: "On the FM-1", available: "Newest here", unknownVer: "version unknown, older firmware",
+    onDevice: "On the FM-1", available: "Newest here", unknownVer: "version cannot be read",
     from: "from", current: "up to date", newer: "update available", ahead: "newer than the list here",
-    updateTo: (v) => `Update to ${v}`, installNewest: (v) => `Install ${v}`, installed: "on the FM-1",
+    updateTo: (v) => `Update to ${v}`, installedBtn: "Installed", installed: "on the FM-1",
     today: "today", yesterday: "yesterday", daysAgo: (n) => `${n} days ago`,
     voices: "voices", chosen: (n) => `Chosen: ${n}`, fetching: "Loading the package …", fetchfail: "The package could not be loaded.",
     badpkg: "This file is not an FM-1 package. Nothing was written.",
@@ -110,7 +111,7 @@ const DE = {};
 document.querySelectorAll("[data-t]").forEach((el) => { DE[el.dataset.t] = el.innerHTML; });
 const m = () => MSG[lang];
 
-let list = [], access = null, device = null, pkg = null, busy = false;
+let meta = {}, list = [], access = null, device = null, pkg = null, busy = false;
 
 function applyLang() {
   document.documentElement.lang = lang;
@@ -147,20 +148,14 @@ function verDate(v, date) { return date ? `${v} ${m().from} ${fmtDate(date)}` : 
 function renderDevice() {
   if (!device) return;
   const t = device.text;
-  $("update").hidden = true;
-  document.querySelectorAll(".fw").forEach((l) => l.classList.toggle("installed", !device.loader && l.dataset.kennung === t));
   if (!device.loader) {
     const e = list.find((x) => x.kennung === t);
     const title = e ? e.titel : describe(t);
+    const c = compare(e, device.info);
+    // Version unbekannt: neutral, nie ein Update vorschlagen (ADR 0054)
     let line = `${m().onDevice}: ${title} ` + (device.info ? verDate(device.info.version, device.info.date) : `(${m().unknownVer})`);
-    if (e) {
-      line += ` · ${m().available}: ${verDate(e.version, e.date)}`;
-      if (device.info) line += " → " + (newer(e.version, device.info.version) ? m().newer : newer(device.info.version, e.version) ? m().ahead : m().current);
-      if (!device.info || newer(e.version, device.info.version)) {
-        $("update").textContent = device.info ? m().updateTo(e.version) : m().installNewest(`${e.titel} ${e.version}`);
-        $("update").onclick = () => updateTo(e);
-        $("update").hidden = false;
-      }
+    if (e && c.state !== "unknown") {
+      line += ` · ${m().available}: ${verDate(e.version, e.date)} → ` + (c.state === "update" ? m().newer : c.state === "ahead" ? m().ahead : m().current);
     }
     setStatus("devstatus", line, "ok");
   }
@@ -172,7 +167,8 @@ function renderList() {
   const box = $("list");
   if (!list.length) return;
   box.innerHTML = "";
-  for (const e of list) {
+  const inst = device && !device.loader ? device.text : null;
+  for (const e of sortList(list, meta, inst)) {
     const lab = document.createElement("label");
     lab.className = "fw";
     lab.dataset.kennung = e.kennung;
@@ -199,6 +195,19 @@ function renderList() {
     const badge = document.createElement("span");
     badge.className = "badge"; badge.textContent = m().installed;
     lab.querySelector("b").after(badge);
+    // installierte Firmware: markiert, kleiner Knopf „Update auf X“ bzw. „Installiert“ (nur bei bekannter Version)
+    if (inst === e.kennung) {
+      lab.classList.add("installed");
+      const c = compare(e, device.info);
+      if (c.button) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "upd";
+        b.textContent = c.button === "update" ? m().updateTo(e.version) : m().installedBtn;
+        b.disabled = c.button !== "update" || busy;
+        b.addEventListener("click", (ev) => { ev.preventDefault(); updateTo(e); });
+        lab.querySelector(".txt").append(document.createElement("br"), b);
+      }
+    }
     const input = lab.querySelector("input");
     input.checked = pkg && pkg.entry === e;
     input.addEventListener("change", () => chooseListed(e));
@@ -242,19 +251,12 @@ async function chooseListed(e) {
   updateButtons();
 }
 
-const vkey = (v) => (v.match(/\d+/g) || []).map(Number);
-function newer(a, b) {
-  const x = vkey(a), y = vkey(b);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
-  return false;
-}
 
 async function json(url) { const r = await fetch(url, { cache: "no-cache" }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
 // live: firmware/ und beschreibungen.json aus main; je Name nur die neueste Version; Kennung aus den ersten 1 KB
 async function liveList() {
   const files = await json(`https://api.github.com/repos/${REPO}/contents/firmware?ref=main`);
-  let meta;
   try { meta = await json(RAW + "web/installer/beschreibungen.json"); } catch (_) { meta = await json("beschreibungen.json"); }
   let dates = {};
   try { dates = await json("daten.json"); } catch (_) { /* ohne */ }
@@ -264,8 +266,7 @@ async function liveList() {
     if (f.type !== "file" || !mm) continue;
     if (!best[mm[1]] || newer(mm[2], best[mm[1]].version)) best[mm[1]] = { file: f, version: mm[2] };
   }
-  const order = Object.keys(meta).filter((k) => !k.startsWith("_"));
-  const names = Object.keys(best).sort((a, b) => ((order.indexOf(a) + 1) || 999) - ((order.indexOf(b) + 1) || 999) || a.localeCompare(b));
+  const names = Object.keys(best);
   const out = await Promise.all(names.map(async (name) => {
     const { file, version } = best[name], d = meta[name] || {};
     const url = RAW + "firmware/" + encodeURIComponent(file.name);
@@ -291,6 +292,7 @@ async function loadList() {
     if (!list.length) throw new Error("leer");
   } catch (_) {
     try { list = (await json("liste.json")).map((e) => ({ ...e, url: e.datei })); } catch (_) { list = []; }
+    try { meta = await json("beschreibungen.json"); } catch (_) { meta = {}; }
   }
   if (!list.length) $("list").textContent = "";
   renderList(); renderDevice();
@@ -329,7 +331,7 @@ async function connect() {
     const info = dev.id.loader ? null : await up.info(dev.link);
     dev.link.close();
     device = { ...dev.id, info };
-    renderDevice();
+    renderDevice(); renderList();
   } finally { busy = false; updateButtons(); }
 }
 
@@ -363,7 +365,7 @@ async function install() {
     if (!dev) throw new InstallError("notfound", "notfound");
     const now = await up.install(dev, pkg.image, pkg.product, step);
     device = { text: now, loader: false, info: null };
-    renderDevice();
+    renderDevice(); renderList();
     busy = false;
     setTimeout(connect, 1500);   // neu abfragen: zeigt die jetzt installierte Version
   } catch (e) {

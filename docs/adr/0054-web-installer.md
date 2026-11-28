@@ -95,3 +95,11 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   hebt den Eintrag hervor und bietet „Update auf X“. Datum je Paket: `daten.json` (git log beim Bau), für neuere Pakete
   Commit-Datum über die API. Test: `ota.c` wird mit dem Host-Compiler übersetzt und beantwortet die Abfrage selbst
   (`test/ota_info_host.c`); mit und ohne `APP_DATE`; 104 Prüfungen.
+- 2026-11-28: Fehler nach Rückmeldung des Nutzers (JXSH 0.1.1 installiert, Seite schlug „installieren“ vor):
+  **Ist die Version nicht abfragbar, schlägt die Seite nie ein Update vor**, sie zeigt neutral „Auf dem FM-1: <Firmware>
+  (Version nicht abfragbar)“. Ohne cmd 0x12 lässt sich die Version nicht bestimmen: die Kennung ist über alle Versionen
+  gleich (SH101 0.1.0–0.1.4 alle FM-1_941, JXSH 0.1.0/0.1.1 FM-1_991, aus der Git-Geschichte geprüft), und M-UPGRADE
+  liest nichts vom Gerät (das Gerät fragt, der Rechner antwortet). Kein großer Knopf oben mehr: oben nur die
+  Vergleichszeile, am Eintrag der installierten Firmware ein kleiner Knopf „Update auf X“ bzw. „Installiert“
+  (ausgegraut). Feste Reihenfolge der Liste über das Feld `reihe` in `beschreibungen.json` (FM1-Electro, Kombis,
+  Solos), nach dem Verbinden die installierte Firmware oben. Logik in `web/installer/logik.js`, im Test geprüft (113).

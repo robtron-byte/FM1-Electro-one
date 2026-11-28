@@ -55,25 +55,25 @@ def liste(fw_dir):
             "stimmen_de": d.get("stimmen_de", ""), "stimmen_en": d.get("stimmen_en", ""),
             "datei": "firmware/" + f.name, "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
         })
-    rank = {n: i for i, n in enumerate(order)}
-    out.sort(key=lambda e: (rank.get(e["name"], len(rank)), e["name"], [-x for x in vkey(e["version"])]))
+    rank = {n: meta[n].get("reihe", 1e6) for n in order}
+    out.sort(key=lambda e: (rank.get(e["name"], 1e6), e["name"], [-x for x in vkey(e["version"])]))
     return out
 
 
 def main(dest):
     dest = Path(dest)
     (dest / "firmware").mkdir(parents=True, exist_ok=True)
-    for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js", "beschreibungen.json"):
+    for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js", "logik.js", "beschreibungen.json"):
         shutil.copy(HERE / f, dest / f)
     # Browser und GitHub Pages halten Dateien bis zu 10 Minuten im Cache: jede Fassung der Seite bekommt eine eigene
     # Kennung in den Aufrufen (?v=…), damit nach einem Deploy sofort die neuen Skripte und Bilder laden
-    v = hashlib.sha256(b"".join((HERE / f).read_bytes() for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js"))
+    v = hashlib.sha256(b"".join((HERE / f).read_bytes() for f in ("index.html", "app.js", "fm1ota.js", "fm1pkg.js", "logik.js"))
                        + b"".join(f.read_bytes() for f in sorted((HERE / "bilder").glob("*.svg")))
                        + b"".join(f.read_bytes() for f in sorted((HERE / "bildschirme").glob("*.png")))).hexdigest()[:10]
     html = (dest / "index.html").read_text(encoding="utf-8").replace('src="app.js"', f'src="app.js?v={v}"')
     (dest / "index.html").write_text(html, encoding="utf-8")
     js = (dest / "app.js").read_text(encoding="utf-8")
-    for mod in ("./fm1ota.js", "./fm1pkg.js"):
+    for mod in ("./fm1ota.js", "./fm1pkg.js", "./logik.js"):
         js = js.replace(f'from "{mod}"', f'from "{mod}?v={v}"')
     js = js.replace("const BILD_V = \"\";", f"const BILD_V = \"?v={v}\";")
     # Anleitungen: aus bausteine/varianten/<name>/ANLEITUNG.md bzw. anleitungen/<NAME>.md (anleitung.py)

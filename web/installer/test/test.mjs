@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ota from "../fm1ota.js";
+import { compare, sortList, newer } from "../logik.js";
 import { loadPackage, productOf, deinterleave, packageDamage, LOADER_MARK } from "../fm1pkg.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -247,6 +248,23 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
       eq(await new ota.Updater(null, { ...fast, delay: { ...fast.delay, info: 50 } }).info(link), want, `Updater.info ${name} Erweiterung`);
     }
   }
+}
+
+// ---------------------------------------------- Vergleich und Reihenfolge (logik.js) ---
+{
+  const e = { name: "JXSH", version: "0.1.1-alpha", kennung: "FM-1_991" };
+  eq(compare(e, null), { state: "unknown", button: null }, "Version unbekannt: kein Update-Vorschlag");
+  eq(compare(e, { version: "", date: "" }), { state: "unknown", button: null }, "leere Version: kein Update-Vorschlag");
+  eq(compare(e, { version: "0.1.1-alpha", date: "2026-11-28" }), { state: "current", button: "installed" }, "gleiche Version: Installiert");
+  eq(compare(e, { version: "0.1.0-alpha", date: "" }), { state: "update", button: "update" }, "ältere Version: Update");
+  eq(compare(e, { version: "0.1.10-alpha", date: "" }), { state: "ahead", button: null }, "neuere Version als die Liste");
+  eq(newer("0.1.10-alpha", "0.1.9-alpha"), true, "Versionen numerisch verglichen");
+  const meta = JSON.parse(readFileSync(join(HERE, "..", "beschreibungen.json"), "utf8"));
+  const names = ["MKSULTRA", "SH101", "JP6", "JXSH", "MKS50", "FM1_ELECTRO", "JX8P", "NEU"];
+  const l = names.map((n, i) => ({ name: n, kennung: `FM-1_${900 + i}` }));
+  eq(sortList(l, meta).map((x) => x.name), ["FM1_ELECTRO", "JXSH", "SH101", "JX8P", "MKS50", "JP6", "MKSULTRA", "NEU"], "feste Reihenfolge der Liste");
+  eq(sortList(l, meta, "FM-1_903")[0].name, "JXSH", "installierte Firmware steht oben");
+  eq(sortList(l, meta, "FM-1_903").slice(1).map((x) => x.name)[0], "FM1_ELECTRO", "danach die feste Reihenfolge");
 }
 
 // eigene Fälle (nur JS): ohne Lader-Kennung abgelehnt, falsche Datei, Fortschritt monoton bis 100

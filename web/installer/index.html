@@ -27,7 +27,8 @@
   .fw .badge { display:none; margin-left:8px; font-size:13px; font-weight:700; color:#fff; background:var(--ok); border-radius:6px; padding:1px 7px; vertical-align:3px; }
   .fw.installed { background:color-mix(in srgb, var(--ok) 8%, transparent); }
   .fw.installed .badge { display:inline-block; }
-  #update { margin-top:12px; background:var(--ok); }
+  .fw .upd { margin-top:8px; font-size:16px; padding:8px 14px; min-height:40px; border-radius:9px; }
+  .fw .upd:disabled { background:transparent; color:var(--mute); border:1px solid var(--line); opacity:1; }
   .fw input { margin-top:6px; width:20px; height:20px; flex:none; }
   .fw .media { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:96px; }
   .fw .pic { width:96px; height:64px; border-radius:8px; }
@@ -67,7 +68,6 @@
     <p data-t="s1text">FM-1 einschalten und mit einem USB-Datenkabel an den Computer anschließen. Dann auf „Verbinden“ klicken und den MIDI-Zugriff erlauben.</p>
     <button id="connect" type="button" data-t="connect">Verbinden</button>
     <div class="status" id="devstatus"></div>
-    <button id="update" type="button" hidden></button>
   </section>
 
   <section>
