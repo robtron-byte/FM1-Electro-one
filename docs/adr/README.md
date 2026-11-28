@@ -58,5 +58,6 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0052](0052-kombi-jx8p-sh101.md) | Kombi JX-8P + SH-101: Gerüst mit zwei Klangerzeugern (`GM_ENGINES`, PARTS), SH-101 auf Kern 0, JX-Pool und Effekte auf Kern 1, ein SH-Part | vorgeschlagen | 2026-11-28 |
 | [0053](0053-live-aufnahme.md) | Live-Aufnahme nach RK-008 in jeder Firmware: ein Modul (`gemeinsam/shared/seq/syn_live.h`), REC sofort/Einzählen, Länge auf ganze Takte, Overdub, 1/16, Seite LOOP, Blob 4 | vorgeschlagen | 2026-11-28 |
 | [0054](0054-web-installer.md) | Web-Installer im Browser: Web MIDI (M-UPGRADE wie `fm1_install.py`), Liste aus `firmware/`, GitHub Pages | vorgeschlagen | 2026-11-28 |
+| [0055](0055-grafik-kopf.md) | Grafik-Kopf je Seite (LFO, Hüllkurve mit Punkt der Note, Filterkurve, Delay, Hall, Distortion, gedrehter Wert): Modul `gemeinsam/app/gm_viz.c`, Haken `GM_VIZ` | vorgeschlagen | 2026-11-28 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

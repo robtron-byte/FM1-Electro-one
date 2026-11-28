@@ -194,8 +194,8 @@ static const page_t gm_pages[] = {
     {G_EDIT, ST_NAME, "DCO", {PRM("PULSE", M_DcoWavePulse), PRM("SAW", M_DcoWaveSaw), PRM("SUB", M_DcoWaveSub), PRM("RANGE", M_DcoRange)}},
     {G_EDIT, ST_NAME, "DCO 2", {PRM("SUB LVL", M_DcoSubLevel), PRM("NOISE", M_Noise), PRM("PWM", M_DcoPwmDepth), PRM("PWM RATE", M_DcoPwmRate)}},
     {G_EDIT, ST_NAME, "DCO MOD", {PRM("LFO", M_DcoLfoMod), PRM("ENV", M_DcoEnvMod), PRM("ENV MODE", M_DcoEnvMode), PRM("AFTERT", M_DcoAtMod)}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("CUTOFF", M_VcfCutoff), PRM("RESO", M_VcfResonance), PRM("ENV", M_VcfEnvMod), PRM("KYBD", M_VcfKeyFollow)}},
-    {G_EDIT, ST_NAME, "VCF 2", {PRM("LFO", M_VcfLfoMod), PRM("ENV MODE", M_VcfEnvMode), PRM("HPF", M_HpfCutoff), PRM("AFTERT", M_VcfAftertouch)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("CUTOFF", M_VcfCutoff), PRM("RESO", M_VcfResonance), PRM("ENV", M_VcfEnvMod), PRM("KYBD", M_VcfKeyFollow)}},
+    {G_EDIT, ST_VVCF, "VCF 2", {PRM("LFO", M_VcfLfoMod), PRM("ENV MODE", M_VcfEnvMode), PRM("HPF", M_HpfCutoff), PRM("AFTERT", M_VcfAftertouch)}},
     {G_EDIT, ST_NAME, "VCF 3", {PRM("BOOST", M_resonanceBoost), PRM("BOOST HZ", M_resonanceBoostFrequency), PRM("NO DC", M_NoDcOffset), PRM("LEVEL", M_VcaLevel)}},
     {G_EDIT, ST_NAME, "SPECIAL", {PRM("SAW VOL", M_specialSawVolume), PRM("PLS VOL", M_specialPulseVolume), PRM("SYNC", M_specialPulseSync), PRM("TUNE", M_specialPulseTune)}},
     {G_EDIT, ST_NAME, "SPECIAL 2", {PRM("FINE", M_specialPulseFineTune), PRM("ENV", M_specialPulseDcoEnv), PRM("LFO", M_specialPulseDcoLfo), NO}},
@@ -203,14 +203,14 @@ static const page_t gm_pages[] = {
     {G_ENV, ST_ENV_PIC, "ENV", {PRM("T1", M_EnvAttackTime), PRM("L1", M_EnvAttackLevel), PRM("T2", M_EnvBreakTime), PRM("L2", M_EnvBreakLevel)}},
     {G_ENV, ST_ENV_PIC, "ENV 2", {PRM("T3", M_EnvDecayTime), PRM("L3", M_EnvSustainLevel), PRM("T4", M_EnvReleaseTime), PRM("KEY FLW", M_EnvKeyFollow)}},
     {G_ENV, ST_NAME, "VCA", {PRM("VCA MODE", M_VcaEnvMode), PRM("LEVEL", M_VcaLevel), PRM("AFTERT", M_VcaAftertouch), NO}},
-    {G_LFO, ST_NAME, "LFO", {PRM("RATE", M_LfoRate), PRM("DELAY", M_LfoDelay), PRM("WAVE", M_LfoWaveform), PRM("SYNC", M_LfoSync)}},
-    {G_LFO, ST_NAME, "LFO 2", {PRM("TRIGGER", M_LfoTrigger), PRM("INVERT", M_LfoInvert), NO, NO}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("RATE", M_LfoRate), PRM("DELAY", M_LfoDelay), PRM("WAVE", M_LfoWaveform), PRM("SYNC", M_LfoSync)}},
+    {G_LFO, ST_VLFO, "LFO 2", {PRM("TRIGGER", M_LfoTrigger), PRM("INVERT", M_LfoInvert), NO, NO}},
     {G_LFO, ST_NAME, "CONTROL", {PRM("BEND", M_BenderRange), PRM("MW VCF", M_ModWheelVcfRange), PRM("MW PITCH", M_ModWheelDcoLfo), PRM("MW WAH", M_ModWheelVcfLfo)}},
     {G_LFO, ST_NAME, "GLIDE", {PRM("MODE", M_PortamentoMode), PRM("TIME", M_PortamentoTime), PRM("TIMEMODE", M_paramPortamentoTimeMode), PRM("CHORDORG", M_portamentoChordOriginalMode)}},
     {G_FX, ST_NAME, "CHORUS + EQ", {PRM("CHORUS", M_DcoChorusSwitch), PRM("RATE", M_ChorusRate), PRM("EQ FREQ", M_eqBellFreq), PRM("EQ GAIN", M_eqBellGain)}},
-    {G_FX, ST_NAME, "DELAY", {PRM("MIX", M_delayDryWet), PRM("TIME", M_delayTime), PRM("FEEDBK", M_delayFeedback), PRM("SYNC", M_delaySync)}},
-    {G_FX, ST_NAME, "DELAY 2", {PRM("SPREAD", M_delaySpread), PRM("TONE", M_delayTone), PRM("EQ Q", M_eqBellQ), NO}},
-    {G_FX, ST_NAME, "REVERB", {PRM("MIX", M_reverbDryWet), PRM("SIZE", M_reverbSize), PRM("PREDLY", M_reverbDelay), PRM("TONE", M_reverbTone)}},
+    {G_FX, ST_VDLY, "DELAY", {PRM("MIX", M_delayDryWet), PRM("TIME", M_delayTime), PRM("FEEDBK", M_delayFeedback), PRM("SYNC", M_delaySync)}},
+    {G_FX, ST_VDLY, "DELAY 2", {PRM("SPREAD", M_delaySpread), PRM("TONE", M_delayTone), PRM("EQ Q", M_eqBellQ), NO}},
+    {G_FX, ST_VREV, "REVERB", {PRM("MIX", M_reverbDryWet), PRM("SIZE", M_reverbSize), PRM("PREDLY", M_reverbDelay), PRM("TONE", M_reverbTone)}},
     {G_ARP, ST_NAME, "ARP", {PRM("MODE", M_arpmode), PRM("RATE", M_arprate), PRM("RANGE", M_arprange), PRM("SYNC", M_arpsyncmode)}},
     {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
@@ -297,8 +297,29 @@ static DSPF void kern_mod(unsigned p, float m) { (void)p; if (mku_ok) mksultra_m
 static int kern_voices(unsigned p) { (void)p; return mku_ok ? mksultra_active_voices(mku) : 0; }
 static void kern_render(unsigned p, float *l, float *r, unsigned n);
 static int kern_stage(unsigned stage, unsigned p);
+static int mku_viz(unsigned stage, unsigned p, float *v);
+#define GM_VIZ(stage, p, v) mku_viz(stage, p, v)   /* Grafik-Kopf (ADR 0055) */
 
 #include "gm_app.c"
+
+/* Grafik-Kopf (ADR 0055): die Werte des Sounds (Effekte des Bausteins, nicht des Gerüsts) */
+static float mku_n(const uint8_t *u, unsigned i) { return (float)u[i] / (float)(gm_params[i].max ? gm_params[i].max : 1u); }
+static int mku_viz(unsigned stage, unsigned p, float *v)
+{
+    static const int8_t wave[6] = {6, 0, 2, 1, 4, 5};   /* Baustein: SINE TRI SAW RECT S&H NOISE */
+    const uint8_t *u = up[p].v;
+    switch (stage) {
+    case ST_VLFO: {
+        float a = mku_n(u, M_DcoLfoMod), b = mku_n(u, M_VcfLfoMod);
+        v[0] = mku_n(u, M_LfoRate); v[1] = a > b ? a : b; v[2] = wave[u[M_LfoWaveform] % 6u]; v[3] = -1.0f;
+        return 1;
+    }
+    case ST_VVCF: v[0] = mku_n(u, M_VcfCutoff); v[1] = mku_n(u, M_VcfResonance); v[2] = 0; v[3] = mku_n(u, M_VcfEnvMod); return 1;
+    case ST_VDLY: v[0] = mku_n(u, M_delayTime); v[1] = mku_n(u, M_delayFeedback); v[2] = mku_n(u, M_delayDryWet); v[3] = mku_n(u, M_delaySpread) > 0.5f; return 1;
+    case ST_VREV: v[0] = mku_n(u, M_reverbDelay); v[1] = mku_n(u, M_reverbSize); v[2] = 1.0f - mku_n(u, M_reverbTone); v[3] = mku_n(u, M_reverbDryWet); return 1;
+    default: return 0;
+    }
+}
 
 void *memmove(void *d, const void *s, unsigned n)
 {

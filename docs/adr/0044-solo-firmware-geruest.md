@@ -62,3 +62,4 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
   während Kern 0 es neu füllte; Delay und Hall lesen jetzt den Abzug `fx_src`.
 - 2026-11-28 (sh101-Chat): `GM_SEQ_IOS` (Standard aus): Sequencer-Zusätze der iOS-Apps (ADR 0052), Feld `K_SQX`, Bank in
   Blob 5. Behoben: SEQ tippen meldete den alten Zustand („SEQ OFF“ beim Einschalten).
+- 2026-11-28 (sh101-Chat): Grafik-Kopf `gm_viz.c` mit Stages `ST_V*` und Haken `GM_VIZ` (ADR 0055).

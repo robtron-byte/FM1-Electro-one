@@ -140,22 +140,22 @@ static const page_t gm_pages[] = {
     {G_EDIT, ST_NAME, "VCO", {PRM("RANGE", P_RANGE), PRM("MOD", P_MOD), PRM("PW", P_PW), PRM("PWM SRC", P_PWM_SRC)}},
     {G_EDIT, ST_NAME, "SOURCE", {PRM("PULSE", P_PULSE), PRM("SAW", P_SAW), PRM("SUB", P_SUB), PRM("NOISE", P_NOISE)}},
     {G_EDIT, ST_NAME, "SOURCE 2", {PRM("SUB OCT", P_SUB_MODE), PRM("WHITE", P_WHITE), PRM("FINE", P_FINE), PRM("FLOOR", P_NOISE_FLOOR)}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("CUTOFF", P_CUTOFF), PRM("RESO", P_RESO), PRM("ENV", P_ENV), PRM("KYBD", P_KYBD)}},
-    {G_EDIT, ST_NAME, "VCF 2", {PRM("VCF MOD", P_VCF_LFO), PRM("SLOPE", P_12DB), PRM("ENV FULL", P_ENV_FULL), PRM("RES COMP", P_RES_COMP)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("CUTOFF", P_CUTOFF), PRM("RESO", P_RESO), PRM("ENV", P_ENV), PRM("KYBD", P_KYBD)}},
+    {G_EDIT, ST_VVCF, "VCF 2", {PRM("VCF MOD", P_VCF_LFO), PRM("SLOPE", P_12DB), PRM("ENV FULL", P_ENV_FULL), PRM("RES COMP", P_RES_COMP)}},
     {G_EDIT, ST_NAME, "FM + DRIVE", {PRM("FM SRC", P_FM_SRC), PRM("FM AMT", P_FM_AMT), PRM("DRIVE", P_DRIVE), PRM("VOLUME", P_VOLUME)}},
-    {G_ENV, ST_ENV_PIC, "ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
+    {G_ENV, ST_VENV, "ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
     {G_ENV, ST_NAME, "VCA", {PRM("VCA", P_VCA), PRM("TRIGGER", P_TRIGGER), PRM("DECLICK", P_DECLICK), NO}},
     {G_ENV, ST_NAME, "VELOCITY", {PRM("VEL VCA", P_VEL_VCA), PRM("VEL VCF", P_VEL_VCF), NO, NO}},
-    {G_LFO, ST_NAME, "LFO", {PRM("RATE", P_LFO_RATE), PRM("WAVE", P_LFO_WAVE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO)}},
-    {G_LFO, ST_NAME, "LFO 2", {PRM("SYNC", P_LFO_SYNC), PRM("INVERT", P_LFO_INV), PRM("KEY TRIG", P_LFO_TRIG), PRM("SNAP", P_MOD_SNAP)}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("RATE", P_LFO_RATE), PRM("WAVE", P_LFO_WAVE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO)}},
+    {G_LFO, ST_VLFO, "LFO 2", {PRM("SYNC", P_LFO_SYNC), PRM("INVERT", P_LFO_INV), PRM("KEY TRIG", P_LFO_TRIG), PRM("SNAP", P_MOD_SNAP)}},
     {G_LFO, ST_NAME, "CONTROL", {PRM("BEND VCO", P_BEND_VCO), PRM("BEND VCF", P_BEND_VCF), PRM("MOD WHL", P_MOD_WHEEL), NO}},
     {G_LFO, ST_NAME, "GLIDE", {PRM("GLIDE", P_GLIDE), PRM("MODE", P_GLIDE_MODE), PRM("LINEAR", P_LIN_GLIDE), PRM("TRANSP", P_TRANSPOSE)}},
     {G_FX, ST_NAME, "EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("DELAY", FX_DLY_LEVEL), FXK("REVERB", FX_REV_LEVEL)}},
-    {G_FX, ST_NAME, "DIST", {PRM("DST SEND", P_DIST_SEND), PRM("MODE", P_DIST_MODE), PRM("DRIVE", P_DIST_DRIVE), PRM("TONE", P_DIST_TONE)}},
-    {G_FX, ST_NAME, "DIST 2", {PRM("LEVEL", P_DIST_LEVEL), NO, NO, NO}},
-    {G_FX, ST_NAME, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBACK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("PING", FX_DLY_PING)}},
-    {G_FX, ST_NAME, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("MOD", FX_DLY_MOD), NO}},
-    {G_FX, ST_NAME, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("TYPE", FX_REV_TYPE)}},
+    {G_FX, ST_VDIST, "DIST", {PRM("DST SEND", P_DIST_SEND), PRM("MODE", P_DIST_MODE), PRM("DRIVE", P_DIST_DRIVE), PRM("TONE", P_DIST_TONE)}},
+    {G_FX, ST_VDIST, "DIST 2", {PRM("LEVEL", P_DIST_LEVEL), NO, NO, NO}},
+    {G_FX, ST_VDLY, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBACK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("PING", FX_DLY_PING)}},
+    {G_FX, ST_VDLY, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("MOD", FX_DLY_MOD), NO}},
+    {G_FX, ST_VREV, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("TYPE", FX_REV_TYPE)}},
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     {G_ARP, ST_ARP, "ARP 2", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), NO, NO}},
     {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
@@ -244,8 +244,40 @@ static int kern_voices(unsigned p)
     return eng.voices[0].active || eng.voices[0].vca_env.state != 4;
 }
 static int kern_stage(unsigned stage, unsigned p);
+static int sh_viz(unsigned stage, unsigned p, float *v);
+#define GM_VIZ(stage, p, v) sh_viz(stage, p, v)   /* Grafik-Kopf (ADR 0055) */
 
 #include "gm_app.c"
+
+/* Grafik-Kopf (ADR 0055): Werte des Sounds und der Zustand des Bausteins (Phase des LFO, Hüllkurve der Stimme) */
+static int sh_viz(unsigned stage, unsigned p, float *v)
+{
+    const uint8_t *u = up[p].v;
+    static const int8_t wave[4] = {0, 1, 4, 5};   /* TRI SQR RAND NOISE */
+    switch (stage) {
+    case ST_VLFO:
+        v[0] = u[P_LFO_RATE] / 200.0f;
+        v[1] = (u[P_MOD] > u[P_VCF_LFO] ? u[P_MOD] : u[P_VCF_LFO]) / 200.0f;
+        v[2] = wave[u[P_LFO_WAVE] & 3u];
+        v[3] = (float)eng.lfo_phase * (1.0f / 256.0f);
+        return 1;
+    case ST_VENV: {
+        const sh101_env_t *e = &eng.voices[0].vca_env;
+        int st = e->state;
+        v[0] = u[P_ATTACK] / 200.0f; v[1] = u[P_DECAY] / 200.0f; v[2] = u[P_SUSTAIN] / 200.0f; v[3] = u[P_RELEASE] / 200.0f;
+        v[4] = st == 4 ? -1.0f : st == 3 ? 3.0f : st == 1 || st == 2 ? 1.0f : 0.0f;
+        v[5] = (float)e->value;
+        return 1;
+    }
+    case ST_VVCF:
+        v[0] = u[P_CUTOFF] / 200.0f; v[1] = u[P_RESO] / 200.0f; v[2] = u[P_12DB] ? 1.0f : 0.0f; v[3] = u[P_ENV] / 200.0f;
+        return 1;
+    case ST_VDIST:
+        v[0] = u[P_DIST_MODE]; v[1] = u[P_DIST_DRIVE] / 127.0f; v[2] = u[P_DIST_TONE] / 127.0f; v[3] = u[P_DIST_LEVEL] / 127.0f;
+        return 1;
+    default: return 0;                          /* Delay, Hall: aus den Effekten des Gerüsts */
+    }
+}
 
 static __attribute__((section(".dsp_text"), noinline)) void kern_render(unsigned p, float *l, float *r, unsigned n)
 {

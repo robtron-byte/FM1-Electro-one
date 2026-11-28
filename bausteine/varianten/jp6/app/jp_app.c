@@ -110,21 +110,21 @@ static const page_t gm_pages[] = {
     {G_EDIT, ST_NAME, "VCO-2 TUNE", {PRM("RANGE", JP_VCO2_RANGE), PRM("TUNE", JP_VCO2_TUNE), PRM("FINE", JP_VCO2_FINE), PRM("MIX", JP_MIX)}},
     {G_EDIT, ST_NAME, "VCO MOD", {PRM("LFO", JP_VCO_LFO), PRM("ENV", JP_VCO_ENV), PRM("DEST", JP_VCO_MOD_DEST), PRM("DRIFT", JP_DRIFT)}},
     {G_EDIT, ST_NAME, "PWM", {PRM("PW/PWM", JP_PWM_DEPTH), PRM("SOURCE", JP_PWM_SOURCE), NO, NO}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("CUTOFF", JP_CUTOFF), PRM("RESO", JP_RESO), PRM("ENV", JP_VCF_ENV), PRM("MODE", JP_VCF_MODE)}},
-    {G_EDIT, ST_NAME, "VCF MOD", {PRM("HPF", JP_HPF), PRM("ENV SRC", JP_VCF_ENV_SRC), PRM("LFO", JP_VCF_LFO), PRM("KEY", JP_VCF_KEY)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("CUTOFF", JP_CUTOFF), PRM("RESO", JP_RESO), PRM("ENV", JP_VCF_ENV), PRM("MODE", JP_VCF_MODE)}},
+    {G_EDIT, ST_VVCF, "VCF MOD", {PRM("HPF", JP_HPF), PRM("ENV SRC", JP_VCF_ENV_SRC), PRM("LFO", JP_VCF_LFO), PRM("KEY", JP_VCF_KEY)}},
     {G_EDIT, ST_NAME, "VCA", {PRM("LEVEL", JP_VCA_LEVEL), PRM("LFO", JP_VCA_LFO), PRM("VCF VEL", JP_VCF_VELO), PRM("VCA VEL", JP_VCA_VELO)}},
     {G_ENV, ST_ENV1, "ENV-1", {PRM("ATTACK", JP_ENV1_A), PRM("DECAY", JP_ENV1_D), PRM("SUSTAIN", JP_ENV1_S), PRM("RELEASE", JP_ENV1_R)}},
     {G_ENV, ST_ENV2, "ENV-2", {PRM("ATTACK", JP_ENV2_A), PRM("DECAY", JP_ENV2_D), PRM("SUSTAIN", JP_ENV2_S), PRM("RELEASE", JP_ENV2_R)}},
     {G_ENV, ST_NAME, "ENV KEY", {PRM("1 KEY", JP_ENV1_KEY), PRM("1 POL", JP_ENV1_POL), PRM("2 KEY", JP_ENV2_KEY), PRM("RETRIG", JP_ENV_RETRIG)}},
-    {G_LFO, ST_NAME, "LFO", {PRM("RATE", JP_LFO_RATE), PRM("DELAY", JP_LFO_DELAY), PRM("WAVE", JP_LFO_WAVE), PRM("SYNC", JP_LFO_SYNC)}},
-    {G_LFO, ST_NAME, "LFO 2", {PRM("NOTE", JP_LFO_DIV), PRM("KEYSYNC", JP_LFO_KEYSYNC), NO, NO}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("RATE", JP_LFO_RATE), PRM("DELAY", JP_LFO_DELAY), PRM("WAVE", JP_LFO_WAVE), PRM("SYNC", JP_LFO_SYNC)}},
+    {G_LFO, ST_VLFO, "LFO 2", {PRM("NOTE", JP_LFO_DIV), PRM("KEYSYNC", JP_LFO_KEYSYNC), NO, NO}},
     {G_LFO, ST_NAME, "VOICE", {PRM("MODE", JP_KEY_MODE), PRM("PORTA", JP_PORTA), PRM("GLIDE", JP_PORTA_TIME), PRM("SHIFT", JP_KEY_SHIFT)}},
     {G_LFO, ST_NAME, "VOICE 2", {PRM("UNI DET", JP_UNISON_DETUNE), PRM("CHORD", JP_CHORD), NO, NO}},
     {G_FX, ST_NAME, "CHORUS", {PRM("CHORUS", JP_CHORUS), PRM("MODE", JP_CHORUS_MODE), PRM("RATE", JP_CHORUS_RATE), NO}},
     {G_FX, ST_NAME, "SENDS", {PRM("DELAY", JP_DELAY_SEND), PRM("REVERB", JP_REVERB_SEND), FXK("DLY LVL", FX_DLY_LEVEL), FXK("REV LVL", FX_REV_LEVEL)}},
-    {G_FX, ST_NAME, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBACK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("PING", FX_DLY_PING)}},
-    {G_FX, ST_NAME, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("MOD", FX_DLY_MOD), NO}},
-    {G_FX, ST_NAME, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("TYPE", FX_REV_TYPE)}},
+    {G_FX, ST_VDLY, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBACK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("PING", FX_DLY_PING)}},
+    {G_FX, ST_VDLY, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("MOD", FX_DLY_MOD), NO}},
+    {G_FX, ST_VREV, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("TYPE", FX_REV_TYPE)}},
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     {G_ARP, ST_ARP, "ARP 2", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), NO, NO}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
@@ -176,8 +176,28 @@ static __attribute__((section(".dsp_text"), noinline)) void kern_mod(unsigned p,
 static void kern_render(unsigned p, float *l, float *r, unsigned n);   /* nach gm_app.c: braucht fx_in */
 static int kern_voices(unsigned p) { (void)p; return jp_ok ? jp6_bs_voices(eng) : 0; }
 static int kern_stage(unsigned stage, unsigned p);
+static int jp_viz(unsigned stage, unsigned p, float *v);
+#define GM_VIZ(stage, p, v) jp_viz(stage, p, v)   /* Grafik-Kopf (ADR 0055) */
 
 #include "gm_app.c"
+
+/* Grafik-Kopf (ADR 0055): LFO und VCF aus dem Sound; Delay und Hall nimmt das Gerüst aus seinen Effekten */
+static int jp_viz(unsigned stage, unsigned p, float *v)
+{
+    static const int8_t wave[7] = {0, 6, 2, 3, 1, 4, 5};   /* engine/jp6.c: TRI SINE SAW-UP SAW-DN SQUARE S&H RANDOM */
+    const uint8_t *u = up[p].v;
+    switch (stage) {
+    case ST_VLFO: {
+        uint8_t d = u[JP_VCO_LFO] > u[JP_VCF_LFO] ? u[JP_VCO_LFO] : u[JP_VCF_LFO];
+        v[0] = u[JP_LFO_RATE] / 127.0f; v[1] = (d > u[JP_VCA_LFO] ? d : u[JP_VCA_LFO]) / 127.0f; v[2] = wave[u[JP_LFO_WAVE] % 7u]; v[3] = -1.0f;
+        return 1;
+    }
+    case ST_VVCF:   /* LPF, BPF (als Tiefpass gezeichnet), HPF */
+        v[0] = u[JP_CUTOFF] / 127.0f; v[1] = u[JP_RESO] / 127.0f; v[2] = u[JP_VCF_MODE] == 2u ? 2.0f : 0.0f; v[3] = u[JP_VCF_ENV] / 127.0f;
+        return 1;
+    default: return 0;
+    }
+}
 
 /* Die Stimmen addieren in l/r; Delay- und Hall-Anteil des Sounds gehen direkt in die Eingänge der Effekte. */
 static float jp_dly[GM_BLOCK], jp_rev[GM_BLOCK];

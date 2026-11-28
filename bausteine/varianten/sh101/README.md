@@ -8,7 +8,8 @@ Gerüst [`../gemeinsam`](../gemeinsam/). Entscheidungen: [ADR 0042](../../../doc
 
 | | |
 |---|---|
-| Firmware | `firmware/SH101-0.1.4-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
+| Firmware | `firmware/SH101-0.1.5-alpha.fwsc` (Kennung FM-1_94), `tools/fm1-emu/check.sh` ok |
+| 0.1.5 | Grafik-Kopf (ADR 0055): LFO, ENV mit Punkt der Note, VCF-Kurve, DIST-Kennlinie, Delay, Hall; gedrehter Regler mit Wert |
 | 0.1.4 | Fehler behoben (Gerätetest 0.1.3: Delay und Hall stumm, leises Knacksen): Kern 1 las die Sends, während Kern 0 sie für den nächsten Block schon löschte; jetzt liest er einen Abzug (`fx_src`, ADR 0044). Emulator: Note mit Delay/Hall klingt nach (0,1.3: nach 0,1 s Pegel 0, Spitze 59; 0.1.4: Ausklang über 3 s) |
 | Klang | eine Stimme in voller Gerätequalität: 4× Ladder, 8× Clipper, BLEP; float und Polynome (`SH101_FLOAT`, `SH101_FASTMATH`), RMS ≤ 6e-5 neben der Vorlage |
 | 0.1.2 | Distortion-Send wie FM1-Electro (TUBE, OD, DIST, RAT; Seite FX/DIST), Kern 1; Drive bleibt; mono; Delay ≤ 0,6 s. Kern 0 57,5 %, Kern 1 13,9 % mit allen Effekten |

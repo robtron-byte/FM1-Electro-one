@@ -89,8 +89,8 @@ DCO 1×, ohne Original-Chorus und mit den Gerüst-Effekten statt Original-Delay/
 ## Entscheidung (vorgeschlagen)
 
 - **Standard A:** volles Filter, **1 Stimme** (`MKSULTRA_VOICES=1`, mono wie bei einem Preset mit einer Stimme),
-  `firmware/MKSULTRA-0.1.1-alpha.fwsc`, Kennung FM-1_93. Unisono-Presets liegen auch einstimmig an der Grenze (98 %).
-- **B als Schalter:** `MKU_B=1 python3 tools/build.py` baut `build/MKSULTRA-ab-0.1.1-alpha.fwsc` (2 Stimmen, VCF 2×,
+  `firmware/MKSULTRA-0.1.2-alpha.fwsc`, Kennung FM-1_93. Unisono-Presets liegen auch einstimmig an der Grenze (98 %).
+- **B als Schalter:** `MKU_B=1 python3 tools/build.py` baut `build/MKSULTRA-ab-0.1.2-alpha.fwsc` (2 Stimmen, VCF 2×,
   `check.sh` ok), nicht in `firmware/`.
 - **Zwei Kerne im Fließband:** Kern 1 rechnet die Stimmen von Block N, Kern 0 die Master-Kette von Block N−1 (bitgleich,
   1,45 ms später). Delay und Hall der Vorlage; das Gerüst-Delay ist aus (`GM_FX 0`, neu im Gerüst).

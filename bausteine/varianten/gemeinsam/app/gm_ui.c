@@ -653,6 +653,7 @@ static void stage_save(void)
     Q(4, 104, 2, own[dlg.slot].used ? "THIS PLACE IS TAKEN: SAVE REPLACES IT" : "THIS PLACE IS FREE", own[dlg.slot].used ? T_WARN : T_DIM);
     Q(4, 124, 2, "SAVE = OK       HOME = CANCEL", T_DIM);
 }
+#include "gm_viz.c"
 static void draw_page(unsigned pi, int live)
 {
     const page_t *pg = &pages[pi];
@@ -664,7 +665,12 @@ static void draw_page(unsigned pi, int live)
     case ST_SEQ: stage_seq(); break;
     case ST_LIVE: stage_live(); break;
     case ST_TEMPO: stage_tempo(); break;
-    default: if (pg->stage < ST_USER || !kern_stage(pg->stage, sel)) stage_name(pg); break;
+    default:
+        if (viz_stage(pg)) break;               /* Grafik-Kopf (ADR 0055) */
+        if (pg->stage >= ST_USER && kern_stage(pg->stage, sel)) break;
+        if (live && viz_value(pg)) break;       /* sonst: gerade gedreht, Regler und Wert groß */
+        stage_name(pg);
+        break;
     }
     if (live && layer_shown()) {
         R(0, 153, 240, 2, T_ACC); R(0, 212, 240, 2, T_ACC);
@@ -699,6 +705,7 @@ static void draw_all(uint32_t now)
 {
     uint32_t a = now - tr_t0;
     g_ox = 0;
+    viz_now = now;
     draw_header();
     if (saving) { stage_save(); R(0, 154, 240, 1, T_LINE); draw_save_cells(); }
     else if (a < TR_MS && tr_dir) {
@@ -1216,7 +1223,7 @@ static void app_main(void)
                 const kn_t *kn;
                 if (layer) layer_used = 1;
                 kn = &cells_now()[k];
-                if (kn->kind != K_NONE) k_turn(kn, enc_fast(k, e, k_max(kn), now));
+                if (kn->kind != K_NONE) { k_turn(kn, enc_fast(k, e, k_max(kn), now)); if (!layer) viz_touch(k); }
             }
         }
         lights();

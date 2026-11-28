@@ -38,7 +38,8 @@ enum { SQ_ON, SQ_DIV, SQ_GATE, SQ_SHIFT, SQ_N };
 /* Seitengruppen = Tasten */
 enum { G_HOME, G_EDIT, G_ENV, G_LFO, G_FX, G_ARP, G_GLO, G_SEL, G_SEQ, NGROUP };
 /* Bilder der Seiten; ab ST_USER zeichnet die Variante (kern_stage) */
-enum { ST_NAME, ST_HOME, ST_SYS, ST_BROWSE, ST_ARP, ST_SEQ, ST_TEMPO, ST_FX, ST_PARTS, ST_LIVE, ST_USER };   /* ST_LIVE: Live-Aufnahme (ADR 0053) */
+enum { ST_NAME, ST_HOME, ST_SYS, ST_BROWSE, ST_ARP, ST_SEQ, ST_TEMPO, ST_FX, ST_PARTS, ST_LIVE,
+       ST_VLFO, ST_VENV, ST_VVCF, ST_VDLY, ST_VREV, ST_VDIST, ST_USER };   /* ST_V*: Grafik-Kopf (ADR 0055, gm_viz.c) */   /* ST_LIVE: Live-Aufnahme (ADR 0053) */
 /* was ein Reglerfeld einstellt */
 enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_FX, K_ARP, K_TEMPO, K_CLK, K_SEQ, K_SEND, K_LIVE,
        K_ENGINE, K_CHANP, K_EXTRA, K_SQX };   /* K_SQX: SX_* (GM_SEQ_IOS) */   /* K_ENGINE/K_CHANP: Klangerzeuger/MIDI-Kanal des Parts param; K_EXTRA: GM_SET_EXTRA */   /* K_LIVE: LV_SET_* (syn_live.h) */

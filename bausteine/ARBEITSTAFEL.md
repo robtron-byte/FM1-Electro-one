@@ -59,7 +59,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | vergeben (sh101-Chat) |
 | ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
 | ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | vergeben (Web-Installer-Chat) |
-| ADR | 0055 | Grafik-Kopf je Seite (LFO, Hüllkurve, Filter, Effekte live), sh101-Chat | frei (reserviert) |
+| ADR | 0055 | Grafik-Kopf je Seite (LFO, Hüllkurve, Filter, Effekte live), sh101-Chat | vergeben (sh101-Chat) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | vergeben (jx8p-Chat) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
@@ -149,7 +149,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `SH101_WITH_POLY`, `SH101_WITH_ARPSEQ`, dazu die Gerätefassung `SH101_FLOAT` + `SH101_FASTMATH` (RMS ≤ 6e-5 neben der
   Vorlage, eigener Testlauf).
 - **0.1.2 (28.11.):** Distortion-Send TUBE/OD/DIST/RAT (FM1-Electros dist.c, Kern 1), Drive bleibt, mono, Delay ≤ 0,6 s; Kern 0 57,5 %, Kern 1 13,9 %.
-- **Stand Solo-Firmware** (`varianten/sh101/`, Y12, ADR 0042): `firmware/SH101-0.1.4-alpha.fwsc` (Delay/Hall-Fehler aus 0.1.3 behoben), Kennung FM-1_94, eine
+- **Stand Solo-Firmware** (`varianten/sh101/`, Y12, ADR 0042): `firmware/SH101-0.1.5-alpha.fwsc` (Delay/Hall-Fehler aus 0.1.3 behoben), Kennung FM-1_94, eine
   Stimme, 46 Parameter, 14 Werkssounds, Arp, SH-101-Sequencer, Delay/Hall auf Kern 1. `check.sh` ok. Last im Emulator:
   eine Note 44 %, mit Drive 58,5 % Spitze (Kern 0), Effekte 6,6 % (Kern 1). Am Gerät nicht gemessen.
 - **Stand Gerüst** (`varianten/gemeinsam/`, P14, ADR 0044): Plattform, shared und App-Rahmen aus fm1-synths (2a7b4fa),
@@ -160,7 +160,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (Rust-Nachbau)
 
 - **In Arbeit:** frei (Solo-Firmware 0.1.0-alpha gebaut, sh101-Chat, 28.11.2026)
-- **Solo-Firmware** (`varianten/mksultra/`, ADR 0045, Y13): A = 1 Stimme mit vollem Filter (`firmware/MKSULTRA-0.1.1-alpha.fwsc`),
+- **Solo-Firmware** (`varianten/mksultra/`, ADR 0045, Y13): A = 1 Stimme mit vollem Filter (`firmware/MKSULTRA-0.1.2-alpha.fwsc`),
   B = 2 Stimmen mit VCF 2× (`MKU_B=1`, nur `build/`). Stimmen auf Kern 1, Master auf Kern 0 im Fließband. 6 Stimmen passen
   in keiner Fassung (A ~300 %, B ~220 % bei 140 %). Offen: Frage A/B an den Nutzer; Delay 0,5 s (Micro Ticks braucht
   1,17 s); 307 Presets fehlen (Gerüst zählt Werkssounds in einem Byte); Knacks beim Preset-Wechsel.
@@ -202,9 +202,9 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **jp6 Stand:** `bausteine/jp6/` bindet `engine/jp6.c`, `dist.c` und Co. ein (`engine/` unverändert), Adapter `jp6_bs.c`
   wie jx8p. Alle 79 Presets (5 eigene aus der Sicherung vorn, dann 74 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen in
   `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.
-- **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.2-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
+- **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.3-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
   ohne Distortion (`JP6_BS_DIST=0`), Delay ≤ 0,6 s, 5 eigene Presets vorn. Emulator ≤ 41 % (Kern 0). **Am Gerät ungeprüft.**
-- **In Arbeit:** sh101-Chat (Worktree heuristic-easley-bfab0d), seit 28.11.2026. **Stand:** `firmware/JXSH-0.1.2-alpha.fwsc`
+- **In Arbeit:** sh101-Chat (Worktree heuristic-easley-bfab0d), seit 28.11.2026. **Stand:** `firmware/JXSH-0.1.3-alpha.fwsc`
   (FM-1_99): Gerüst mit `GM_ENGINES` (abwärtskompatibel, SH-101/MKS Ultra/JP-6 bauen), Seiten PARTS/MIX/MIDI, ein SH-101,
   JX-Pool 4 auf Kern 1, Distortion global + Send je Part, eigene Presets vorn, Sequencer und LOOP des Gerüsts. Emulator:
   Kern 0 60 %, Kern 1 36 % (mit Distortion RAT), RAM 13,1 kB frei; JX und SH gleich laut (Gain-Staging), Sequencer der iOS-Apps (`GM_SEQ_IOS`), `check.sh` ok. Gerüst: Kern-1-Wettlauf um `fx_in` behoben (`fx_src`).

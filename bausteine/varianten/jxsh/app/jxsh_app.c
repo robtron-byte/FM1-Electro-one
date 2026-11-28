@@ -232,14 +232,14 @@ static const page_t pages_sh[] = {
     {G_EDIT, ST_NAME, "VCO", {PRM("RANGE", P_RANGE), PRM("MOD", P_MOD), PRM("PW", P_PW), PRM("PWM SRC", P_PWM_SRC)}},
     {G_EDIT, ST_NAME, "SOURCE", {PRM("PULSE", P_PULSE), PRM("SAW", P_SAW), PRM("SUB", P_SUB), PRM("NOISE", P_NOISE)}},
     {G_EDIT, ST_NAME, "SOURCE 2", {PRM("SUB OCT", P_SUB_MODE), PRM("WHITE", P_WHITE), PRM("FINE", P_FINE), PRM("FLOOR", P_NOISE_FLOOR)}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("CUTOFF", P_CUTOFF), PRM("RESO", P_RESO), PRM("ENV", P_ENV), PRM("KYBD", P_KYBD)}},
-    {G_EDIT, ST_NAME, "VCF 2", {PRM("VCF MOD", P_VCF_LFO), PRM("SLOPE", P_12DB), PRM("ENV FULL", P_ENV_FULL), PRM("RES COMP", P_RES_COMP)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("CUTOFF", P_CUTOFF), PRM("RESO", P_RESO), PRM("ENV", P_ENV), PRM("KYBD", P_KYBD)}},
+    {G_EDIT, ST_VVCF, "VCF 2", {PRM("VCF MOD", P_VCF_LFO), PRM("SLOPE", P_12DB), PRM("ENV FULL", P_ENV_FULL), PRM("RES COMP", P_RES_COMP)}},
     {G_EDIT, ST_NAME, "FM + DRIVE", {PRM("FM SRC", P_FM_SRC), PRM("FM AMT", P_FM_AMT), PRM("DRIVE", P_DRIVE), PRM("VOLUME", P_VOLUME)}},
-    {G_ENV, ST_ENV_PIC, "ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
+    {G_ENV, ST_VENV, "ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
     {G_ENV, ST_NAME, "VCA", {PRM("VCA", P_VCA), PRM("TRIGGER", P_TRIGGER), PRM("DECLICK", P_DECLICK), NO}},
     {G_ENV, ST_NAME, "VELOCITY", {PRM("VEL VCA", P_VEL_VCA), PRM("VEL VCF", P_VEL_VCF), NO, NO}},
-    {G_LFO, ST_NAME, "LFO", {PRM("RATE", P_LFO_RATE), PRM("WAVE", P_LFO_WAVE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO)}},
-    {G_LFO, ST_NAME, "LFO 2", {PRM("SYNC", P_LFO_SYNC), PRM("INVERT", P_LFO_INV), PRM("KEY TRIG", P_LFO_TRIG), PRM("SNAP", P_MOD_SNAP)}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("RATE", P_LFO_RATE), PRM("WAVE", P_LFO_WAVE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO)}},
+    {G_LFO, ST_VLFO, "LFO 2", {PRM("SYNC", P_LFO_SYNC), PRM("INVERT", P_LFO_INV), PRM("KEY TRIG", P_LFO_TRIG), PRM("SNAP", P_MOD_SNAP)}},
     {G_LFO, ST_NAME, "CONTROL", {PRM("BEND VCO", P_BEND_VCO), PRM("BEND VCF", P_BEND_VCF), PRM("MOD WHL", P_MOD_WHEEL), NO}},
     {G_LFO, ST_NAME, "GLIDE", {PRM("GLIDE", P_GLIDE), PRM("MODE", P_GLIDE_MODE), PRM("LINEAR", P_LIN_GLIDE), PRM("TRANSP", P_TRANSPOSE)}},
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
@@ -249,12 +249,12 @@ static const page_t pages_sh[] = {
     {G_SEQ, ST_SEQ, "STEP", {SXK("STEP", SX_STEP), SXK("NOTE", SX_NOTE), SXK("ACCENT", SX_ACC), SXK("TIE", SX_TIE)}},
     {G_SEQ, ST_SEQ, "BANK", {SXK("SLOT", SX_SLOT), SXK("STORE", SX_STORE), SXK("CLEAR", SX_CLEAR), SQK("SHIFT", SQ_SHIFT)}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
-    {G_FX, ST_NAME, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
-    {G_FX, ST_NAME, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
-    {G_FX, ST_NAME, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("LEVEL", FX_DLY_LEVEL)}},
-    {G_FX, ST_NAME, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("PING", FX_DLY_PING), FXK("MOD", FX_DLY_MOD)}},
-    {G_FX, ST_NAME, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("LEVEL", FX_REV_LEVEL)}},
-    {G_FX, ST_NAME, "REVERB 2", {FXK("TYPE", FX_REV_TYPE), FXK("MOD", FX_REV_MOD), NO, NO}},
+    {G_FX, ST_VDIST, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
+    {G_FX, ST_VDIST, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
+    {G_FX, ST_VDLY, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("LEVEL", FX_DLY_LEVEL)}},
+    {G_FX, ST_VDLY, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("PING", FX_DLY_PING), FXK("MOD", FX_DLY_MOD)}},
+    {G_FX, ST_VREV, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("LEVEL", FX_REV_LEVEL)}},
+    {G_FX, ST_VREV, "REVERB 2", {FXK("TYPE", FX_REV_TYPE), FXK("MOD", FX_REV_MOD), NO, NO}},
     {G_GLO, ST_TEMPO, "TEMPO", {{"TEMPO", K_TEMPO, 0}, {"CLOCK", K_CLK, 0}, {"SEND", K_CLK, 1}, NO}},
     {G_GLO, ST_PARTS_PG, "MIDI", {{"A", K_CHANP, 0}, {"B", K_CHANP, 1}, {"C", K_CHANP, 2}, {"D", K_CHANP, 3}}},
     {G_GLO, ST_SYS, "SYSTEM", {{"LEVEL", K_LEVEL, 4}, NO, NO, NO}},
@@ -281,14 +281,14 @@ static const page_t pages_jx[] = {
     {G_EDIT, ST_NAME, "DCO-2", {PRM("FINE", JP_DCO2_FINE), PRM("LFO", JP_DCO2_LFO), NO, NO}},
     {G_EDIT, ST_NAME, "DCO ENV", {PRM("DCO-1", JP_DCO1_ENV), PRM("DCO-2", JP_DCO2_ENV), PRM("ENV", JP_DCO_ENV_MODE), PRM("DYNA", JP_DCO_DYNA)}},
     {G_EDIT, ST_NAME, "MIXER", {PRM("DCO-1", JP_MIX_DCO1), PRM("DCO-2", JP_MIX_DCO2), PRM("ENV", JP_MIX_ENV), PRM("ENV MD", JP_MIX_ENV_MODE)}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("CUTOFF", JP_CUTOFF), PRM("RESO", JP_RESO), PRM("ENV", JP_VCF_ENV), PRM("HPF", JP_HPF)}},
-    {G_EDIT, ST_NAME, "VCF", {PRM("LFO", JP_VCF_LFO), PRM("KEY", JP_VCF_KEY), PRM("ENV MD", JP_VCF_ENV_MODE), PRM("DYNA", JP_VCF_DYNA)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("CUTOFF", JP_CUTOFF), PRM("RESO", JP_RESO), PRM("ENV", JP_VCF_ENV), PRM("HPF", JP_HPF)}},
+    {G_EDIT, ST_VVCF, "VCF", {PRM("LFO", JP_VCF_LFO), PRM("KEY", JP_VCF_KEY), PRM("ENV MD", JP_VCF_ENV_MODE), PRM("DYNA", JP_VCF_DYNA)}},
     {G_EDIT, ST_NAME, "VCA", {PRM("LEVEL", JP_VCA_LEVEL), PRM("MODE", JP_VCA_ENV_MODE), PRM("DYNA", JP_VCA_DYNA), PRM("VOLUME", JP_VOLUME)}},
-    {G_ENV, ST_NAME, "ENV-1", {PRM("ATTACK", JP_E1_ATTACK), PRM("DECAY", JP_E1_DECAY), PRM("SUSTAIN", JP_E1_SUSTAIN), PRM("RELEASE", JP_E1_RELEASE)}},
-    {G_ENV, ST_NAME, "ENV-2", {PRM("ATTACK", JP_E2_ATTACK), PRM("DECAY", JP_E2_DECAY), PRM("SUSTAIN", JP_E2_SUSTAIN), PRM("RELEASE", JP_E2_RELEASE)}},
+    {G_ENV, ST_VENV, "ENV-1", {PRM("ATTACK", JP_E1_ATTACK), PRM("DECAY", JP_E1_DECAY), PRM("SUSTAIN", JP_E1_SUSTAIN), PRM("RELEASE", JP_E1_RELEASE)}},
+    {G_ENV, ST_VENV, "ENV-2", {PRM("ATTACK", JP_E2_ATTACK), PRM("DECAY", JP_E2_DECAY), PRM("SUSTAIN", JP_E2_SUSTAIN), PRM("RELEASE", JP_E2_RELEASE)}},
     {G_ENV, ST_NAME, "ENV KEY", {PRM("1 KEY", JP_E1_KEY), PRM("2 KEY", JP_E2_KEY), PRM("SNAP", JP_ENV_SNAP), PRM("RETRIG", JP_ENV_RETRIG)}},
-    {G_LFO, ST_NAME, "LFO", {PRM("RATE", JP_LFO_RATE), PRM("DELAY", JP_LFO_DELAY), PRM("WAVE", JP_LFO_WAVE), PRM("SYNC", JP_LFO_SYNC)}},
-    {G_LFO, ST_NAME, "LFO", {PRM("SHAPE", JP_LFO_SHAPE), PRM("KEYSYNC", JP_LFO_KEYSYNC), NO, NO}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("RATE", JP_LFO_RATE), PRM("DELAY", JP_LFO_DELAY), PRM("WAVE", JP_LFO_WAVE), PRM("SYNC", JP_LFO_SYNC)}},
+    {G_LFO, ST_VLFO, "LFO", {PRM("SHAPE", JP_LFO_SHAPE), PRM("KEYSYNC", JP_LFO_KEYSYNC), NO, NO}},
     {G_FX, ST_NAME, "CHORUS", {PRM("CHORUS", JP_CHORUS), PRM("MODE", JP_CHORUS_MODE), PRM("DELAY", JP_DELAY_SEND), PRM("REVERB", JP_REVERB_SEND)}},
     {G_FX, ST_NAME, "CHORUS", {PRM("RATE", JP_CHORUS_RATE), NO, NO, NO}},
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCTAVES", ARP_OCT)}},
@@ -300,12 +300,12 @@ static const page_t pages_jx[] = {
     {G_SEQ, ST_SEQ, "STEP", {SXK("STEP", SX_STEP), SXK("NOTE", SX_NOTE), SXK("ACCENT", SX_ACC), SXK("TIE", SX_TIE)}},
     {G_SEQ, ST_SEQ, "BANK", {SXK("SLOT", SX_SLOT), SXK("STORE", SX_STORE), SXK("CLEAR", SX_CLEAR), SQK("SHIFT", SQ_SHIFT)}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
-    {G_FX, ST_NAME, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
-    {G_FX, ST_NAME, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
-    {G_FX, ST_NAME, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("LEVEL", FX_DLY_LEVEL)}},
-    {G_FX, ST_NAME, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("PING", FX_DLY_PING), FXK("MOD", FX_DLY_MOD)}},
-    {G_FX, ST_NAME, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("LEVEL", FX_REV_LEVEL)}},
-    {G_FX, ST_NAME, "REVERB 2", {FXK("TYPE", FX_REV_TYPE), FXK("MOD", FX_REV_MOD), NO, NO}},
+    {G_FX, ST_VDIST, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
+    {G_FX, ST_VDIST, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
+    {G_FX, ST_VDLY, "DELAY", {FXK("TIME", FX_DLY_TIME), FXK("FEEDBK", FX_DLY_FB), FXK("TONE", FX_DLY_TONE), FXK("LEVEL", FX_DLY_LEVEL)}},
+    {G_FX, ST_VDLY, "DELAY 2", {FXK("SYNC", FX_DLY_SYNC), FXK("NOTE", FX_DLY_DIV), FXK("PING", FX_DLY_PING), FXK("MOD", FX_DLY_MOD)}},
+    {G_FX, ST_VREV, "REVERB", {FXK("SIZE", FX_REV_SIZE), FXK("DECAY", FX_REV_DECAY), FXK("DAMP", FX_REV_DAMP), FXK("LEVEL", FX_REV_LEVEL)}},
+    {G_FX, ST_VREV, "REVERB 2", {FXK("TYPE", FX_REV_TYPE), FXK("MOD", FX_REV_MOD), NO, NO}},
     {G_GLO, ST_TEMPO, "TEMPO", {{"TEMPO", K_TEMPO, 0}, {"CLOCK", K_CLK, 0}, {"SEND", K_CLK, 1}, NO}},
     {G_GLO, ST_PARTS_PG, "MIDI", {{"A", K_CHANP, 0}, {"B", K_CHANP, 1}, {"C", K_CHANP, 2}, {"D", K_CHANP, 3}}},
     {G_GLO, ST_SYS, "SYSTEM", {{"LEVEL", K_LEVEL, 4}, NO, NO, NO}},
@@ -408,6 +408,8 @@ static int kern_voices(unsigned p)
     return (int)jx_part_voices(&synth, p);
 }
 static int kern_stage(unsigned stage, unsigned p) { (void)stage; (void)p; return 0; }
+static int jxsh_viz(unsigned stage, unsigned p, float *v);
+#define GM_VIZ(stage, p, v) jxsh_viz(stage, p, v)   /* Grafik-Kopf (ADR 0055) */
 static void kern_render(unsigned p, float *l, float *r, unsigned n);
 static void jxsh_c1(float *wl, float *wr);
 static int jxsh_c1_on(void);
@@ -417,6 +419,56 @@ static int jxsh_c1_on(void);
 #include "gm_app.c"
 
 static int up_eng_of(unsigned p) { return (int)GM_ENG_OF(up[p].v); }
+
+/* Grafik-Kopf (ADR 0055): Werte des Sounds und der Zustand der Klangerzeuger (LFO-Phase, Hüllkurve der jüngsten Stimme) */
+static float viz_env_stage(unsigned st) { return st == SYN_ENV_IDLE ? -1.0f : st == SYN_ENV_T1 ? 0.0f : st == SYN_ENV_RELEASE ? 3.0f : 1.0f; }
+static int jxsh_viz(unsigned stage, unsigned p, float *v)
+{
+    const uint8_t *u = up[p].v;
+    if (stage == ST_VDIST) { v[0] = xv[X_MODE]; v[1] = xv[X_DRIVE] / 127.0f; v[2] = xv[X_TONE] / 127.0f; v[3] = xv[X_LEVEL] / 127.0f; return 1; }
+    if (GM_ENG_OF(u) == E_SH) {
+        static const int8_t wave[4] = {0, 1, 4, 5};
+        switch (stage) {
+        case ST_VLFO:
+            v[0] = u[P_LFO_RATE] / 200.0f; v[1] = (u[P_MOD] > u[P_VCF_LFO] ? u[P_MOD] : u[P_VCF_LFO]) / 200.0f;
+            v[2] = wave[u[P_LFO_WAVE] & 3u]; v[3] = sh_part == (int)p ? (float)eng.lfo_phase * (1.0f / 256.0f) : -1.0f;
+            return 1;
+        case ST_VENV: {
+            const sh101_env_t *e = &eng.voices[0].vca_env;
+            v[0] = u[P_ATTACK] / 200.0f; v[1] = u[P_DECAY] / 200.0f; v[2] = u[P_SUSTAIN] / 200.0f; v[3] = u[P_RELEASE] / 200.0f;
+            v[4] = sh_part != (int)p || e->state == 4 ? -1.0f : e->state == 3 ? 3.0f : e->state == 1 || e->state == 2 ? 1.0f : 0.0f;
+            v[5] = (float)e->value;
+            return 1;
+        }
+        case ST_VVCF: v[0] = u[P_CUTOFF] / 200.0f; v[1] = u[P_RESO] / 200.0f; v[2] = u[P_12DB] ? 1.0f : 0.0f; v[3] = u[P_ENV] / 200.0f; return 1;
+        default: return 0;
+        }
+    }
+    switch (stage) {
+    case ST_VLFO: {
+        static const int8_t wave[7] = {0, 6, 2, 3, 1, 4, 5};   /* jx.c: TRI SINE SAW-UP SAW-DN SQUARE S&H RANDOM */
+        int shape = u[JP_LFO_SHAPE] > 0 ? u[JP_LFO_SHAPE] - 1 : u[JP_LFO_WAVE] == 0 ? 5 : u[JP_LFO_WAVE] == 1 ? 4 : 1;
+        uint8_t d = u[JP_DCO1_LFO] > u[JP_DCO2_LFO] ? u[JP_DCO1_LFO] : u[JP_DCO2_LFO];
+        v[0] = u[JP_LFO_RATE] / 127.0f; v[1] = (d > u[JP_VCF_LFO] ? d : u[JP_VCF_LFO]) / 127.0f; v[2] = wave[shape % 7];
+        v[3] = synth.part[p].lfo_phase;
+        return 1;
+    }
+    case ST_VENV: {
+        int two = pages[page].k[0].param == JP_E2_ATTACK;
+        const jx_voice_t *best = 0;
+        v[0] = u[two ? JP_E2_ATTACK : JP_E1_ATTACK] / 127.0f; v[1] = u[two ? JP_E2_DECAY : JP_E1_DECAY] / 127.0f;
+        v[2] = u[two ? JP_E2_SUSTAIN : JP_E1_SUSTAIN] / 127.0f; v[3] = u[two ? JP_E2_RELEASE : JP_E1_RELEASE] / 127.0f;
+        for (unsigned i = 0; i < synth.pool; i++) {   /* die jüngste klingende Stimme des Parts */
+            const jx_voice_t *vo = &synth.voice[i];
+            if (vo->part == p && vo->active && (!best || vo->age > best->age)) best = vo;
+        }
+        if (best) { const syn_env_t *e = two ? &best->env2 : &best->env1; v[4] = viz_env_stage(e->stage); v[5] = e->value; }
+        return 1;
+    }
+    case ST_VVCF: v[0] = u[JP_CUTOFF] / 127.0f; v[1] = u[JP_RESO] / 127.0f; v[2] = 0; v[3] = u[JP_VCF_ENV] / 127.0f; return 1;
+    default: return 0;
+    }
+}
 
 /* ---- Puffer zwischen den Kernen, nach Blocknummer abwechselnd (Kern 1 schreibt Block N, Kern 0 liest N−1) */
 static float jx_snd[2][2][GM_BLOCK] __attribute__((section(".pool")));   /* JX-Sends Delay, Hall */

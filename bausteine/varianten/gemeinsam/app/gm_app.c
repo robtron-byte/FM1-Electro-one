@@ -865,6 +865,7 @@ static void own_load(void)
             own[j].cat = s[GM_NAMEMAX + 1u]; own[j].used = s[GM_NAMEMAX + 2u];
             {
                 unsigned e = own[j].cat < GM_NCAT ? GM_CAT_ENG(own[j].cat) : 0u;
+                (void)e;                        /* (ein Erzeuger: unbenutzt) */
                 for (unsigned i = 0; i < GM_NP; i++) {
                     uint8_t x = i < h.np ? s[GM_NAMEMAX + 3u + i] : GM_INIT_E(e)[i];
                     own[j].v[i] = x <= GM_PARAMS_E(e)[i].max ? x : GM_INIT_E(e)[i];
