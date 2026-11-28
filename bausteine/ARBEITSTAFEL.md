@@ -86,6 +86,11 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   FM-1_95 MKS-50 solo (löst die fm1-synths-Fassung ab), FM-1_97 JX-8P solo (löst die fm1-synths-Fassung ab),
   FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX, FM-1_99 JX-8P + SH-101 (99 war nur die Dinghy-Vorlage, keine Firmware des Nutzers). Für 808 solo ist keine 9x
   mehr frei: der dk808-Chat prüft im Lader/Hub, ob FM-1_8x geht, sonst teilt sich 808 solo eine Kennung mit 808 + 101.
+- **Keine Distortion in den Synth-Firmwares (Wunsch des Nutzers 28.11.):** Distortion/Drive nur bei der 808. In allen
+  Solo- und Kombi-Firmwares wird die Distortion der Synths weggelassen (JP-6 `dist.c` samt DIST_FIXED-Tabellen, SH-101
+  Drive/8×-Clipper), um Speicher und Rechenzeit zu sparen; die frei werdende Last geht in Stimmen. Im Baustein bleibt sie
+  (voller Umfang, Schalter `*_WITH_DIST`/`SH101_WITH_DRIVE`, Firmware baut mit 0). Presets mit Distortion klingen dann ohne.
+  In FM1-Electro als Schalter nach ADR 0006 über den Bau-Chat.
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,
   `jx8p/`, `jp6/`: JSON der iOS-Apps, Format siehe `LIES MICH.txt` dort) und für mksultra
