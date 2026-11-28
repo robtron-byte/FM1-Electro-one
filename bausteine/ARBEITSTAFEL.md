@@ -169,9 +169,10 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **mks50 Stand:** `bausteine/mks50/` bindet `engine/mks.c` und Co. ein (mit `EL_SYNTH_JX=0`, `engine/` unverändert),
   Adapter `mks50_bs.c` wie jx8p. Alle 79 Presets (23 eigene vorn, dann 56 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen
   in `ref/`. Last auf dem PC ≈ 20 ns je Stimme und Sample (WOBBLE 01 ≈ 40 ns). ADR 0047, Y15.
-- **mks50 nächster Schritt:** Solo-Firmware „MKS-50 solo“ in `varianten/mks50/`, sobald `varianten/gemeinsam/` abgenommen
-  ist: eigene Presets vorn (Preset 1–23), 6 Stimmen anstreben (mit 4 weichen 11 Presets im Akkord-Modus ab),
-  `MKS_VCF_DECIM=2` des Geräts gegen den Baustein abhören.
+- **MKS-50 solo** (`varianten/mks50/`, Y15, ADR 0047): `firmware/MKS50-0.2.5-alpha.fwsc` = fm1-synths fortgeführt (FM-1_95,
+  „MK50“, 4 Parts, Pool auf 2 Kernen, SETS; Speicher bleibt), 23 eigene Presets angehängt, EIGENE zuerst, Schalter
+  `MK_RELEASE_HURRY` (aus). Pool-Kern bitgleich mit dem Baustein (mit Hurry, `make -C bausteine mks50`). Emulator ≤ 35 %.
+  **Am Gerät ungeprüft.**
 - **jp6 Stand:** `bausteine/jp6/` bindet `engine/jp6.c`, `dist.c` und Co. ein (`engine/` unverändert), Adapter `jp6_bs.c`
   wie jx8p. Alle 79 Presets (5 eigene aus der Sicherung vorn, dann 74 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen in
   `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.

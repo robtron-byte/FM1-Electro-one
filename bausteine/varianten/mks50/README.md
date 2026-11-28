@@ -23,7 +23,7 @@ Die fm1-synths-Fassung 0.2.4 hat ihn aus. Damit sich für die Nutzer nichts änd
 | | |
 |---|---|
 | Firmware | `firmware/MKS50-0.2.5-alpha.fwsc` (Kennung FM-1_95, `STORE_MAGIC` „MK50“ wie fm1-synths), `tools/fm1-emu/check.sh` ok |
-| Last (Emulator) | LAST_ZEILE |
+| Last (Emulator) | 6 gehaltene Noten auf Part A, drei Sounds: Kern 0 höchstens 35 %, Kern 1 höchstens 14 % (Pool auf beide Kerne, Delay/Hall dazu); keine verspäteten Blöcke. Ziel < 70 % erfüllt |
 | Am Gerät | 0.2.5 nicht geprüft |
 
 ## Gleichstand mit fm1-synths MKS50-0.2.4 (keine Rückschritte)
