@@ -56,7 +56,8 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
-| ADR | 0052–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
+| ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | frei (reserviert) |
+| ADR | 0053–0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
 | FEATURES | P14 | Solo-Firmware-Gerüst | vergeben (sh101-Chat) |
 | FEATURES | P15 | Kombi-Firmwares | frei (reserviert) |
 | FEATURES | Y12 | SH101 solo | vergeben (sh101-Chat) |
@@ -65,6 +66,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y15 | mks50 solo | vergeben (jx8p-Chat) |
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
+| FEATURES | P16 | Kombi JX-8P + SH-101 | frei (reserviert) |
 
 ## Koordination (Koordinator-Chat "Synth Produktions Werkstatt", 28.11.2026)
 
@@ -80,7 +82,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   Ausnahme: das Herauslösen von jx8p/mks50/jp6 (bitgleich, `make test`).
 - **Kennungen (Update-Lader) für die neuen Firmwares, vom Koordinator vergeben (28.11.):** FM-1_94 SH-101 solo,
   FM-1_95 MKS-50 solo (löst die fm1-synths-Fassung ab), FM-1_97 JX-8P solo (löst die fm1-synths-Fassung ab),
-  FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX. Für 808 solo ist keine 9x
+  FM-1_93 MKS Ultra solo, FM-1_92 JP-6 solo, FM-1_91 808 + 101, FM-1_90 808 + 101 + JX, FM-1_99 JX-8P + SH-101 (99 war nur die Dinghy-Vorlage, keine Firmware des Nutzers). Für 808 solo ist keine 9x
   mehr frei: der dk808-Chat prüft im Lader/Hub, ob FM-1_8x geht, sonst teilt sich 808 solo eine Kennung mit 808 + 101.
 - **Eigene Presets des Nutzers (Pflicht, Wunsch 28.11.):** Jeder Baustein und jede Firmware bringt die eigenen Presets des
   Nutzers mit, vor den Werks-Sounds. Quellen (Dropbox): `Programmieren/Musik/MKS50 App/Eigene Presets iPhone/` (`mks50/`,

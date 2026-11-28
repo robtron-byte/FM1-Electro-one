@@ -8,6 +8,7 @@ dem Gerüst [`gemeinsam/`](gemeinsam/) auf (ADR 0044); eine Variante ist ein Ord
 | FM1-Electro (heute) | bisherige 808, JX-8P, JP-6 | wie bisher | läuft (`firmware/`) |
 | 808 + 101 | dk808, sh101 | Drums und Bass, viel Reserve | geplant |
 | 808 + 101 + JX | dk808, sh101, JX-8P | Drums, Bass, Flächen | geplant |
+| JX + 101 | jx8p, sh101 | Flächen und Bass, Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps | geplant |
 | Alpha Juno solo | mksultra (mehr Stimmen) | voller Synth-Klang | geplant |
 | 808 solo | dk808 mit allen 17 Instrumenten | volle Drum-Machine | geplant |
 | 101 solo | sh101 | voller Bass/Lead | gebaut: [`sh101/`](sh101/), `firmware/SH101-0.1.1-alpha.fwsc` (Emulator ok, Gerät ungeprüft) |
