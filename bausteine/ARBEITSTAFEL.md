@@ -117,12 +117,14 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### mksultra: Alpha Juno / MKS-50 „Ultra“ (TAL-Pha-Nachbau)
 
-- **In Arbeit:** mksultra-Chat (Unterchat des Koordinators), 28.11.2026: C-Kern + Test, noch keine Firmware
-- **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/*.rs`,
-  `spec/*.md`, `MECHANICS.md`, 520 Presets `presets/**/*.mks`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
-- **Stand:** nicht begonnen.
-- **Nächster Schritt:** C-Port in voller Genauigkeit (12 Stimmen, DCO 2× Fs, VCF 4× mit zwei nichtlinearen SVFs), Test gegen
-  die Golden-Renders. **Für das FM-1 zuerst an den Stimmen sparen, nicht am Filter** (Wunsch des Nutzers 28.11.).
+- **In Arbeit:** frei (Baustein fertig, mksultra-Chat, 28.11.2026)
+- **Vorlage:** Dropbox `Programmieren/Musik/MKS50 App/TAL Pha Nachbau/app/` — `docs/SOUND_ENGINE_PORTING.md`, `engine/src/` (Rust),
+  `spec/`, `MECHANICS.md`, 520 Presets in `presets/`, Golden-Renders `docs/golden/` (FNV-1a-Prüfsummen)
+- **Stand:** C-Kern fertig, alle 7 Golden-Renders bitgenau (`make -C bausteine mksultra`). 520 Presets als C-Tabelle.
+  Sparfassung `MKSULTRA_VOICES` (weniger Stimmen, Filter unverändert): bei 6 und 4 Stimmen alle Golden-Fälle gleich.
+  Rechenzeit auf dem PC ≈ 100 ns je Stimme und Sample (Unisono ≈ 330 ns). Details in `mksultra/README.md`, ADR 0043.
+- **Nächster Schritt:** Solo-Firmware „Alpha Juno solo“ (ADR 0045, Y13), sobald `varianten/gemeinsam/` abgenommen ist:
+  Stimmenzahl und Puffergröße (`MKSULTRA_MAX_SR`, Delay 2 × 4 s ≈ 1,5 MB bei 48 kHz) im Emulator einmessen.
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
