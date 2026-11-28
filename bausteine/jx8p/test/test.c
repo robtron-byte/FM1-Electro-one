@@ -170,7 +170,8 @@ int main(int argc, char **argv)
     /* jedes Preset: bitgleich mit dem Kern, Prüfsumme */
     FILE *sf;
     char path[512];
-    snprintf(path, sizeof path, "%s/sums.txt", ref);
+    if (JX8P_BS_VOICES == 6) snprintf(path, sizeof path, "%s/sums.txt", ref);
+    else snprintf(path, sizeof path, "%s/sums%d.txt", ref, JX8P_BS_VOICES);
     uint32_t want[MAXP] = {0};
     int have = 0;
     if (!write && (sf = fopen(path, "r"))) {
@@ -209,8 +210,8 @@ int main(int argc, char **argv)
             printf("eigen %u %-10s Spitze %.3f\n", i + 1, jx8p_bs_preset_name(i), peak);
         }
     }
-    if (out) { fclose(out); printf("ref/sums.txt neu geschrieben (%u Presets)\n", count); }
-    else CHECK(have == (int)count, "ref/sums.txt hat %d von %u Presets", have, count);
+    if (out) { fclose(out); printf("%s neu geschrieben (%u Presets)\n", path, count); }
+    else CHECK(have == (int)count, "%s hat %d von %u Presets", path, have, count);
     printf("jx8p: %u Presets (%u eigene), %u bitgleich mit engine/jx8p.c, %u Prüfsummen gleich, %u nach %d ms still\n",
            count, eigene, same, ok_sum, ended, TOTAL_MS);
 

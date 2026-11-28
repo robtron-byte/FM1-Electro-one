@@ -45,8 +45,9 @@ Regeln, damit Bausteine austauschbar bleiben:
 | [`dk808/`](dk808/) | TR-808, alle 17 Instrumente | DrumKern (Swift, „808 Projekt“) | siehe Arbeitstafel |
 | [`sh101/`](sh101/) | SH-101, monophon | MonoBass (Swift, REA/SH101) | siehe Arbeitstafel |
 | [`mksultra/`](mksultra/) | Alpha Juno / MKS-50 „Ultra“ | MKS Ultra (Rust, TAL-Pha-Nachbau) | siehe Arbeitstafel |
+| [`jx8p/`](jx8p/) | JX-8P, 6 Stimmen (bindet `engine/jx8p.c` ein) | FM1-Electro / fm1-synths / JX-8P-App | siehe Arbeitstafel |
 
-Schon vorhanden in FM1-Electro, noch nicht als Baustein herausgelöst: JX-8P (`engine/jx8p.c`), MKS-50 (`engine/mks.c`),
+Schon vorhanden in FM1-Electro, noch nicht als Baustein herausgelöst: MKS-50 (`engine/mks.c`),
 JP-6 (`engine/jp6.c`), unsere bisherige 808 (`engine/tr808*.c`). Sie bleiben, wo sie sind, bis jemand sie hier
 herauslöst (siehe Arbeitstafel).
 

@@ -1,7 +1,7 @@
 # jx8p: der JX-8P von FM1-Electro als Baustein (docs/adr/0046). Bindet engine/jx8p.c und Co. ein (keine Kopie), mit
 # denselben Schaltern wie der Host-Build im Hauptordner (make test-jx), und prüft ihn über baustein.h.
 #   make test         alle Presets bitgleich mit dem Kern und mit ref/sums.txt, WAV der eigenen Presets nach ../build/jx8p
-#   make ref          ref/sums.txt neu schreiben (nur nach einer gewollten Klangänderung im Kern)
+#   make ref          ref/sums.txt und ref/sums4.txt neu schreiben (nur nach einer gewollten Klangänderung im Kern)
 #   make last         Rechenzeit je Stimme auf diesem Rechner
 #   make eigene       jx8p_eigene.c aus den iPhone-Presets neu erzeugen (Dropbox, tools/eigene2c.py)
 CC ?= cc
@@ -16,14 +16,14 @@ BUILD := ../build/jx8p
 
 .PHONY: test ref last eigene
 test: $(BUILD)/test $(BUILD)/test_4
-	@mkdir -p $(BUILD)/wav
+	@mkdir -p $(BUILD)/wav $(BUILD)/wav4
 	$(BUILD)/test ref $(BUILD)/wav
-	$(BUILD)/test_4 ref4 $(BUILD)/wav
+	$(BUILD)/test_4 ref $(BUILD)/wav4
 
 ref: $(BUILD)/test $(BUILD)/test_4
-	@mkdir -p $(BUILD)/wav ref4
+	@mkdir -p $(BUILD)/wav $(BUILD)/wav4
 	$(BUILD)/test ref $(BUILD)/wav write
-	$(BUILD)/test_4 ref4 $(BUILD)/wav write
+	$(BUILD)/test_4 ref $(BUILD)/wav4 write
 
 last: $(BUILD)/test
 	$(BUILD)/test last

@@ -137,7 +137,14 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
-- **In Arbeit:** jx8p: jx8p-Chat (Unterchat des Koordinators, Worktree nervous-shamir-666aca), seit 28.11.2026: Baustein (ohne Firmware) · mks50 frei · jp6 frei · tr808alt frei
+- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei · jp6 frei · tr808alt frei
+- **jx8p Stand:** `bausteine/jx8p/` bindet `engine/jx8p.c` und Co. ein (keine Kopie, `engine/` unverändert), Adapter
+  `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
+  Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
+  Eigene Presets: `tools/eigene2c.py` (ADR 0051), gemeinsames Skript `tools/iphone_presets_pull.sh`. ADR 0046, Y14.
+- **jx8p nächster Schritt:** Solo-Firmware „JX-8P solo“ in `varianten/jx8p/`, sobald `varianten/gemeinsam/` abgenommen
+  ist: eigene Presets an vorderster Stelle (Preset 1–7), 6 Stimmen anstreben (mit 4 weicht nur HI STRI 01 ab), Delay/Hall
+  des Gerüsts an `jx8p_bs_render_sends`. mks50/jp6 nutzen für ihre eigenen Presets dasselbe Muster (`tools/eigene2c.py`).
 - Die vorhandenen Engines liegen heute in `engine/`: JX-8P (`engine/jx8p.c`), MKS-50 (`engine/mks.c`), JP-6 (`engine/jp6.c`)
   und die bisherige 808 (`engine/tr808*.c`). Jede wird ein eigener Ordner in `bausteine/` mit demselben Aufbau und
   `baustein.h`. Das ist nur nach Absprache mit dem Bau-Chat möglich, weil die Engines im Gerätebuild stecken. Der Klang
