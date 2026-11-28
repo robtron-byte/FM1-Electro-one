@@ -56,7 +56,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | ADR | 0049 | Kombi-Firmwares 808 + 101, 808 + 101 + JX | frei (reserviert) |
 | ADR | 0050 | dk808 float, Adapter, solo | frei (reserviert) |
 | ADR | 0051 | Eigene Presets des Nutzers aus den iPhone-Apps in allen Bausteinen | vergeben (jx8p-Chat) |
-| ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | frei (reserviert) |
+| ADR | 0052 | Kombi JX-8P + SH-101 (Bedienung wie fm1-synths MKS+JX, Sequencer der iOS-Apps) | vergeben (sh101-Chat) |
 | ADR | 0053 | Live-Aufnahme nach RK-008 in jeder Firmware | vergeben (jx8p-Chat) |
 | ADR | 0054 | Web-Installer (Browser, Web MIDI, GitHub Pages) | vergeben (Web-Installer-Chat) |
 | ADR | 0055 | Reserve des Koordinators (auf Anfrage) | frei (reserviert) |
@@ -68,7 +68,7 @@ wenn“, was man nicht anfasst). Neue Bausteine beginnen mit einer Kopie von `_v
 | FEATURES | Y15 | mks50 solo | vergeben (jx8p-Chat) |
 | FEATURES | Y16 | jp6 solo | vergeben (jx8p-Chat) |
 | FEATURES | B20 | dk808 solo | frei (reserviert) |
-| FEATURES | P16 | Kombi JX-8P + SH-101 | frei (reserviert) |
+| FEATURES | P16 | Kombi JX-8P + SH-101 | vergeben (sh101-Chat) |
 | FEATURES | S20 | Live-Aufnahme nach RK-008 | vergeben (jx8p-Chat) |
 | FEATURES | P17 | Web-Installer | vergeben (Web-Installer-Chat) |
 
@@ -196,7 +196,8 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.
 - **JP-6 solo** (`varianten/jp6/`, Y16, ADR 0048): `firmware/JP6-0.1.0-alpha.fwsc`, Gerüst, FM-1_92 („JP01“), 4 Stimmen,
   ohne Distortion (`JP6_BS_DIST=0`), Delay ≤ 0,6 s, 5 eigene Presets vorn. Emulator ≤ 41 % (Kern 0). **Am Gerät ungeprüft.**
-- **In Arbeit:** frei (wird nach den Solo-Firmwares vergeben, vor den 808-Kombis)
+- **In Arbeit:** sh101-Chat (Worktree heuristic-easley-bfab0d), seit 28.11.2026: erst Speicher- und Lastprobe, dann Gerüst mit
+  Parts und zwei Klangerzeugern (abwärtskompatibel), dann `varianten/jxsh/`
 - **Vorbild Bedienung:** die vorhandene Firmware MKS-50 + JX-8P aus fm1-synths (`combo/`, `MKSJX-*.fwsc`, Kennung FM-1_98):
   Parts, Seite PARTS, Raster nach fm1-synths ADR 0008. Hier: Parts spielen JX-8P oder SH-101 (Bausteine `jx8p`, `sh101`).
 - **Sequencer:** wie in den iOS-Apps des Nutzers (Dropbox `Programmieren/Musik/MKS50 App/JX8P/ios/Shared/UI/SequencerViews.swift`,
