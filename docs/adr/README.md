@@ -48,6 +48,7 @@ Hier steht, **was** an FM1-Electro grundsätzlich entschieden wurde, **warum**, 
 | [0040](0040-bausteine.md) | Bausteine: Klangerzeuger als austauschbare Teile in `bausteine/`, volle Genauigkeit zuerst, Arbeitstafel für parallele Chats | angenommen | 2026-11-28 |
 | [0043](0043-mksultra-baustein.md) | mksultra: Alpha Juno des TAL-Pha-Nachbaus als bitgenauer C-Baustein (7/7 Golden), Sparen zuerst an den Stimmen (`MKSULTRA_VOICES`), Filter unverändert | vorgeschlagen | 2026-11-28 |
 | [0046](0046-jx8p-baustein.md) | jx8p: JX-8P aus `engine/` als Baustein eingebunden (keine Kopie), Adapter auf `baustein.h`, bitgleich (74 Presets), später solo | vorgeschlagen | 2026-11-28 |
+| [0047](0047-mks50-baustein.md) | mks50: MKS-50 aus `engine/mks.c` als Baustein eingebunden (keine Kopie), Adapter wie jx8p, bitgleich (79 Presets, 23 eigene), später solo | vorgeschlagen | 2026-11-28 |
 | [0051](0051-eigene-presets.md) | Eigene Presets des Nutzers aus den iPhone-Apps: `tools/iphone_presets_pull.sh`, Werkzeug je Baustein, eingecheckte Tabelle, eigene zuerst | vorgeschlagen | 2026-11-28 |
 
 Neue Records: `TEMPLATE.md` kopieren, nächste freie Nummer, Zeile in diese Tabelle.

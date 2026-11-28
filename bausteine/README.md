@@ -46,8 +46,9 @@ Regeln, damit Bausteine austauschbar bleiben:
 | [`sh101/`](sh101/) | SH-101, monophon | MonoBass (Swift, REA/SH101) | siehe Arbeitstafel |
 | [`mksultra/`](mksultra/) | Alpha Juno / MKS-50 „Ultra“ | MKS Ultra (Rust, TAL-Pha-Nachbau) | siehe Arbeitstafel |
 | [`jx8p/`](jx8p/) | JX-8P, 6 Stimmen (bindet `engine/jx8p.c` ein) | FM1-Electro / fm1-synths / JX-8P-App | siehe Arbeitstafel |
+| [`mks50/`](mks50/) | MKS-50 / Alpha Juno, 6 Stimmen (bindet `engine/mks.c` ein) | FM1-Electro / MKS-50-App | siehe Arbeitstafel |
 
-Schon vorhanden in FM1-Electro, noch nicht als Baustein herausgelöst: MKS-50 (`engine/mks.c`),
+Schon vorhanden in FM1-Electro, noch nicht als Baustein herausgelöst:
 JP-6 (`engine/jp6.c`), unsere bisherige 808 (`engine/tr808*.c`). Sie bleiben, wo sie sind, bis jemand sie hier
 herauslöst (siehe Arbeitstafel).
 
