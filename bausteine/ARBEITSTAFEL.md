@@ -137,7 +137,7 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 
 ### jx8p, mks50, jp6, tr808alt: vorhandene Engines herauslösen (später, je einzeln)
 
-- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6: jx8p-Chat (Worktree nervous-shamir-666aca), seit 28.11.2026: Baustein (ohne Firmware) · tr808alt frei
+- **In Arbeit:** jx8p frei (Baustein fertig, jx8p-Chat, 28.11.2026) · mks50 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · jp6 frei (Baustein fertig, jx8p-Chat, 28.11.2026) · tr808alt frei
 - **jx8p Stand:** `bausteine/jx8p/` bindet `engine/jx8p.c` und Co. ein (keine Kopie, `engine/` unverändert), Adapter
   `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
   Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
@@ -151,6 +151,12 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
 - **mks50 nächster Schritt:** Solo-Firmware „MKS-50 solo“ in `varianten/mks50/`, sobald `varianten/gemeinsam/` abgenommen
   ist: eigene Presets vorn (Preset 1–23), 6 Stimmen anstreben (mit 4 weichen 11 Presets im Akkord-Modus ab),
   `MKS_VCF_DECIM=2` des Geräts gegen den Baustein abhören.
+- **jp6 Stand:** `bausteine/jp6/` bindet `engine/jp6.c`, `dist.c` und Co. ein (`engine/` unverändert), Adapter `jp6_bs.c`
+  wie jx8p. Alle 79 Presets (5 eigene aus der Sicherung vorn, dann 74 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen in
+  `ref/`. Last auf dem PC ≈ 13 ns je Stimme und Sample (12 VCO 01 ≈ 23 ns). ADR 0048, Y16.
+- **jp6 nächster Schritt:** Solo-Firmware „JP-6 solo“ in `varianten/jp6/`, sobald `varianten/gemeinsam/` abgenommen ist:
+  eigene Presets vorn (Preset 1–5), 6 Stimmen anstreben (mit 4 weichen 14 Presets ab, Unisono/Akkord), Distortion-Presets
+  mit `DIST_FIXED=1` des Geräts gegen den Baustein abhören.
 - Die vorhandenen Engines liegen heute in `engine/`: JX-8P (`engine/jx8p.c`), MKS-50 (`engine/mks.c`), JP-6 (`engine/jp6.c`)
   und die bisherige 808 (`engine/tr808*.c`). Jede wird ein eigener Ordner in `bausteine/` mit demselben Aufbau und
   `baustein.h`. Das ist nur nach Absprache mit dem Bau-Chat möglich, weil die Engines im Gerätebuild stecken. Der Klang

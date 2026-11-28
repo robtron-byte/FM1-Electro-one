@@ -20,8 +20,8 @@ nicht von der Dropbox oder dem iPhone abhängen.
   des Quellordners, bildet sie auf die Parameter des Kerns ab und schreibt eine C-Tabelle, die eingecheckt wird.
   Presets, die nur eine unveränderte Kopie von INIT sind, fallen weg. Reihenfolge nach Dateinummer.
 - **Reihenfolge im Gerät:** eigene Presets zuerst (Preset 1 …), dann die Werks-Sounds.
-- Bausteine mit iPhone-Presets: jx8p (7 eigene, ADR 0046), mks50 (23 eigene, ADR 0047); mksultra hat seine 6
-  Ron-Presets (ADR 0043). jp6 folgt beim Herauslösen (ADR 0048) nach demselben Muster.
+- Bausteine mit iPhone-Presets: jx8p (7 eigene, ADR 0046), mks50 (23 eigene, ADR 0047), jp6 (5 eigene aus der
+  Sicherung, ADR 0048); mksultra hat seine 6 Ron-Presets (ADR 0043).
 
 ## Alternativen
 
@@ -41,3 +41,4 @@ nicht von der Dropbox oder dem iPhone abhängen.
   „Phonie“ geprüft: jx8p 7 Presets (gleich dem Dropbox-Stand), mks50 23; jp6 ist nicht mehr auf dem iPhone (Fehlermeldung,
   Ordner bleibt bei der Sicherung vom 05.11.).
 - 2026-11-28: mks50 (`bausteine/mks50/tools/eigene2c.py`, 23 Presets, keins eine INIT-Kopie) nachgetragen.
+- 2026-11-28: jp6 (`bausteine/jp6/tools/eigene2c.py`, 5 Presets aus der Sicherung, keins eine INIT-Kopie) nachgetragen.
