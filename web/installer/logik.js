@@ -19,19 +19,30 @@ export function compare(entry, info) {
   return { state: "current", button: "installed" };
 }
 
+// welcher Eintrag läuft auf dem Gerät? device = { text, loader, info } oder null -> Paketname oder null.
+// Zuerst der Paketname aus cmd 0x12 (Firmwares können sich eine Kennung teilen, z. B. DK808 und DK101 FM-1_911),
+// sonst die Kennung, aber nur wenn genau ein Eintrag sie hat (sonst mehrdeutig: keiner gilt als installiert)
+export function installedName(list, device) {
+  if (!device || device.loader) return null;
+  const n = device.info && device.info.name;
+  if (n && list.some((e) => e.name === n)) return n;
+  const same = list.filter((e) => e.kennung === device.text);
+  return same.length === 1 ? same[0].name : null;
+}
+
 // feste Reihenfolge aus beschreibungen.json (Feld "reihe"), unbekannte Namen danach alphabetisch;
-// nach dem Verbinden steht die installierte Firmware (Kennung) oben
-export function sortList(list, meta, installedKennung = null) {
+// nach dem Verbinden steht die installierte Firmware (Paketname aus installedName) oben
+export function sortList(list, meta, installed = null) {
   const rank = (e) => (meta[e.name] && Number.isFinite(meta[e.name].reihe) ? meta[e.name].reihe : 1e6);
   return [...list].sort((a, b) =>
-    (b.kennung === installedKennung) - (a.kennung === installedKennung) || rank(a) - rank(b) || a.name.localeCompare(b.name));
+    (b.name === installed) - (a.name === installed) || rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
 // Knopf je Eintrag der Liste (Wunsch des Nutzers 28.11.): device = { text, loader, info } nach „Verbinden“ oder null
 // -> "install" (nicht drauf, nicht verbunden, oder Version unbekannt: ohne Update-Behauptung),
 //    "update" (drauf, neuere Version hier), "installed" (drauf, gleiche Version: ausgegraut)
-export function buttonFor(entry, device) {
-  if (!device || device.loader || device.text !== entry.kennung) return "install";
+export function buttonFor(entry, device, installed) {
+  if (!device || device.loader || installed !== entry.name) return "install";
   const c = compare(entry, device.info);
   return c.state === "update" ? "update" : c.state === "current" ? "installed" : "install";
 }

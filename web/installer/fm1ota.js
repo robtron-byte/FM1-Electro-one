@@ -84,7 +84,7 @@ export function parseIdentity(pkt) {
   return m ? { text: txt, model: m[1], version: parseInt(m[2], 10), loader: /^ota-/i.test(m[1]) } : null;
 }
 
-// Antwort auf INFO_QUERY -> { version, date } oder null
+// Antwort auf INFO_QUERY -> { version, date, name } oder null (name: Paketname, fehlt bei Paketen vor dem 28.11.)
 export function parseInfo(pkt) {
   if (pkt.length < 2 || pkt[0] !== 0xF0 || pkt[pkt.length - 1] !== 0xF7) return null;
   const d = unpack7(pkt.slice(1, -1));
@@ -94,9 +94,9 @@ export function parseInfo(pkt) {
   let s = 0;
   for (let i = 6; i < 6 + n; i++) s += d[i];
   if ((~s & 0xFF) !== d[6 + n]) return null;
-  const [version = "", date = ""] = String.fromCharCode(...d.slice(6, 6 + n)).split("\0");
+  const [version = "", date = "", name = ""] = String.fromCharCode(...d.slice(6, 6 + n)).split("\0");
   if (!/^\d+\.\d+\.\d+/.test(version)) return null;
-  return { version, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "" };
+  return { version, date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "", name: /^[A-Za-z0-9_+-]{1,16}$/.test(name) ? name : "" };
 }
 
 export const modelOf = (text) => text.split("_")[0].replace(/^ota-/i, "");

@@ -4,8 +4,9 @@
  *
  * The updater talks SysEx (F0 pack7(00 59 cmd len24 body chk) F7):
  *   cmd 0x11  handshake -> we answer our package identity (FELUCCA_ID)
- *   cmd 0x12  info (FM1-Electro-one, ADR 0054) -> we answer APP_VER "\0" APP_DATE (version and build
- *             date, at most 32 bytes); firmwares without it ignore the command, the web installer then
+ *   cmd 0x12  info (FM1-Electro-one, ADR 0054) -> we answer APP_VER "\0" APP_DATE ["\0" APP_NAME] (version,
+ *             build date and package name, e.g. "DK808": firmwares may share an identity; at most 32 bytes);
+ *             firmwares without it ignore the command, the web installer then
  *             shows "version unknown". Answered only by the app, not by the update loader.
  *   F0 22 24 35 7F F7  upgrade -> ota_session(): pull parts of the package
  *     with cmd 0x30 read requests, check them, stage the package's update
@@ -164,8 +165,12 @@ static void ota_reply_identity(void)
 static void ota_reply_info(void)
 {
 #if defined(APP_VER) && defined(APP_DATE)
-    static const char INFO[] = APP_VER "\0" APP_DATE;   /* sizeof includes the final NUL: not sent */
-    _Static_assert(sizeof INFO - 1u <= 32u, "APP_VER + APP_DATE too long for one info reply");
+#ifdef APP_NAME
+    static const char INFO[] = APP_VER "\0" APP_DATE "\0" APP_NAME;   /* sizeof includes the final NUL: not sent */
+#else
+    static const char INFO[] = APP_VER "\0" APP_DATE;
+#endif
+    _Static_assert(sizeof INFO - 1u <= 32u, "APP_VER + APP_DATE + APP_NAME too long for one info reply");
     ota_send_msg(0x12, (const uint8_t *)INFO, sizeof INFO - 1u);
 #endif
 }

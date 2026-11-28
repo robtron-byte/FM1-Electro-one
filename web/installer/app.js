@@ -1,7 +1,7 @@
 // Bedienung des Web-Installers (ADR 0054). Logik: fm1ota.js (Update), fm1pkg.js (Paketprüfung).
 import { Updater, WebMidiBackend, InstallError } from "./fm1ota.js";
 import { loadPackage, productOf } from "./fm1pkg.js";
-import { newer, compare, sortList, buttonFor } from "./logik.js";
+import { newer, compare, sortList, buttonFor, installedName } from "./logik.js";
 
 // Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
 const REPO = "robtron-byte/FM1-Electro-one";
@@ -16,7 +16,7 @@ const $ = (id) => document.getElementById(id);
 // meldet also nur, welche Firmware läuft; die Seite nennt dazu die neueste verfügbare Version.
 const FAMILIES = {
   "96": "FM1-Electro", "94": "SH-101", "95": "MKS-50", "97": "JX-8P", "93": "MKS Ultra", "92": "JP-6",
-  "91": "808 + SH-101", "90": "808 + SH-101 + JX-8P", "99": "JX-8P + SH-101", "98": "MKS-50 + JX-8P",
+  "91": "808 / 808 + SH-101", "90": "808 + SH-101 + JX-8P", "99": "JX-8P + SH-101", "98": "MKS-50 + JX-8P",
 };
 
 const EN = {
@@ -124,8 +124,8 @@ function applyLang() {
 function setStatus(id, text, cls = "") { const el = $(id); el.textContent = text; el.className = "status " + cls; }
 
 function describe(text) {
-  const e = list.find((x) => x.kennung === text);
-  if (e) return `${e.titel} (${m().kennung} ${text})`;
+  const same = list.filter((x) => x.kennung === text);   // geteilte Kennung (z. B. DK808/DK101): alle nennen
+  if (same.length) return `${same.map((x) => x.titel).join(" / ")} (${m().kennung} ${text})`;
   const f = /^FM-1_(9\d)\d$/.exec(text);
   if (f && FAMILIES[f[1]]) return `${FAMILIES[f[1]]} (${m().kennung} ${text})`;
   return m().other(text);
@@ -148,7 +148,8 @@ function renderDevice() {
   if (!device) return;
   const t = device.text;
   if (!device.loader) {
-    const e = list.find((x) => x.kennung === t);
+    const nm = installedName(list, device);
+    const e = nm ? list.find((x) => x.name === nm) : null;
     const title = e ? e.titel : describe(t);
     const c = compare(e, device.info);
     // Version unbekannt: neutral, nie ein Update vorschlagen (ADR 0054)
@@ -166,7 +167,7 @@ function renderList() {
   const box = $("list");
   if (!list.length) return;
   box.innerHTML = "";
-  const inst = device && !device.loader ? device.text : null;
+  const inst = installedName(list, device);   // Paketname der laufenden Firmware oder null
   for (const e of sortList(list, meta, inst)) {
     const lab = document.createElement("div");
     lab.className = "fw";
@@ -188,14 +189,14 @@ function renderList() {
       if (!t) continue;
       const li = document.createElement("li"); li.textContent = t; lab.querySelector(".tags").append(li);
     }
-    if (inst === e.kennung) {
+    if (inst === e.name) {
       lab.classList.add("installed");
       const badge = document.createElement("span");
       badge.className = "badge"; badge.textContent = m().installed;
       lab.querySelector(".title").append(badge);
     }
     // Knopf in derselben Zeile: Installieren / Update auf X / Installiert (ausgegraut)
-    const kind = buttonFor(e, device);
+    const kind = buttonFor(e, device, inst);
     const btn = document.createElement("button");
     btn.type = "button"; btn.className = "act"; btn.dataset.kind = kind;
     btn.textContent = kind === "update" ? m().updateTo(e.version) : kind === "installed" ? m().installedBtn : m().installBtn;

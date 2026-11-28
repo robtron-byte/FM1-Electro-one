@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ota from "../fm1ota.js";
-import { compare, sortList, newer, buttonFor } from "../logik.js";
+import { compare, sortList, newer, buttonFor, installedName } from "../logik.js";
 import { loadPackage, productOf, deinterleave, packageDamage, LOADER_MARK } from "../fm1pkg.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -231,18 +231,21 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   let cc = true;
   try {
     execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.4-alpha"`, `-DAPP_DATE="2026-11-28"`, src, "-o", bin]);
+    execFileSync("cc", ["-std=c11", "-w", "-I", inc, `-DAPP_VER="0.1.10-alpha"`, `-DAPP_DATE="2026-11-28"`, `-DAPP_NAME="DK808"`, src, "-o", bin + "_name"]);
     execFileSync("cc", ["-std=c11", "-w", "-I", inc, src, "-o", bin + "_alt"]);
   } catch (_) { cc = false; console.log("Info-Abfrage: kein C-Compiler, Prüfung gegen ota.c übersprungen"); }
   if (cc) {
     const out = execFileSync(bin, [qHs, qInfo]).toString().trim().split("--").map((x) => x.trim());
     const id = ota.parseIdentity(Array.from(Buffer.from(out[0], "hex")));
     eq(id && id.text, "FM-1_941", "ota.c: Kennung unverändert");
-    eq(ota.parseInfo(Array.from(Buffer.from(out[1], "hex"))), { version: "0.1.4-alpha", date: "2026-11-28" }, "ota.c: Info-Antwort gelesen");
+    eq(ota.parseInfo(Array.from(Buffer.from(out[1], "hex"))), { version: "0.1.4-alpha", date: "2026-11-28", name: "" }, "ota.c: Info-Antwort gelesen");
+    const withName = execFileSync(bin + "_name", [qInfo]).toString().trim().split("--")[0].trim();
+    eq(ota.parseInfo(Array.from(Buffer.from(withName, "hex"))), { version: "0.1.10-alpha", date: "2026-11-28", name: "DK808" }, "ota.c: Info mit Paketname");
     const alt = execFileSync(bin + "_alt", [qInfo]).toString().trim();
     eq(alt, "--", "ota.c ohne APP_DATE: keine Info-Antwort (ältere Firmware)");
     eq(ota.parseIdentity(Array.from(Buffer.from(out[1], "hex"))), null, "Info-Antwort ist keine Kennung (alte Installer unberührt)");
     // Updater.info über eine Leitung, die wie ota.c antwortet bzw. schweigt
-    for (const [name, reply, want] of [["mit", out[1], { version: "0.1.4-alpha", date: "2026-11-28" }], ["ohne", null, null]]) {
+    for (const [name, reply, want] of [["mit", out[1], { version: "0.1.4-alpha", date: "2026-11-28", name: "" }], ["ohne", null, null]]) {
       const link = { q: [], send(p) { if (hex(p) === qInfo && reply) this.q.push(Array.from(Buffer.from(reply, "hex"))); return true; },
         async read() { return this.q.shift() || null; }, drain() { this.q.length = 0; } };
       eq(await new ota.Updater(null, { ...fast, delay: { ...fast.delay, info: 50 } }).info(link), want, `Updater.info ${name} Erweiterung`);
@@ -263,16 +266,26 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   const names = ["MKSULTRA", "SH101", "JP6", "JXSH", "MKS50", "FM1_ELECTRO", "JX8P", "NEU"];
   const l = names.map((n, i) => ({ name: n, kennung: `FM-1_${900 + i}` }));
   eq(sortList(l, meta).map((x) => x.name), ["FM1_ELECTRO", "JXSH", "SH101", "JX8P", "MKS50", "JP6", "MKSULTRA", "NEU"], "feste Reihenfolge der Liste");
-  eq(sortList(l, meta, "FM-1_903")[0].name, "JXSH", "installierte Firmware steht oben");
-  eq(sortList(l, meta, "FM-1_903").slice(1).map((x) => x.name)[0], "FM1_ELECTRO", "danach die feste Reihenfolge");
+  eq(sortList(l, meta, "JXSH")[0].name, "JXSH", "installierte Firmware steht oben");
+  eq(sortList(l, meta, "JXSH").slice(1).map((x) => x.name)[0], "FM1_ELECTRO", "danach die feste Reihenfolge");
   const dev = (info, text = "FM-1_991", loader = false) => ({ text, loader, info });
-  eq(buttonFor(e, null), "install", "Knopf: nicht verbunden -> Installieren");
-  eq(buttonFor(e, dev(null, "FM-1_941")), "install", "Knopf: andere Firmware drauf -> Installieren");
-  eq(buttonFor(e, dev(null)), "install", "Knopf: drauf, Version unbekannt -> Installieren");
-  eq(buttonFor(e, dev({ version: "0.1.0-alpha" })), "update", "Knopf: drauf, älter -> Update");
-  eq(buttonFor(e, dev({ version: "0.1.1-alpha" })), "installed", "Knopf: drauf, gleich -> Installiert");
-  eq(buttonFor(e, dev({ version: "0.1.2-alpha" })), "install", "Knopf: drauf, neuer als die Liste -> Installieren");
-  eq(buttonFor(e, dev(null, "ota-FM-1_991", true)), "install", "Knopf: Update-Modus -> Installieren (schreibt fertig)");
+  const L = [e, { name: "DK808", version: "0.1.0-alpha", kennung: "FM-1_911" }, { name: "DK101", version: "0.1.0-alpha", kennung: "FM-1_911" }];
+  const bf = (entry, d) => buttonFor(entry, d, installedName(L, d));
+  eq(installedName(L, dev(null)), "JXSH", "eindeutige Kennung ohne Name: erkannt");
+  eq(installedName(L, dev(null, "FM-1_911")), null, "geteilte Kennung ohne Name: mehrdeutig, keiner installiert");
+  eq(installedName(L, dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "DK101", "geteilte Kennung mit Name: DK101");
+  eq(installedName(L, dev({ version: "0.1.0-alpha", name: "SH101" }, "FM-1_991")), "JXSH", "unbekannter Name: Rückfall auf Kennung");
+  eq(installedName(L, dev(null, "ota-FM-1_911", true)), null, "Update-Modus: keiner installiert");
+  eq(bf(L[1], dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "install", "DK808 bei laufendem DK101: Installieren");
+  eq(bf(L[2], dev({ version: "0.1.0-alpha", name: "DK101" }, "FM-1_911")), "installed", "DK101 bei laufendem DK101: Installiert");
+  eq(bf(L[1], dev(null, "FM-1_911")), "install", "geteilte Kennung ohne Name: Installieren, keine Behauptung");
+  eq(buttonFor(e, null, null), "install", "Knopf: nicht verbunden -> Installieren");
+  eq(bf(e, dev(null, "FM-1_941")), "install", "Knopf: andere Firmware drauf -> Installieren");
+  eq(bf(e, dev(null)), "install", "Knopf: drauf, Version unbekannt -> Installieren");
+  eq(bf(e, dev({ version: "0.1.0-alpha" })), "update", "Knopf: drauf, älter -> Update");
+  eq(bf(e, dev({ version: "0.1.1-alpha" })), "installed", "Knopf: drauf, gleich -> Installiert");
+  eq(bf(e, dev({ version: "0.1.2-alpha" })), "install", "Knopf: drauf, neuer als die Liste -> Installieren");
+  eq(bf(e, dev(null, "ota-FM-1_991", true)), "install", "Knopf: Update-Modus -> Installieren (schreibt fertig)");
 }
 
 // eigene Fälle (nur JS): ohne Lader-Kennung abgelehnt, falsche Datei, Fortschritt monoton bis 100
