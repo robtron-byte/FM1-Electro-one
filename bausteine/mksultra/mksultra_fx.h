@@ -728,7 +728,11 @@ static inline void delay_process(delay_t *d, float *l, float *r)
 }
 
 /* ---------- reverb.rs ---------- */
+#ifdef MKSULTRA_REVERB_CAP                     /* (FM-1: genau so groß wie nötig; mksultra_fx_ok meldet, ob er reicht) */
+#define REVERB_CAP MKSULTRA_REVERB_CAP
+#else
 #define REVERB_CAP (MKSULTRA_MAX_SR * (14 + MKSULTRA_PREDELAY_TENTHS) / 10 + 12000)
+#endif
 #define PRE_CAP (MKSULTRA_MAX_SR * MKSULTRA_PREDELAY_TENTHS / 10 + 2)
 static const float RV_LEN[17] = {42.706253f, 44.483521f, 46.334747f, 48.263012f, 50.271526f, 52.363632f,
                                  54.542793f, 56.812649f, 59.176964f, 61.639671f, 64.204872f, 66.876816f,
@@ -928,7 +932,10 @@ static void reverb_process(reverb_t *r, float *l, float *rr_)
 }
 
 /* ---------- arp.rs ---------- */
-#define ARP_MAX 1280
+#ifndef MKSULTRA_ARP_MAX
+#define MKSULTRA_ARP_MAX 1280
+#endif
+#define ARP_MAX MKSULTRA_ARP_MAX            /* (FM-1: kürzer; die Liste wird nur mit sehr vielen Noten und Oktaven so lang) */
 typedef struct { int32_t note, orig, ch; float vel; } noteinfo_t;
 static const double ARP_SYNC_M[18] = {0.125, 0.1666666716337204, 0.1875, 0.25, 0.3333333432674408, 0.375, 0.5,
                                       0.6666666865348816, 0.75, 1.0, 1.3333333730697632, 1.5, 2.0, 2.6666667461395264,

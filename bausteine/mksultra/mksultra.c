@@ -1137,6 +1137,7 @@ void mksultra_master(void *st, float *l, float *r, int n)
     synth_t *s = (synth_t *)st;
     for (int i = 0; i < n; i++) synth_master(s, &l[i], &r[i]);
 }
+int mksultra_fx_ok(const void *st) { return !((const synth_t *)st)->reverb.failed; }
 int mksultra_active_voices(const void *st)
 {
     const synth_t *s = (const synth_t *)st;

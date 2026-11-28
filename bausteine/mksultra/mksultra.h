@@ -77,6 +77,7 @@ void mksultra_process(void *s, float *left, float *right, int n);
 void mksultra_voices(void *s, float *left, float *right, int n);
 void mksultra_master(void *s, float *left, float *right, int n);
 int mksultra_active_voices(const void *s);
+int mksultra_fx_ok(const void *s);                        /* 0: Hall-Speicher reichte nicht (MKSULTRA_REVERB_CAP) */
 
 /* Presets (520 aus der Vorlage, Tabelle in mksultra_presets.c, erzeugt von tools/mks2c.py). */
 typedef struct {
