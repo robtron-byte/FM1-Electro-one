@@ -38,7 +38,8 @@ enum { ENG = JP_COUNT, GM_NP = JP_COUNT + 1 };
 enum { ST_PARTS_PG = ST_PARTS, ST_ENV_PIC = ST_NAME };
 
 /* ---- weitere Einstellungen (set.extra): Distortion für alle Parts, Send je Part */
-enum { X_MODE, X_DRIVE, X_TONE, X_LEVEL, X_SEND };   /* X_SEND + Part */
+enum { X_MODE, X_DRIVE, X_TONE, X_LEVEL, X_SEND, X_SEND_SEL = 0x40 };   /* X_SEND + Part; X_SEND_SEL: Send des gewählten Parts */
+#define GM_EXTRA_IDX(i) ((i) == X_SEND_SEL ? X_SEND + sel : (i))
 static int gm_extra_max(unsigned i) { return i == X_MODE ? 3 : 127; }
 static int gm_extra_default(unsigned i) { static const uint8_t d[8] = {0, 60, 70, 64, 0, 0, 0, 0}; return d[i & 7u]; }
 static void gm_extra_text(unsigned i, int v, char *b)
@@ -262,7 +263,7 @@ static const layer_t layers_sh[NGROUP] = {
     [G_ENV] = {"ENV", {PRM("ATTACK", P_ATTACK), PRM("DECAY", P_DECAY), PRM("SUSTAIN", P_SUSTAIN), PRM("RELEASE", P_RELEASE)}},
     [G_LFO] = {"LFO", {PRM("RATE", P_LFO_RATE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO), PRM("WAVE", P_LFO_WAVE)}},
     [G_ARP] = {"ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
-    [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("TIME", FX_DLY_TIME), {"DIST", K_EXTRA, X_SEND + 3}}},
+    [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("TIME", FX_DLY_TIME), {"DIST", K_EXTRA, X_SEND_SEL}}},
     [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
 };
 
@@ -448,8 +449,8 @@ static DSPF void kern_render(unsigned p, float *l, float *r, unsigned n)
     uint32_t w = block_no & 1u, rd = w ^ 1u;
 #ifdef JXSH_LAST
     if (p == 0u && block_no == 300u) {          /* nur Messung im Emulator (-DJXSH_LAST): schwerster Fall */
-        fx_on = 1;
-        for (unsigned k = 0; k < GM_PARTS; k++) { xv[X_SEND + k] = 64; part_send[k][0] = part_send[k][1] = 0.5f; }
+        fx_on = 1; xv[X_MODE] = 3;                 /* RAT */
+        for (unsigned k = 0; k < GM_PARTS; k++) { xv[X_SEND + k] = JXSH_LAST >= 4 ? 0 : 64;   /* 4: ohne Distortion (SH + JX) */ part_send[k][0] = part_send[k][1] = 0.5f; }
         for (unsigned i = 0; i < fac_n; i++)
             if (fac_src[i] >= 2000u && recipes[fac_src[i] - 2000u].name[1] == 'Q') kern_load(3, gm_fac_v(i));   /* SQUELCH */
         jx_part_set(&synth, 0, JP_CHORUS, (uint8_t)jx_param_max(JP_CHORUS));

@@ -112,7 +112,7 @@ static int k_max(const kn_t *k)
     case K_ENGINE: return (int)GM_ENGINES - 1;
     case K_CHANP: return 16;
 #if GM_SET_EXTRA
-    case K_EXTRA: return gm_extra_max(k->param);
+    case K_EXTRA: return gm_extra_max(GM_EXTRA_IDX(k->param));
 #endif
     case K_LEVEL: case K_SEND: return 127;
     case K_CHAN: return 16;
@@ -134,7 +134,7 @@ static int k_get(const kn_t *k)
     case K_ENGINE: return (int)GM_ENG_OF(up[k->param < GM_PARTS ? k->param : sel].v);
     case K_CHANP: return up[k->param < GM_PARTS ? k->param : sel].chan;
 #if GM_SET_EXTRA
-    case K_EXTRA: return extrav[k->param % GM_SET_EXTRA];
+    case K_EXTRA: return extrav[GM_EXTRA_IDX(k->param) % GM_SET_EXTRA];
 #endif
     case K_FX: return fxv[k->param];
     case K_ARP: return arpc[sel][k->param % ARP_N];
@@ -158,7 +158,7 @@ static void k_text(const kn_t *k, int v, char *b)
     case K_CHAN: case K_CHANP: if (v) fmt_int(b, v); else str_cpy(b, "OMNI", 8); return;
     case K_ENGINE: str_cpy(b, GM_ENG_NAME((unsigned)v), 8); return;
 #if GM_SET_EXTRA
-    case K_EXTRA: gm_extra_text(k->param, v, b); return;
+    case K_EXTRA: gm_extra_text(GM_EXTRA_IDX(k->param), v, b); return;
 #endif
     case K_FX: { const char *n = syn_fx_value_name(k->param, v); if (n) str_cpy(b, n, 8); else fmt_int(b, v); return; }
     case K_ARP:
@@ -204,14 +204,19 @@ static void k_turn(const kn_t *k, int32_t d)
     case K_CHANP: { unsigned p = k->param < GM_PARTS ? k->param : sel; up[p].chan = (uint8_t)v; part_ch[p] = (uint8_t)v; break; }
     case K_ENGINE: {   /* der Part spielt einen anderen Erzeuger: dessen INIT */
         unsigned p = k->param < GM_PARTS ? k->param : sel;
-        if (!GM_ENG_OK(p, (unsigned)v)) { msg_set(GM_ENG_NAME((unsigned)v), 1); return; }
+        if (!GM_ENG_OK(p, (unsigned)v)) {   /* abgewiesen (Kombi: nur ein SH-101): sagen, warum */
+            static char mb[24];
+            put(put(mb, GM_ENG_NAME((unsigned)v)), " IN USE")[0] = 0;
+            msg_set(mb, 1);
+            return;
+        }
         ev_put(EV_PANIC, p, 0, 0);
         gm_eng = (unsigned)v;
         load_sound(p, 0, FAC_N - 1u);
         break;
     }
 #if GM_SET_EXTRA
-    case K_EXTRA: extrav[k->param % GM_SET_EXTRA] = (uint8_t)v; ev_put(EV_EXTRA, 0, k->param, (uint32_t)v); break;
+    case K_EXTRA: { unsigned xi = GM_EXTRA_IDX(k->param) % GM_SET_EXTRA; extrav[xi] = (uint8_t)v; ev_put(EV_EXTRA, 0, xi, (uint32_t)v); } break;
 #endif
     case K_FX:
         fxv[k->param] = (uint8_t)v; ev_put(EV_FX, 0, k->param, (uint32_t)v);

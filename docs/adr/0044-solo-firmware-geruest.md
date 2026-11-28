@@ -57,3 +57,6 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
   `GM_BAND_H` (Höhe der Zeichenstreifen), `SYN_FX_DELAY_MAX_S` (Delay-Grenze), `fx/gm_dist.c` (Distortion aus FM1-Electro).
 - 2026-11-28: Blob 0 mit fester Länge, Journal-Einträge mit Längen vorn (vor der ersten Auslieferung).
 - 2026-11-28 (jx8p-Chat): abwärtskompatibel ergänzt: `app.ld` nimmt `.ctrl_text` (EL_CTRL_CODE der Kerne aus `engine/`) in `.text`; `GM_SEND_FIRST` und `GM_FX_FIRST_ON` (erster Start: Part-Sends, Effekte an/aus), für JX-8P solo.
+- 2026-11-28 (sh101-Chat, abwärtskompatibel): mehrere Klangerzeuger (`GM_ENGINES` und Co., Felder `K_ENGINE`, `K_CHANP`,
+  `K_EXTRA`, `GM_SET_EXTRA`, `GM_EXTRA_IDX`) für die Kombi JX-8P + SH-101 (ADR 0052). Fehler behoben: Kern 1 las `fx_in`,
+  während Kern 0 es neu füllte; Delay und Hall lesen jetzt den Abzug `fx_src`.

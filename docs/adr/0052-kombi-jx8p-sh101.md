@@ -1,7 +1,7 @@
 # 0052: Kombi JX-8P + SH-101 auf dem Gerüst mit zwei Klangerzeugern
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-28 (0.1.0-alpha gebaut, `check.sh` ok, Emulator-Last gemessen; am Gerät ungeprüft)
+- **Stand:** 2026-11-28 (0.1.1-alpha gebaut, `check.sh` ok, Emulator-Last gemessen; am Gerät ungeprüft)
 
 ## Kontext
 
@@ -14,8 +14,9 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 
 - **Gerüst (abwärtskompatibel, 67e2c37):** `GM_ENGINES` Klangerzeuger; der Erzeuger eines Sounds steht in einem seiner
   Werte (`GM_ENG_OF`), Tabellen, INIT, Seiten und Ebenen je Erzeuger (`GM_PARAMS_E`, `GM_INIT_E`, `GM_PAGES_E`,
-  `GM_LAYERS_E`), Kategorien je Erzeuger (`GM_CAT_ENG`), Regel `GM_ENG_OK`. Neue Felder `K_ENGINE` (Seite PARTS),
-  `K_CHANP` (MIDI-Kanal je Part), `K_EXTRA` (Werte der Variante im Set, `GM_SET_EXTRA`). Ohne diese Schalter bauen alle
+  `GM_LAYERS_E`), Kategorien je Erzeuger (`GM_CAT_ENG`), Regel `GM_ENG_OK`. Neue Felder `K_ENGINE` (Seite PARTS; abgewiesen: Meldung „… IN USE“),
+  `K_CHANP` (MIDI-Kanal je Part), `K_EXTRA` (Werte der Variante im Set, `GM_SET_EXTRA`; `GM_EXTRA_IDX` bildet ein Feld auf
+  den gewählten Part ab). Ohne diese Schalter bauen alle
   bisherigen Varianten wie vorher (SH-101, MKS Ultra, JP-6 geprüft).
 - **Gerüst, Fehler behoben:** Kern 1 las `fx_in`, während Kern 0 es schon für den nächsten Block füllte. Jetzt liest
   Kern 1 den Abzug `fx_src` (vor dem Start von Kern 1 kopiert); `fx_in` behält Namen und Rolle für die Varianten.
@@ -29,13 +30,16 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 - **Speicher:** Hall-Diffusoren im RAMTEXT (`SYN_FX_DIFF_ATTR`), Bildpuffer im NOINIT (`CV_SECTION`): RAM 13,1 kB frei,
   Pool 2,9 kB frei.
 - Kennung FM-1_99 (99 war nur die Dinghy-Vorlage), `STORE_MAGIC` „1XSH“, Journal „TXSH“, Paket
-  `firmware/JXSH-0.1.0-alpha.fwsc`.
+  `firmware/JXSH-0.1.1-alpha.fwsc`.
+- **Pegel:** JX und SH wie in ihren Solo-Firmwares; der JX ist dadurch 12–15 dB leiser (gemessen). Ausgleich über MIX;
+  eine Anhebung wäre eine Klangänderung (Schalter, Entscheidung des Nutzers nach Gehör).
 
 ## Messungen (fm1-emu, Block 64 = 1,45 ms; Messbau `-DJXSH_LAST`)
 
 | Fall | Kern 0 | Kern 1 | verspätet |
 |---|---|---|---|
-| SH-101 SQUELCH + 4 JX-Stimmen (Chorus voll) + Delay + Hall + Distortion | 60 % (Spitze 61 %) | 36 % | 0 |
+| SH-101 SQUELCH + 4 JX-Stimmen (Chorus voll) + Delay + Hall + Distortion RAT | 60 % (Spitze 61 %) | 36 % | 0 |
+| dasselbe ohne Distortion | 60 % | 28 % | 0 |
 | nur 4 JX-Stimmen + Effekte | 23 % | 36 % | 0 |
 | nur SH-101 + Effekte | 60 % | 8 % | 0 |
 
@@ -56,3 +60,5 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 ## Verlauf
 
 - 2026-11-28: angelegt, 0.1.0-alpha gebaut und im Emulator gemessen
+- 2026-11-28: 0.1.1-alpha: FX-Ebene des SH-Parts (DIST) gilt dem gewählten Part, Meldung beim abgewiesenen SH-101,
+  Lauf mit Tasten durch PARTS/DIST SEND/MIDI, Distortion-Kosten gemessen

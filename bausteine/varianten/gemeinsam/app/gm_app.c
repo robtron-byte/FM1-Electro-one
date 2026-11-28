@@ -73,6 +73,10 @@ static void gm_boot(void);
 #ifndef GM_SET_EXTRA
 #define GM_SET_EXTRA 0u
 #endif
+/* GM_EXTRA_IDX(i): Feld K_EXTRA → Wert im Set; die Variante kann damit z. B. „Send des gewählten Parts“ abbilden (sel) */
+#ifndef GM_EXTRA_IDX
+#define GM_EXTRA_IDX(i) (i)
+#endif
 #ifndef GM_FIRST_IDX
 #define GM_FIRST_IDX(p) 0u                      /* Startsound je Part (Werks-Index) und sein Erzeuger, ohne gespeicherten Stand */
 #define GM_FIRST_ENG(p) 0u

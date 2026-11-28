@@ -9,10 +9,10 @@ Feature P16. Klang: der Pool-Kern `jx.c` der JX-8P-Firmware ([`../jx8p/engine`](
 
 | | |
 |---|---|
-| Firmware | `firmware/JXSH-0.1.0-alpha.fwsc` (Kennung FM-1_99), `tools/fm1-emu/check.sh` ok (Paket und Messbau) |
-| Last (Emulator, Block 64) | SH-101 SQUELCH + 4 JX-Stimmen (STRINGS 01, Chorus voll) + Delay + Hall + Distortion: **Kern 0 60 %** (Spitze 61 %), **Kern 1 36 %**, keine verspäteten Blöcke. Nur JX: Kern 0 23 %, Kern 1 36 %; nur SH: Kern 0 60 %, Kern 1 8 %. **Am Gerät nicht gemessen** |
+| Firmware | `firmware/JXSH-0.1.1-alpha.fwsc` (Kennung FM-1_99), `tools/fm1-emu/check.sh` ok (Paket, Messbau und ein Lauf mit Tasten durch PARTS, Erzeugerwechsel, DIST SEND, MIDI) |
+| Last (Emulator, Block 64) | SH-101 SQUELCH + 4 JX-Stimmen (STRINGS 01, Chorus voll) + Delay + Hall + Distortion RAT (alle Sends 64): **Kern 0 60 %** (Spitze 61 %), **Kern 1 36 %**, keine verspäteten Blöcke; ohne Distortion Kern 1 28 % (sie kostet 7,4 %). Nur JX: Kern 0 23 %, Kern 1 36 %; nur SH: Kern 0 60 %, Kern 1 8 %. Ohne laufenden Sequencer/Arp gemessen (Kern 0, klein). **Am Gerät nicht gemessen** |
 | Speicher | RAM 85 204 von 98 304 B (13,1 kB frei), Pool 341 052 von 344 064 B; Hall-Diffusoren im RAMTEXT, Bildpuffer im NOINIT |
-| Pegel | JX wie JX-8P solo, SH wie SH-101 solo (`SH_GAIN`) |
+| Pegel | JX wie JX-8P solo, SH wie SH-101 solo (`SH_GAIN`). Dadurch ist der JX hier deutlich leiser: INIT, eine Note: SH RMS 2400, JX 410 (−15 dB); SQUELCH gegen 4 JX-Stimmen STRINGS 01: −12 dB. Ausgleich über MIX; ob der JX lauter werden soll, entscheidet der Nutzer nach Gehör |
 | Am Gerät | nicht geprüft |
 
 ## Bedienung
@@ -30,7 +30,9 @@ Klangerzeuger des gewählten Parts.
 | SEL | Soundliste: EIGENE (die eigenen JX-8P-Presets des Nutzers) zuerst, dann die JX-Werksgruppen, JX INIT, SH BASS/LEAD/SEQ/FX |
 
 Start: A–C die eigenen Presets (STRINGS 01, HI STRI 01, SYNTH B 01), D SH-101 SAW BASS. Wechselt ein Part den
-Klangerzeuger, lädt er dessen INIT; die Soundliste zeigt nur Sounds seines Erzeugers.
+Klangerzeuger, lädt er dessen INIT; die Soundliste zeigt nur Sounds seines Erzeugers. Ein zweiter SH-101 wird mit
+„SH-101 IN USE“ abgewiesen. FX gehalten (SH-Part): KNOB 4 = DIST-Send des gewählten Parts. Pitch-Bend und Mod-Rad wirken
+nur auf den SH-101 (der JX-Kern hat keine, wie JX-8P solo).
 
 ## Kerne
 
@@ -44,7 +46,7 @@ JIELI_TOOLCHAIN=~/.jieli/toolchain AC79_SDK=~/fw-AC79_AIoT_SDK python3 bausteine
 tools/fm1-emu/check.sh ~/fm1-emu $PWD/bausteine/varianten/jxsh/build/jxsh.fwsc $PWD/bausteine/varianten/jxsh/build/dinghy.elf
 ```
 
-Messbau: `GM_EXTRA_CFLAGS=-DJXSH_LAST` (1: SH + JX, 2: nur JX, 3: nur SH) spielt nach 0,4 s den schwersten Fall von
+Messbau: `GM_EXTRA_CFLAGS=-DJXSH_LAST` (1: SH + JX, 2: nur JX, 3: nur SH, 4: SH + JX ohne Distortion; Modus RAT) spielt nach 0,4 s den schwersten Fall von
 selbst (nur Emulator, nie ins Paket).
 
 ## Offen
