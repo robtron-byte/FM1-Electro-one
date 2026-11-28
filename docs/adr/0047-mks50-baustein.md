@@ -1,4 +1,4 @@
-# 0047: mks50 als Baustein (Einbinden statt Kopieren) und später solo
+# 0047: mks50 als Baustein (Einbinden statt Kopieren) und MKS-50 solo
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
@@ -19,7 +19,10 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 - Stimmen voll wie der MKS-50 (6), Sparschalter `MKS50_BS_VOICES` (getestet mit 4).
 - Host-Test: jedes Preset über den Baustein und direkt über den Kern Sample für Sample gleich, Prüfsummen je Preset
   (`ref/sums.txt`, `ref/sums4.txt`).
-- Solo-Firmware „MKS-50 solo“ (FEATURES Y15) später in `bausteine/varianten/mks50/` auf dem Gerüst `varianten/gemeinsam/`.
+- **Solo-Firmware „MKS-50 solo“** in `bausteine/varianten/mks50/` auf dem Gerüst `varianten/gemeinsam/` (ADR 0044),
+  Kennung FM-1_95 (löst die fm1-synths-Fassung ab), `STORE_MAGIC` „MK01“ (den Speicher der fm1-synths-Fassung, „MK50“, liest sie nicht: Neustart leer, überschrieben beim ersten Speichern), Journal „MKST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns, alle Sounds des
+  Bausteins mit den eigenen vorn (Gruppe EIGENE), Delay-/Hall-Anteil aus dem Sound direkt in die Effekte des Gerüsts
+  (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0, im Emulator eingemessen (Ziel < 70 %). Auf dem Gerät rechnet die Ladder mit `MKS_VCF_DECIM=2` (Standard der eigenen Plattform).
 
 ## Alternativen
 
@@ -38,3 +41,4 @@ Der MKS-50 (`engine/mks.c`, Port der MKS-50-iOS-App) war bis 0.5.5-alpha der Syn
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 79 Presets (23 eigene) bitgleich mit dem Kern, Solo-Firmware offen.
+- 2026-11-28: Solo-Firmware MKS-50: erste Fassung gebaut, Emulator-Prüfung ok, noch kein Paket (Gleichstand mit fm1-synths zuerst).

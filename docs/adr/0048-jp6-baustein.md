@@ -1,4 +1,4 @@
-# 0048: jp6 als Baustein (Einbinden statt Kopieren) und später solo
+# 0048: jp6 als Baustein (Einbinden statt Kopieren) und JP-6 solo
 
 - **Status:** vorgeschlagen
 - **Stand:** 2026-11-28
@@ -21,7 +21,10 @@ Baustein mit `baustein.h` werden, ohne `engine/` zu ändern.
   (`ref/sums.txt`, `ref/sums4.txt`).
 - Geräteunterschiede stehen im README des Bausteins: auf der eigenen Plattform rechnet die Distortion in Festkomma
   (`DIST_FIXED=1`), der Baustein auf dem Host in float.
-- Solo-Firmware „JP-6 solo“ (FEATURES Y16) später in `bausteine/varianten/jp6/` auf dem Gerüst `varianten/gemeinsam/`.
+- **Solo-Firmware „JP-6 solo“** in `bausteine/varianten/jp6/` auf dem Gerüst `varianten/gemeinsam/` (ADR 0044),
+  Kennung FM-1_92 (neu), `STORE_MAGIC` „JP01“, Journal „JPST“, eigene `VERSION`. Ein Gerüst-Parameter je Rohwert des Kerns, alle Sounds des
+  Bausteins mit den eigenen vorn (Gruppe EIGENE), Delay-/Hall-Anteil aus dem Sound direkt in die Effekte des Gerüsts
+  (Kern 1). **6 Stimmen** (alle des Kerns) auf Kern 0, im Emulator eingemessen (Ziel < 70 %). Die Distortion rechnet in float ohne Tabellen (`DIST_FIXED=0`, `DIST_TABLE=0`) wie im Baustein-Test: die Tabellen von FM1-Electro (48 KB im Pool) passen nicht neben Delay und Hall. Pegel wie in FM1-Electro (× 1,4, `GM_OUT_GAIN`).
 
 ## Alternativen
 
@@ -40,3 +43,4 @@ Baustein mit `baustein.h` werden, ohne `engine/` zu ändern.
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 79 Presets (5 eigene) bitgleich mit dem Kern, Solo-Firmware offen.
+- 2026-11-28: Solo-Firmware JP-6: erste Fassung gebaut, Emulator-Prüfung ok, noch kein Paket (Gleichstand mit fm1-synths zuerst).

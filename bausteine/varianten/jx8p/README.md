@@ -12,7 +12,7 @@ Die Kennung FM-1_97 ersetzt die fm1-synths-Fassung. Deren Speicher (`STORE_MAGIC
 
 | | |
 |---|---|
-| Firmware | `firmware/JX8P-0.1.0-alpha.fwsc` (Kennung FM-1_97, `STORE_MAGIC` „JX01“, Journal „JXST“), `tools/fm1-emu/check.sh` ok |
+| Firmware | 0.1.0-alpha gebaut (Kennung FM-1_97, `STORE_MAGIC` „JX01“, Journal „JXST“), `tools/fm1-emu/check.sh` ok; **nicht abgenommen (Koordinator 28.11.): bleibt hinter der fm1-synths-Fassung zurück (Parts, SETS, Speicher); kein Paket**. Nächste Fassung: Gleichstand mit fm1-synths JX8P-0.2.0 (siehe unten „Offen“) |
 | Klang | der Kern von FM1-Electro unverändert, 6 Stimmen (alle, die der Kern hat), Chorus je Sound, Delay und Hall des Gerüsts |
 | Last (Emulator) | 6 gehaltene Noten, verschiedene Sounds: Kern 0 ≈ 37–41 % im Mittel, höchstens 47,6 % (HI STRI 01, Akkord-Modus); Delay + Hall 12 % (Kern 1); keine verspäteten Blöcke. Ziel < 70 % erfüllt; am Gerät nach FM1-Electro etwa 10 % mehr |
 | Am Gerät | nicht geprüft |
@@ -63,6 +63,10 @@ Stimmen: `JX_VOICES=<n>` vor dem Build (Standard 6 = alle des Kerns). Neue Fassu
 prüfen, `firmware/JX8P-<Version>.fwsc` ersetzen (die alte entfernen).
 
 ## Offen
+
+- **Gleichstand mit fm1-synths JX8P-0.2.0 (Bedingung der Abnahme):** 4 Parts mit gemeinsamem Stimmen-Pool auf beiden
+  Kernen, MIX, MIDI-Kanal je Part, 8 SETS, Akkord-Taste, CORES-Test; eigene Sounds und Sets der fm1-synths-Fassung beim
+  ersten Start übernehmen.
 
 - Am Gerät: Last (Seite SYSTEM), Pegel, Bedienung.
 - Pitch Bend und Modulationsrad per MIDI werden nicht ausgewertet: der Kern hat keine Eingänge dafür (wie in FM1-Electro);

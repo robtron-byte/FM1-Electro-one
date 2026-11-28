@@ -160,9 +160,8 @@ Der Koordinator vergibt die Aufträge (höchstens zwei Chats gleichzeitig), nimm
   `jx8p_bs.c` auf `baustein.h`. Alle 74 Presets (7 eigene des Nutzers vorn, dann 64 Werks-Töne und 3 INIT) über den
   Baustein Sample für Sample gleich mit dem Kern, Prüfsummen in `ref/`. Last auf dem PC ≈ 18 ns je Stimme und Sample.
   Eigene Presets: `tools/eigene2c.py` (ADR 0051), gemeinsames Skript `tools/iphone_presets_pull.sh`. ADR 0046, Y14.
-- **JX-8P solo** (`varianten/jx8p/`, Y14, ADR 0046): `firmware/JX8P-0.1.0-alpha.fwsc`, Kennung FM-1_97 (löst
-  fm1-synths ab), 6 Stimmen auf Kern 0 (Emulator ≤ 48 %), 74 Sounds mit den eigenen vorn, Sends aus dem Sound, Emulator
-  ok, **am Gerät ungeprüft**. Gerüst dafür ergänzt (abwärtskompatibel): `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`,
+- **JX-8P solo** (`varianten/jx8p/`, Y14, ADR 0046): 0.1.0-alpha gebaut (FM-1_97, 6 Stimmen auf Kern 0, Emulator ≤ 48 %),
+  **nicht abgenommen**: Gleichstand mit fm1-synths JX8P-0.2.0 nötig (4 Parts, Pool auf 2 Kernen, SETS, Speicher übernehmen); Paket entfernt. Gerüst dafür ergänzt (abwärtskompatibel): `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`,
   `GM_FX_FIRST_ON`. Offen: Pitch Bend/Mod-Rad (Kern hat keine Eingänge), Gerätetest.
 - **mks50 Stand:** `bausteine/mks50/` bindet `engine/mks.c` und Co. ein (mit `EL_SYNTH_JX=0`, `engine/` unverändert),
   Adapter `mks50_bs.c` wie jx8p. Alle 79 Presets (23 eigene vorn, dann 56 Werks-Sounds) bitgleich mit dem Kern, Prüfsummen

@@ -47,5 +47,6 @@ dabei nicht ändern, `make test` im Hauptordner muss grün bleiben, und `engine/
 ## Verlauf
 
 - 2026-11-28: angelegt (jx8p-Chat): Baustein fertig, 74 Presets bitgleich mit dem Kern, Solo-Firmware offen.
-- 2026-11-28: Solo-Firmware JX-8P 0.1.0-alpha (`firmware/JX8P-0.1.0-alpha.fwsc`), Emulator-Prüfung ok, am Gerät offen.
+- 2026-11-28: Solo-Firmware JX-8P 0.1.0-alpha gebaut, Emulator-Prüfung ok; vom Koordinator nicht abgenommen (hinter fm1-synths
+  JX8P-0.2.0: Parts, SETS, Speicher), Paket wieder aus `firmware/` entfernt. Nächste Fassung mit Gleichstand.
   Gerüst dafür abwärtskompatibel ergänzt: `.ctrl_text` in `app.ld`, `GM_SEND_FIRST`/`GM_FX_FIRST_ON`.

@@ -12,7 +12,7 @@ dem Gerüst [`gemeinsam/`](gemeinsam/) auf (ADR 0044); eine Variante ist ein Ord
 | Alpha Juno solo | mksultra (mehr Stimmen) | voller Synth-Klang | geplant |
 | 808 solo | dk808 mit allen 17 Instrumenten | volle Drum-Machine | geplant |
 | 101 solo | sh101 | voller Bass/Lead | gebaut: [`sh101/`](sh101/), `firmware/SH101-0.1.1-alpha.fwsc` (Emulator ok, Gerät ungeprüft) |
-| JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | gebaut: [`jx8p/`](jx8p/), `firmware/JX8P-0.1.0-alpha.fwsc` (FM-1_97, 6 Stimmen, Emulator ok, Gerät ungeprüft) |
+| JX-8P solo | jx8p (alle Stimmen) | voller JX-8P | in Arbeit: [`jx8p/`](jx8p/) (0.1.0 nicht abgenommen, Gleichstand mit fm1-synths nötig) |
 | MKS-50 solo | mks50 (alle Stimmen) | voller MKS-50 | geplant |
 | JP-6 solo | jp6 (alle Stimmen) | voller JP-6 | geplant |
 
