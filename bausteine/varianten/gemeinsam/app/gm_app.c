@@ -33,6 +33,19 @@ static void gm_boot(void);
 #define CV_MAX (240u * 30u)                     /* das Bild in Streifen von 30 Zeilen */
 #include "platform.c"
 #include "syn_fx.h"
+/* GM_FX 0: eine Variante mit eigenen Effekten (MKS Ultra, ADR 0045) baut syn_fx nicht (spart ~190 kB Pool); die Seiten
+ * K_FX zeigen dann nichts, die Effekte bleiben aus, und Kern 1 bleibt für die Variante frei. Standard 1 = wie bisher. */
+#ifndef GM_FX
+#define GM_FX 1
+#endif
+#if !GM_FX
+#define syn_fx_init() ((void)0)
+#define syn_fx_set(p, v) ((void)(p), (void)(v))
+#define syn_fx_process(a, b, c, d, n, bpm) ((void)0)
+#define syn_fx_max(p) ((void)(p), 0)
+#define syn_fx_default(p) ((void)(p), 0)
+#define syn_fx_value_name(p, v) ((void)(p), (void)(v), (const char *)0)
+#endif
 #include "syn_font.h"
 #include "gm_theme.h"
 
