@@ -59,6 +59,33 @@ Gebaut mit `MKSULTRA_DELAY_EXTERN` (Delay 0,6 s, 16 Bit: linker Kanal im Pool, r
 Auch mit den Stimmen auf beide Kerne verteilt bliebe es bei ~106 % (4×) bzw. ~87 % (2×) je Kern. **4 Stimmen passen
 nicht unter 70 %**; deshalb kein neues Paket in `firmware/` (dort bleibt 0.1.0-alpha mit 1 Stimme). Frage an den Nutzer.
 
+## Begrenzter Versuch für 4 Stimmen (Auftrag 28.11.: 2 + 2 Stimmen, Gerüst-Effekte, VCF 2×)
+
+Einzelmessungen (Stringer, eine Note, Emulator, Anteil eines Blocks) und daraus die Last je Kern bei 2 + 2 Stimmen
+(Kern 1 zwei Stimmen, Kern 0 zwei Stimmen plus Master-Kette und Steuerung ~2 %). Die Aufteilung der Stimmen selbst ist
+nicht gebaut: Sie ändert die Summe nicht, und schon die Summe passt nicht.
+
+| Baustein der Last | gemessen |
+|---|---|
+| Stimme VCF 4× | 44 % |
+| Stimme VCF 2× | 28,5 % (4 Stimmen 114 %) |
+| TAL-Master mit Hall und Chorus | 59–60 % |
+| TAL-Master ohne Hall (Chorus, Filter, DC) | 13,4 % |
+| TAL-Master ohne Hall und Chorus | 5,9 % |
+| Gerüst-Delay + Hall (`syn_fx`, gemessen in SH-101 solo) | 6,6 % (JX-8P/MKS-50: 10–17 %) |
+
+| Fassung, 4 Stimmen 2 + 2 | Kern 1 | Kern 0 |
+|---|---|---|
+| VCF 4×, TAL-Effekte | 88 % | 150 % |
+| VCF 4×, Gerüst-Effekte, TAL-Chorus | 88 % | ~110 % |
+| VCF 2×, Gerüst-Effekte, TAL-Chorus | 57 % | ~79 % |
+| VCF 2×, Gerüst-Effekte, ohne Chorus | 57 % | ~72 % |
+| VCF 2×, Gerüst-Effekte, ohne Chorus, DCO 1× (geschätzt, DCO 2× ≈ 11 % je Stimme) | ~46 % | ~61 % |
+
+Keine gemessene Kombination bleibt sicher unter 70 % je Kern; nur mit DCO 1× (nicht gebaut, Aliasing des Oszillators)
+käme es geschätzt darunter. **0.1.0 bleibt**, Frage an den Nutzer: 1 Stimme volles Klangbild, oder 4 Stimmen mit VCF 2×,
+DCO 1×, ohne TAL-Chorus und mit den Gerüst-Effekten statt TAL-Delay/Hall.
+
 ## Entscheidung (vorgeschlagen)
 
 - **Standard A:** volles Filter, **1 Stimme** (`MKSULTRA_VOICES=1`, mono wie bei einem Preset mit einer Stimme),
@@ -92,4 +119,5 @@ nicht unter 70 %**; deshalb kein neues Paket in `firmware/` (dort bleibt 0.1.0-a
 ## Verlauf
 
 - 2026-11-28: angelegt (sh101-Chat), Messungen im Emulator.
+- 2026-11-28: begrenzter Versuch 2 + 2 mit Gerüst-Effekten und VCF 2×: Kern 0 ~72–79 %, passt nicht; Tabelle oben.
 - 2026-11-28: Regel 4 Stimmen + Delay 0,6 s gemessen: passt nicht (VCF 4× 153 %, VCF 2× 114 % auf Kern 1).
