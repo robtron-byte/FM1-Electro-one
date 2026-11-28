@@ -22,14 +22,14 @@
   button.small { font-size:15px; padding:6px 12px; background:transparent; color:var(--ink); border:1px solid var(--line); }
   .status { margin-top:12px; font-size:19px; min-height:1.5em; }
   .status.ok { color:var(--ok); } .status.bad { color:var(--bad); }
-  .fw { display:flex; gap:12px; padding:12px; border:2px solid var(--line); border-radius:10px; margin:8px 0; cursor:pointer; align-items:flex-start; }
-  .fw:has(input:checked) { border-color:var(--acc); }
+  .fw { display:flex; gap:12px; padding:12px; border:2px solid var(--line); border-radius:10px; margin:8px 0; align-items:flex-start; }
+  .fw .head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .fw .act { font-size:16px; padding:8px 16px; min-height:40px; border-radius:9px; flex:none; }
+  .fw .act:disabled { background:transparent; color:var(--mute); border:1px solid var(--line); opacity:1; cursor:default; }
+  .fw.running { border-color:var(--acc); }
   .fw .badge { display:none; margin-left:8px; font-size:13px; font-weight:700; color:#fff; background:var(--ok); border-radius:6px; padding:1px 7px; vertical-align:3px; }
   .fw.installed { background:color-mix(in srgb, var(--ok) 8%, transparent); }
   .fw.installed .badge { display:inline-block; }
-  .fw .upd { margin-top:8px; font-size:16px; padding:8px 14px; min-height:40px; border-radius:9px; }
-  .fw .upd:disabled { background:transparent; color:var(--mute); border:1px solid var(--line); opacity:1; }
-  .fw input { margin-top:6px; width:20px; height:20px; flex:none; }
   .fw .media { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:96px; }
   .fw .pic { width:96px; height:64px; border-radius:8px; }
   .fw .txt { flex:1; min-width:0; }
@@ -71,8 +71,15 @@
   </section>
 
   <section>
-    <h2><span class="num">2</span><span data-t="s2">Firmware wählen</span></h2>
+    <h2><span class="num">2</span><span data-t="s2">Firmware installieren</span></h2>
+    <div class="warn" data-t="unplug"><b>Während des Schreibens nicht abziehen</b> und das FM-1 nicht ausschalten. Das dauert etwa zwei Minuten.</div>
+    <div id="run" hidden>
+      <div class="bar" id="bar"><div></div></div>
+      <div class="status" id="progress"></div>
+      <div class="done" id="done" hidden data-t="done">Fertig</div>
+    </div>
     <div id="list"><span data-t="loading">Liste wird geladen …</span></div>
+    <div id="own"></div>
     <label class="drop" id="drop">
       <input type="file" id="file" accept=".fwsc" hidden>
       <span data-t="drop">Oder eine eigene .fwsc-Datei irgendwo auf diese Seite ziehen (oder hier klicken).</span>
@@ -81,17 +88,8 @@
   </section>
 
   <section>
-    <h2><span class="num">3</span><span data-t="s3">Installieren</span></h2>
-    <div class="warn" data-t="unplug"><b>Während des Schreibens nicht abziehen</b> und das FM-1 nicht ausschalten. Das dauert etwa zwei Minuten.</div>
-    <button id="install" type="button" disabled data-t="install">Installieren</button>
-    <div class="bar" id="bar" hidden><div></div></div>
-    <div class="status" id="progress"></div>
-    <div class="done" id="done" hidden data-t="done">Fertig</div>
-  </section>
-
-  <section>
     <h2 data-t="helpT">Wenn etwas schiefgeht</h2>
-    <p data-t="help1">Wurde die Verbindung unterbrochen, bleibt das FM-1 im Update-Modus. Einfach wieder anschließen, „Verbinden“ und noch einmal „Installieren“: das Schreiben wird beendet.</p>
+    <p data-t="help1">Wurde die Verbindung unterbrochen, bleibt das FM-1 im Update-Modus. Einfach wieder anschließen und bei der Firmware noch einmal „Installieren“ klicken: das Schreiben wird beendet.</p>
     <p data-t="help2"><b>Rettungsweg:</b> Startet das FM-1 gar nicht mehr, ausschalten, die Taste <b>OCT −</b> gedrückt halten und einschalten. Es startet dann ohne Ton nur im Update-Modus. Jetzt hier verbinden und eine funktionierende Firmware installieren.</p>
     <details>
       <summary data-t="moreT">Mehr dazu</summary>

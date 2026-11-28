@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ota from "../fm1ota.js";
-import { compare, sortList, newer } from "../logik.js";
+import { compare, sortList, newer, buttonFor } from "../logik.js";
 import { loadPackage, productOf, deinterleave, packageDamage, LOADER_MARK } from "../fm1pkg.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -265,6 +265,14 @@ for (const [name, [ident, unplugAt]] of Object.entries(cases)) {
   eq(sortList(l, meta).map((x) => x.name), ["FM1_ELECTRO", "JXSH", "SH101", "JX8P", "MKS50", "JP6", "MKSULTRA", "NEU"], "feste Reihenfolge der Liste");
   eq(sortList(l, meta, "FM-1_903")[0].name, "JXSH", "installierte Firmware steht oben");
   eq(sortList(l, meta, "FM-1_903").slice(1).map((x) => x.name)[0], "FM1_ELECTRO", "danach die feste Reihenfolge");
+  const dev = (info, text = "FM-1_991", loader = false) => ({ text, loader, info });
+  eq(buttonFor(e, null), "install", "Knopf: nicht verbunden -> Installieren");
+  eq(buttonFor(e, dev(null, "FM-1_941")), "install", "Knopf: andere Firmware drauf -> Installieren");
+  eq(buttonFor(e, dev(null)), "install", "Knopf: drauf, Version unbekannt -> Installieren");
+  eq(buttonFor(e, dev({ version: "0.1.0-alpha" })), "update", "Knopf: drauf, älter -> Update");
+  eq(buttonFor(e, dev({ version: "0.1.1-alpha" })), "installed", "Knopf: drauf, gleich -> Installiert");
+  eq(buttonFor(e, dev({ version: "0.1.2-alpha" })), "install", "Knopf: drauf, neuer als die Liste -> Installieren");
+  eq(buttonFor(e, dev(null, "ota-FM-1_991", true)), "install", "Knopf: Update-Modus -> Installieren (schreibt fertig)");
 }
 
 // eigene Fälle (nur JS): ohne Lader-Kennung abgelehnt, falsche Datei, Fortschritt monoton bis 100

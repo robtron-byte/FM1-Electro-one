@@ -103,3 +103,9 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   Vergleichszeile, am Eintrag der installierten Firmware ein kleiner Knopf „Update auf X“ bzw. „Installiert“
   (ausgegraut). Feste Reihenfolge der Liste über das Feld `reihe` in `beschreibungen.json` (FM1-Electro, Kombis,
   Solos), nach dem Verbinden die installierte Firmware oben. Logik in `web/installer/logik.js`, im Test geprüft (113).
+- 2026-11-28: Bedienung vereinfacht (Präzisierung des Nutzers): jeder Eintrag hat seinen Knopf in derselben Zeile:
+  „Installieren“ (nicht drauf, nicht verbunden oder Version unbekannt, ohne Update-Behauptung), „Update auf X“ (drauf,
+  neuere Version hier), „Installiert“ ausgegraut (gleiche Version). Der getrennte Auswahl- und Installierschritt
+  entfällt; eine abgelegte eigene `.fwsc` erscheint als eigene Karte mit „Installieren“. Ist noch nicht verbunden, fragt
+  der Knopf selbst den MIDI-Zugriff an. `buttonFor` in `logik.js`, Test 120 Prüfungen; im Browser mit simuliertem FM-1
+  von JXSH auf JX-8P durchinstalliert.

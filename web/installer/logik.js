@@ -26,3 +26,12 @@ export function sortList(list, meta, installedKennung = null) {
   return [...list].sort((a, b) =>
     (b.kennung === installedKennung) - (a.kennung === installedKennung) || rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
+
+// Knopf je Eintrag der Liste (Wunsch des Nutzers 28.11.): device = { text, loader, info } nach „Verbinden“ oder null
+// -> "install" (nicht drauf, nicht verbunden, oder Version unbekannt: ohne Update-Behauptung),
+//    "update" (drauf, neuere Version hier), "installed" (drauf, gleiche Version: ausgegraut)
+export function buttonFor(entry, device) {
+  if (!device || device.loader || device.text !== entry.kennung) return "install";
+  const c = compare(entry, device.info);
+  return c.state === "update" ? "update" : c.state === "current" ? "installed" : "install";
+}

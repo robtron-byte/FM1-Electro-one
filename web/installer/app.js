@@ -1,7 +1,7 @@
 // Bedienung des Web-Installers (ADR 0054). Logik: fm1ota.js (Update), fm1pkg.js (Paketprüfung).
 import { Updater, WebMidiBackend, InstallError } from "./fm1ota.js";
 import { loadPackage, productOf } from "./fm1pkg.js";
-import { newer, compare, sortList } from "./logik.js";
+import { newer, compare, sortList, buttonFor } from "./logik.js";
 
 // Die Liste kommt live aus dem Repository (Zweig main): immer die neuesten Pakete, ohne neues Deploy (ADR 0054)
 const REPO = "robtron-byte/FM1-Electro-one";
@@ -26,7 +26,7 @@ const EN = {
   s1: "Connect the FM-1",
   s1text: "Switch the FM-1 on and connect it to the computer with a USB data cable. Then click “Connect” and allow MIDI access.",
   connect: "Connect",
-  s2: "Choose a firmware",
+  s2: "Install a firmware",
   loading: "Loading the list …",
   drop: "Or drop your own .fwsc file anywhere on this page (or click here).",
   s3: "Install",
@@ -34,7 +34,7 @@ const EN = {
   install: "Install",
   done: "Done",
   helpT: "If something goes wrong",
-  help1: "If the connection was cut, the FM-1 stays in update mode. Just reconnect, click “Connect” and “Install” again: the write is finished.",
+  help1: "If the connection was cut, the FM-1 stays in update mode. Just reconnect and click “Install” on the firmware again: the write is finished.",
   help2: "<b>Rescue:</b> if the FM-1 does not start at all, switch it off, hold <b>OCT −</b> and switch it on. It then starts without sound, in update mode only. Connect here and install a working firmware.",
   moreT: "More",
   more1: "The installer uses the same USB-MIDI update (M-UPGRADE) as the platform's fm1_install.py: the running firmware starts the update loader, the loader writes the program area, then the FM-1 restarts and reports its identity. Every file is checked first (identity, update loader in the package, checksums); foreign or damaged files are refused.",
@@ -52,7 +52,7 @@ const MSG = {
     other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung",
     onDevice: "Auf dem FM-1", available: "Neueste hier", unknownVer: "Version nicht abfragbar",
     from: "vom", current: "aktuell", newer: "Update möglich", ahead: "neuer als die Liste hier",
-    updateTo: (v) => `Update auf ${v}`, installedBtn: "Installiert", installed: "auf dem FM-1",
+    updateTo: (v) => `Update auf ${v}`, installedBtn: "Installiert", installBtn: "Installieren", installed: "auf dem FM-1",
     today: "heute", yesterday: "gestern", daysAgo: (n) => `vor ${n} Tagen`,
     voices: "Stimmen", chosen: (n) => `Gewählt: ${n}`, fetching: "Paket wird geladen …", fetchfail: "Paket konnte nicht geladen werden.",
     badpkg: "Diese Datei ist kein FM-1-Paket. Nichts wurde geschrieben.",
@@ -82,7 +82,7 @@ const MSG = {
     other: (k) => `other firmware (identity ${k})`, kennung: "identity",
     onDevice: "On the FM-1", available: "Newest here", unknownVer: "version cannot be read",
     from: "from", current: "up to date", newer: "update available", ahead: "newer than the list here",
-    updateTo: (v) => `Update to ${v}`, installedBtn: "Installed", installed: "on the FM-1",
+    updateTo: (v) => `Update to ${v}`, installedBtn: "Installed", installBtn: "Install", installed: "on the FM-1",
     today: "today", yesterday: "yesterday", daysAgo: (n) => `${n} days ago`,
     voices: "voices", chosen: (n) => `Chosen: ${n}`, fetching: "Loading the package …", fetchfail: "The package could not be loaded.",
     badpkg: "This file is not an FM-1 package. Nothing was written.",
@@ -119,7 +119,6 @@ function applyLang() {
   $("lang").textContent = lang === "de" ? "English" : "Deutsch";
   renderList();
   renderDevice();
-  if (pkg) setStatus("pkgstatus", m().chosen(pkg.label), "ok");
 }
 
 function setStatus(id, text, cls = "") { const el = $(id); el.textContent = text; el.className = "status " + cls; }
@@ -169,14 +168,35 @@ function renderList() {
   box.innerHTML = "";
   const inst = device && !device.loader ? device.text : null;
   for (const e of sortList(list, meta, inst)) {
-    const lab = document.createElement("label");
+    const lab = document.createElement("div");
     lab.className = "fw";
     lab.dataset.kennung = e.kennung;
     const desc = lang === "en" ? e.en : e.de, voices = lang === "en" ? e.stimmen_en : e.stimmen_de;
-    lab.innerHTML = `<input type="radio" name="fw"><span class="media"><img class="pic" alt="" width="96" height="64"><img class="screen" alt="" width="96" height="96"></span><span class="txt"><b></b><br><span class="d"></span><br><span class="meta"></span></span>`;
+    lab.innerHTML = `<span class="media"><img class="pic" alt="" width="96" height="64"><img class="screen" alt="" width="96" height="96"></span><span class="txt"><span class="head"><span><b></b></span></span><span class="d"></span><br><span class="meta"></span></span>`;
     const pic = lab.querySelector(".pic");
     pic.onerror = () => { pic.onerror = null; pic.src = `bilder/allgemein.svg${BILD_V}`; };
     pic.src = `bilder/${encodeURIComponent(e.name)}.svg${BILD_V}`;
+    const scr = lab.querySelector(".screen");   // Display des FM-1 mit dieser Firmware (Emulator); fehlt es, entfällt es
+    scr.onerror = () => scr.remove();
+    scr.title = lang === "en" ? "The FM-1 screen with this firmware" : "So sieht das Display des FM-1 mit dieser Firmware aus";
+    scr.src = `bildschirme/${encodeURIComponent(e.name)}.png${BILD_V}`;
+    lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
+    lab.querySelector(".d").textContent = desc;
+    lab.querySelector(".meta").textContent = [voices, e.date ? fmtDate(e.date) : "", `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
+    if (inst === e.kennung) {
+      lab.classList.add("installed");
+      const badge = document.createElement("span");
+      badge.className = "badge"; badge.textContent = m().installed;
+      lab.querySelector("b").after(badge);
+    }
+    // Knopf in derselben Zeile: Installieren / Update auf X / Installiert (ausgegraut)
+    const kind = buttonFor(e, device);
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "act"; btn.dataset.kind = kind;
+    btn.textContent = kind === "update" ? m().updateTo(e.version) : kind === "installed" ? m().installedBtn : m().installBtn;
+    btn.disabled = kind === "installed" || busy || !navigator.requestMIDIAccess;
+    btn.addEventListener("click", () => installEntry(e, lab));
+    lab.querySelector(".head").append(btn);
     if (ANLEITUNGEN.includes(e.name)) {
       const a = document.createElement("a");
       a.className = "howto"; a.target = "_blank"; a.rel = "noopener";
@@ -185,34 +205,9 @@ function renderList() {
       a.querySelector("span").textContent = lang === "en" ? "Manual" : "Anleitung";
       lab.querySelector(".txt").append(document.createElement("br"), a);
     }
-    const scr = lab.querySelector(".screen");   // Display des FM-1 mit dieser Firmware (Emulator); fehlt es, entfällt es
-    scr.onerror = () => scr.remove();
-    scr.title = lang === "en" ? "The FM-1 screen with this firmware" : "So sieht das Display des FM-1 mit dieser Firmware aus";
-    scr.src = `bildschirme/${encodeURIComponent(e.name)}.png${BILD_V}`;
-    lab.querySelector("b").textContent = `${e.titel} ${e.version}`;
-    lab.querySelector(".d").textContent = desc;
-    lab.querySelector(".meta").textContent = [voices, e.date ? fmtDate(e.date) : "", `${m().kennung} ${e.kennung}`].filter(Boolean).join(" · ");
-    const badge = document.createElement("span");
-    badge.className = "badge"; badge.textContent = m().installed;
-    lab.querySelector("b").after(badge);
-    // installierte Firmware: markiert, kleiner Knopf „Update auf X“ bzw. „Installiert“ (nur bei bekannter Version)
-    if (inst === e.kennung) {
-      lab.classList.add("installed");
-      const c = compare(e, device.info);
-      if (c.button) {
-        const b = document.createElement("button");
-        b.type = "button"; b.className = "upd";
-        b.textContent = c.button === "update" ? m().updateTo(e.version) : m().installedBtn;
-        b.disabled = c.button !== "update" || busy;
-        b.addEventListener("click", (ev) => { ev.preventDefault(); updateTo(e); });
-        lab.querySelector(".txt").append(document.createElement("br"), b);
-      }
-    }
-    const input = lab.querySelector("input");
-    input.checked = pkg && pkg.entry === e;
-    input.addEventListener("change", () => chooseListed(e));
     box.appendChild(lab);
   }
+  renderOwn();
 }
 
 async function sha256(bytes) {
@@ -244,7 +239,7 @@ async function chooseListed(e) {
     if (!okSum) { pkg = null; setStatus("pkgstatus", m().sha, "bad"); updateButtons(); return; }
     const p = loadPackage(raw);
     pkg = { ...p, entry: e, label: `${e.titel} ${e.version}` };
-    setStatus("pkgstatus", m().chosen(pkg.label), "ok");
+    setStatus("pkgstatus", "");
   } catch (err) {
     if (err.code) pkgError(err); else { pkg = null; setStatus("pkgstatus", m().fetchfail, "bad"); }
   }
@@ -303,19 +298,37 @@ async function loadList() {
   renderList(); renderDevice();
 }
 
+let ownPkg = null;   // abgelegte eigene .fwsc
+
 async function chooseFile(file) {
-  document.querySelectorAll('input[name="fw"]').forEach((i) => { i.checked = false; });
   try {
     const p = loadPackage(new Uint8Array(await file.arrayBuffer()));
-    pkg = { ...p, entry: null, label: `${file.name} (${describe(p.product)})` };
-    setStatus("pkgstatus", m().chosen(pkg.label), "ok");
-  } catch (err) { pkgError(err); }
-  updateButtons();
+    ownPkg = { ...p, entry: null, label: `${file.name} (${describe(p.product)})` };
+    setStatus("pkgstatus", "");
+  } catch (err) { ownPkg = null; setStatus("pkgstatus", m()[err.code] || err.message, "bad"); }
+  renderOwn();
+}
+
+function renderOwn() {
+  const box = $("own");
+  box.innerHTML = "";
+  if (!ownPkg) return;
+  const card = document.createElement("div");
+  card.className = "fw";
+  card.innerHTML = `<span class="txt"><span class="head"><span><b></b></span></span><span class="meta"></span></span>`;
+  card.querySelector("b").textContent = ownPkg.label;
+  card.querySelector(".meta").textContent = lang === "en" ? "your own file, checked" : "eigene Datei, geprüft";
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "act"; btn.textContent = m().installBtn;
+  btn.disabled = busy || !navigator.requestMIDIAccess;
+  btn.addEventListener("click", () => { pkg = ownPkg; install(card); });
+  card.querySelector(".head").append(btn);
+  box.append(card);
 }
 
 function updateButtons() {
-  $("install").disabled = busy || !access || !device || !pkg;
-  $("connect").disabled = busy || !access && !navigator.requestMIDIAccess;
+  document.querySelectorAll(".fw .act").forEach((b) => { b.disabled = busy || b.dataset.kind === "installed" || !navigator.requestMIDIAccess; });
+  $("connect").disabled = busy || !navigator.requestMIDIAccess;
 }
 
 async function getAccess() {
@@ -340,20 +353,24 @@ async function connect() {
   } finally { busy = false; updateButtons(); }
 }
 
-// Knopf „Update auf X“: Eintrag wählen, laden, installieren
-async function updateTo(e) {
+// Knopf am Eintrag: Paket laden und prüfen, dann installieren
+async function installEntry(e, card) {
   if (busy) return;
-  const input = [...document.querySelectorAll(".fw")].find((l) => l.dataset.kennung === e.kennung)?.querySelector("input");
-  if (input) input.checked = true;
   await chooseListed(e);
-  if (pkg && pkg.entry === e) install();
+  if (pkg && pkg.entry === e) { install(card); return; }
+  $("run").hidden = false; $("done").hidden = true;          // Laden/Prüfen fehlgeschlagen: Meldung beim Ablauf
+  setStatus("progress", $("pkgstatus").textContent, "bad"); setStatus("pkgstatus", "");
 }
 
-async function install() {
-  if (!pkg || !device || busy) return;
+async function install(card) {
+  if (!pkg || busy) return;
+  if (!(await getAccess())) return;
   if (!confirm(m().confirm(pkg.label))) return;
   busy = true; updateButtons();
-  $("done").hidden = true; $("bar").hidden = false;
+  document.querySelectorAll(".fw.running").forEach((c) => c.classList.remove("running"));
+  if (card) card.classList.add("running");
+  $("run").hidden = false; $("done").hidden = true;
+  $("run").scrollIntoView({ behavior: "smooth", block: "center" });
   const bar = $("bar").firstElementChild;
   bar.style.width = "0%";
   const up = new Updater(new WebMidiBackend(access));
@@ -390,7 +407,6 @@ $("lang").addEventListener("click", () => {
   applyLang();
 });
 $("connect").addEventListener("click", connect);
-$("install").addEventListener("click", install);
 $("file").addEventListener("change", (ev) => { if (ev.target.files[0]) chooseFile(ev.target.files[0]); });
 // eine .fwsc kann überall auf der Seite abgelegt werden
 const drop = $("drop");
