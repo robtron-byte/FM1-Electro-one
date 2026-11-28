@@ -60,3 +60,5 @@ Plattform in FM1-Electros `platform/` ist eine abweichende Fassung (Bau-Chat) un
 - 2026-11-28 (sh101-Chat, abwärtskompatibel): mehrere Klangerzeuger (`GM_ENGINES` und Co., Felder `K_ENGINE`, `K_CHANP`,
   `K_EXTRA`, `GM_SET_EXTRA`, `GM_EXTRA_IDX`) für die Kombi JX-8P + SH-101 (ADR 0052). Fehler behoben: Kern 1 las `fx_in`,
   während Kern 0 es neu füllte; Delay und Hall lesen jetzt den Abzug `fx_src`.
+- 2026-11-28 (sh101-Chat): `GM_SEQ_IOS` (Standard aus): Sequencer-Zusätze der iOS-Apps (ADR 0052), Feld `K_SQX`, Bank in
+  Blob 5. Behoben: SEQ tippen meldete den alten Zustand („SEQ OFF“ beim Einschalten).

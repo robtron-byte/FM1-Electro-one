@@ -312,22 +312,88 @@ static DSP void arp_block(unsigned ticks)
  * nächsten (legato); Aufnahme Schritt für Schritt (REC), Wiedergabe im Raster des Takts (RATE, GATE), transponiert
  * von den Tasten, während er läuft (C4 = 0). Gespeichert in Blob 3, in einer Spielpause.
  * ====================================================================================================== */
-enum { SEQ_STEPS = 64, SQ_REST = 1, SQ_TIE = 2 };
+enum { SEQ_STEPS = 64, SQ_REST = 1, SQ_TIE = 2, SQ_ACC = 4 };   /* SQ_ACC: Akzent (nur GM_SEQ_IOS) */
+#if GM_SEQ_IOS
+#include "seq/syn_pat.h"
+enum { SQ_VER = 2 };
+#else
 enum { SQ_VER = 1 };
+#endif
 static struct {
     uint8_t ver, len[GM_PARTS];
     uint8_t cfg[GM_PARTS][SQ_N];
     uint8_t note[GM_PARTS][SEQ_STEPS], flag[GM_PARTS][SEQ_STEPS];
 } sq;
-typedef struct { uint8_t pos, tied, fresh; int16_t sounding; uint32_t since, gate_len; } sqrun_t;
+typedef struct {
+    uint8_t pos, tied, fresh; int16_t sounding; uint32_t since, gate_len;
+#if GM_SEQ_IOS
+    uint8_t skip; uint32_t age, glen, step_len;   /* skip: Schritte unter einer langen G.VAR-Note; age/glen: Notenlänge */
+#endif
+} sqrun_t;
 static sqrun_t sqr[GM_PARTS];
 static volatile uint8_t seq_rec_p, rec_mn[32], rec_mv[32], rec_mw, rec_mr;
 static volatile uint8_t sq_view_at[GM_PARTS];
+#if GM_SEQ_IOS
+/* Bank (8 Plätze, Blob 5): die UI setzt seq_pend[p] = Platz + 1, die Audioseite schaltet am Ende der laufenden Folge um */
+static sp_bank_t sbank;
+static volatile uint8_t seq_pend[GM_PARTS], seq_slot_now[GM_PARTS];   /* seq_slot_now: Platz + 1, 0 = keiner */
+static DSP void seq_slot_apply(unsigned p, unsigned slot)
+{
+    const sp_slot_t *b = &sbank.s[slot % SP_SLOTS];
+    if (!b->used) return;
+    for (unsigned i = 0; i < SEQ_STEPS; i++) { sq.note[p][i] = b->note[i]; sq.flag[p][i] = b->flag[i]; }
+    sq.len[p] = b->len <= SEQ_STEPS ? b->len : SEQ_STEPS;
+    sq.cfg[p][SQ_DIV] = b->div; sq.cfg[p][SQ_GATE] = b->gate; sq.cfg[p][SQ_GVAR] = b->gvar;
+    seq_slot_now[p] = (uint8_t)(slot % SP_SLOTS + 1u);
+}
+#endif
 static DSP void seq_stop_note(unsigned p)
 {
     if (sqr[p].sounding >= 0) { kern_off(p, sqr[p].sounding); sqr[p].sounding = -1; }
     sqr[p].tied = 0;
 }
+#if GM_SEQ_IOS
+/* wie StepSequencer.swift: Akzent = Anschlag 127 (sonst 88) und GATE + 15 %; Tie = legato in den nächsten Schritt; GATE über
+ * einen Schritt klingt über Pausen weiter; G.VAR macht aus festen Schritten lange Noten (die Schritte darunter fallen aus) */
+static DSP void seq_step(unsigned p)
+{
+    sqrun_t *s = &sqr[p];
+    unsigned n, i, f, hold;
+    int note;
+    if (s->fresh) { s->pos = 0; s->fresh = 0; s->skip = 0; }
+    if (s->pos == 0 && seq_pend[p]) { seq_slot_apply(p, seq_pend[p] - 1u); seq_pend[p] = 0; s->skip = 0; }
+    n = sq.len[p] <= SEQ_STEPS ? sq.len[p] : SEQ_STEPS;
+    if (!n) { seq_stop_note(p); return; }
+    i = s->pos % n;
+    s->pos = (uint8_t)((i + 1u) % n);
+    s->since = 0;
+    sq_view_at[p] = (uint8_t)i;
+    if (s->skip) { s->skip--; return; }         /* unter einer langen Note: sie klingt weiter */
+    f = sq.flag[p][i];
+    if (f & SQ_REST) {                          /* Pause: eine gebundene Note endet hier, ein langes GATE klingt weiter */
+        if (s->tied) seq_stop_note(p);
+        return;
+    }
+    note = (int)sq.note[p][i] + (int)sq.cfg[p][SQ_SHIFT] - 24;
+    note = note < 0 ? 0 : note > 127 ? 127 : note;
+    if (s->sounding >= 0 && s->tied) {          /* gebunden: legato (gleiche Note: klingt einfach weiter) */
+        if (note != s->sounding) { kern_on(p, note, (f & SQ_ACC) ? SP_VEL_ACC : SP_VEL, 1); kern_off(p, s->sounding); }
+    } else {
+        seq_stop_note(p);
+        kern_on(p, note, (f & SQ_ACC) ? SP_VEL_ACC : SP_VEL, 0);
+    }
+    s->sounding = (int16_t)note;
+    s->tied = (uint8_t)((f & SQ_TIE) != 0);
+    s->age = 0;
+    hold = (f & SQ_TIE) ? 1u : sp_hold_steps(i, n, sq.cfg[p][SQ_GVAR], sq.note[p], sq.flag[p]);
+    if (hold > 1u) { s->skip = (uint8_t)(hold - 1u); s->glen = s->step_len * hold; return; }
+    {
+        float g = sp_gate_steps(sq.cfg[p][SQ_GATE]);
+        if ((f & SQ_ACC) && g < 1.0f) g = g + 0.15f < 1.0f ? g + 0.15f : 1.0f;
+        s->glen = (uint32_t)(g * (float)s->step_len);
+    }
+}
+#else
 static DSP void seq_step(unsigned p)
 {
     sqrun_t *s = &sqr[p];
@@ -353,6 +419,7 @@ static DSP void seq_step(unsigned p)
     s->since = 0;
     sq_view_at[p] = (uint8_t)i;
 }
+#endif
 static DSP void seq_set(unsigned p, unsigned prm, int v)
 {
     if (prm >= SQ_N) return;
@@ -370,13 +437,23 @@ static DSP void seq_block(unsigned ticks)
         step = (uint32_t)(arp_q[div] * 60.0f / bpm_now * EL_SR);
         if (step < GM_BLOCK) step = GM_BLOCK;
         s->gate_len = (uint32_t)((0.05f + 0.95f * sq.cfg[p][SQ_GATE] / 127.0f) * (float)step);
+#if GM_SEQ_IOS
+        s->step_len = step;
+        s->age += GM_BLOCK;
+        if (xport == 2) { s->since += GM_BLOCK; if (s->sounding >= 0 && !s->tied && s->age >= s->glen) seq_stop_note(p); continue; }
+#else
         if (xport == 2) { s->since += GM_BLOCK; if (s->sounding >= 0 && s->since >= s->gate_len) seq_stop_note(p); continue; }
+#endif
         if (s->fresh) { seq_step(p); continue; }
         if (ext_follow || xport == 1) {
             for (unsigned t = 0; t < ticks; t++) if ((clk_ticks - ticks + t + 1u) % arp_ticks[div] == 0) seq_step(p);
         } else if (s->since + GM_BLOCK >= step) seq_step(p);
         s->since += GM_BLOCK;
+#if GM_SEQ_IOS
+        if (s->sounding >= 0 && !s->tied && s->age >= s->glen) { kern_off(p, s->sounding); s->sounding = -1; }
+#else
         if (s->sounding >= 0 && !s->tied && s->since >= s->gate_len) { kern_off(p, s->sounding); s->sounding = -1; }
+#endif
     }
 }
 

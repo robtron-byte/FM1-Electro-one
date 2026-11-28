@@ -25,14 +25,23 @@ typedef struct {
 enum { C_SRC, C_MOD, C_FLT, C_AMP, C_FX };      /* Farbklasse eines Parameters (gm_theme.h) */
 /* Arpeggiator und Sequencer des Gerüsts (Seiten der Variante) */
 enum { ARP_ON, ARP_MODE, ARP_DIV, ARP_OCT, ARP_GATE, ARP_HOLD, ARP_N };
+#ifndef GM_SEQ_IOS
+#define GM_SEQ_IOS 0                            /* 1: Sequencer-Zusätze der iOS-Apps (ADR 0052, shared/seq/syn_pat.h) */
+#endif
+#if GM_SEQ_IOS
+enum { SQ_ON, SQ_DIV, SQ_GATE, SQ_SHIFT, SQ_GVAR, SQ_STYLE, SQ_N };
+/* K_SQX: Schritte bearbeiten, Zufallsfolgen, Bank (Aktionen: nach rechts drehen löst aus) */
+enum { SX_NEW, SX_VARY, SX_LEN, SX_STEP, SX_NOTE, SX_ACC, SX_TIE, SX_SLOT, SX_STORE, SX_CLEAR };
+#else
 enum { SQ_ON, SQ_DIV, SQ_GATE, SQ_SHIFT, SQ_N };
+#endif
 /* Seitengruppen = Tasten */
 enum { G_HOME, G_EDIT, G_ENV, G_LFO, G_FX, G_ARP, G_GLO, G_SEL, G_SEQ, NGROUP };
 /* Bilder der Seiten; ab ST_USER zeichnet die Variante (kern_stage) */
 enum { ST_NAME, ST_HOME, ST_SYS, ST_BROWSE, ST_ARP, ST_SEQ, ST_TEMPO, ST_FX, ST_PARTS, ST_LIVE, ST_USER };   /* ST_LIVE: Live-Aufnahme (ADR 0053) */
 /* was ein Reglerfeld einstellt */
 enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_FX, K_ARP, K_TEMPO, K_CLK, K_SEQ, K_SEND, K_LIVE,
-       K_ENGINE, K_CHANP, K_EXTRA };   /* K_ENGINE/K_CHANP: Klangerzeuger/MIDI-Kanal des Parts param; K_EXTRA: GM_SET_EXTRA */   /* K_LIVE: LV_SET_* (syn_live.h) */
+       K_ENGINE, K_CHANP, K_EXTRA, K_SQX };   /* K_SQX: SX_* (GM_SEQ_IOS) */   /* K_ENGINE/K_CHANP: Klangerzeuger/MIDI-Kanal des Parts param; K_EXTRA: GM_SET_EXTRA */   /* K_LIVE: LV_SET_* (syn_live.h) */
 typedef struct { const char *label; uint8_t kind, param; } kn_t;
 typedef struct { uint8_t group, stage; const char *title; kn_t k[4]; } page_t;
 typedef struct { const char *title; kn_t k[4]; } layer_t;
@@ -42,4 +51,5 @@ typedef struct { const char *title; kn_t k[4]; } layer_t;
 #define ARK(l, p) {l, K_ARP, p}
 #define SQK(l, p) {l, K_SEQ, p}
 #define LVK(l, p) {l, K_LIVE, p}
+#define SXK(l, p) {l, K_SQX, p}
 #endif

@@ -1,7 +1,7 @@
 # 0052: Kombi JX-8P + SH-101 auf dem Gerüst mit zwei Klangerzeugern
 
 - **Status:** vorgeschlagen
-- **Stand:** 2026-11-28 (0.1.1-alpha gebaut, `check.sh` ok, Emulator-Last gemessen; am Gerät ungeprüft)
+- **Stand:** 2026-11-28 (0.1.2-alpha gebaut, `check.sh` ok, Emulator-Last gemessen; am Gerät ungeprüft)
 
 ## Kontext
 
@@ -30,9 +30,13 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 - **Speicher:** Hall-Diffusoren im RAMTEXT (`SYN_FX_DIFF_ATTR`), Bildpuffer im NOINIT (`CV_SECTION`): RAM 13,1 kB frei,
   Pool 2,9 kB frei.
 - Kennung FM-1_99 (99 war nur die Dinghy-Vorlage), `STORE_MAGIC` „1XSH“, Journal „TXSH“, Paket
-  `firmware/JXSH-0.1.1-alpha.fwsc`.
-- **Pegel:** JX und SH wie in ihren Solo-Firmwares; der JX ist dadurch 12–15 dB leiser (gemessen). Ausgleich über MIX;
-  eine Anhebung wäre eine Klangänderung (Schalter, Entscheidung des Nutzers nach Gehör).
+  `firmware/JXSH-0.1.2-alpha.fwsc`.
+- **Pegel (Gain-Staging, 0.1.2):** gleicher MIX = gleich laut. Gemessen JX 44,9 dB, SH 63,4 dB (Median der klingenden
+  Werkssounds, je eine Note); Trim SH −6 dB, JX +12,5 dB (mit Sends). Danach 55,8 gegen 57,4 dB.
+- **Sequencer der iOS-Apps (`GM_SEQ_IOS`, Gerüst, Standard aus):** Akzent (127/88, GATE + 15 %), Tie, GATE-Mehrschritt-
+  Skala, G.VAR, Zufallsfolgen KRAFT/ROTHER/ROBOT/ACID/MIAMI (NEW, VARY), Bank mit 8 Plätzen (Blob 5), Umschalten am Ende
+  der Folge; Seiten SEQUENCER, PATTERN, STEP, BANK. Modul `shared/seq/syn_pat.h` mit Host-Test. Ohne Touch-Raster: Schritte
+  über die Seite STEP. RATE bleibt das Raster des Gerüsts.
 
 ## Messungen (fm1-emu, Block 64 = 1,45 ms; Messbau `-DJXSH_LAST`)
 
@@ -55,10 +59,11 @@ Distortion-Send (TUBE zuerst); der SH-101 behält seinen Drive; eigene Presets v
 
 - Die 808-Kombis (FM-1_91, FM-1_90) nutzen dieselbe Naht (`GM_ENGINES`).
 - Pool fast voll (2,9 kB): weitere Puffer gehören ins RAM.
-- Offen: Sequencer der iOS-Apps (Pattern-Bank, Akzent/Tie) als Erweiterung des Gerüst-Sequencers.
 
 ## Verlauf
 
 - 2026-11-28: angelegt, 0.1.0-alpha gebaut und im Emulator gemessen
 - 2026-11-28: 0.1.1-alpha: FX-Ebene des SH-Parts (DIST) gilt dem gewählten Part, Meldung beim abgewiesenen SH-101,
   Lauf mit Tasten durch PARTS/DIST SEND/MIDI, Distortion-Kosten gemessen
+- 2026-11-28: 0.1.2-alpha: Gain-Staging JX/SH, Sequencer der iOS-Apps (Abnahme 0.1.1 durch den Koordinator: beides
+  gefordert); im Emulator NEW, SEQ, STORE, Platzwechsel am Folgenende geprüft

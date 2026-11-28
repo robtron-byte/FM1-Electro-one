@@ -96,13 +96,150 @@ static void group_button(unsigned g)
 
 /* ---- Werte der Reglerfelder */
 static const uint8_t arp_max[ARP_N] = {1, 4, FX_DIVS - 1, 3, 127, 1};
+#if GM_SEQ_IOS
+static const uint8_t sq_max[SQ_N] = {1, FX_DIVS - 1, 127, 48, 127, SP_STYLES - 1};
+#else
 static const uint8_t sq_max[SQ_N] = {1, FX_DIVS - 1, 127, 48};
+#endif
 static const char *const arp_modes[5] = {"UP", "DOWN", "UP/DN", "RAND", "ORDER"};
 static const char *const div_names[FX_DIVS] = {"1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/1"};
+#if GM_SEQ_IOS
+/* ---- Sequencer der iOS-Apps (ADR 0052): Schritt bearbeiten, NEW/VARY, Bank. Die UI schreibt die Schritte selbst
+ * (wie die Schrittaufnahme); Länge und Umschalten der Bank laufen über die Audioseite. */
+static uint8_t sx_step, sx_slot;
+static uint32_t sx_seed = 0x9E3779B9u;
+static uint32_t sb_saved, sb_seen, sb_t_change;
+static uint32_t sb_sum(void)
+{
+    const uint8_t *b = (const uint8_t *)&sbank;
+    uint32_t h = 2166136261u;
+    for (uint32_t i = 0; i < sizeof sbank; i++) h = (h ^ b[i]) * 16777619u;
+    return h;
+}
+static const char *const note_nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+static int sx_get(unsigned prm)
+{
+    unsigned n = sq.len[sel], i = sx_step < SEQ_STEPS ? sx_step : 0u;
+    switch (prm) {
+    case SX_LEN: return n ? (int)n - 1 : 0;
+    case SX_STEP: return (int)i;
+    case SX_NOTE: return (sq.flag[sel][i] & SQ_REST) ? 0 : (int)sq.note[sel][i] - 23;   /* 1 = C1 (MIDI 24) */
+    case SX_ACC: return (sq.flag[sel][i] & SQ_ACC) ? 1 : 0;
+    case SX_TIE: return (sq.flag[sel][i] & SQ_TIE) ? 1 : 0;
+    case SX_SLOT: return sx_slot;
+    default: return 0;                          /* NEW, VARY, STORE, CLEAR: Aktionen */
+    }
+}
+static int sx_max(unsigned prm)
+{
+    switch (prm) {
+    case SX_LEN: return SEQ_STEPS - 1;
+    case SX_STEP: return sq.len[sel] ? sq.len[sel] - 1 : 0;
+    case SX_NOTE: return 96 - 23;
+    case SX_SLOT: return SP_SLOTS - 1;
+    default: return 1;
+    }
+}
+static void sx_text(unsigned prm, int v, char *b)
+{
+    switch (prm) {
+    case SX_NEW: str_cpy(b, sp_style_names[sq.cfg[sel][SQ_STYLE] % SP_STYLES], 8); return;
+    case SX_VARY: case SX_STORE: case SX_CLEAR: str_cpy(b, ">", 8); return;
+    case SX_LEN: case SX_STEP: fmt_int(b, v + 1); return;
+    case SX_NOTE:
+        if (!v) { str_cpy(b, "REST", 8); return; }
+        { int m = v + 23; char *q = put(b, note_nm[m % 12]); fmt_int(q, m / 12 - 1); }
+        return;
+    case SX_ACC: case SX_TIE: str_cpy(b, v ? "ON" : "OFF", 8); return;
+    case SX_SLOT: {
+        char *q = b;
+        fmt_int(q, v + 1); q += str_len(q);
+        *q++ = seq_pend[sel] == (uint8_t)(v + 1) ? '>' : seq_slot_now[sel] == (uint8_t)(v + 1) ? '*' : sbank.s[v % SP_SLOTS].used ? ' ' : '-';
+        *q = 0;
+        return;
+    }
+    default: fmt_int(b, v); return;
+    }
+}
+static void sx_write(const sp_gen_t *g)   /* 16 Schritte der Zufallsfolge in den gewählten Part */
+{
+    for (unsigned i = 0; i < SP_STEPS; i++) { sq.note[sel][i] = (uint8_t)(SP_BASE + g->rel[i]); sq.flag[sel][i] = g->flag[i]; }
+    if (sq.len[sel] != SP_STEPS) ev_put(EV_SEQ_LEN, sel, SP_STEPS, 1);
+    seq_slot_now[sel] = 0;
+}
+static void sx_turn(unsigned prm, int v)
+{
+    unsigned i = sx_step < SEQ_STEPS ? sx_step : 0u, style = sq.cfg[sel][SQ_STYLE] % SP_STYLES;
+    sx_seed ^= fm1_ms * 2654435761u;
+    switch (prm) {
+    case SX_NEW: {
+        sp_gen_t g;
+        char b[24];
+        sp_generate(&g, style, &sx_seed);
+        sx_write(&g);
+        put(put(b, "NEW "), sp_style_names[style])[0] = 0;
+        msg_set(sq.cfg[sel][SQ_ON] ? b : "NEW: SEQ TO PLAY", 0);
+        break;
+    }
+    case SX_VARY: {
+        sp_gen_t g;
+        for (unsigned k = 0; k < SP_STEPS; k++) { g.rel[k] = (int8_t)((int)sq.note[sel][k] - SP_BASE); g.flag[k] = sq.flag[sel][k]; }
+        for (unsigned k = 0; k < SP_STEPS; k++) if (!(g.flag[k] & SQ_REST)) g.rel[k] = (int8_t)(g.rel[k] < -12 ? -12 : g.rel[k] > 18 ? 18 : g.rel[k]);
+        if (!sq.len[sel]) { msg_set("EMPTY: NEW FIRST", 1); return; }
+        sp_vary(&g, style, &sx_seed);
+        sx_write(&g);
+        msg_set("VARIED", 0);
+        break;
+    }
+    case SX_LEN: ev_put(EV_SEQ_LEN, sel, (uint32_t)v + 1u, 1); break;
+    case SX_STEP: sx_step = (uint8_t)v; break;
+    case SX_NOTE:
+        if (!sq.len[sel]) return;
+        if (!v) sq.flag[sel][i] = SQ_REST;
+        else { sq.note[sel][i] = (uint8_t)(v + 23); sq.flag[sel][i] &= (uint8_t)~SQ_REST; }
+        seq_slot_now[sel] = 0;
+        break;
+    case SX_ACC: case SX_TIE: {
+        uint8_t bit = prm == SX_ACC ? SQ_ACC : SQ_TIE;
+        if (!sq.len[sel] || (sq.flag[sel][i] & SQ_REST)) return;
+        sq.flag[sel][i] = (uint8_t)(v ? sq.flag[sel][i] | bit : sq.flag[sel][i] & ~bit);
+        seq_slot_now[sel] = 0;
+        break;
+    }
+    case SX_SLOT: {                             /* Platz wählen = spielen: läuft die Folge, am Ende der Folge */
+        char b[24], *q;
+        sx_slot = (uint8_t)v;
+        if (!sbank.s[v].used) { msg_set("EMPTY SLOT: STORE", 0); return; }
+        if (sq.cfg[sel][SQ_ON] && sq.len[sel]) { seq_pend[sel] = (uint8_t)(v + 1); q = put(b, "SLOT "); fmt_int(q, v + 1); q += str_len(q); put(q, " NEXT")[0] = 0; }
+        else { seq_slot_apply(sel, (unsigned)v); q = put(b, "SLOT "); fmt_int(q, v + 1); }
+        msg_set(b, 0);
+        break;
+    }
+    case SX_STORE: {
+        sp_slot_t *d = &sbank.s[sx_slot % SP_SLOTS];
+        char b[24], *q;
+        if (!sq.len[sel]) { msg_set("NOTHING TO STORE", 1); return; }
+        for (unsigned k = 0; k < SEQ_STEPS; k++) { d->note[k] = sq.note[sel][k]; d->flag[k] = sq.flag[sel][k]; }
+        d->len = sq.len[sel]; d->div = sq.cfg[sel][SQ_DIV]; d->gate = sq.cfg[sel][SQ_GATE]; d->gvar = sq.cfg[sel][SQ_GVAR]; d->used = 1;
+        seq_slot_now[sel] = (uint8_t)(sx_slot + 1u);
+        q = put(b, "STORED IN "); fmt_int(q, sx_slot + 1);
+        msg_set(b, 0);
+        break;
+    }
+    case SX_CLEAR:
+        sbank.s[sx_slot % SP_SLOTS].used = 0;
+        if (seq_pend[sel] == sx_slot + 1u) seq_pend[sel] = 0;
+        for (unsigned p = 0; p < GM_PARTS; p++) if (seq_slot_now[p] == sx_slot + 1u) seq_slot_now[p] = 0;
+        msg_set("SLOT CLEARED", 0);
+        break;
+    default: break;
+    }
+}
+#endif
 static uint16_t k_colour(const kn_t *k)
 {
     if (k->kind == K_PARAM) return gm_class_colour[PRMS[k->param].cls % 5u];
-    if (k->kind == K_FX || k->kind == K_TEMPO || k->kind == K_CLK || k->kind == K_SEQ || k->kind == K_SEND) return T_VIOLET;
+    if (k->kind == K_FX || k->kind == K_TEMPO || k->kind == K_CLK || k->kind == K_SEQ || k->kind == K_SEND || k->kind == K_SQX) return T_VIOLET;
     return T_SEL;
 }
 static int k_max(const kn_t *k)
@@ -121,6 +258,9 @@ static int k_max(const kn_t *k)
     case K_TEMPO: return 200;
     case K_CLK: return k->param ? 1 : 2;
     case K_SEQ: return sq_max[k->param % SQ_N];
+#if GM_SEQ_IOS
+    case K_SQX: return sx_max(k->param);
+#endif
     case K_LIVE: return k->param == LV_SET_BARS ? LV_BARS : 1;
     default: return 0;
     }
@@ -141,6 +281,9 @@ static int k_get(const kn_t *k)
     case K_TEMPO: return tempo;
     case K_CLK: return clkv[k->param & 1u];
     case K_SEQ: return sq.cfg[sel][k->param % SQ_N];
+#if GM_SEQ_IOS
+    case K_SQX: return sx_get(k->param);
+#endif
     case K_SEND: return sendv[sel][k->param & 1u];
     case K_LIVE:
         return k->param == LV_SET_ON ? lv_store.p[sel].on : k->param == LV_SET_BARS ? lv_store.p[sel].bars
@@ -177,8 +320,16 @@ static void k_text(const kn_t *k, int v, char *b)
         if (k->param == SQ_ON) str_cpy(b, v ? "ON" : "OFF", 8);
         else if (k->param == SQ_DIV) str_cpy(b, div_names[v % FX_DIVS], 8);
         else if (k->param == SQ_SHIFT) { if (v >= 24) { b[0] = '+'; fmt_int(b + 1, v - 24); } else fmt_int(b, v - 24); }
+#if GM_SEQ_IOS
+        else if (k->param == SQ_GATE) { if (v <= 80) fmt_int(b, 5 + v * 95 / 80); else { char *q = b; fmt_int(q, (int)sp_gate_steps((unsigned)v)); q += str_len(q); put(q, " ST")[0] = 0; } }
+        else if (k->param == SQ_GVAR) fmt_int(b, v * 100 / 127);
+        else if (k->param == SQ_STYLE) str_cpy(b, sp_style_names[v % SP_STYLES], 8);
+#endif
         else fmt_int(b, 5 + v * 95 / 127);
         return;
+#if GM_SEQ_IOS
+    case K_SQX: sx_text(k->param, v, b); return;
+#endif
     case K_LIVE:
         if (k->param == LV_SET_ON) str_cpy(b, v ? "ON" : "OFF", 8);
         else if (k->param == LV_SET_BARS) { if (v) fmt_int(b, v); else str_cpy(b, "EMPTY", 8); }
@@ -226,6 +377,9 @@ static void k_turn(const kn_t *k, int32_t d)
     case K_TEMPO: tempo = (uint8_t)v; ev_put(EV_TEMPO, 0, (uint32_t)v, 0); break;
     case K_CLK: clkv[k->param & 1u] = (uint8_t)v; ev_put(EV_CLK, 0, k->param & 1u, (uint32_t)v); break;
     case K_SEQ: ev_put(EV_SEQ, sel, k->param, (uint32_t)v); break;   /* (die Audioseite schreibt sq.cfg) */
+#if GM_SEQ_IOS
+    case K_SQX: sx_turn(k->param, v); break;
+#endif
     case K_SEND: sendv[sel][k->param & 1u] = (uint8_t)v; ev_put(EV_SEND, sel, k->param & 1u, (uint32_t)v); break;
     case K_LIVE: lv_ui_set(sel, k->param, (unsigned)v); break;   /* (die Audioseite schreibt lv_store) */
     default: break;
@@ -399,6 +553,15 @@ static void stage_seq(void)
     char b[24], *p;
     p = put(b, rec_on ? "REC STEP " : "STEPS "); fmt_int(p, (int32_t)(rec_on ? rec_cur + 1u : n));
     Q(4, 32, 2, b, rec_on ? T_WARN : T_DIM);
+#if GM_SEQ_IOS
+    if (seq_slot_now[sel] || seq_pend[sel]) {   /* Platz der Bank: spielt / kommt am Ende der Folge */
+        p = put(b, "SLOT "); fmt_int(p, seq_pend[sel] ? seq_pend[sel] : seq_slot_now[sel]); p += str_len(p);
+        if (seq_pend[sel]) put(p, " NEXT")[0] = 0;
+        Q(150, 32, 2, b, seq_pend[sel] ? T_WARN : T_DIM);
+    }
+    if (!rec_on && pages[page].k[0].kind == K_SQX && pages[page].k[0].param == SX_STEP && n)   /* Seite STEP: der Schritt */
+        R(4 + (int32_t)(sx_step % 16u) * 15, 72 + (int32_t)(sx_step / 16u) * 24, 12, 2, T_SEL);
+#endif
     int32_t lo = 127, hi = 0;                   /* Höhe der Balken: die Tonhöhe innerhalb des Umfangs der Folge */
     for (unsigned i = 0; i < n && i < SEQ_STEPS; i++) if (!(sq.flag[sel][i] & SQ_REST)) {
         if (sq.note[sel][i] < lo) lo = sq.note[sel][i];
@@ -407,7 +570,7 @@ static void stage_seq(void)
     for (unsigned i = 0; i < n && i < SEQ_STEPS; i++) {
         int32_t x = 4 + (int32_t)(i % 16u) * 15, y = 50 + (int32_t)(i / 16u) * 24;
         uint8_t f = sq.flag[sel][i];
-        uint16_t c = (sq.cfg[sel][SQ_ON] && i == at) ? T_SEL : (f & SQ_REST) ? T_LINE : T_VIOLET;
+        uint16_t c = (sq.cfg[sel][SQ_ON] && i == at) ? T_SEL : (f & SQ_REST) ? T_LINE : (f & SQ_ACC) ? T_WARN : T_VIOLET;
         if (f & SQ_REST) R(x, y + 16, 12, 2, c);
         else { int32_t h = 4 + (hi > lo ? (sq.note[sel][i] - lo) * 16 / (hi - lo) : 8); R(x, y + 20 - h, 12, h, c); if (f & SQ_TIE) R(x + 12, y + 14, 3, 2, c); }
     }
@@ -860,6 +1023,10 @@ static void app_main(void)
         sqr[p].sounding = -1; sqr[p].fresh = 1;
     }
     sq_sum_saved = sq_sum_seen = sq_sum();
+#if GM_SEQ_IOS
+    if (!flash_ok || blob_load(5, &sbank, sizeof sbank) || sbank.ver != SP_BANK_VER) { memset(&sbank, 0, sizeof sbank); sbank.ver = SP_BANK_VER; }
+    sb_saved = sb_seen = sb_sum();
+#endif
     lv_load_done(flash_ok ? blob_load(4, &lv_store, sizeof lv_store) : -1);   /* Live-Aufnahme (ADR 0053): ohne Blob leer */
     for (unsigned p = 0; p < GM_PARTS; p++) lv_store.p[p].on = 0;   /* (beim Einschalten läuft nichts von selbst) */
     lv.saved = lv_sum();
@@ -990,8 +1157,9 @@ static void app_main(void)
                         if (!layer_used && now - press_t[i] < 400u && !saving) {
                             if (i == BTN_SEQ && pages[page].stage == ST_SEQ && sq.len[sel]) {   /* auf seiner Seite: an/aus */
                                 kn_t k = SQK("SEQ", SQ_ON);
-                                k_turn(&k, sq.cfg[sel][SQ_ON] ? -1 : 1);
-                                msg_set(sq.cfg[sel][SQ_ON] ? "SEQ ON" : "SEQ OFF", 0);
+                                int on = !sq.cfg[sel][SQ_ON];   /* (die Audioseite schaltet erst mit dem Ereignis um) */
+                                k_turn(&k, on ? 1 : -1);
+                                msg_set(on ? "SEQ ON" : "SEQ OFF", 0);
                             } else if (i == BTN_SEQ && pages[page].stage == ST_LIVE && lv_store.p[sel].bars) {   /* LOOP: an/aus */
                                 kn_t k = LVK("LOOP", LV_SET_ON);
                                 int on = !lv_store.p[sel].on;
@@ -1098,6 +1266,13 @@ static void app_main(void)
                 else if (h != sq_sum_saved && now - sq_t_change >= 1500u && !jr_playing()) {
                     if (!blob_save(3, &sq, sizeof sq)) sq_sum_saved = h;
                 }
+#if GM_SEQ_IOS
+                {   /* Bank (Blob 5), wie die Folgen: nach 1,5 s Ruhe */
+                    uint32_t hb = sb_sum();
+                    if (hb != sb_seen) { sb_seen = hb; sb_t_change = now; }
+                    else if (hb != sb_saved && now - sb_t_change >= 1500u && !jr_playing() && !blob_save(5, &sbank, sizeof sbank)) sb_saved = hb;
+                }
+#endif
                 if (!lv_busy() && !jr_playing()) {   /* die Live-Aufnahmen (Blob 4), wenn nichts spielt */
                     uint32_t hl = lv_sum();
                     if (hl != lv.saved && !blob_save(4, &lv_store, sizeof lv_store)) lv.saved = hl;

@@ -15,6 +15,7 @@
 #define GM_JR_MAGIC 0x48535854u                 /* "TXSH": Journal dieser Firmware */
 #define GM_FAC_FUNCS 1
 #define GM_SET_EXTRA 8u
+#define GM_SEQ_IOS 1                            /* Sequencer der iOS-Apps: Akzent, Tie, G.VAR, NEW/VARY, Bank (ADR 0052) */
 #include "gm_types.h"
 #include "sh101/sh101.h"
 #include "jx.h"
@@ -243,7 +244,10 @@ static const page_t pages_sh[] = {
     {G_LFO, ST_NAME, "GLIDE", {PRM("GLIDE", P_GLIDE), PRM("MODE", P_GLIDE_MODE), PRM("LINEAR", P_LIN_GLIDE), PRM("TRANSP", P_TRANSPOSE)}},
     {G_ARP, ST_ARP, "ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     {G_ARP, ST_ARP, "ARP 2", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), NO, NO}},
-    {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("G.VAR", SQ_GVAR)}},
+    {G_SEQ, ST_SEQ, "PATTERN", {SQK("STYLE", SQ_STYLE), SXK("NEW", SX_NEW), SXK("VARY", SX_VARY), SXK("LENGTH", SX_LEN)}},
+    {G_SEQ, ST_SEQ, "STEP", {SXK("STEP", SX_STEP), SXK("NOTE", SX_NOTE), SXK("ACCENT", SX_ACC), SXK("TIE", SX_TIE)}},
+    {G_SEQ, ST_SEQ, "BANK", {SXK("SLOT", SX_SLOT), SXK("STORE", SX_STORE), SXK("CLEAR", SX_CLEAR), SQK("SHIFT", SQ_SHIFT)}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
     {G_FX, ST_NAME, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
     {G_FX, ST_NAME, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
@@ -264,7 +268,7 @@ static const layer_t layers_sh[NGROUP] = {
     [G_LFO] = {"LFO", {PRM("RATE", P_LFO_RATE), PRM("MOD", P_MOD), PRM("VCF MOD", P_VCF_LFO), PRM("WAVE", P_LFO_WAVE)}},
     [G_ARP] = {"ARP", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     [G_FX] = {"EFFECTS", {{"DLY SEND", K_SEND, 0}, {"REV SEND", K_SEND, 1}, FXK("TIME", FX_DLY_TIME), {"DIST", K_EXTRA, X_SEND_SEL}}},
-    [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SXK("NEW", SX_NEW), SXK("SLOT", SX_SLOT), SQK("G.VAR", SQ_GVAR)}},
 };
 
 
@@ -291,7 +295,10 @@ static const page_t pages_jx[] = {
     {G_ARP, ST_ARP, "ARP", {ARK("GATE", ARP_GATE), ARK("HOLD", ARP_HOLD), {"TEMPO", K_TEMPO, 0}, NO}},
     {G_GLO, ST_NAME, "VOICE", {PRM("MODE", JP_KEY_MODE), PRM("GLIDE", JP_PORTA), PRM("TIME", JP_PORTA_TIME), PRM("SHIFT", JP_KEY_SHIFT)}},
     {G_GLO, ST_NAME, "VOICE", {PRM("UNI DET", JP_UNISON_DETUNE), PRM("DRIFT", JP_DRIFT), NO, NO}},
-    {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    {G_SEQ, ST_SEQ, "SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("G.VAR", SQ_GVAR)}},
+    {G_SEQ, ST_SEQ, "PATTERN", {SQK("STYLE", SQ_STYLE), SXK("NEW", SX_NEW), SXK("VARY", SX_VARY), SXK("LENGTH", SX_LEN)}},
+    {G_SEQ, ST_SEQ, "STEP", {SXK("STEP", SX_STEP), SXK("NOTE", SX_NOTE), SXK("ACCENT", SX_ACC), SXK("TIE", SX_TIE)}},
+    {G_SEQ, ST_SEQ, "BANK", {SXK("SLOT", SX_SLOT), SXK("STORE", SX_STORE), SXK("CLEAR", SX_CLEAR), SQK("SHIFT", SQ_SHIFT)}},
     {G_SEQ, ST_LIVE, "LOOP", {LVK("LOOP", LV_SET_ON), LVK("BARS", LV_SET_BARS), LVK("LONGER", LV_SET_GROW), LVK("SHORTER", LV_SET_CUT)}},
     {G_FX, ST_NAME, "DIST", {{"MODE", K_EXTRA, X_MODE}, {"DRIVE", K_EXTRA, X_DRIVE}, {"TONE", K_EXTRA, X_TONE}, {"LEVEL", K_EXTRA, X_LEVEL}}},
     {G_FX, ST_NAME, "DIST SEND", {{"A", K_EXTRA, X_SEND + 0}, {"B", K_EXTRA, X_SEND + 1}, {"C", K_EXTRA, X_SEND + 2}, {"D", K_EXTRA, X_SEND + 3}}},
@@ -311,7 +318,7 @@ static const layer_t layers_jx[NGROUP] = {
     [G_FX] = {"EFFECTS", {PRM("DELAY", JP_DELAY_SEND), PRM("REVERB", JP_REVERB_SEND), FXK("TIME", FX_DLY_TIME), PRM("CHORUS", JP_CHORUS)}},
     [G_ARP] = {"ARP + CHORD", {ARK("ARP", ARP_ON), ARK("MODE", ARP_MODE), ARK("RATE", ARP_DIV), ARK("OCT", ARP_OCT)}},
     [G_GLO] = {"LEVELS", {{"A", K_LEVEL, 0}, {"B", K_LEVEL, 1}, {"C", K_LEVEL, 2}, {"D", K_LEVEL, 3}}},
-    [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SQK("RATE", SQ_DIV), SQK("GATE", SQ_GATE), SQK("SHIFT", SQ_SHIFT)}},
+    [G_SEQ] = {"SEQUENCER", {SQK("SEQ", SQ_ON), SXK("NEW", SX_NEW), SXK("SLOT", SX_SLOT), SQK("G.VAR", SQ_GVAR)}},
 };
 
 /* ---- der Klang */
@@ -321,7 +328,11 @@ static uint8_t peng[GM_PARTS];                  /* Erzeuger je Part (Audioseite)
 static int sh_part = -1;                        /* der Part, der den SH-101 spielt (-1: keiner) */
 static uint8_t eng_v[SH_NP];
 static volatile uint8_t xv[GM_SET_EXTRA];       /* Distortion: Modus, Drive, Tone, Level, Sends A–D */
-#define SH_GAIN 4.0f
+/* Gain-Staging der Kombi (ADR 0052): gleiche Lautheit bei gleichem MIX. Gemessen im Emulator, je eine Note C, Median der
+ * klingenden Werkssounds: JX 44,9 dB, SH 63,4 dB (Abstand 18,5 dB). Aufgeteilt: SH −6 dB, JX +12,5 dB (Sends mit). */
+#define JXSH_TRIM_SH 0.5f
+#define JXSH_TRIM_JX 4.2f
+#define SH_GAIN (4.0f * JXSH_TRIM_SH)           /* SH-101 solo: 4,0 */
 #define DSPF __attribute__((section(".dsp_text"), noinline))
 static int up_eng_of(unsigned p);
 static int jxsh_eng_ok(unsigned p, unsigned e)
@@ -437,9 +448,10 @@ static DSPF void jxsh_c1(float *wl, float *wr)
     {
         float g = (float)jxsend * (1.0f / 127.0f);
         for (unsigned i = 0; i < GM_BLOCK; i++) {
+            c1_l[i] *= JXSH_TRIM_JX; c1_r[i] *= JXSH_TRIM_JX;
             wl[i] += c1_l[i]; wr[i] += c1_r[i];
-            jx_snd[w][0][i] = any_jx ? synth.send_sum[0][i] : 0.0f;
-            jx_snd[w][1][i] = any_jx ? synth.send_sum[1][i] : 0.0f;
+            jx_snd[w][0][i] = any_jx ? synth.send_sum[0][i] * JXSH_TRIM_JX : 0.0f;
+            jx_snd[w][1][i] = any_jx ? synth.send_sum[1][i] * JXSH_TRIM_JX : 0.0f;
             dist_jx[w][i] = (c1_l[i] + c1_r[i]) * 0.5f * g;
         }
     }
