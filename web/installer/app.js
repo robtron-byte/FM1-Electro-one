@@ -27,6 +27,7 @@ const EN = {
   s1text: "Switch the FM-1 on and connect it to the computer with a USB data cable. Then click “Connect” and allow MIDI access.",
   connect: "Connect",
   s2: "Install a firmware",
+  connectFirst: "Click “Connect” first, then the buttons become active. “Manual” always works.",
   loading: "Loading the list …",
   drop: "Or drop your own .fwsc file anywhere on this page (or click here).",
   s3: "Install",
@@ -34,7 +35,7 @@ const EN = {
   install: "Install",
   done: "Done",
   helpT: "If something goes wrong",
-  help1: "If the connection was cut, the FM-1 stays in update mode. Just reconnect and click “Install” on the firmware again: the write is finished.",
+  help1: "If the connection was cut, the FM-1 stays in update mode. Just reconnect, click “Connect” and “Install” on the firmware again: the write is finished.",
   help2: "<b>Rescue:</b> if the FM-1 does not start at all, switch it off, hold <b>OCT −</b> and switch it on. It then starts without sound, in update mode only. Connect here and install a working firmware.",
   moreT: "More",
   more1: "The installer uses the same USB-MIDI update (M-UPGRADE) as the platform's fm1_install.py: the running firmware starts the update loader, the loader writes the program area, then the FM-1 restarts and reports its identity. Every file is checked first (identity, update loader in the package, checksums); foreign or damaged files are refused.",
@@ -52,7 +53,7 @@ const MSG = {
     other: (k) => `andere Firmware (Kennung ${k})`, kennung: "Kennung",
     onDevice: "Auf dem FM-1", available: "Neueste hier", unknownVer: "Version nicht abfragbar",
     from: "vom", current: "aktuell", newer: "Update möglich", ahead: "neuer als die Liste hier",
-    updateTo: (v) => `Update auf ${v}`, installedBtn: "Installiert", installBtn: "Installieren", installed: "auf dem FM-1",
+    updateTo: (v) => `Update auf ${v}`, installedBtn: "Installiert", installBtn: "Installieren", needConnect: "Erst verbinden", installed: "auf dem FM-1",
     today: "heute", yesterday: "gestern", daysAgo: (n) => `vor ${n} Tagen`,
     voices: "Stimmen", chosen: (n) => `Gewählt: ${n}`, fetching: "Paket wird geladen …", fetchfail: "Paket konnte nicht geladen werden.",
     badpkg: "Diese Datei ist kein FM-1-Paket. Nichts wurde geschrieben.",
@@ -82,7 +83,7 @@ const MSG = {
     other: (k) => `other firmware (identity ${k})`, kennung: "identity",
     onDevice: "On the FM-1", available: "Newest here", unknownVer: "version cannot be read",
     from: "from", current: "up to date", newer: "update available", ahead: "newer than the list here",
-    updateTo: (v) => `Update to ${v}`, installedBtn: "Installed", installBtn: "Install", installed: "on the FM-1",
+    updateTo: (v) => `Update to ${v}`, installedBtn: "Installed", installBtn: "Install", needConnect: "Connect first", installed: "on the FM-1",
     today: "today", yesterday: "yesterday", daysAgo: (n) => `${n} days ago`,
     voices: "voices", chosen: (n) => `Chosen: ${n}`, fetching: "Loading the package …", fetchfail: "The package could not be loaded.",
     badpkg: "This file is not an FM-1 package. Nothing was written.",
@@ -200,7 +201,8 @@ function renderList() {
     const btn = document.createElement("button");
     btn.type = "button"; btn.className = "act"; btn.dataset.kind = kind;
     btn.textContent = kind === "update" ? m().updateTo(e.version) : kind === "installed" ? m().installedBtn : m().installBtn;
-    btn.disabled = kind === "installed" || busy || !navigator.requestMIDIAccess;
+    btn.disabled = !canInstall(kind);
+    if (!device) btn.title = m().needConnect;
     btn.addEventListener("click", () => installEntry(e, lab));
     lab.querySelector(".actions").append(btn);
     if (ANLEITUNGEN.includes(e.name)) {
@@ -325,15 +327,20 @@ function renderOwn() {
   card.querySelector(".name").textContent = ownPkg.label;
   card.querySelector(".tags li").textContent = lang === "en" ? "your own file, checked" : "eigene Datei, geprüft";
   const btn = document.createElement("button");
-  btn.type = "button"; btn.className = "act"; btn.textContent = m().installBtn;
-  btn.disabled = busy || !navigator.requestMIDIAccess;
+  btn.type = "button"; btn.className = "act"; btn.dataset.kind = "install"; btn.textContent = m().installBtn;
+  btn.disabled = !canInstall("install");
+  if (!device) btn.title = m().needConnect;
   btn.addEventListener("click", () => { pkg = ownPkg; install(card); });
   card.querySelector(".actions").append(btn);
   box.append(card);
 }
 
+// Installieren erst nach „Verbinden“ (Wunsch des Nutzers); „Anleitung“ ist ein Link und immer aktiv
+function canInstall(kind) { return !!device && !busy && kind !== "installed" && !!navigator.requestMIDIAccess; }
+
 function updateButtons() {
-  document.querySelectorAll(".fw .act").forEach((b) => { b.disabled = busy || b.dataset.kind === "installed" || !navigator.requestMIDIAccess; });
+  document.querySelectorAll(".fw .act").forEach((b) => { b.disabled = !canInstall(b.dataset.kind || "install"); if (device) b.removeAttribute("title"); });
+  $("connectfirst").hidden = !!device;
   $("connect").disabled = busy || !navigator.requestMIDIAccess;
 }
 

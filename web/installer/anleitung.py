@@ -99,8 +99,8 @@ PAGE = """<!doctype html>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
 <style>
   /* wie der Installer: Farben aus gm_theme.h, Pixelschrift nur für Überschriften */
-  :root {{ --bg:#f3f2ee; --ink:#151517; --mute:#5c5c63; --line:#d9d8d2; --acc:#c2410c; --th:#ecebe6; --px:"Silkscreen", ui-monospace, monospace; }}
-  @media (prefers-color-scheme: dark) {{ :root {{ --bg:#000; --ink:#ededeb; --mute:#a2a2a9; --line:#303034; --acc:#ff5e21; --th:#1b1b1e; }} }}
+  :root {{ --bg:#f3f2ee; --ink:#151517; --mute:#5c5c63; --line:#d9d8d2; --acc:#6b3fd1; --th:#ecebe6; --px:"Silkscreen", ui-monospace, monospace; }}
+  @media (prefers-color-scheme: dark) {{ :root {{ --bg:#000; --ink:#ededeb; --mute:#a2a2a9; --line:#303034; --acc:#a878ff; --th:#1b1b1e; }} }}
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--ink); font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }}
   main {{ max-width:780px; margin:0 auto; padding:16px 16px 48px; }}

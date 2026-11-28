@@ -120,3 +120,8 @@ Eine öffentliche Seite `web/installer/` auf GitHub Pages: https://robtron-byte.
   `APP_NAME` = Name der Variante, nur wenn alles in 32 Byte passt). Die Seite erkennt die laufende Firmware zuerst am
   Namen (`installedName` in `logik.js`), sonst an der Kennung, aber nur wenn genau ein Eintrag sie hat; bei geteilter
   Kennung ohne Namen gilt keiner als installiert (nur „Installieren“, keine Behauptung). Test 135 Prüfungen.
+- 2026-11-28: Farben je Bereich, kein Orange mehr (Wunsch des Nutzers): 1 Verbinden blau (T_BLUE), 2 Firmware
+  installieren grün (T_GREEN), „Wenn etwas schiefgeht“ und Anleitungen violett (T_VIOLET), jeweils als Nummer, Rand
+  links und Knopffarbe; im Hellmodus dunklere Töne mit weißer Schrift, im Dunkelmodus die Display-Farben mit dunkler
+  Schrift. Installieren-Knöpfe (auch für eine abgelegte Datei) sind bis „Verbinden“ ausgegraut („Erst verbinden“),
+  „Anleitung“ bleibt aktiv.
