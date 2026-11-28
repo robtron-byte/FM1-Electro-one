@@ -2,6 +2,7 @@
  * Host-Test der Live-Aufnahme (syn_live.h, docs/adr/0053): erste Aufnahme legt die Länge fest (ganze Takte), 1/16,
  * Notenlänge, Wiedergabe, Overdub, STOP verwirft den Durchgang, Länge ändern (wiederholen, leer, Anfang, Ende). */
 #include <stdio.h>
+#include <string.h>
 static int on_n, off_n, last_on = -1;
 #define LV_PARTS 4
 #define LV_NOTE_ON(p, n, v) (on_n++, last_on = (n))

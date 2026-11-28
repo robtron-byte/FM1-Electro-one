@@ -5,6 +5,7 @@
 #define GM_TYPES_H
 #include <stdint.h>
 #include "syn_fx.h"                             /* FX_* (Seiten der Effekte) */
+#include "seq/syn_live_set.h"                    /* LV_SET_* (Seite LOOP, Live-Aufnahme ADR 0053) */
 
 /* Frames je Audioblock: 1,45 ms (fm1-synths ADR 0004); eine Quelle: SYN_BLOCK aus tools/build.py (GM_BLOCK=…) */
 #ifdef SYN_BLOCK
@@ -28,9 +29,9 @@ enum { SQ_ON, SQ_DIV, SQ_GATE, SQ_SHIFT, SQ_N };
 /* Seitengruppen = Tasten */
 enum { G_HOME, G_EDIT, G_ENV, G_LFO, G_FX, G_ARP, G_GLO, G_SEL, G_SEQ, NGROUP };
 /* Bilder der Seiten; ab ST_USER zeichnet die Variante (kern_stage) */
-enum { ST_NAME, ST_HOME, ST_SYS, ST_BROWSE, ST_ARP, ST_SEQ, ST_TEMPO, ST_FX, ST_PARTS, ST_USER };
+enum { ST_NAME, ST_HOME, ST_SYS, ST_BROWSE, ST_ARP, ST_SEQ, ST_TEMPO, ST_FX, ST_PARTS, ST_LIVE, ST_USER };   /* ST_LIVE: Live-Aufnahme (ADR 0053) */
 /* was ein Reglerfeld einstellt */
-enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_FX, K_ARP, K_TEMPO, K_CLK, K_SEQ, K_SEND };
+enum { K_NONE, K_PARAM, K_LEVEL, K_CHAN, K_FX, K_ARP, K_TEMPO, K_CLK, K_SEQ, K_SEND, K_LIVE };   /* K_LIVE: LV_SET_* (syn_live.h) */
 typedef struct { const char *label; uint8_t kind, param; } kn_t;
 typedef struct { uint8_t group, stage; const char *title; kn_t k[4]; } page_t;
 typedef struct { const char *title; kn_t k[4]; } layer_t;
@@ -39,4 +40,5 @@ typedef struct { const char *title; kn_t k[4]; } layer_t;
 #define FXK(l, p) {l, K_FX, p}
 #define ARK(l, p) {l, K_ARP, p}
 #define SQK(l, p) {l, K_SEQ, p}
+#define LVK(l, p) {l, K_LIVE, p}
 #endif

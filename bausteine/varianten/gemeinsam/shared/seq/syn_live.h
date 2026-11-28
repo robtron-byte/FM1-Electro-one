@@ -26,7 +26,8 @@
 #ifndef SYN_LIVE_H
 #define SYN_LIVE_H
 #include <stdint.h>
-#include <string.h>
+#include "syn_live_set.h"   /* LV_SET_*, LV_GROW_*, LV_CUT_* */
+/* (memset: die App bringt es mit, Plattform oder <string.h>) */
 
 #ifndef LV_DSP
 #define LV_DSP
@@ -41,10 +42,7 @@ enum {
     LV_VER = 1,
     LV_DOUBLE_MS = 400,                 /* zweimal REC innerhalb dieser Zeit: Einzählen */
 };
-enum { LV_GROW_REPEAT, LV_GROW_EMPTY };            /* verlängern: Inhalt wiederholen oder leer */
-enum { LV_CUT_START, LV_CUT_END };                 /* kürzen: Anfang oder Ende behalten */
 enum { LV_OFF, LV_COUNT, LV_FIRST, LV_OVER };      /* Zustand der Aufnahme */
-enum { LV_SET_ON, LV_SET_BARS, LV_SET_GROW, LV_SET_CUT, LV_SET_N };
 
 /* Ein Ereignis: Beginn und Länge in 1/16, Note, Velocity (Bit 7: im laufenden Durchgang aufgenommen). */
 typedef struct { uint8_t at, len, note, vel; } lv_ev_t;

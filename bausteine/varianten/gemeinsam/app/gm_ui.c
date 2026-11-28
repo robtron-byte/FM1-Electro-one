@@ -113,6 +113,7 @@ static int k_max(const kn_t *k)
     case K_TEMPO: return 200;
     case K_CLK: return k->param ? 1 : 2;
     case K_SEQ: return sq_max[k->param % SQ_N];
+    case K_LIVE: return k->param == LV_SET_BARS ? LV_BARS : 1;
     default: return 0;
     }
 }
@@ -128,6 +129,9 @@ static int k_get(const kn_t *k)
     case K_CLK: return clkv[k->param & 1u];
     case K_SEQ: return sq.cfg[sel][k->param % SQ_N];
     case K_SEND: return sendv[sel][k->param & 1u];
+    case K_LIVE:
+        return k->param == LV_SET_ON ? lv_store.p[sel].on : k->param == LV_SET_BARS ? lv_store.p[sel].bars
+             : k->param == LV_SET_GROW ? lv_store.p[sel].grow : lv_store.p[sel].cut;
     default: return 0;
     }
 }
@@ -158,6 +162,12 @@ static void k_text(const kn_t *k, int v, char *b)
         else if (k->param == SQ_SHIFT) { if (v >= 24) { b[0] = '+'; fmt_int(b + 1, v - 24); } else fmt_int(b, v - 24); }
         else fmt_int(b, 5 + v * 95 / 127);
         return;
+    case K_LIVE:
+        if (k->param == LV_SET_ON) str_cpy(b, v ? "ON" : "OFF", 8);
+        else if (k->param == LV_SET_BARS) { if (v) fmt_int(b, v); else str_cpy(b, "EMPTY", 8); }
+        else if (k->param == LV_SET_GROW) str_cpy(b, v ? "EMPTY" : "REPEAT", 8);
+        else str_cpy(b, v ? "END" : "START", 8);
+        return;
     default: fmt_int(b, v); return;
     }
 }
@@ -183,6 +193,7 @@ static void k_turn(const kn_t *k, int32_t d)
     case K_CLK: clkv[k->param & 1u] = (uint8_t)v; ev_put(EV_CLK, 0, k->param & 1u, (uint32_t)v); break;
     case K_SEQ: ev_put(EV_SEQ, sel, k->param, (uint32_t)v); break;   /* (die Audioseite schreibt sq.cfg) */
     case K_SEND: sendv[sel][k->param & 1u] = (uint8_t)v; ev_put(EV_SEND, sel, k->param & 1u, (uint32_t)v); break;
+    case K_LIVE: lv_ui_set(sel, k->param, (unsigned)v); break;   /* (die Audioseite schreibt lv_store) */
     default: break;
     }
     touch_set();
@@ -365,6 +376,21 @@ static void stage_seq(void)
         else { int32_t h = 4 + (hi > lo ? (sq.note[sel][i] - lo) * 16 / (hi - lo) : 8); R(x, y + 20 - h, 12, h, c); if (f & SQ_TIE) R(x + 12, y + 14, 3, 2, c); }
     }
 }
+/* Live-Aufnahme (ADR 0053): Takt und Länge groß, darüber der Zustand */
+static void stage_live(void)
+{
+    unsigned bar, bars, st;
+    char b[24], *p;
+    lv_status(sel, &bar, &bars, &st);
+    draw_sound_line(32);
+    if (st == LV_COUNT) { PC(120, 70, 4, "COUNT IN", T_WARN); return; }
+    p = b;
+    if (st == LV_FIRST) { fmt_int(p, (int32_t)bar); p += str_len(p); *p = 0; }
+    else if (bars) { fmt_int(p, (int32_t)(bar > bars ? bars : bar)); p += str_len(p); p = put(p, "/"); fmt_int(p, (int32_t)bars); p += str_len(p); *p = 0; }
+    else { p = put(p, "EMPTY"); *p = 0; }
+    PC(120, 62, 5, b, st != LV_OFF ? T_WARN : bars && lv_store.p[sel].on ? T_INK : T_LINE);
+    Q(4, 36, 2, st == LV_FIRST ? "REC: REC = LENGTH" : st == LV_OVER ? "OVERDUB  PLAY = UNDO" : bars ? "BARS  REC = OVERDUB" : "REC = RECORD", st != LV_OFF ? T_WARN : T_DIM);
+}
 static void stage_tempo(void)
 {
     char b[12];
@@ -437,6 +463,7 @@ static void draw_page(unsigned pi, int live)
     case ST_BROWSE: stage_browse(); break;
     case ST_ARP: stage_arp(); break;
     case ST_SEQ: stage_seq(); break;
+    case ST_LIVE: stage_live(); break;
     case ST_TEMPO: stage_tempo(); break;
     default: if (pg->stage < ST_USER || !kern_stage(pg->stage, sel)) stage_name(pg); break;
     }
@@ -509,7 +536,7 @@ static void render(uint32_t now)
  * ====================================================================================================== */
 static uint32_t keys_prev;
 static uint8_t held_part[27], held[27];
-static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen;
+static uint32_t sq_sum_saved, sq_t_change, sq_sum_seen, lv_sum_saved;
 static uint8_t rec_play, rec_mheld[16];
 static int seq_rec_key(uint32_t k, uint8_t note, uint32_t keys)
 {
@@ -619,7 +646,7 @@ static void lights(void)
     fm1_led_key(BTN_SEL, !saving && g == G_SEL);
     fm1_led_key(BTN_ARP, !saving && (g == G_ARP || arpc[sel][ARP_ON]));
     fm1_led_key(BTN_SEQ, !saving && (g == G_SEQ || sq.cfg[sel][SQ_ON]));
-    fm1_led_key(BTN_REC, rec_on && (fm1_ms / 300u & 1u));
+    fm1_led_key(BTN_REC, (rec_on || lv_busy()) && (fm1_ms / 300u & 1u));
     fm1_led_key(BTN_PLAY, xport == 1 ? clk_ticks % 24u < 4u : arpc[sel][ARP_HOLD]);
     fm1_led_key(BTN_SAVE, saving || (up[sel].dirty && (fm1_ms / 400u & 1u)));
 }
@@ -680,6 +707,8 @@ static int jr_playing(void)
 {
     if (!quiet() || silent_blocks < 700u) return 1;
     for (unsigned p = 0; p < GM_PARTS; p++) if ((arp[p].cfg[ARP_ON] && arp[p].nkeys) || (sq.cfg[p][SQ_ON] && sq.len[p])) return 1;
+    for (unsigned p = 0; p < GM_PARTS; p++) if (lv_store.p[p].on && lv_store.p[p].bars && xport != 2) return 1;   /* (die Schleife spielt) */
+    if (lv_busy()) return 1;
     return 0;
 }
 static int jr_prog(uint32_t off, const uint8_t *src, uint32_t n)
@@ -789,6 +818,9 @@ static void app_main(void)
         sqr[p].sounding = -1; sqr[p].fresh = 1;
     }
     sq_sum_saved = sq_sum_seen = sq_sum();
+    lv_load_done(flash_ok ? blob_load(4, &lv_store, sizeof lv_store) : -1);   /* Live-Aufnahme (ADR 0053): ohne Blob leer */
+    for (unsigned p = 0; p < GM_PARTS; p++) lv_store.p[p].on = 0;   /* (beim Einschalten läuft nichts von selbst) */
+    lv_sum_saved = lv_sum();
     have = flash_ok ? jr_load(&st) : -1;
     if (!have && st.set.ver == SET_VER) {
         set = st.set;
@@ -893,20 +925,35 @@ static void app_main(void)
                     else if (i == BTN_OCT_DOWN && oct > -3) { oct--; touch_set(); }
                     else if (i == BTN_OCT_UP && oct < 3) { oct++; touch_set(); }
                     break;
-                case BTN_REC: if (!saving) seq_rec(!rec_on); break;
+                case BTN_REC:
+                    if (saving) break;
+                    if (rec_on || pages[page].stage == ST_SEQ) { seq_rec(!rec_on); break; }   /* SEQUENCER: Schritte wie bisher */
+                    {   /* sonst Live-Aufnahme nach RK-008 (ADR 0053): tippen sofort, zweimal Einzählen, REC übernimmt */
+                        int r = lv_ui_rec(sel, now);
+                        if (r && xport == 2) xport_req = 1;   /* (gestoppt: der Takt läuft wieder) */
+                        if (r) for (unsigned pi = 0; pi < NPAGE; pi++) if (pages[pi].stage == ST_LIVE) { goto_page(pi, 0); break; }
+                        msg_set(r == 2 ? "COUNT IN" : r ? "REC  REC = DONE  PLAY = UNDO" : "LOOP KEPT", 0);
+                    }
+                    break;
                 case BTN_EDIT: case BTN_ENV: case BTN_LFO: case BTN_FX: case BTN_GLO: case BTN_ARP: case BTN_SEQ:
                     if (layer == btn_group(i)) {
                         if (!layer_used && now - press_t[i] < 400u && !saving) {
-                            if (i == BTN_SEQ && pages[page].group == G_SEQ && sq.len[sel]) {   /* auf seiner Seite: an/aus */
+                            if (i == BTN_SEQ && pages[page].stage == ST_SEQ && sq.len[sel]) {   /* auf seiner Seite: an/aus */
                                 kn_t k = SQK("SEQ", SQ_ON);
                                 k_turn(&k, sq.cfg[sel][SQ_ON] ? -1 : 1);
                                 msg_set(sq.cfg[sel][SQ_ON] ? "SEQ ON" : "SEQ OFF", 0);
+                            } else if (i == BTN_SEQ && pages[page].stage == ST_LIVE && lv_store.p[sel].bars) {   /* LOOP: an/aus */
+                                kn_t k = LVK("LOOP", LV_SET_ON);
+                                int on = !lv_store.p[sel].on;
+                                k_turn(&k, on ? 1 : -1);
+                                msg_set(on ? "LOOP ON" : "LOOP OFF", 0);
                             } else group_button(layer);
                         }
                         layer = 0; touched = 255;
                     }
                     break;
                 case BTN_PLAY:
+                    if (!was_long && !saving && lv_busy()) { lv_ui_stop(sel); msg_set("PASS DROPPED", 0); break; }   /* STOP (ADR 0053) */
                     if (!was_long && !saving) {
                         arpc[sel][ARP_HOLD] ^= 1u; ev_put(EV_ARP, sel, ARP_HOLD, arpc[sel][ARP_HOLD]); touch_set();
                         msg_set(arpc[sel][ARP_HOLD] ? "HOLD ON" : "HOLD OFF", 0);
@@ -994,6 +1041,10 @@ static void app_main(void)
                 if (h != sq_sum_seen) { sq_sum_seen = h; sq_t_change = now; }
                 else if (h != sq_sum_saved && now - sq_t_change >= 1500u && !jr_playing()) {
                     if (!blob_save(3, &sq, sizeof sq)) sq_sum_saved = h;
+                }
+                if (!lv_busy() && !jr_playing()) {   /* die Live-Aufnahmen (Blob 4), wenn nichts spielt */
+                    uint32_t hl = lv_sum();
+                    if (hl != lv_sum_saved && !blob_save(4, &lv_store, sizeof lv_store)) lv_sum_saved = hl;
                 }
             }
         }

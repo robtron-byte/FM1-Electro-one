@@ -338,6 +338,13 @@ static DSP void seq_block(unsigned ticks)
     }
 }
 
+/* Live-Aufnahme nach RK-008 (ADR 0053): das gemeinsame Modul; die Schleife spielt direkt in den Klang */
+#define LV_PARTS GM_PARTS
+#define LV_NOTE_ON(p, n, v) kern_on(p, n, v, 0)
+#define LV_NOTE_OFF(p, n) kern_off(p, n)
+#define LV_DSP DSP
+#include "seq/syn_live.h"
+
 static DSP void play_on(unsigned p, int note, int vel)
 {
     if (sq.cfg[p][SQ_ON] && sq.len[p] && seq_rec_p != p + 1u) {   /* der Sequencer läuft: die Taste transponiert */
@@ -345,12 +352,14 @@ static DSP void play_on(unsigned p, int note, int vel)
         sq.cfg[p][SQ_SHIFT] = (uint8_t)(t < 0 ? 0 : t > 48 ? 48 : t);
         return;
     }
+    lv_hear(p, (unsigned)note, (unsigned)vel, 1);
     if (arp[p].cfg[ARP_ON]) arp_key(p, note, vel ? vel : 1);
     else kern_on(p, note, vel, 0);
 }
 static DSP void play_off(unsigned p, int note)
 {
     if (sq.cfg[p][SQ_ON] && sq.len[p] && seq_rec_p != p + 1u) return;
+    lv_hear(p, (unsigned)note, 0, 0);
     if (arp[p].cfg[ARP_ON]) arp_key(p, note, 0);
     else kern_off(p, note);
 }
@@ -359,11 +368,13 @@ static DSP void xport_start(void)
     for (unsigned p = 0; p < GM_PARTS; p++) { sqr[p].fresh = 1; arp[p].pos = 0; if (arp[p].nkeys) arp[p].fresh = 1; }
     clk_ticks = 0;
     int_acc = 0;
+    lv_rewind();
     xport = 1;
 }
 static DSP void xport_stop(void)
 {
     for (unsigned p = 0; p < GM_PARTS; p++) { seq_stop_note(p); arp_stop_note(&arp[p], p); }
+    lv_stop_all();
     xport = 2;
 }
 
@@ -504,6 +515,7 @@ static DSP void app_audio(int32_t *out, uint32_t n)
         } else xport_req = 0;
         arp_block(xport == 2 ? 0 : ticks);
         seq_block(xport == 2 ? 0 : ticks);
+        lv_block(xport == 2 ? 0 : ticks);
     }
     block_no++;
     c1_fx_t = 0;
